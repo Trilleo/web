@@ -1,0 +1,49 @@
+{
+  "name": "trilleo-web",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.6.0",
+  "engines": {
+    "node": ">=24.16.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm exec lint-staged"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs,ts,tsx,mts,cts,astro}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,mdx,css,yml,yaml}": "prettier --write"
+  },
+  "devDependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.8.1",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.0",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-astro": "^3.2.1",
+    "eslint-plugin-jsx-a11y-x": "^0.2.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.9",
+    "prettier-plugin-astro": "^1.1.0",
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "simple-git-hooks": "^2.14.0",
+    "turbo": "^2.11.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.70.1"
+  }
+}

@@ -1,0 +1,10 @@
+pnpm-lock.yaml
+LICENSE
+.idea/
+
+**/dist/
+**/.astro/
+**/.turbo/
+**/coverage/
+**/playwright-report/
+**/test-results/

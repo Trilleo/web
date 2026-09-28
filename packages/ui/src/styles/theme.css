@@ -1,0 +1,16 @@
+/*
+ * Shared Tailwind v4 design tokens for every app. Import it after `@import "tailwindcss";`.
+ * Placeholder values until the Phase 2 design pass.
+ */
+
+/* Scan this package's components for class names; apps don't scan node_modules. */
+@source "../";
+
+@theme {
+  --color-brand-50: oklch(0.97 0.02 285);
+  --color-brand-500: oklch(0.6 0.2 285);
+  --color-brand-600: oklch(0.53 0.22 285);
+  --color-brand-700: oklch(0.46 0.2 285);
+
+  --radius-ui: 0.5rem;
+}

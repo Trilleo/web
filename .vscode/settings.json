@@ -1,0 +1,16 @@
+{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "[astro]": {
+    "editor.defaultFormatter": "astro-build.astro-vscode"
+  },
+  "eslint.validate": ["javascript", "typescript", "typescriptreact", "astro"],
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "files.eol": "\n",
+  "typescript.tsdk": "node_modules/typescript/lib"
+}

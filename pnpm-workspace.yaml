@@ -1,0 +1,17 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Dependencies allowed to run install scripts. Everything else is blocked.
+allowBuilds:
+  esbuild: true
+  # The root `prepare` script installs the git hook instead.
+  simple-git-hooks: false
+
+# Skip versions published less than 24 hours ago (supply-chain safety).
+minimumReleaseAge: 1440
+
+overrides:
+  # eslint-plugin-jsx-a11y doesn't support ESLint 10; use the maintained fork everywhere
+  # (eslint-plugin-astro pulls the original in as an optional peer).
+  eslint-plugin-jsx-a11y: npm:eslint-plugin-jsx-a11y-x@^0.2.0

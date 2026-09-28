@@ -1,0 +1,2 @@
+# Store and check out text files with LF so Prettier's checks pass on Windows too.
+* text=auto eol=lf

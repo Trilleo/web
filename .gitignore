@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output and caches
+dist/
+.astro/
+.turbo/
+
+# Test output
+coverage/
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+
+# Environment (secrets live only here)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
