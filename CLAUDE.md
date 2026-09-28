@@ -97,6 +97,10 @@
 - The server is in mainland China: it can't rely on ghcr.io or Docker Hub. Images
   come from SWR (built outside China by GitHub Actions); Docker comes from
   Huawei's mirror. Don't add runtime pulls from blocked registries.
+- Uploads from GitHub to SWR are slow (~70 KB/s), so base images are pinned by
+  digest in the Dockerfile (Dependabot bumps them monthly) and Postgres by exact
+  tag in compose.yaml; the Deploy workflow copies Postgres only when SWR lacks
+  that tag. A new base image means one 10–30 minute deploy. Keep images small.
 - deploy/Caddyfile accepts only Cloudflare's ranges (deploy/cloudflare-ips.txt;
   CI checks it against Cloudflare's live list). It serves files that exist and
   proxies everything else to the app, so new server routes need no Caddy change;

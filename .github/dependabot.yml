@@ -15,6 +15,17 @@ updates:
       - dependency-name: typescript
         update-types: [version-update:semver-major]
 
+  # Dockerfile base images (pinned by digest). Each update means a slow first upload
+  # to SWR in China, so check monthly. Postgres is pinned in deploy/compose.yaml,
+  # which Dependabot can't read; update that tag by hand.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      base-images:
+        patterns: ["*"]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

@@ -31,7 +31,7 @@ docker run --rm --entrypoint cat "$web" /deploy/compose.yaml >compose.yaml.new
 mv compose.yaml.new compose.yaml
 printf 'REGISTRY=%s\nWEB_IMAGE=%s\nAPP_IMAGE=%s\n' "$registry" "$web" "$app" >.env
 
-# The Deploy workflow refreshes this tag, so Postgres minor updates arrive here.
+# Fetches the Postgres image when compose.yaml names a new tag.
 docker compose pull --quiet db
 
 echo "==> Starting"

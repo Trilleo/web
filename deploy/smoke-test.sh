@@ -119,6 +119,11 @@ migrations="$(docker compose exec -T db psql --username=trilleo --dbname=trilleo
 	--command='select count(*) from drizzle.__drizzle_migrations')" || fail "couldn't read the migrations table"
 [[ "$migrations" -ge 1 ]] || fail "no migrations applied ($migrations)"
 
+echo "==> the database uses Postgres's built-in locale"
+provider="$(docker compose exec -T db psql --username=trilleo --dbname=trilleo --tuples-only --no-align \
+	--command="select datlocprovider from pg_database where datname = 'trilleo'")" || fail "couldn't read the locale provider"
+[[ "$provider" == "b" ]] || fail "locale provider is '$provider', expected 'b' (builtin)"
+
 echo "==> backup script produces a restorable dump"
 TRILLEO_DIR="$stack" bash "$deploy_dir/server/trilleo-backup"
 dump="$(find "$stack/backups" -name 'trilleo-*.dump' | head -n 1)"

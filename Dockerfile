@@ -4,9 +4,13 @@
 #   --target app  the Astro server (Node) for server-rendered routes
 #   --target web  Caddy: serves the static site and passes everything else to `app`
 # Built by .github/workflows/deploy.yml.
+#
+# Base images are pinned (tag + digest): every new base layer has to be uploaded to
+# Huawei SWR in mainland China, which is slow (~70 KB/s from GitHub), so they change
+# only on purpose. Dependabot proposes updates monthly; keep the Node versions in step.
 
 # 1. Build the site with the workspace's pinned pnpm.
-FROM node:24-slim AS build
+FROM node:24.21.0-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS build
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     SKIP_INSTALL_SIMPLE_GIT_HOOKS=1 \
     ASTRO_TELEMETRY_DISABLED=1 \
@@ -29,7 +33,7 @@ ARG GIT_SHA=unknown
 RUN printf '%s\n' "$GIT_SHA" > apps/web/dist/client/version.txt
 
 # 2. The Astro server. Its build bundles its dependencies, so there's no node_modules.
-FROM node:24-alpine AS app
+FROM node:24.21.0-alpine3.24@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS app
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=4321 \
@@ -43,7 +47,7 @@ EXPOSE 4321
 CMD ["node", "dist/server/entry.mjs"]
 
 # 3. Caddy with the static files (last, so it's also the default target).
-FROM caddy:2.11-alpine AS web
+FROM caddy:2.11.4-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b AS web
 COPY deploy/Caddyfile /etc/caddy/Caddyfile
 COPY deploy/cloudflare-ips.txt /etc/caddy/cloudflare-ips.txt
 COPY --chmod=755 deploy/start-caddy.sh /usr/local/bin/start-caddy

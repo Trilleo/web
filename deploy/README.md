@@ -4,7 +4,8 @@
 push to main ─▶ CI passes ─▶ Deploy workflow
                               ├─ build images ─▶ Huawei SWR  …/web:<commit>  (Caddy + static site)
                               │                              …/app:<commit>  (Astro server, Node)
-                              ├─ copy postgres:18 from Docker Hub ─▶ SWR  …/postgres:18
+                              ├─ (in parallel) copy the Postgres image from Docker Hub ─▶ SWR,
+                              │     only if SWR doesn't have compose.yaml's tag yet
                               ├─ ssh deploy@server <commit>   (key can only run trilleo-deploy)
                               │     └─ server pulls from SWR, restarts, waits until healthy
                               └─ checks https://www.trilleo.net/version.txt == <commit>
@@ -304,6 +305,11 @@ Push to `main`, or run **Actions → Deploy → Run workflow**. Watch it at
 
 - **Cloudflare IP ranges changed** (CI's "Cloudflare IP list is current" step fails):
   update `cloudflare-ips.txt` and the security group rules, then deploy.
+- **Slow deploys after a base image changes:** uploads from GitHub to SWR run at about
+  70 KB/s. A normal release uploads a few MB (a minute or two), but a new base image
+  (Node, Caddy, or Postgres) is tens of MB, 10–30 minutes, once. That's why they're pinned:
+  Dependabot proposes Dockerfile updates monthly; Postgres is updated by changing its tag
+  in `compose.yaml` (minor versions within 18 need nothing else).
 - **Enforce the Content-Security-Policy:** after browsing the live site with DevTools
   open shows no CSP reports, rename `Content-Security-Policy-Report-Only` to
   `Content-Security-Policy` in `Caddyfile`.

@@ -84,14 +84,17 @@ services:
         condition: service_healthy
     logging: *logging
 
-  # Postgres. The image is copied from Docker Hub to SWR by the Deploy workflow; the
-  # major version is pinned here, minor updates arrive with deploys.
+  # Postgres. The Deploy workflow copies this exact tag from Docker Hub to SWR when SWR
+  # doesn't have it yet (a slow upload), so updating Postgres = changing the tag here.
   db:
-    image: ${REGISTRY:?REGISTRY must be set (see /srv/trilleo/.env)}/postgres:18
+    image: ${REGISTRY:?REGISTRY must be set (see /srv/trilleo/.env)}/postgres:18.6-alpine3.24
     restart: unless-stopped
     environment:
       POSTGRES_USER: trilleo
       POSTGRES_DB: trilleo
+      # Sorting and case rules built into Postgres, not the C library, so they can't
+      # shift with the image's OS (Alpine's musl vs Debian's glibc). Applies at creation.
+      POSTGRES_INITDB_ARGS: --locale-provider=builtin --builtin-locale=C.UTF-8
     # POSTGRES_PASSWORD
     env_file: db.env
     volumes:

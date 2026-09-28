@@ -1,6 +1,10 @@
 name: Deploy
 
 # Ships main to https://www.trilleo.net after CI passes. Setup: deploy/README.md.
+#
+# Uploads to Huawei SWR (in mainland China) are slow, about 70 KB/s. A release's own
+# layers take seconds, but a new base image (after a version bump) takes 10–30 minutes,
+# hence the long time limits and Postgres uploading in parallel with the images.
 on:
   workflow_run:
     workflows: [CI]
@@ -15,9 +19,14 @@ concurrency:
   group: deploy-production
   cancel-in-progress: false
 
+env:
+  SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+  # Images: $REGISTRY/web, $REGISTRY/app, and $REGISTRY/postgres (a copy).
+  REGISTRY: ${{ vars.SWR_REGISTRY }}/${{ vars.SWR_ORG }}
+
 jobs:
-  deploy:
-    name: Deploy to www.trilleo.net
+  images:
+    name: Build and push images
     # After a successful CI run on a push to main (never for pull requests), or by
     # hand; skipped until the Huawei SWR variables exist.
     if: >-
@@ -28,14 +37,7 @@ jobs:
         )
       )
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment:
-      name: production
-      url: https://www.trilleo.net
-    env:
-      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
-      # Images: $REGISTRY/web, $REGISTRY/app, and $REGISTRY/postgres (a copy).
-      REGISTRY: ${{ vars.SWR_REGISTRY }}/${{ vars.SWR_ORG }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
         with:
@@ -77,16 +79,54 @@ jobs:
           provenance: false
           sbom: false
 
-      # The server can't pull from Docker Hub, so copy the Postgres image that
-      # compose.yaml names into SWR. Refreshing it each time brings minor updates.
-      - name: Copy Postgres to SWR
+  postgres:
+    name: Copy Postgres to SWR
+    # Same condition as `images`.
+    if: >-
+      vars.SWR_REGISTRY != '' && (
+        github.event_name == 'workflow_dispatch' || (
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push'
+        )
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+
+      - name: Log in to Huawei SWR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ vars.SWR_REGISTRY }}
+          username: ${{ secrets.SWR_USERNAME }}
+          password: ${{ secrets.SWR_PASSWORD }}
+
+      # The server can't pull from Docker Hub, so the exact tag compose.yaml names is
+      # copied to SWR once; later deploys find it there and skip this.
+      - name: Copy the image compose.yaml uses, unless SWR has it
         run: |
           tag="$(sed -n 's|.*/postgres:\([^[:space:]"]*\).*|\1|p' deploy/compose.yaml)"
           test -n "$tag"
+          if docker buildx imagetools inspect "$REGISTRY/postgres:$tag" >/dev/null 2>&1; then
+            echo "SWR already has postgres:$tag."
+            exit 0
+          fi
+          echo "::notice::Uploading postgres:$tag to SWR for the first time; this can take 30 minutes."
           docker pull --quiet --platform linux/amd64 "postgres:$tag"
           docker tag "postgres:$tag" "$REGISTRY/postgres:$tag"
           docker push --quiet "$REGISTRY/postgres:$tag"
 
+  deploy:
+    name: Deploy to www.trilleo.net
+    needs: [images, postgres]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://www.trilleo.net
+    steps:
       - name: Deploy on the server
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
