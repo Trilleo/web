@@ -44,7 +44,7 @@ site() {
 
 echo "==> waiting for Caddy"
 for _ in $(seq 1 30); do
-	site --output /dev/null "https://www.trilleo.net/" && break
+	site --output /dev/null "https://www.trilleo.net/" 2>/dev/null && break
 	sleep 1
 done
 
@@ -88,13 +88,10 @@ status="$(site --output "$work/404.html" --write-out '%{http_code}' "https://www
 [[ "$status" == "404" ]] || fail "404 status was $status"
 grep -q '404' "$work/404.html" || fail "404 page content"
 
+# The HEALTHCHECK lives in compose.yaml, not the image, so run its command directly.
 echo "==> health check"
-for _ in $(seq 1 30); do
-	state="$(docker inspect --format '{{.State.Health.Status}}' "$open_name" 2>/dev/null || echo none)"
-	[[ "$state" == "healthy" ]] && break
-	sleep 2
-done
-[[ "$state" == "healthy" ]] || fail "container health is '$state'"
+docker exec "$open_name" wget -q -O /dev/null http://127.0.0.1:8080/healthz ||
+	fail "health endpoint (the compose.yaml healthcheck) failed"
 
 # "Strict" container: the real Cloudflare list, so a local connection must be dropped.
 echo "==> non-Cloudflare connections are refused"

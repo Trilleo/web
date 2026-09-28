@@ -14,6 +14,8 @@ concurrency:
 
 env:
   TURBO_TELEMETRY_DISABLED: 1
+  # Print each task's output as it happens, not once the task finishes.
+  TURBO_LOG_ORDER: stream
   SKIP_INSTALL_SIMPLE_GIT_HOOKS: 1
 
 jobs:
@@ -54,8 +56,21 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Install Playwright Chromium
         run: pnpm --filter @trilleo/web exec playwright install --with-deps chromium
+      # Build and test are separate steps (not `pnpm test:e2e`) so each has its own
+      # logs and time limit; Playwright then only starts `astro preview`.
+      - name: Build the e2e site
+        run: pnpm --filter @trilleo/web run build:e2e
+        timeout-minutes: 5
+        env:
+          INCLUDE_DRAFTS: "true"
+          ASTRO_OUT_DIR: ./dist-e2e
       - name: E2E tests
-        run: pnpm test:e2e
+        run: pnpm --filter @trilleo/web exec playwright test
+        timeout-minutes: 12
+        env:
+          E2E_PREBUILT: "1"
+          # Logs each server start and readiness check.
+          DEBUG: pw:webserver
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v7
