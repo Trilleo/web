@@ -1,0 +1,43 @@
+---
+import { tagHref } from "../lib/posts";
+
+interface Props {
+  tags: readonly { name: string; count?: number | undefined }[];
+  /** Slug of the tag being viewed, marked as current. */
+  current?: string | undefined;
+  label?: string;
+}
+
+const { tags, current, label = "Tags" } = Astro.props;
+---
+
+{tags.length > 0 && (
+  <nav aria-label={label}>
+    <ul class="flex flex-wrap gap-2">
+      {tags.map((tag) => {
+        const href = tagHref(tag.name);
+        const isCurrent =
+          current !== undefined && href.endsWith(`/${current}/`);
+        return (
+          <li>
+            <a
+              href={href}
+              aria-current={isCurrent ? "page" : undefined}
+              class:list={[
+                "type-label inline-flex min-h-9 items-center gap-2 border px-3 transition-colors duration-150 ease-swiss",
+                isCurrent
+                  ? "border-ink bg-ink text-paper"
+                  : "border-ink hover:bg-ink hover:text-paper",
+              ]}
+            >
+              {tag.name}
+              {tag.count !== undefined && (
+                <span class="opacity-70">{tag.count}</span>
+              )}
+            </a>
+          </li>
+        );
+      })}
+    </ul>
+  </nav>
+)}

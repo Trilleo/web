@@ -1,0 +1,98 @@
+---
+import { CloseIcon, MenuIcon } from "@trilleo/ui";
+import { NAV_ITEMS, SITE_NAME } from "../lib/site";
+import ThemeToggle from "./ThemeToggle.astro";
+---
+
+<header class="border-b border-ink">
+  <div class="grid-swiss px-page items-center py-3 md:py-4">
+    <a
+      href="/"
+      class="col-span-2 inline-flex items-center gap-2.5 text-lg font-bold tracking-[-0.03em] md:text-xl xl:col-span-3"
+    >
+      <span class="size-2.5 bg-accent" aria-hidden="true"></span>
+      {SITE_NAME}
+    </a>
+
+    <nav
+      aria-label="Main"
+      class="hidden md:col-span-4 md:flex md:gap-7 xl:col-span-6 xl:gap-10"
+    >
+      {NAV_ITEMS.map((item) => (
+        <a
+          href={item.href}
+          class="type-nav inline-flex min-h-11 items-center gap-1.5 underline-offset-[5px] hover:underline"
+        >
+          <span class="text-muted">{item.number}</span>
+          {item.label}
+        </a>
+      ))}
+    </nav>
+
+    <!-- Room for the GitHub sign-in button (Phase 5) sits here too. -->
+    <div class="col-span-2 flex items-center justify-end gap-1 md:gap-3 xl:col-span-3">
+      <ThemeToggle />
+      <button
+        type="button"
+        class="group -mr-2.5 inline-flex size-11 items-center justify-center md:hidden"
+        aria-expanded="false"
+        aria-controls="site-menu"
+        data-menu-button
+      >
+        <span class="sr-only">Menu</span>
+        <MenuIcon size={22} className="group-aria-expanded:hidden" />
+        <CloseIcon size={22} className="hidden group-aria-expanded:block" />
+      </button>
+    </div>
+  </div>
+
+  <nav
+    id="site-menu"
+    aria-label="Main"
+    class="border-t border-ink md:hidden"
+    hidden
+  >
+    <ul class="px-page">
+      {NAV_ITEMS.map((item) => (
+        <li class="border-b border-ink last:border-b-0">
+          <a
+            href={item.href}
+            class="type-card flex min-h-16 items-baseline gap-4 py-3"
+          >
+            <span class="type-label text-muted">{item.number}</span>
+            {item.label}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+</header>
+
+<script>
+  const button =
+    document.querySelector<HTMLButtonElement>("[data-menu-button]");
+  const menu = document.getElementById("site-menu");
+
+  if (button && menu) {
+    const isOpen = () => button.getAttribute("aria-expanded") === "true";
+    const setOpen = (open: boolean) => {
+      button.setAttribute("aria-expanded", String(open));
+      menu.hidden = !open;
+    };
+
+    button.addEventListener("click", () => {
+      setOpen(!isOpen());
+    });
+    // Following a link (usually an in-page section) closes the menu.
+    menu.addEventListener("click", (event) => {
+      if (event.target instanceof Element && event.target.closest("a"))
+        setOpen(false);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && isOpen()) {
+        setOpen(false);
+        button.focus();
+      }
+    });
+  }
+</script>

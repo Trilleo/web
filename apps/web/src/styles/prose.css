@@ -1,0 +1,233 @@
+/*
+ * Article typography for rendered Markdown (the post body).
+ * Colors come from the --tr-* tokens, so it follows light/dark automatically.
+ */
+
+.prose {
+  font-size: 1.125rem;
+  line-height: 1.65;
+
+  @media (width >= 80rem) {
+    font-size: 1.1875rem;
+    /* Side notes size themselves from this box (see .sidenote). */
+    container-type: inline-size;
+  }
+}
+
+.prose > * + * {
+  margin-top: 1.5rem;
+}
+
+.prose h2 {
+  margin-top: 3rem;
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  scroll-margin-top: 1.5rem;
+
+  @media (width >= 80rem) {
+    font-size: 2rem;
+  }
+}
+
+.prose > h2:first-child {
+  margin-top: 0;
+}
+
+.prose h3 {
+  margin-top: 2rem;
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  scroll-margin-top: 1.5rem;
+}
+
+.prose a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 150ms ease-out;
+}
+
+.prose a:hover {
+  text-decoration-color: var(--tr-accent);
+  text-decoration-thickness: 2px;
+}
+
+.prose strong {
+  font-weight: 600;
+}
+
+.prose :not(pre) > code {
+  padding: 0.1em 0.35em;
+  background-color: var(--tr-chip);
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+
+/* Shiki sets an inline background; the code token wins in both themes. */
+.prose pre {
+  overflow-x: auto;
+  padding: 1.5rem;
+  border: 1px solid var(--tr-code-line);
+  background-color: var(--tr-code-bg) !important;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+.prose blockquote {
+  display: flex;
+  gap: 1.25rem;
+  margin-block: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 2px solid var(--tr-ink);
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+
+  @media (width >= 80rem) {
+    font-size: 2.5rem;
+  }
+}
+
+.prose blockquote::before {
+  content: "";
+  flex-shrink: 0;
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-top: 0.3em;
+  background-color: var(--tr-accent);
+}
+
+.prose blockquote > * + * {
+  margin-top: 1rem;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 1.25em;
+}
+
+.prose ul {
+  list-style: square;
+}
+
+.prose ol {
+  list-style: decimal;
+}
+
+.prose li + li {
+  margin-top: 0.5rem;
+}
+
+.prose li::marker {
+  color: var(--tr-muted);
+}
+
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--tr-ink);
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--tr-ink);
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1rem;
+}
+
+.prose th {
+  padding-bottom: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+  color: var(--tr-muted);
+}
+
+.prose td {
+  padding-block: 0.75rem;
+  border-top: 1px solid var(--tr-ink);
+}
+
+/* Footnote references: small mono numbers. */
+.prose sup a {
+  padding-left: 0.125rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-decoration: none;
+}
+
+.prose section[data-footnotes] {
+  margin-top: 4rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--tr-ink);
+  font-size: 0.9375rem;
+  color: var(--tr-muted);
+}
+
+.prose section[data-footnotes] ol {
+  margin: 0;
+}
+
+.prose section[data-footnotes] li p {
+  margin: 0;
+}
+
+/* Side notes (see addSidenotes): hidden until there's a margin to put them in. */
+.prose .sidenote {
+  display: none;
+}
+
+@media (width >= 80rem) {
+  /*
+   * The text column is 6 of 12 grid columns (gaps 1.5rem), so one column is
+   * (100cqw - 7.5rem) / 6 and the 3-column margin is (100cqw - 7.5rem) / 2 + 3rem.
+   * Floating right with that negative margin puts each note beside its reference.
+   */
+  .prose .sidenote {
+    display: block;
+    float: right;
+    clear: right;
+    width: calc((100cqw - 7.5rem) / 2 + 3rem);
+    margin-right: calc(-1 * ((100cqw - 7.5rem) / 2 + 4.5rem));
+    padding-top: 0.625rem;
+    border-top: 1px solid var(--tr-ink);
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.55;
+    letter-spacing: 0;
+    color: var(--tr-muted);
+  }
+
+  .prose .sidenote-number {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--tr-ink);
+  }
+
+  /* The notes are in the margin; keep the list for screen readers only. */
+  .prose section[data-footnotes] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .prose sup a {
+    pointer-events: none;
+  }
+}

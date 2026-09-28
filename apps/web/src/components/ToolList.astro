@@ -1,0 +1,164 @@
+---
+import { ArrowUpRightIcon } from "@trilleo/ui";
+import {
+  TOOL_STATUS_LABEL,
+  formatListingNumber,
+  type ToolListing,
+} from "../lib/listings";
+import ToolShape from "./ToolShape.astro";
+
+interface Props {
+  tools: readonly ToolListing[];
+}
+
+const { tools } = Astro.props;
+---
+
+<ul class="tools border-t border-l border-ink">
+  {tools.map((tool, index) => {
+    const planned = tool.status === "planned";
+    return (
+      <li class="tool border-r border-b border-ink">
+        <p class="tool-meta type-label">
+          <span>T—{formatListingNumber(index, 2)}</span>
+          <span class="tool-status text-muted">
+            <span
+              class:list={["tool-dot", { "tool-dot-outline": planned }]}
+              aria-hidden="true"
+            />
+            {TOOL_STATUS_LABEL[tool.status]}
+          </span>
+        </p>
+        {/* Wrapped so this component's scoped styles can place it (they don't reach child components). */}
+        <div class="tool-shape">
+          <ToolShape
+            shape={tool.shape}
+            outline={planned}
+            class="block size-16 md:size-24 xl:size-30"
+          />
+        </div>
+        <div class="tool-body flex flex-col gap-2 md:gap-2.5 xl:gap-3">
+          <h3 class="type-card">
+            {tool.href ? <a href={tool.href}>{tool.name}</a> : tool.name}
+          </h3>
+          <p class="text-[15px] leading-normal text-muted xl:text-base">
+            {tool.description}
+          </p>
+        </div>
+        <p class="tool-path inline-flex items-center gap-1.5 font-mono text-xs">
+          {tool.path}
+          {tool.href && <ArrowUpRightIcon size={14} />}
+        </p>
+      </li>
+    );
+  })}
+</ul>
+
+<style>
+  .tools {
+    display: grid;
+  }
+  .tool-meta {
+    grid-area: meta;
+    display: flex;
+    gap: 0.5em;
+  }
+  .tool-status::before {
+    content: "· ";
+  }
+  .tool-dot {
+    display: none;
+  }
+  .tool-shape {
+    grid-area: shape;
+  }
+  .tool-body {
+    grid-area: body;
+  }
+  .tool-path {
+    grid-area: path;
+  }
+
+  /* Phone: meta beside a small mark, then the text. */
+  .tool {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "meta shape"
+      "body body"
+      "path path";
+    gap: 1.25rem 1rem;
+    padding: 1.25rem;
+  }
+  /* Keep the path close to the description (0.5rem, not the full row gap). */
+  .tool-path {
+    margin-top: -0.75rem;
+  }
+
+  /* iPad: full-width rows, mark on the left, path bottom-right. */
+  @media (width >= 48rem) {
+    .tool {
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      /* The tall mark spans both rows; give the extra height to the second row so the
+         text stays right under the meta line. */
+      grid-template-rows: auto 1fr;
+      grid-template-areas:
+        "shape shape meta meta meta meta . ."
+        "shape shape body body body body path path";
+      gap: 0.625rem 1.25rem;
+      padding: 1.5rem 1.25rem;
+    }
+    .tool-body {
+      align-self: start;
+    }
+    .tool-path {
+      margin-top: 0;
+      align-self: end;
+      justify-self: end;
+    }
+  }
+
+  /* Desktop: three tall cards, mark in the middle, status with a dot. */
+  @media (width >= 80rem) {
+    .tools {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .tool {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto 1fr auto auto;
+      grid-template-areas: "meta" "shape" "body" "path";
+      gap: 0.75rem;
+      height: 26.25rem;
+      padding: 1.5rem;
+    }
+    .tool-meta {
+      justify-content: space-between;
+    }
+    .tool-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .tool-status::before {
+      content: none;
+    }
+    .tool-dot {
+      display: inline-block;
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 999px;
+      background-color: var(--tr-ink);
+    }
+    .tool-dot-outline {
+      background-color: transparent;
+      border: 1.5px solid var(--tr-ink);
+    }
+    .tool-shape {
+      align-self: center;
+    }
+    .tool-path {
+      justify-self: start;
+      padding-top: 0.5rem;
+    }
+  }
+</style>

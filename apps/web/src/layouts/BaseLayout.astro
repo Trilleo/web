@@ -1,13 +1,19 @@
 ---
 import "../styles/global.css";
-import { formatTitle } from "../lib/site";
+import { THEME_COLORS, themeInitScript } from "@trilleo/ui/theme";
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import { SITE_DESCRIPTION, SITE_NAME, formatTitle } from "../lib/site";
 
 interface Props {
   title?: string;
   description?: string;
+  /** Keep the page out of search engines (e.g. drafts in dev/e2e builds). */
+  noindex?: boolean;
 }
 
-const { title, description = "Personal site, blog, and tools." } = Astro.props;
+const { title, description = SITE_DESCRIPTION, noindex = false } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 
 <!doctype html>
@@ -15,12 +21,44 @@ const { title, description = "Personal site, blog, and tools." } = Astro.props;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="theme-color"
+      content={THEME_COLORS.light}
+      media="(prefers-color-scheme: light)"
+    />
+    <meta
+      name="theme-color"
+      content={THEME_COLORS.dark}
+      media="(prefers-color-scheme: dark)"
+    />
+    <!-- Sets data-theme before first paint so dark-mode visitors never see a light flash. -->
+    <script is:inline set:html={themeInitScript}></script>
     <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
     <meta name="generator" content={Astro.generator} />
+    <link rel="canonical" href={canonical} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={`${SITE_NAME} · Writing`}
+      href="/rss.xml"
+    />
+    <link rel="sitemap" href="/sitemap-index.xml" />
     <title>{formatTitle(title)}</title>
   </head>
-  <body class="min-h-dvh bg-white text-neutral-900 antialiased">
-    <slot />
+  <body id="top" class="flex min-h-dvh flex-col bg-paper text-ink">
+    <a
+      href="#main"
+      class="type-nav sr-only bg-accent px-4 py-3 text-on-accent focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50"
+    >
+      Skip to content
+    </a>
+    <SiteHeader />
+    <main id="main" tabindex="-1" class="flex-1 focus:outline-none">
+      <slot />
+    </main>
+    <SiteFooter />
   </body>
 </html>

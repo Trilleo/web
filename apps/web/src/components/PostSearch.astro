@@ -1,0 +1,148 @@
+---
+/**
+ * Full-text search over posts, powered by the Pagefind index that `pnpm build` writes to
+ * dist/pagefind/. While a query is active, results replace the element marked
+ * [data-search-hides] (the full post list).
+ *
+ * The index is loaded by the tiny is:inline script (window.loadPagefind), not the bundled
+ * one: Vite wraps every import() in a preload helper whose placeholder is never filled in
+ * scripts Astro inlines, which fails at runtime with "__VITE_PRELOAD__ is not defined".
+ */
+---
+
+<form role="search" class="flex flex-col gap-2" data-post-search>
+  <label for="post-search-input" class="type-label text-muted">
+    Search posts
+  </label>
+  <input
+    id="post-search-input"
+    type="search"
+    name="q"
+    autocomplete="off"
+    spellcheck="false"
+    placeholder="Type to search"
+    class="type-row h-12 w-full border-b border-ink bg-transparent placeholder:text-muted focus:outline-none focus-visible:border-accent"
+  />
+  <p
+    class="type-label min-h-4 text-muted"
+    aria-live="polite"
+    data-search-status
+  ></p>
+</form>
+
+<template id="post-search-result">
+  <li class="border-t border-ink">
+    <!-- href is replaced with each result's URL. -->
+    <a href="/writing/" class="group flex flex-col gap-2 py-5 md:py-6">
+      <span
+        class="type-row underline-offset-4 group-hover:underline"
+        data-title
+      ></span>
+      <span class="text-[15px] leading-normal text-muted" data-excerpt></span>
+    </a>
+  </li>
+</template>
+
+<script is:inline>
+  window.loadPagefind = () => import("/pagefind/pagefind.js");
+</script>
+
+<script>
+  interface PagefindResultData {
+    url: string;
+    excerpt: string;
+    meta: { title?: string };
+  }
+  interface Pagefind {
+    search(
+      query: string,
+    ): Promise<{ results: { data(): Promise<PagefindResultData> }[] }>;
+  }
+  interface WindowWithPagefind extends Window {
+    loadPagefind?: () => Promise<Pagefind>;
+  }
+
+  const form = document.querySelector<HTMLFormElement>("[data-post-search]");
+  const input = form?.querySelector<HTMLInputElement>("input[type=search]");
+  const status = form?.querySelector<HTMLElement>("[data-search-status]");
+  const template = document.querySelector<HTMLTemplateElement>(
+    "#post-search-result",
+  );
+  const results = document.querySelector<HTMLOListElement>(
+    "[data-search-results]",
+  );
+  const hides = document.querySelector<HTMLElement>("[data-search-hides]");
+
+  let pagefind: Promise<Pagefind | null> | undefined;
+  // Loaded lazily on first search; resolves to null when there's no index (e.g. in dev).
+  const loadPagefind = () => {
+    const load = (window as WindowWithPagefind).loadPagefind;
+    pagefind ??= load ? load().catch(() => null) : Promise.resolve(null);
+    return pagefind;
+  };
+
+  const plainText = (html: string) =>
+    new DOMParser().parseFromString(html, "text/html").body.textContent;
+
+  if (form && input && status && template && results && hides) {
+    let latest = 0;
+
+    const show = (searching: boolean) => {
+      results.hidden = !searching;
+      hides.hidden = searching;
+    };
+
+    const run = async () => {
+      const query = input.value.trim();
+      // Ignore results that arrive after a newer query started.
+      const ticket = ++latest;
+      if (!query) {
+        show(false);
+        status.textContent = "";
+        return;
+      }
+
+      const engine = await loadPagefind();
+      if (ticket !== latest) return;
+      if (!engine) {
+        status.textContent =
+          "Search works in the built site: pnpm build, then pnpm preview.";
+        return;
+      }
+
+      const search = await engine.search(query);
+      const found = await Promise.all(
+        search.results.slice(0, 10).map((result) => result.data()),
+      );
+      if (ticket !== latest) return;
+
+      results.replaceChildren(
+        ...found.map((item) => {
+          const fragment = template.content.cloneNode(true) as DocumentFragment;
+          const link = fragment.querySelector("a");
+          const title = fragment.querySelector("[data-title]");
+          const excerpt = fragment.querySelector("[data-excerpt]");
+          if (link) link.href = item.url;
+          if (title) title.textContent = item.meta.title ?? item.url;
+          if (excerpt) excerpt.textContent = plainText(item.excerpt);
+          return fragment;
+        }),
+      );
+      status.textContent =
+        found.length === 0
+          ? `No posts match “${query}”.`
+          : `${String(found.length)} ${found.length === 1 ? "post matches" : "posts match"} “${query}”.`;
+      show(true);
+    };
+
+    let timer: number | undefined;
+    input.addEventListener("input", () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void run(), 150);
+    });
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void run();
+    });
+  }
+</script>

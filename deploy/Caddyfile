@@ -1,0 +1,80 @@
+# Caddy config for www.trilleo.net, served behind Cloudflare's proxy.
+#
+# Cloudflare terminates visitors' TLS and connects here over HTTPS with SSL mode
+# "Full (strict)", using a Cloudflare Origin certificate mounted at /certs.
+# {$TRUSTED_PROXIES} is Cloudflare's IP list, set by start-caddy.sh from cloudflare-ips.txt.
+{
+	# Certificates come from /certs; Caddy must never try to obtain its own.
+	auto_https disable_certs
+
+	# The Cloudflare-only check must run before anything answers; by default `redir`
+	# (and others) would run before `abort`.
+	order abort first
+
+	servers {
+		# Only Cloudflare connects to us; take the visitor's IP from its header (for logs).
+		trusted_proxies static {$TRUSTED_PROXIES}
+		client_ip_headers CF-Connecting-IP
+	}
+}
+
+(cloudflare_only) {
+	# Drop any connection that doesn't come from Cloudflare, so the server can't be
+	# reached directly by IP (remote_ip is the TCP peer, not a forwarded header).
+	@not_cloudflare not remote_ip {$TRUSTED_PROXIES}
+	abort @not_cloudflare
+}
+
+(origin_tls) {
+	tls /certs/origin.pem /certs/origin.key
+}
+
+trilleo.net {
+	import cloudflare_only
+	import origin_tls
+	redir https://www.trilleo.net{uri} permanent
+}
+
+www.trilleo.net {
+	import cloudflare_only
+	import origin_tls
+
+	root * /srv/site
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		X-Frame-Options "DENY"
+		Cross-Origin-Opener-Policy "same-origin"
+		# Report-only for now: violations show in the browser console without breaking
+		# anything. Switch to Content-Security-Policy once production shows none.
+		# ('unsafe-inline': theme/menu scripts are inline; 'wasm-unsafe-eval': search.)
+		Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+		-Server
+		# Pages and other unhashed files: always revalidate (cheap, thanks to ETags).
+		?Cache-Control "public, max-age=0, must-revalidate"
+	}
+
+	# Astro's fingerprinted assets never change once published.
+	@fingerprinted path /_astro/*
+	header @fingerprinted Cache-Control "public, max-age=31536000, immutable"
+
+	# The deploy workflow reads this to confirm a release; never cache it.
+	@version path /version.txt
+	header @version Cache-Control "no-store"
+
+	file_server
+
+	handle_errors 404 {
+		rewrite * /404.html
+		file_server
+	}
+}
+
+# Health check for Docker. Port 8080 is not published outside the container.
+:8080 {
+	respond /healthz "ok" 200
+}

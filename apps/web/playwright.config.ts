@@ -1,9 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 4321;
+// Its own port, so a dev server on 4321 is never mistaken for the build under test.
+const PORT = 4329;
 const isCI = Boolean(process.env.CI);
 
-// Runs against the production build via `astro preview`; `pnpm test:e2e` builds first.
+/**
+ * Tests run against a production-style build that also includes draft posts (so post
+ * pages and search have content to test), written to dist-e2e/ and served by
+ * `astro preview`. The real `pnpm build` never includes drafts.
+ */
+const e2eEnv = { INCLUDE_DRAFTS: "true", ASTRO_OUT_DIR: "./dist-e2e" };
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -16,8 +23,10 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `pnpm preview --port ${String(PORT)}`,
+    command: `pnpm run build:e2e && pnpm preview --port ${String(PORT)}`,
     url: `http://localhost:${String(PORT)}`,
     reuseExistingServer: !isCI,
+    env: e2eEnv,
+    timeout: 180_000,
   },
 });

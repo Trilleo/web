@@ -1,0 +1,78 @@
+---
+import { formatListingNumber } from "../lib/listings";
+
+interface Props {
+  headings: readonly { slug: string; text: string }[];
+}
+
+const { headings } = Astro.props;
+---
+
+<nav
+  aria-label="Contents"
+  class="type-label sticky top-6 flex flex-col gap-3"
+  data-toc
+>
+  <span class="text-muted">Contents</span>
+  <ol class="flex flex-col gap-3">
+    {headings.map((heading, index) => (
+      <li>
+        <a
+          href={`#${heading.slug}`}
+          class="group flex gap-3 underline-offset-4 hover:underline"
+          data-toc-link
+        >
+          <span class="flex w-5 shrink-0 items-center text-muted">
+            <span
+              class="hidden size-2 bg-accent group-aria-[current]:block"
+              aria-hidden="true"
+            />
+            <span class="group-aria-[current]:hidden">
+              {formatListingNumber(index, 2)}
+            </span>
+          </span>
+          {heading.text}
+        </a>
+      </li>
+    ))}
+  </ol>
+</nav>
+
+<script>
+  // Marks the section being read (aria-current="location") as the reader scrolls.
+  const links = [
+    ...document.querySelectorAll<HTMLAnchorElement>(
+      "[data-toc] [data-toc-link]",
+    ),
+  ];
+  const targets = links
+    .map((link) =>
+      document.getElementById(decodeURIComponent(link.hash.slice(1))),
+    )
+    .filter((target): target is HTMLElement => target !== null);
+
+  if (targets.length > 0) {
+    const setCurrent = (id: string) => {
+      for (const link of links) {
+        if (decodeURIComponent(link.hash.slice(1)) === id)
+          link.setAttribute("aria-current", "location");
+        else link.removeAttribute("aria-current");
+      }
+    };
+    const firstTarget = targets[0];
+    if (firstTarget) setCurrent(firstTarget.id);
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((entry) => entry.isIntersecting);
+        const top = visible.sort(
+          (a, b) => a.boundingClientRect.top - b.boundingClientRect.top,
+        )[0];
+        if (top) setCurrent(top.target.id);
+      },
+      // A heading counts as current once it's in the top third of the viewport.
+      { rootMargin: "0px 0px -66% 0px" },
+    );
+    for (const target of targets) observer.observe(target);
+  }
+</script>

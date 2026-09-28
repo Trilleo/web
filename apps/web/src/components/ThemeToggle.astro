@@ -1,0 +1,27 @@
+---
+import { ContrastIcon } from "@trilleo/ui";
+---
+
+<!-- aria-pressed = dark mode on. The script keeps it in sync with the applied theme. -->
+<button
+  type="button"
+  aria-pressed="false"
+  class="group type-nav inline-flex min-h-11 min-w-11 items-center justify-center gap-2 md:justify-start"
+  data-theme-toggle
+>
+  <ContrastIcon
+    size={18}
+    className="transition-transform duration-150 ease-swiss group-aria-pressed:rotate-180"
+  />
+  <span class="sr-only md:not-sr-only">Dark mode</span>
+</button>
+
+<script>
+  import { bindThemeToggle } from "@trilleo/ui/theme";
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>(
+    "[data-theme-toggle]",
+  )) {
+    bindThemeToggle(button);
+  }
+</script>

@@ -2,17 +2,25 @@ import type { ComponentProps } from "react";
 
 export type ButtonVariant = "primary" | "secondary";
 
+const base =
+  "inline-flex h-11 items-center justify-center gap-2.5 px-4 type-nav whitespace-nowrap transition-colors duration-150 ease-swiss disabled:pointer-events-none disabled:opacity-50";
+
+const variants: Record<ButtonVariant, string> = {
+  primary: "bg-ink text-paper hover:bg-accent hover:text-on-accent",
+  secondary: "border border-ink text-ink hover:bg-ink hover:text-paper",
+};
+
+/** Button styling for elements that can't use <Button>/<ButtonLink> (e.g. Astro markup). */
+export function buttonClasses({
+  variant = "primary",
+  className,
+}: { variant?: ButtonVariant; className?: string | undefined } = {}): string {
+  return [base, variants[variant], className].filter(Boolean).join(" ");
+}
+
 export interface ButtonProps extends ComponentProps<"button"> {
   variant?: ButtonVariant;
 }
-
-const base =
-  "inline-flex items-center justify-center gap-2 rounded-ui px-4 py-2 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:pointer-events-none disabled:opacity-50";
-
-const variants: Record<ButtonVariant, string> = {
-  primary: "bg-brand-600 text-white hover:bg-brand-700",
-  secondary: "border border-brand-600 text-brand-700 hover:bg-brand-50",
-};
 
 export function Button({
   variant = "primary",
@@ -20,8 +28,30 @@ export function Button({
   className,
   ...props
 }: ButtonProps) {
-  const classes = [base, variants[variant], className]
-    .filter(Boolean)
-    .join(" ");
-  return <button type={type} className={classes} {...props} />;
+  return (
+    <button
+      type={type}
+      className={buttonClasses({ variant, className })}
+      {...props}
+    />
+  );
+}
+
+export interface ButtonLinkProps extends ComponentProps<"a"> {
+  href: string;
+  variant?: ButtonVariant;
+}
+
+/** A link that looks like a button. Use it for navigation; use <Button> for actions. */
+export function ButtonLink({
+  variant = "primary",
+  className,
+  children,
+  ...props
+}: ButtonLinkProps) {
+  return (
+    <a className={buttonClasses({ variant, className })} {...props}>
+      {children}
+    </a>
+  );
 }

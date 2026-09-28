@@ -36,7 +36,14 @@ First-time Playwright setup: `pnpm --filter @trilleo/web exec playwright install
 ```
 apps/web        Astro site (static by default), Tailwind v4, React islands
 packages/ui     @trilleo/ui: shared React components + Tailwind theme (theme.css)
+deploy/         Caddy config, server compose file and deploy script, runbook
+Dockerfile      Production image: the built site served by Caddy
 ```
 
 Lint, format, and TypeScript base configs live at the repo root (`eslint.config.js`,
 `.prettierrc.json`, `tsconfig.base.json`).
+
+## Deploying
+
+Pushing to `main` deploys to <https://www.trilleo.net> once CI passes. Setup, rollback,
+and troubleshooting: [deploy/README.md](deploy/README.md).

@@ -1,16 +1,269 @@
 /*
- * Shared Tailwind v4 design tokens for every app. Import it after `@import "tailwindcss";`.
- * Placeholder values until the Phase 2 design pass.
+ * Shared Tailwind v4 design system for every app (Swiss direction).
+ * Import it after `@import "tailwindcss";`.
+ *
+ * Colors are semantic roles (paper, ink, muted, …), never raw hex in components.
+ * Each role holds its light and dark value via light-dark(); `color-scheme` picks one:
+ * <html data-theme="light|dark"> when set (see ../theme.ts), otherwise the system setting.
+ * In utilities use the Tailwind names (bg-paper, text-ink); in plain CSS/SVG use the
+ * --tr-* variables, which always exist (Tailwind only emits --color-* vars it uses).
  */
+
+@import "@fontsource-variable/schibsted-grotesk";
+@import "@fontsource-variable/geist-mono";
 
 /* Scan this package's components for class names; apps don't scan node_modules. */
 @source "../";
 
-@theme {
-  --color-brand-50: oklch(0.97 0.02 285);
-  --color-brand-500: oklch(0.6 0.2 285);
-  --color-brand-600: oklch(0.53 0.22 285);
-  --color-brand-700: oklch(0.46 0.2 285);
+:root {
+  color-scheme: light dark;
 
-  --radius-ui: 0.5rem;
+  --tr-paper: light-dark(#f2f2ee, #0f0f0e);
+  --tr-ink: light-dark(#0e0e0e, #edede8);
+  --tr-muted: light-dark(#5c5c57, #9a9a93);
+  --tr-hair: light-dark(#cfcfc8, #34342f);
+  --tr-chip: light-dark(#e4e4de, #262622);
+  --tr-fig: light-dark(#e9e9e4, #171715);
+  --tr-fig-grid: light-dark(#d6d6cf, #2a2a26);
+  --tr-code-bg: light-dark(#0e0e0e, #1a1a17);
+  --tr-code-fg: light-dark(#f2f2ee, #edede8);
+  --tr-code-line: light-dark(#0e0e0e, #34342f);
+  /* Same in both themes; text on the accent stays black. */
+  --tr-accent: #e5470f;
+  --tr-on-accent: #0e0e0e;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+@theme {
+  /* Only the roles below exist, so stray palette classes (bg-gray-500, …) don't compile. */
+  --color-*: initial;
+
+  --font-sans:
+    "Schibsted Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+
+  --ease-swiss: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@theme inline {
+  --color-paper: var(--tr-paper);
+  --color-ink: var(--tr-ink);
+  --color-muted: var(--tr-muted);
+  --color-hair: var(--tr-hair);
+  --color-chip: var(--tr-chip);
+  --color-fig: var(--tr-fig);
+  --color-fig-grid: var(--tr-fig-grid);
+  --color-code-bg: var(--tr-code-bg);
+  --color-code-fg: var(--tr-code-fg);
+  --color-code-line: var(--tr-code-line);
+  --color-accent: var(--tr-accent);
+  --color-on-accent: var(--tr-on-accent);
+}
+
+@layer base {
+  html {
+    background-color: var(--tr-paper);
+    color: var(--tr-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--tr-accent);
+    color: var(--tr-on-accent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--tr-accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Layout: 4 columns on phones, 8 from 768px (iPad), 12 from 1280px (desktop). */
+@utility grid-swiss {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: 1rem;
+  @media (width >= 48rem) {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    column-gap: 1.25rem;
+  }
+  @media (width >= 80rem) {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: 1.5rem;
+  }
+}
+
+@utility px-page {
+  padding-inline: 1.25rem;
+  @media (width >= 48rem) {
+    padding-inline: 2rem;
+  }
+  @media (width >= 80rem) {
+    padding-inline: 3rem;
+  }
+}
+
+@utility mx-page {
+  margin-inline: 1.25rem;
+  @media (width >= 48rem) {
+    margin-inline: 2rem;
+  }
+  @media (width >= 80rem) {
+    margin-inline: 3rem;
+  }
+}
+
+/* Type roles. Each one scales across the three breakpoints. */
+@utility type-display {
+  font-size: 5.5rem;
+  font-weight: 800;
+  line-height: 0.82;
+  letter-spacing: -0.065em;
+  @media (width >= 48rem) {
+    font-size: 11rem;
+    line-height: 0.8;
+  }
+  @media (width >= 80rem) {
+    font-size: 20rem;
+  }
+}
+
+@utility type-title {
+  font-size: 3.25rem;
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+  @media (width >= 48rem) {
+    font-size: 3.75rem;
+  }
+  @media (width >= 80rem) {
+    font-size: 4.5rem;
+  }
+}
+
+/* Post titles: 44 / 64 / 96px. */
+@utility type-headline {
+  font-size: 2.75rem;
+  font-weight: 700;
+  line-height: 0.96;
+  letter-spacing: -0.05em;
+  @media (width >= 48rem) {
+    font-size: 4rem;
+    line-height: 0.94;
+  }
+  @media (width >= 80rem) {
+    font-size: 6rem;
+  }
+}
+
+/* The summary under a post title. */
+@utility type-dek {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  @media (width >= 48rem) {
+    font-size: 1.375rem;
+  }
+  @media (width >= 80rem) {
+    font-size: 1.5rem;
+  }
+}
+
+@utility type-lead {
+  font-size: 2rem;
+  font-weight: 500;
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+  @media (width >= 48rem) {
+    font-size: 2.5rem;
+    line-height: 1.05;
+  }
+  @media (width >= 80rem) {
+    font-size: 3rem;
+    line-height: 1.04;
+  }
+}
+
+@utility type-band {
+  font-size: 2.375rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  @media (width >= 48rem) {
+    font-size: 3.125rem;
+    letter-spacing: -0.045em;
+  }
+  @media (width >= 80rem) {
+    font-size: 4rem;
+    line-height: 0.98;
+  }
+}
+
+@utility type-row {
+  font-size: 1.3125rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  @media (width >= 48rem) {
+    font-size: 1.625rem;
+    line-height: 1.18;
+  }
+  @media (width >= 80rem) {
+    font-size: 1.875rem;
+    line-height: 1.15;
+  }
+}
+
+@utility type-card {
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  @media (width >= 48rem) {
+    font-size: 1.875rem;
+  }
+  @media (width >= 80rem) {
+    font-size: 2.25rem;
+  }
+}
+
+/* Mono metadata: section numbers, statuses, dates, nav. */
+@utility type-label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  @media (width >= 80rem) {
+    font-size: 0.75rem;
+  }
+}
+
+@utility type-nav {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  @media (width >= 80rem) {
+    font-size: 0.8125rem;
+  }
 }

@@ -1,8 +1,9 @@
-pnpm-lock.yaml
+﻿pnpm-lock.yaml
 LICENSE
 .idea/
 
 **/dist/
+**/dist-e2e/
 **/.astro/
 **/.turbo/
 **/coverage/

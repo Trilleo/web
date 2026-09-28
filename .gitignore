@@ -1,8 +1,9 @@
-# Dependencies
+﻿# Dependencies
 node_modules/
 
 # Build output and caches
 dist/
+dist-e2e/
 .astro/
 .turbo/
 

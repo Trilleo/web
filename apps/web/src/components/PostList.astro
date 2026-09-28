@@ -1,0 +1,125 @@
+---
+import { ArrowUpRightIcon } from "@trilleo/ui";
+import { formatPostDate, type PostListing } from "../lib/listings";
+
+interface Props {
+  posts: readonly PostListing[];
+  /** Shown instead of the list when there are no posts. */
+  emptyMessage?: string;
+  /** Hide the desktop column headings (e.g. for compact lists). */
+  headings?: boolean;
+}
+
+const { posts, emptyMessage = "No posts yet.", headings = true } = Astro.props;
+---
+
+{posts.length === 0 ? (
+  <p class="type-row border-y border-ink py-6 text-muted">{emptyMessage}</p>
+) : (
+  <>
+    {headings && (
+      <div class="hidden xl:block" aria-hidden="true">
+        <div class="post-row grid-swiss type-label pb-3 text-muted">
+          <span class="post-number">No.</span>
+          <span class="post-title">Title</span>
+          <span class="post-read">Read</span>
+          <span class="post-date">Date</span>
+        </div>
+      </div>
+    )}
+    <ol class="border-b border-ink">
+      {posts.map((post) => (
+        <li class="border-t border-ink">
+          <a
+            href={post.href}
+            class="post-row group grid-swiss py-[18px] md:py-[22px] xl:py-6"
+          >
+            <span class="post-number type-label text-muted tabular-nums">
+              {post.number}
+            </span>
+            <span class="post-title type-row underline-offset-4 group-hover:underline">
+              {post.title}
+            </span>
+            <span class="post-read type-label">{post.readingMinutes} min</span>
+            <span class="post-date type-label text-muted">
+              {post.draft ? (
+                "Draft"
+              ) : post.date ? (
+                <time datetime={post.date.toISOString()}>
+                  {formatPostDate(post.date)}
+                </time>
+              ) : (
+                formatPostDate(null)
+              )}
+            </span>
+            <span class="post-arrow transition-transform duration-150 ease-swiss group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
+              <ArrowUpRightIcon size={22} />
+            </span>
+          </a>
+        </li>
+      ))}
+    </ol>
+  </>
+)}
+
+<style>
+  /* Phone: "001  6 MIN  2026.09.28" over the title. */
+  .post-row {
+    grid-template-areas:
+      "num read date date"
+      "title title title title";
+    row-gap: 0.5rem;
+    align-items: baseline;
+  }
+  .post-number {
+    grid-area: num;
+  }
+  .post-title {
+    grid-area: title;
+  }
+  .post-read {
+    grid-area: read;
+  }
+  .post-date {
+    grid-area: date;
+    text-align: right;
+  }
+  .post-arrow {
+    display: none;
+    grid-area: arrow;
+    justify-self: end;
+  }
+
+  /* iPad: number | title with reading time and date underneath | arrow. */
+  @media (width >= 48rem) {
+    .post-row {
+      grid-template-areas:
+        "num num title title title title title arrow"
+        ". . read date date date date .";
+      align-items: start;
+    }
+    .post-number {
+      padding-top: 0.375rem;
+    }
+    .post-date {
+      text-align: left;
+    }
+    .post-arrow {
+      display: block;
+    }
+  }
+
+  /* Desktop: one row per post, like a table. */
+  @media (width >= 80rem) {
+    .post-row {
+      grid-template-areas: "num num num title title title title title title read date arrow";
+      align-items: baseline;
+    }
+    .post-number {
+      padding-top: 0;
+    }
+    .post-arrow {
+      align-self: center;
+    }
+  }
+</style>

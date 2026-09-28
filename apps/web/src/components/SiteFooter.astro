@@ -1,0 +1,46 @@
+---
+import { ArrowUpIcon } from "@trilleo/ui";
+import { GITHUB_URL, NAV_ITEMS, SITE_NAME } from "../lib/site";
+
+const year = new Date().getFullYear();
+const linkClass =
+  "type-label inline-flex min-h-9 items-center underline-offset-4 hover:underline";
+---
+
+<footer class="grid-swiss px-page gap-y-6 pt-7 pb-8 md:pt-8 md:pb-10">
+  <div class="col-span-4 flex items-baseline justify-between md:col-span-2 md:flex-col md:justify-start md:gap-2 xl:col-span-3">
+    <span class="text-xl font-bold tracking-[-0.03em]">{SITE_NAME}</span>
+    <span class="type-label text-muted">© {year}</span>
+  </div>
+
+  <nav
+    aria-label="Sections"
+    class="col-span-2 flex flex-col md:col-span-2 xl:col-span-3"
+  >
+    {NAV_ITEMS.map((item) => (
+      <a href={item.href} class={linkClass}>
+        {item.label}
+      </a>
+    ))}
+  </nav>
+
+  <nav
+    aria-label="Elsewhere"
+    class="col-span-2 flex flex-col md:col-span-2 xl:col-span-3"
+  >
+    <a href="/rss.xml" class={linkClass}>
+      RSS
+    </a>
+    <a href={GITHUB_URL} class={linkClass}>
+      GitHub
+    </a>
+  </nav>
+
+  <a
+    href="#top"
+    class={`${linkClass} col-span-4 gap-2 self-start md:col-span-2 md:justify-self-end xl:col-span-3`}
+  >
+    Back to top
+    <ArrowUpIcon size={16} />
+  </a>
+</footer>

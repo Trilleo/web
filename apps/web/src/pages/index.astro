@@ -1,15 +1,107 @@
 ---
-import Counter from "../components/Counter";
+import { ArrowRightIcon } from "@trilleo/ui";
+import Colophon from "../components/Colophon.astro";
+import PostList from "../components/PostList.astro";
+import SectionHeader from "../components/SectionHeader.astro";
+import ToolList from "../components/ToolList.astro";
+import { sampleTools } from "../data/samples";
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { SITE_NAME } from "../lib/site";
+import { getPosts } from "../lib/collection";
+import { toListings } from "../lib/posts";
+import { SITE_BIO, SITE_DESCRIPTION, SITE_NAME } from "../lib/site";
+
+const HOME_POST_COUNT = 4;
+const posts = await getPosts();
+const latestPosts = toListings(posts).slice(0, HOME_POST_COUNT);
+const postCount = `${String(posts.length)} ${posts.length === 1 ? "post" : "posts"}`;
+
+const pageLinkClass =
+  "flex min-h-12 items-center justify-between border-b border-ink font-semibold underline-offset-4 hover:underline";
 ---
 
 <BaseLayout>
-  <main class="mx-auto flex max-w-2xl flex-col items-start gap-6 px-6 py-24">
-    <h1 class="text-4xl font-bold tracking-tight">{SITE_NAME}</h1>
-    <p class="text-lg text-neutral-600">
-      A new home for the blog and tools is under construction.
-    </p>
-    <Counter client:load />
-  </main>
+  <section aria-labelledby="site-title" class="px-page pt-4 xl:pt-5">
+    <div class="grid-swiss type-label text-muted">
+      <span class="col-span-2 text-ink md:col-span-4 xl:col-span-3">
+        (00) Index
+      </span>
+      <span class="hidden md:order-last md:col-span-2 md:block md:text-right xl:order-none xl:col-span-3 xl:text-left">
+        Personal site
+      </span>
+      <span class="col-span-2 text-right md:text-left xl:col-span-3">
+        Est. 2026
+      </span>
+      <span class="hidden xl:col-span-3 xl:block xl:text-right">
+        Writing · Tools · Experiments
+      </span>
+    </div>
+
+    <h1 id="site-title" class="type-display mt-5 -ml-[0.03em] xl:mt-7">
+      {SITE_NAME}
+      <span class="text-accent">.</span>
+    </h1>
+
+    <div class="grid-swiss mt-7 gap-y-4 border-t border-ink pt-4 pb-10 md:mt-8 md:gap-y-7 md:pt-5 md:pb-14 xl:mt-12 xl:pt-6 xl:pb-16">
+      <p class="type-label col-span-4 flex items-start gap-2 md:col-span-2 xl:col-span-3">
+        <span
+          class="mt-0.5 size-2 bg-accent xl:size-2.5"
+          aria-hidden="true"
+        ></span>
+        About
+      </p>
+      <p class="type-lead col-span-4 md:col-span-6">{SITE_DESCRIPTION}</p>
+      <div class="col-span-4 grid gap-6 md:col-span-6 md:col-start-3 md:grid-cols-2 md:gap-5 xl:col-span-3 xl:col-start-10 xl:row-start-1 xl:grid-cols-1 xl:gap-6">
+        <p class="text-[15px] leading-[1.55] text-muted xl:text-base">
+          {SITE_BIO}
+        </p>
+        <div class="flex flex-col border-t border-ink">
+          <a href="#writing" class={pageLinkClass}>
+            Start reading
+            <ArrowRightIcon />
+          </a>
+          <a href="#tools" class={pageLinkClass}>
+            Browse tools
+            <ArrowRightIcon />
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section
+    id="writing"
+    aria-labelledby="writing-title"
+    class="px-page pt-14 md:pt-20 xl:pt-24"
+  >
+    <SectionHeader
+      number="01"
+      title="Writing"
+      headingId="writing-title"
+      meta={posts.length > 0 ? `All ${postCount}` : undefined}
+      href="/writing/"
+    />
+    <div class="mt-6 md:mt-8 xl:mt-10">
+      <PostList posts={latestPosts} />
+    </div>
+  </section>
+
+  <section
+    id="tools"
+    aria-labelledby="tools-title"
+    class="px-page pt-16 md:pt-24 xl:pt-30"
+  >
+    <SectionHeader
+      number="02"
+      title="Tools"
+      headingId="tools-title"
+      meta={`${String(sampleTools.length)} tools`}
+    />
+    <div class="mt-6 md:mt-8 xl:mt-10">
+      <ToolList tools={sampleTools} />
+    </div>
+  </section>
+
+  <div class="mt-16 md:mt-24 xl:mt-30">
+    <Colophon />
+  </div>
 </BaseLayout>

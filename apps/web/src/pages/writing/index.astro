@@ -1,0 +1,59 @@
+---
+import PostList from "../../components/PostList.astro";
+import PostSearch from "../../components/PostSearch.astro";
+import TagLinks from "../../components/TagLinks.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getPosts } from "../../lib/collection";
+import { collectTags, toListings } from "../../lib/posts";
+
+const posts = await getPosts();
+const listings = toListings(posts);
+const tags = collectTags(posts);
+const count = `${String(posts.length)} ${posts.length === 1 ? "post" : "posts"}`;
+---
+
+<BaseLayout title="Writing" description="All posts, newest first.">
+  <section aria-labelledby="writing-title" class="px-page pt-4 xl:pt-5">
+    <div class="grid-swiss type-label text-muted">
+      <span class="col-span-2 text-ink md:col-span-4 xl:col-span-3">
+        (01) Writing
+      </span>
+      <span class="hidden xl:col-span-3 xl:block">Index</span>
+      <span class="col-span-2 text-right md:col-span-4 xl:col-span-6">
+        {count}
+      </span>
+    </div>
+
+    <h1 id="writing-title" class="type-display mt-5 -ml-[0.03em] xl:mt-7">
+      Writing<span class="text-accent">.</span>
+    </h1>
+
+    <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 pb-10 md:mt-8 md:gap-y-8 md:pt-5 md:pb-14 xl:mt-12 xl:pt-6 xl:pb-16">
+      <p class="type-label col-span-4 flex items-start gap-2 md:col-span-2 xl:col-span-3">
+        <span
+          class="mt-0.5 size-2 bg-accent xl:size-2.5"
+          aria-hidden="true"
+        ></span>
+        Index
+      </p>
+      <p class="type-lead col-span-4 md:col-span-6">All posts, newest first.</p>
+      {posts.length > 0 && (
+        <div class="col-span-4 md:col-span-6 md:col-start-3 xl:col-span-3 xl:col-start-10 xl:row-start-1">
+          <PostSearch />
+        </div>
+      )}
+      {tags.length > 0 && (
+        <div class="col-span-4 md:col-span-6 md:col-start-3 xl:col-span-6 xl:col-start-4">
+          <TagLinks tags={tags} />
+        </div>
+      )}
+    </div>
+  </section>
+
+  <section aria-label="Posts" class="px-page pb-16 md:pb-24">
+    <ol hidden class="border-b border-ink" data-search-results></ol>
+    <div data-search-hides>
+      <PostList posts={listings} />
+    </div>
+  </section>
+</BaseLayout>

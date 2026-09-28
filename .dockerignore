@@ -1,0 +1,16 @@
+# Keep the build context small and free of local state; the image builds from source.
+.git
+**/node_modules
+**/dist
+**/dist-e2e
+**/.astro
+**/.turbo
+**/coverage
+**/playwright-report
+**/test-results
+.idea
+.vscode
+.claude
+**/*.log
+**/.env
+**/.env.*

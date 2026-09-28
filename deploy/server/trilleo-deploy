@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Deploys one release of the site: pulls the image for a commit, starts it, and waits
+# until it's healthy. Installed on the server as /usr/local/bin/trilleo-deploy (owned
+# by root, so the deploy user can run it but not change it). See deploy/README.md.
+#
+#   From CI, as the deploy user's SSH forced command:  ssh deploy@server <git-sha>
+#   By hand, e.g. to roll back (as root):  sudo -u deploy trilleo-deploy <git-sha>
+set -euo pipefail
+
+APP_DIR=/srv/trilleo
+KEEP_IMAGES=5
+
+# A forced command receives the client's command in SSH_ORIGINAL_COMMAND.
+tag="${SSH_ORIGINAL_COMMAND:-${1:-}}"
+if [[ ! "$tag" =~ ^[0-9a-f]{40}$ ]]; then
+	echo "usage: trilleo-deploy <40-character git commit SHA>" >&2
+	exit 64
+fi
+
+cd "$APP_DIR"
+repo="$(<image-repo)" # e.g. swr.cn-east-3.myhuaweicloud.com/trilleo/web
+image="$repo:$tag"
+
+echo "==> Pulling $image"
+docker pull --quiet "$image"
+
+echo "==> Taking compose.yaml from the image"
+docker run --rm --entrypoint cat "$image" /deploy/compose.yaml >compose.yaml.new
+mv compose.yaml.new compose.yaml
+printf 'IMAGE=%s\n' "$image" >.env
+
+echo "==> Starting"
+docker compose up --detach --wait --wait-timeout 90 --remove-orphans
+printf '%s\n' "$tag" >current
+echo "==> Live: $tag"
+
+# Keep the newest few images for quick rollbacks. The running image is never removed
+# (Docker refuses while a container uses it), even after rolling back to an old one.
+docker image ls "$repo" --format '{{.CreatedAt}}|{{.Repository}}:{{.Tag}}' |
+	sort -r |
+	tail -n "+$((KEEP_IMAGES + 1))" |
+	cut -d '|' -f 2 |
+	xargs -r docker image rm >/dev/null 2>&1 || true

@@ -1,0 +1,66 @@
+---
+import type { GetStaticPaths } from "astro";
+import PostList from "../../../components/PostList.astro";
+import TagLinks from "../../../components/TagLinks.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { getPosts } from "../../../lib/collection";
+import { collectTags, hasTag, toListings } from "../../../lib/posts";
+
+export const getStaticPaths = (async () => {
+  const posts = await getPosts();
+  return collectTags(posts).map((tag) => ({
+    params: { tag: tag.slug },
+    props: { name: tag.name },
+  }));
+}) satisfies GetStaticPaths;
+
+const { tag } = Astro.params;
+const { name } = Astro.props;
+const posts = await getPosts();
+// Number within the full index so a post keeps the same No. everywhere.
+const listings = toListings(posts).filter((_, index) => {
+  const post = posts[index];
+  return post !== undefined && hasTag(post, tag);
+});
+const count = `${String(listings.length)} ${listings.length === 1 ? "post" : "posts"}`;
+---
+
+<BaseLayout title={`${name} · Writing`} description={`Posts tagged ${name}.`}>
+  <section aria-labelledby="tag-title" class="px-page pt-4 xl:pt-5">
+    <div class="grid-swiss type-label text-muted">
+      <a
+        href="/writing/"
+        class="col-span-2 text-ink underline-offset-4 hover:underline md:col-span-4 xl:col-span-3"
+      >
+        (01) Writing
+      </a>
+      <span class="hidden xl:col-span-3 xl:block">Tag</span>
+      <span class="col-span-2 text-right md:col-span-4 xl:col-span-6">
+        {count}
+      </span>
+    </div>
+
+    <div class="grid-swiss mt-10 gap-y-6 pb-10 md:mt-14 md:pb-14 xl:mt-16 xl:pb-16">
+      <p class="type-label col-span-4 flex items-start gap-2 md:col-span-2 xl:col-span-3">
+        <span
+          class="mt-0.5 size-2 bg-accent xl:size-2.5"
+          aria-hidden="true"
+        ></span>
+        Tag
+      </p>
+      <h1
+        id="tag-title"
+        class="type-headline col-span-4 md:col-span-6 xl:col-span-9"
+      >
+        {name}
+      </h1>
+      <div class="col-span-4 md:col-span-6 md:col-start-3 xl:col-span-9 xl:col-start-4">
+        <TagLinks tags={collectTags(posts)} current={tag} label="All tags" />
+      </div>
+    </div>
+  </section>
+
+  <section aria-label={`Posts tagged ${name}`} class="px-page pb-16 md:pb-24">
+    <PostList posts={listings} />
+  </section>
+</BaseLayout>

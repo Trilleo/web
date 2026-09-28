@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Button } from "./Button";
+import { Button, ButtonLink, buttonClasses } from "./Button";
 
 afterEach(cleanup);
 
@@ -20,10 +20,12 @@ describe("Button", () => {
       </Button>,
     );
 
-    const button = screen.getByRole("button", { name: "Cancel" });
-    expect(button.className).toContain("border-brand-600");
-    expect(button.className).toContain("w-full");
-    expect(button.className).not.toContain("bg-brand-600");
+    const classes = screen
+      .getByRole("button", { name: "Cancel" })
+      .className.split(" ");
+    expect(classes).toContain("border-ink");
+    expect(classes).toContain("w-full");
+    expect(classes).not.toContain("bg-ink");
   });
 
   it("forwards native props such as onClick and disabled", () => {
@@ -46,5 +48,27 @@ describe("Button", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Go" }));
     expect(onClick).toHaveBeenCalledOnce();
+  });
+});
+
+describe("ButtonLink", () => {
+  it("renders a link with button styling", () => {
+    render(<ButtonLink href="/writing">Start reading</ButtonLink>);
+
+    const link = screen.getByRole("link", { name: "Start reading" });
+    expect(link.getAttribute("href")).toBe("/writing");
+    expect(link.className).toBe(buttonClasses());
+  });
+
+  it("supports the secondary variant", () => {
+    render(
+      <ButtonLink href="/" variant="secondary">
+        Home
+      </ButtonLink>,
+    );
+
+    expect(screen.getByRole("link", { name: "Home" }).className).toBe(
+      buttonClasses({ variant: "secondary" }),
+    );
   });
 });
