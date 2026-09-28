@@ -227,8 +227,14 @@ a commit hash).
 ### 6. GitHub settings
 
 From this repo on your PC (PowerShell, with `gh` logged in; check with `gh auth status`).
-Before the `DEPLOY_KNOWN_HOSTS` line, check that the fingerprint `ssh-keyscan` prints
-matches the server's (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the server):
+Don't pipe values into `gh secret set` (`… | gh secret set`): Windows PowerShell adds a
+byte-order mark and CRLF line endings, which break the SSH key. The key goes in through
+`cmd`'s `<` instead, which passes the file unchanged.
+
+The server's host key comes from your own `known_hosts` (the entry you verified in §4a),
+not `ssh-keyscan`: Windows' built-in `ssh-keyscan` can't negotiate with Ubuntu 24.04's
+SSH server and prints nothing. The `ssh-keygen -lf -` line must print the server's ED25519
+fingerprint (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the server):
 
 ```powershell
 gh variable set SWR_REGISTRY --body "swr.<REGION>.myhuaweicloud.com"
@@ -236,9 +242,10 @@ gh variable set SWR_ORG --body "<ORG>"
 gh secret set SWR_USERNAME --body "<REGION>@<PUSH_AK>"
 gh secret set SWR_PASSWORD                     # paste the push user's long-term password
 gh secret set DEPLOY_HOST --body "<SERVER_IP>"
-Get-Content $env:USERPROFILE\trilleo-keys\trilleo-deploy -Raw | gh secret set DEPLOY_SSH_KEY
-ssh-keyscan -t ed25519 <SERVER_IP> | Tee-Object -Variable hostKey | ssh-keygen -lf -
-$hostKey | gh secret set DEPLOY_KNOWN_HOSTS
+cmd /c "gh secret set DEPLOY_SSH_KEY < %USERPROFILE%\trilleo-keys\trilleo-deploy"
+$hostKey = @(ssh-keygen -F <SERVER_IP> | Where-Object { $_ -match ' ssh-ed25519 ' })
+$hostKey | ssh-keygen -lf -
+if ($hostKey.Count -eq 1) { gh secret set DEPLOY_KNOWN_HOSTS --body $hostKey[0] } else { "Expected 1 ED25519 line, got $($hostKey.Count)" }
 gh variable list; gh secret list
 ```
 
@@ -276,13 +283,13 @@ Push to `main`, or run **Actions → Deploy → Run workflow**. Watch it at
 
 ## Troubleshooting
 
-| Symptom                                        | Likely cause                                                                                                                                                                                                                             |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cloudflare **521** (web server is down)        | Container not running (`docker compose ps`), or the security group blocks Cloudflare on 443.                                                                                                                                             |
-| Cloudflare **522** (timed out)                 | Security group or provider firewall drops Cloudflare; check the 443 rules and the ICP filing status.                                                                                                                                     |
-| Cloudflare **525/526** (SSL handshake/invalid) | SSL mode isn't Full (strict), or `origin.pem`/`origin.key` don't match or aren't the Origin certificate.                                                                                                                                 |
-| Cloudflare **520** or empty reply              | Caddy dropped the connection: Cloudflare's ranges changed; see "Cloudflare IP ranges changed" above.                                                                                                                                     |
-| Deploy fails at "Log in to Huawei SWR"         | `SWR_USERNAME` must be `<REGION>@<AK>`; the password is the long-term hex string; check org permissions.                                                                                                                                 |
-| Deploy fails at "Deploy on the server"         | `DEPLOY_HOST`/`DEPLOY_KNOWN_HOSTS` wrong, key not in `authorized_keys`, or the server's pull login expired.                                                                                                                              |
-| `Permission denied (publickey)` for root       | Key login wasn't set up before §4g. Log in via Huawei console → ECS → Remote Login → **VNC**, move `/etc/ssh/sshd_config.d/10-trilleo.conf` away, `systemctl reload ssh`, redo §4a until `key login works`, then restore the file (§4g). |
-| Deploy fails at "Check the live site"          | The site is up but not the new version: check `trilleo-deploy` output in the job log and `docker compose ps`.                                                                                                                            |
+| Symptom                                        | Likely cause                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cloudflare **521** (web server is down)        | Container not running (`docker compose ps`), or the security group blocks Cloudflare on 443.                                                                                                                                                                                                                                      |
+| Cloudflare **522** (timed out)                 | Security group or provider firewall drops Cloudflare; check the 443 rules and the ICP filing status.                                                                                                                                                                                                                              |
+| Cloudflare **525/526** (SSL handshake/invalid) | SSL mode isn't Full (strict), or `origin.pem`/`origin.key` don't match or aren't the Origin certificate.                                                                                                                                                                                                                          |
+| Cloudflare **520** or empty reply              | Caddy dropped the connection: Cloudflare's ranges changed; see "Cloudflare IP ranges changed" above.                                                                                                                                                                                                                              |
+| Deploy fails at "Log in to Huawei SWR"         | `SWR_USERNAME` must be `<REGION>@<AK>`; the password is the long-term hex string; check org permissions.                                                                                                                                                                                                                          |
+| Deploy fails at "Deploy on the server"         | `Host key verification failed`: `DEPLOY_KNOWN_HOSTS` is wrong; redo its §6 lines. `Load key … invalid format` or `Permission denied (publickey)`: `DEPLOY_SSH_KEY` isn't the exact key file (set it with §6's `cmd /c` line) or the key isn't in `authorized_keys`. A `docker pull` error: the server's pull login expired (§4f). |
+| `Permission denied (publickey)` for root       | Key login wasn't set up before §4g. Log in via Huawei console → ECS → Remote Login → **VNC**, move `/etc/ssh/sshd_config.d/10-trilleo.conf` away, `systemctl reload ssh`, redo §4a until `key login works`, then restore the file (§4g).                                                                                          |
+| Deploy fails at "Check the live site"          | The site is up but not the new version: check `trilleo-deploy` output in the job log and `docker compose ps`.                                                                                                                                                                                                                     |
