@@ -1,7 +1,9 @@
 # syntax=docker/dockerfile:1
 
-# The production image: the static site (plus search index) served by Caddy.
-# Built by .github/workflows/deploy.yml; see deploy/README.md.
+# The production images, from one build (see deploy/README.md):
+#   --target app  the Astro server (Node) for server-rendered routes
+#   --target web  Caddy: serves the static site and passes everything else to `app`
+# Built by .github/workflows/deploy.yml.
 
 # 1. Build the site with the workspace's pinned pnpm.
 FROM node:24-slim AS build
@@ -15,6 +17,7 @@ WORKDIR /repo
 # Manifests first, so dependency installs stay cached until they change.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/
+COPY packages/db/package.json packages/db/
 COPY packages/ui/package.json packages/ui/
 RUN pnpm install --frozen-lockfile
 
@@ -23,15 +26,29 @@ RUN pnpm --filter @trilleo/web build
 
 # Lets the deploy workflow confirm which commit is live.
 ARG GIT_SHA=unknown
-RUN printf '%s\n' "$GIT_SHA" > apps/web/dist/version.txt
+RUN printf '%s\n' "$GIT_SHA" > apps/web/dist/client/version.txt
 
-# 2. Serve it.
-FROM caddy:2.11-alpine
+# 2. The Astro server. Its build bundles its dependencies, so there's no node_modules.
+FROM node:24-alpine AS app
+ENV NODE_ENV=production \
+    HOST=0.0.0.0 \
+    PORT=4321 \
+    MIGRATIONS_DIR=/app/migrations
+WORKDIR /app
+COPY --from=build /repo/apps/web/dist ./dist
+COPY --from=build /repo/packages/db/migrations ./migrations
+LABEL org.opencontainers.image.source="https://github.com/Trilleo/web"
+USER node
+EXPOSE 4321
+CMD ["node", "dist/server/entry.mjs"]
+
+# 3. Caddy with the static files (last, so it's also the default target).
+FROM caddy:2.11-alpine AS web
 COPY deploy/Caddyfile /etc/caddy/Caddyfile
 COPY deploy/cloudflare-ips.txt /etc/caddy/cloudflare-ips.txt
 COPY --chmod=755 deploy/start-caddy.sh /usr/local/bin/start-caddy
 COPY deploy/compose.yaml /deploy/compose.yaml
-COPY --from=build /repo/apps/web/dist /srv/site
+COPY --from=build /repo/apps/web/dist/client /srv/site
 LABEL org.opencontainers.image.source="https://github.com/Trilleo/web"
 EXPOSE 80 443
 CMD ["start-caddy", "run"]

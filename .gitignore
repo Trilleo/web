@@ -7,6 +7,9 @@ dist-e2e/
 .astro/
 .turbo/
 
+# Local PGlite database (pnpm dev)
+.data/
+
 # Test output
 coverage/
 playwright-report/

@@ -11,11 +11,13 @@
 
 - pnpm workspaces monorepo, Turborepo for task running.
 - apps/web: Astro (TypeScript strict), static by default, server-rendered
-  routes only where needed. Tailwind for styling.
+  routes only where needed (`export const prerender = false`, run by
+  @astrojs/node). Tailwind for styling. Builds to dist/client (static files) and
+  dist/server (a self-contained Node server: dependencies are bundled).
 - apps/<tool-name>: each standalone tool/app in its own package.
 - packages/ui (@trilleo/ui): shared React components and the Tailwind v4
   theme (`theme.css`, CSS `@theme` tokens). Source-only, no build step.
-- packages/db: Drizzle schema + client (Postgres).
+- packages/db (@trilleo/db): Drizzle schema, migrations, and client. Source-only.
 - Blog content: Markdown/MDX in Astro content collections.
 - Workspace packages use the `@trilleo/*` scope.
 
@@ -63,25 +65,49 @@
   URLs, and robots.txt all derive from it.
 - `pnpm build` also builds the Pagefind search index (skipped while there are no
   published posts). `pnpm test:e2e` makes its own drafts-included build in
-  apps/web/dist-e2e and serves it on port 4329.
+  apps/web/dist-e2e and serves it on port 4329 with an in-memory database.
 - Vite wraps every `import()` in bundled Astro scripts with a preload helper that
   breaks when Astro inlines the script; load runtime-only modules (like Pagefind)
   from an `is:inline` script instead.
 
+## Database
+
+- Schema: packages/db/src/schema.ts. After changing it, run
+  `pnpm --filter @trilleo/db db:generate` and commit the migration; CI fails if
+  they don't match. Migrations must stay compatible with the previous release
+  (add, then remove in a later release), because rollbacks don't undo them.
+- Server code gets the database from `getDb()` (apps/web/src/lib/db.ts), which
+  connects and applies pending migrations on first use; the health route
+  (/api/health) triggers that when the container starts.
+- DATABASE_URL: a Postgres URL in production (password via PGPASSWORD),
+  `memory://` in e2e; unset in `pnpm dev`, which uses PGlite in
+  apps/web/.data/pglite (delete it to reset). Tests use in-memory PGlite. A
+  built server also needs MIGRATIONS_DIR.
+- PGlite stays out of the server bundle (vite.ssr.external) and is only a dev
+  dependency of apps/web; production never imports it.
+- Use the query builder in app code: raw `db.execute()` results differ by driver.
+
 ## Deploy
 
-- Runbook: deploy/README.md. Push to main → CI → Deploy workflow builds the
-  Dockerfile image (static site + Caddy), pushes it to Huawei SWR, and SSHes to
-  the server as `deploy`, whose key can only run /usr/local/bin/trilleo-deploy.
+- Runbook: deploy/README.md. Push to main → CI → Deploy workflow builds two
+  images from the Dockerfile (`web`: Caddy + static files; `app`: the Astro
+  server), copies the Postgres image to Huawei SWR, pushes everything there, and
+  SSHes to the server as `deploy`, whose key can only run
+  /usr/local/bin/trilleo-deploy.
 - The server is in mainland China: it can't rely on ghcr.io or Docker Hub. Images
   come from SWR (built outside China by GitHub Actions); Docker comes from
   Huawei's mirror. Don't add runtime pulls from blocked registries.
 - deploy/Caddyfile accepts only Cloudflare's ranges (deploy/cloudflare-ips.txt;
-  CI checks it against Cloudflare's live list). CSP is report-only for now.
-- Server config (deploy/compose.yaml) ships inside the image; changing it only
-  needs a deploy. deploy/server/trilleo-deploy changes need a manual reinstall.
-- CI's "Docker image" job builds the image and runs deploy/smoke-test.sh.
-  Docker isn't installed on the dev machine, so the image is verified in CI.
+  CI checks it against Cloudflare's live list). It serves files that exist and
+  proxies everything else to the app, so new server routes need no Caddy change;
+  /api/health stays internal. CSP is report-only for now.
+- Server config (deploy/compose.yaml) ships inside the web image; changing it only
+  needs a deploy. deploy/server/* changes (trilleo-deploy, trilleo-backup) need a
+  manual reinstall. Server-only secrets live in /srv/trilleo/*.env, never in git
+  or GitHub.
+- CI's "Docker image" job builds both images and runs deploy/smoke-test.sh, which
+  starts the whole stack like the server does (including a backup). Docker isn't
+  installed on the dev machine, so the images are verified in CI.
 
 ## Commands
 

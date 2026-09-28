@@ -2,20 +2,26 @@
 
 ```
 push to main ─▶ CI passes ─▶ Deploy workflow
-                              ├─ build image (site + Caddy) ─▶ Huawei SWR  …/web:<commit>
+                              ├─ build images ─▶ Huawei SWR  …/web:<commit>  (Caddy + static site)
+                              │                              …/app:<commit>  (Astro server, Node)
+                              ├─ copy postgres:18 from Docker Hub ─▶ SWR  …/postgres:18
                               ├─ ssh deploy@server <commit>   (key can only run trilleo-deploy)
                               │     └─ server pulls from SWR, restarts, waits until healthy
                               └─ checks https://www.trilleo.net/version.txt == <commit>
 
-visitor ─HTTPS─▶ Cloudflare ─HTTPS (Origin cert, "Full (strict)")─▶ Caddy :443 on the server
+visitor ─HTTPS─▶ Cloudflare ─HTTPS (Origin cert, "Full (strict)")─▶ web (Caddy :443)
+                                            static files ◀─┘   └─▶ everything else: app :4321 ─▶ db (Postgres)
 ```
 
 - The server only answers Cloudflare's IP ranges (`cloudflare-ips.txt`); `trilleo.net`
   redirects to `www.trilleo.net`.
-- The image carries its own `compose.yaml`, so server config ships with each release.
+- Caddy serves any file that exists and forwards other requests to the app, so the static
+  site keeps working even if the app is down. Only Caddy's ports are published.
+- The app applies database migrations when it starts; Docker's health check waits for it.
+- The web image carries `compose.yaml`, so server config ships with each release.
 - Files here: `Caddyfile`, `compose.yaml`, `start-caddy.sh` (image entrypoint),
-  `server/trilleo-deploy` (runs on the server), `smoke-test.sh` and
-  `check-cloudflare-ips.sh` (run by CI).
+  `server/trilleo-deploy` and `server/trilleo-backup` (+ `.cron`) (run on the server),
+  `smoke-test.sh` and `check-cloudflare-ips.sh` (run by CI).
 
 Placeholders below: `<SERVER_IP>`, `<REGION>` (your Huawei region, e.g. `cn-east-3`),
 `<ORG>` (your SWR organization name, e.g. `trilleo`).
@@ -112,19 +118,24 @@ apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io docke
 systemctl is-active docker && docker version && docker compose version
 ```
 
-**c. Create the deploy user and the app directory:**
+**c. Create the deploy user, the app directory, and the database password:**
 
 ```bash
 useradd --create-home --shell /bin/bash deploy
 usermod -aG docker deploy
 install -d -m 755 -o deploy -g deploy /srv/trilleo
 install -d -m 700 -o root -g root /srv/trilleo/certs
-echo "swr.$REGION.myhuaweicloud.com/$ORG/web" > /srv/trilleo/image-repo
-chown deploy:deploy /srv/trilleo/image-repo
-id deploy && cat /srv/trilleo/image-repo
+echo "swr.$REGION.myhuaweicloud.com/$ORG" > /srv/trilleo/registry
+chown deploy:deploy /srv/trilleo/registry
+( umask 077; pw="$(openssl rand -hex 32)"; printf 'POSTGRES_PASSWORD=%s\nPGPASSWORD=%s\n' "$pw" "$pw" > /srv/trilleo/db.env )
+chown root:deploy /srv/trilleo/db.env && chmod 640 /srv/trilleo/db.env
+id deploy && cat /srv/trilleo/registry && ls -l /srv/trilleo/db.env
 ```
 
-`id deploy` should list the `docker` group.
+`id deploy` should list the `docker` group, and `db.env` should be `-rw-r-----  root deploy`.
+The password is random and never needs typing: Postgres reads `POSTGRES_PASSWORD` the first
+time it starts, and the app uses `PGPASSWORD`. Changing it later means changing it inside
+Postgres too, so leave it alone.
 
 **d. Install the Origin certificate** from §1 step 3. Paste each into nano, then save with
 Ctrl+O, Enter, and exit with Ctrl+X:
@@ -146,23 +157,25 @@ openssl x509 -in /srv/trilleo/certs/origin.pem -noout -pubkey | sha256sum
 openssl pkey -in /srv/trilleo/certs/origin.key -pubout | sha256sum
 ```
 
-**e. Install the deploy script.** From your PC, in this repo (PowerShell):
+**e. Install the deploy and backup scripts.** From your PC, in this repo (PowerShell):
 
 ```powershell
-scp deploy/server/trilleo-deploy root@<SERVER_IP>:/usr/local/bin/trilleo-deploy
+scp deploy/server/trilleo-deploy deploy/server/trilleo-backup deploy/server/trilleo-backup.cron root@<SERVER_IP>:/tmp/
 ```
 
 Then on the server:
 
 ```bash
-sed -i 's/\r$//' /usr/local/bin/trilleo-deploy   # in case Windows added CRLF line endings
-chown root:root /usr/local/bin/trilleo-deploy
-chmod 755 /usr/local/bin/trilleo-deploy
+cd /tmp && sed -i 's/\r$//' trilleo-deploy trilleo-backup trilleo-backup.cron   # in case Windows added CRLF
+install -o root -g root -m 755 trilleo-deploy trilleo-backup /usr/local/bin/
+install -o root -g root -m 644 trilleo-backup.cron /etc/cron.d/trilleo-backup
+rm trilleo-deploy trilleo-backup trilleo-backup.cron
 sudo -u deploy trilleo-deploy; echo "exit code: $?"
 ```
 
 The last line should print the usage message and `exit code: 64` (it refuses to run
-without a commit hash), which shows it's installed and runnable by `deploy`.
+without a commit hash), which shows it's installed and runnable by `deploy`. The backup
+runs nightly at 03:30 (server time) once the first deploy has started the database.
 
 **f. Log the deploy user in to SWR** with the **pull** user from §2. It's stored in
 `/home/deploy/.docker/config.json`; Docker's warning that it's unencrypted is expected:
@@ -267,12 +280,28 @@ Push to `main`, or run **Actions → Deploy → Run workflow**. Watch it at
   again from SWR):
 
   ```bash
-  docker image ls "$(cat /srv/trilleo/image-repo)"   # available commits
+  docker image ls "$(cat /srv/trilleo/registry)/web"   # available commits
   sudo -u deploy trilleo-deploy <older-commit-sha>
   ```
 
-- **Logs / status:** `cd /srv/trilleo && sudo -u deploy docker compose ps` and
-  `sudo -u deploy docker compose logs -f`.
+  Rolling back doesn't undo database migrations; they're written to stay compatible with
+  the previous release (see `packages/db/src/schema.ts`).
+
+- **Logs / status:** `cd /srv/trilleo && docker compose ps` and
+  `docker compose logs -f app` (or `web`, `db`).
+- **Database shell:** `cd /srv/trilleo && docker compose exec db psql -U trilleo`.
+- **Backups:** nightly at 03:30 into `/srv/trilleo/backups` (14 days kept; log in
+  `/var/log/trilleo-backup.log`). Back up now with `trilleo-backup`. Copy one to your PC
+  (PowerShell): `scp root@<SERVER_IP>:/srv/trilleo/backups/<file>.dump .`
+- **Restore a backup** (replaces the current data; the app is stopped meanwhile):
+
+  ```bash
+  cd /srv/trilleo
+  docker compose stop app
+  docker compose exec -T db pg_restore -U trilleo -d trilleo --clean --if-exists --single-transaction < backups/<file>.dump
+  docker compose start app
+  ```
+
 - **Cloudflare IP ranges changed** (CI's "Cloudflare IP list is current" step fails):
   update `cloudflare-ips.txt` and the security group rules, then deploy.
 - **Enforce the Content-Security-Policy:** after browsing the live site with DevTools
@@ -293,3 +322,6 @@ Push to `main`, or run **Actions → Deploy → Run workflow**. Watch it at
 | Deploy fails at "Deploy on the server"         | `Host key verification failed`: `DEPLOY_KNOWN_HOSTS` is wrong; redo its §6 lines. `Load key … invalid format` or `Permission denied (publickey)`: `DEPLOY_SSH_KEY` isn't the exact key file (set it with §6's `cmd /c` line) or the key isn't in `authorized_keys`. A `docker pull` error: the server's pull login expired (§4f). |
 | `Permission denied (publickey)` for root       | Key login wasn't set up before §4g. Log in via Huawei console → ECS → Remote Login → **VNC**, move `/etc/ssh/sshd_config.d/10-trilleo.conf` away, `systemctl reload ssh`, redo §4a until `key login works`, then restore the file (§4g).                                                                                          |
 | Deploy fails at "Check the live site"          | The site is up but not the new version: check `trilleo-deploy` output in the job log and `docker compose ps`.                                                                                                                                                                                                                     |
+| Deploy log: `env file … db.env not found`      | §4c's `db.env` is missing.                                                                                                                                                                                                                                                                                                        |
+| Deploy log: a container is `unhealthy`         | The job log shows `docker compose ps` and the app's last log lines. Usually the app can't reach or migrate the database: `docker compose logs db app`. The static site keeps running meanwhile.                                                                                                                                   |
+| Cloudflare **502** on some pages only          | Static pages work but the app is down or restarting: `docker compose ps`, `docker compose logs app`.                                                                                                                                                                                                                              |

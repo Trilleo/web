@@ -34,11 +34,17 @@ First-time Playwright setup: `pnpm --filter @trilleo/web exec playwright install
 ## Layout
 
 ```
-apps/web        Astro site (static by default), Tailwind v4, React islands
+apps/web        Astro site (static by default, a Node server for dynamic routes), Tailwind v4
 packages/ui     @trilleo/ui: shared React components + Tailwind theme (theme.css)
-deploy/         Caddy config, server compose file and deploy script, runbook
-Dockerfile      Production image: the built site served by Caddy
+packages/db     @trilleo/db: Drizzle schema, migrations, and database client
+deploy/         Caddy config, server compose file, deploy and backup scripts, runbook
+Dockerfile      Production images: `web` (Caddy + static site) and `app` (Node server)
 ```
+
+The database needs no setup for development: `pnpm dev` uses PGlite (Postgres compiled
+to WebAssembly) in `apps/web/.data/`, and tests use an in-memory one. After changing
+`packages/db/src/schema.ts`, run `pnpm --filter @trilleo/db db:generate` and commit the
+new migration.
 
 Lint, format, and TypeScript base configs live at the repo root (`eslint.config.js`,
 `.prettierrc.json`, `tsconfig.base.json`).

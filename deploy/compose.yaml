@@ -1,11 +1,19 @@
-# Production stack on the server (/srv/trilleo). This file ships inside the image and
+# Production stack on the server (/srv/trilleo). This file ships inside the web image and
 # trilleo-deploy copies it out on every deploy, so it always matches the running release.
-# IMAGE comes from /srv/trilleo/.env, which trilleo-deploy writes.
+#   .env    written by trilleo-deploy: REGISTRY, WEB_IMAGE, APP_IMAGE
+#   db.env  created once by hand (deploy/README.md): the database password
 name: trilleo
 
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
+  # Caddy: TLS, the static site, and a reverse proxy to `app` for everything else.
   web:
-    image: ${IMAGE:?IMAGE must be set (see /srv/trilleo/.env)}
+    image: ${WEB_IMAGE:?WEB_IMAGE must be set (see /srv/trilleo/.env)}
     restart: unless-stopped
     ports:
       - "80:80"
@@ -38,12 +46,79 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    depends_on:
+      app:
+        condition: service_healthy
+    logging: *logging
+
+  # The Astro server. Only reachable inside this stack; migrates the database on start.
+  app:
+    image: ${APP_IMAGE:?APP_IMAGE must be set (see /srv/trilleo/.env)}
+    restart: unless-stopped
+    environment:
+      # No password here: postgres.js reads PGPASSWORD from db.env.
+      DATABASE_URL: postgres://trilleo@db:5432/trilleo
+    env_file: db.env
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4321/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *logging
+
+  # Postgres. The image is copied from Docker Hub to SWR by the Deploy workflow; the
+  # major version is pinned here, minor updates arrive with deploys.
+  db:
+    image: ${REGISTRY:?REGISTRY must be set (see /srv/trilleo/.env)}/postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: trilleo
+      POSTGRES_DB: trilleo
+    # POSTGRES_PASSWORD
+    env_file: db.env
+    volumes:
+      # Postgres 18 images keep their data under /var/lib/postgresql/18/.
+      - pgdata:/var/lib/postgresql
+    shm_size: 128mb
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      # Over TCP: during first-time setup Postgres runs socket-only, so this stays
+      # "starting" until the real server is up.
+      test:
+        [
+          "CMD",
+          "pg_isready",
+          "--host=127.0.0.1",
+          "--username=trilleo",
+          "--dbname=trilleo",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+      start_interval: 2s
+    logging: *logging
 
 volumes:
   caddy-data:
   caddy-config:
+  pgdata:

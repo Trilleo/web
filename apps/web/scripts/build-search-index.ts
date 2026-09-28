@@ -1,6 +1,6 @@
 /**
  * Builds the Pagefind search index for published post pages (/writing/<slug>/).
- * Usage: node scripts/build-search-index.ts <site-dir>
+ * Usage: node scripts/build-search-index.ts <static-files-dir> (e.g. dist/client)
  *
  * Skips cleanly when there are no post pages yet: Pagefind itself fails on an empty
  * index, which would otherwise break every build until the first post is published.
@@ -11,7 +11,7 @@ import * as pagefind from "pagefind";
 
 const POST_PAGES = "writing/*/index.html";
 
-const site = process.argv[2] ?? "dist";
+const site = process.argv[2] ?? "dist/client";
 const writing = join(site, "writing");
 const postCount = existsSync(writing)
   ? readdirSync(writing, { withFileTypes: true }).filter(

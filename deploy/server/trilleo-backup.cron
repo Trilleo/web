@@ -1,0 +1,4 @@
+# Nightly database backup (see trilleo-backup). Installed as /etc/cron.d/trilleo-backup:
+# cron skips files in /etc/cron.d whose names contain a dot.
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+30 3 * * * root /usr/local/bin/trilleo-backup >>/var/log/trilleo-backup.log 2>&1

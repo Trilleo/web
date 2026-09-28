@@ -34,7 +34,8 @@ jobs:
       url: https://www.trilleo.net
     env:
       SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
-      IMAGE: ${{ vars.SWR_REGISTRY }}/${{ vars.SWR_ORG }}/web
+      # Images: $REGISTRY/web, $REGISTRY/app, and $REGISTRY/postgres (a copy).
+      REGISTRY: ${{ vars.SWR_REGISTRY }}/${{ vars.SWR_ORG }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -49,18 +50,42 @@ jobs:
           username: ${{ secrets.SWR_USERNAME }}
           password: ${{ secrets.SWR_PASSWORD }}
 
-      - name: Build and push the image
+      # Plain image manifests (no attestation index) for the widest registry support.
+      - name: Build and push the app image
         uses: docker/build-push-action@v7
         with:
           context: .
+          target: app
           push: true
-          tags: ${{ env.IMAGE }}:${{ env.SHA }}
+          tags: ${{ env.REGISTRY }}/app:${{ env.SHA }}
           build-args: GIT_SHA=${{ env.SHA }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          # A plain image manifest (no attestation index) for the widest registry support.
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,mode=max,scope=app
           provenance: false
           sbom: false
+
+      - name: Build and push the web image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: web
+          push: true
+          tags: ${{ env.REGISTRY }}/web:${{ env.SHA }}
+          build-args: GIT_SHA=${{ env.SHA }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+          provenance: false
+          sbom: false
+
+      # The server can't pull from Docker Hub, so copy the Postgres image that
+      # compose.yaml names into SWR. Refreshing it each time brings minor updates.
+      - name: Copy Postgres to SWR
+        run: |
+          tag="$(sed -n 's|.*/postgres:\([^[:space:]"]*\).*|\1|p' deploy/compose.yaml)"
+          test -n "$tag"
+          docker pull --quiet --platform linux/amd64 "postgres:$tag"
+          docker tag "postgres:$tag" "$REGISTRY/postgres:$tag"
+          docker push --quiet "$REGISTRY/postgres:$tag"
 
       - name: Deploy on the server
         env:

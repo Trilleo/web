@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Deploys one release of the site: pulls the image for a commit, starts it, and waits
-# until it's healthy. Installed on the server as /usr/local/bin/trilleo-deploy (owned
-# by root, so the deploy user can run it but not change it). See deploy/README.md.
+# Deploys one release: pulls the images for a commit, starts the stack, and waits until
+# every service is healthy. Installed on the server as /usr/local/bin/trilleo-deploy
+# (owned by root, so the deploy user can run it but not change it). See deploy/README.md.
 #
 #   From CI, as the deploy user's SSH forced command:  ssh deploy@server <git-sha>
 #   By hand, e.g. to roll back (as root):  sudo -u deploy trilleo-deploy <git-sha>
@@ -18,26 +18,39 @@ if [[ ! "$tag" =~ ^[0-9a-f]{40}$ ]]; then
 fi
 
 cd "$APP_DIR"
-repo="$(<image-repo)" # e.g. swr.cn-east-3.myhuaweicloud.com/trilleo/web
-image="$repo:$tag"
+registry="$(<registry)" # e.g. swr.cn-southwest-2.myhuaweicloud.com/trilleo
+web="$registry/web:$tag"
+app="$registry/app:$tag"
 
-echo "==> Pulling $image"
-docker pull --quiet "$image"
+echo "==> Pulling $tag"
+docker pull --quiet "$web"
+docker pull --quiet "$app"
 
 echo "==> Taking compose.yaml from the image"
-docker run --rm --entrypoint cat "$image" /deploy/compose.yaml >compose.yaml.new
+docker run --rm --entrypoint cat "$web" /deploy/compose.yaml >compose.yaml.new
 mv compose.yaml.new compose.yaml
-printf 'IMAGE=%s\n' "$image" >.env
+printf 'REGISTRY=%s\nWEB_IMAGE=%s\nAPP_IMAGE=%s\n' "$registry" "$web" "$app" >.env
+
+# The Deploy workflow refreshes this tag, so Postgres minor updates arrive here.
+docker compose pull --quiet db
 
 echo "==> Starting"
-docker compose up --detach --wait --wait-timeout 90 --remove-orphans
+if ! docker compose up --detach --wait --wait-timeout 180 --remove-orphans; then
+	docker compose ps --all >&2
+	docker compose logs --tail 50 app >&2
+	exit 1
+fi
 printf '%s\n' "$tag" >current
 echo "==> Live: $tag"
 
-# Keep the newest few images for quick rollbacks. The running image is never removed
-# (Docker refuses while a container uses it), even after rolling back to an old one.
-docker image ls "$repo" --format '{{.CreatedAt}}|{{.Repository}}:{{.Tag}}' |
-	sort -r |
-	tail -n "+$((KEEP_IMAGES + 1))" |
-	cut -d '|' -f 2 |
-	xargs -r docker image rm >/dev/null 2>&1 || true
+# Keep the newest few images for quick rollbacks. The running images are never removed
+# (Docker refuses while a container uses them), even after rolling back to old ones.
+for name in web app; do
+	docker image ls "$registry/$name" --format '{{.CreatedAt}}|{{.Repository}}:{{.Tag}}' |
+		sort -r |
+		tail -n "+$((KEEP_IMAGES + 1))" |
+		cut -d '|' -f 2 |
+		xargs -r docker image rm >/dev/null 2>&1 || true
+done
+# Untagged leftovers, such as the previous Postgres image after an update.
+docker image prune --force >/dev/null

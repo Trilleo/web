@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 
 // Its own port, so a dev server on 4321 is never mistaken for the build under test.
@@ -12,7 +13,15 @@ const prebuilt = process.env.E2E_PREBUILT === "1";
  * pages and search have content to test), written to dist-e2e/ and served by
  * `astro preview`. The real `pnpm build` never includes drafts.
  */
-const e2eEnv = { INCLUDE_DRAFTS: "true", ASTRO_OUT_DIR: "./dist-e2e" };
+const e2eEnv = {
+  INCLUDE_DRAFTS: "true",
+  ASTRO_OUT_DIR: "./dist-e2e",
+  // The server's database: a fresh in-memory PGlite for every run.
+  DATABASE_URL: "memory://",
+  MIGRATIONS_DIR: fileURLToPath(
+    new URL("../../packages/db/migrations", import.meta.url),
+  ),
+};
 
 // `astro` directly (not through pnpm) so stopping the server stops the real process.
 // --ignore-lock keeps it in the foreground: Astro 7 may otherwise background itself

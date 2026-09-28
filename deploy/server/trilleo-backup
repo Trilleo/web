@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Backs up the database: a pg_dump (custom format, compressed) into $APP_DIR/backups,
+# keeping the last KEEP_DAYS days. Installed on the server as
+# /usr/local/bin/trilleo-backup and run nightly by /etc/cron.d/trilleo-backup (as root).
+# Restoring one is in deploy/README.md.
+#
+#   trilleo-backup                        # back up now
+#   TRILLEO_DIR=/elsewhere trilleo-backup # another stack directory (CI's smoke test)
+set -euo pipefail
+
+APP_DIR="${TRILLEO_DIR:-/srv/trilleo}"
+BACKUP_DIR="$APP_DIR/backups"
+KEEP_DAYS=14
+
+cd "$APP_DIR"
+install -d -m 700 "$BACKUP_DIR"
+file="$BACKUP_DIR/trilleo-$(date -u +%Y%m%dT%H%M%SZ).dump"
+
+# Written under a temporary name so a failed dump never looks like a good backup.
+trap 'rm -f "$file.partial"' EXIT
+docker compose exec -T db pg_dump --username=trilleo --dbname=trilleo --format=custom >"$file.partial"
+mv "$file.partial" "$file"
+
+find "$BACKUP_DIR" -name 'trilleo-*.dump' -mtime "+$((KEEP_DAYS - 1))" -delete
+echo "Backed up to $file ($(du -h "$file" | cut -f 1))"

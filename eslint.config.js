@@ -16,6 +16,7 @@ export default defineConfig([
     "**/dist-e2e/",
     "**/.astro/",
     "**/.turbo/",
+    "**/.data/",
     "**/coverage/",
     "**/playwright-report/",
     "**/test-results/",
