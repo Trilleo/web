@@ -10,7 +10,7 @@
 # only on purpose. Dependabot proposes updates monthly; keep the Node versions in step.
 
 # 1. Build the site with the workspace's pinned pnpm.
-FROM node:24.21.0-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS build
+FROM node:26.10.0-slim@sha256:ec7758ee051e457b468b32bde57b0879010b325bb9862718e9615225ce4aaae1 AS build
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     SKIP_INSTALL_SIMPLE_GIT_HOOKS=1 \
     ASTRO_TELEMETRY_DISABLED=1 \
@@ -33,7 +33,7 @@ ARG GIT_SHA=unknown
 RUN printf '%s\n' "$GIT_SHA" > apps/web/dist/client/version.txt
 
 # 2. The Astro server. Its build bundles its dependencies, so there's no node_modules.
-FROM node:24.21.0-alpine3.24@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS app
+FROM node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS app
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=4321 \
