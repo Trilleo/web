@@ -22,6 +22,8 @@
     "@astrojs/sitemap": "^3.7.4",
     "@tailwindcss/vite": "^4.3.3",
     "@trilleo/db": "workspace:*",
+    "@trilleo/tool-kit": "workspace:*",
+    "@trilleo/tool-notes": "workspace:*",
     "@trilleo/ui": "workspace:*",
     "astro": "^7.3.5",
     "drizzle-orm": "^0.45.3",

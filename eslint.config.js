@@ -57,10 +57,14 @@ export default defineConfig([
     },
   },
 
-  // React components.
+  // React: hooks can live in plain .ts files (e.g. @trilleo/tool-kit), JSX in .tsx.
+  {
+    files: ["**/*.{ts,tsx}"],
+    extends: [reactHooks.configs.flat.recommended],
+  },
   {
     files: ["**/*.tsx"],
-    extends: [reactHooks.configs.flat.recommended, jsxA11y.configs.recommended],
+    extends: [jsxA11y.configs.recommended],
   },
 
   // Astro components.

@@ -17,7 +17,11 @@
   except PGlite, because the app image has no node_modules).
   `pnpm --filter @trilleo/web run check:server` runs the build outside the repo to
   prove it (CI does too); run it after adding server-side dependencies.
-- apps/<tool-name>: each standalone tool/app in its own package.
+- apps/<tool-name> (@trilleo/tool-<name>): each tool in its own source-only
+  package, exporting its details (`./meta`) and a React app that apps/web mounts
+  at /tools/<name>/. First tool: apps/notes.
+- packages/tool-kit (@trilleo/tool-kit): what tools share: `ToolMeta`, storage
+  (this browser, or the account via the data API), and the `useToolItems` hook.
 - packages/ui (@trilleo/ui): shared React components and the Tailwind v4
   theme (`theme.css`, CSS `@theme` tokens). Source-only, no build step.
 - packages/db (@trilleo/db): Drizzle schema, migrations, and client. Source-only.
@@ -137,6 +141,22 @@
   are fresh accounts (`freshLogin()` in e2e/support.ts) with unique comment text,
   and no test may sign the shared admin out everywhere.
 
+## Tools
+
+- apps/web/src/lib/tools/registry.ts lists every tool; /tools, the home page's
+  Tools section and the data API all read it. Planned tools can be listed with
+  details only (no package needed).
+- Each tool has a page, src/pages/tools/<name>.astro: `ToolLayout` plus the app
+  with `client:load` (Astro can only hydrate components it sees imported, so
+  there's no shared dynamic route). Pages render on the server, so the app gets
+  the signed-in state and, for signed-in people, their data up front.
+- Tools work signed out, keeping data in this browser; signed in, it goes to the
+  account. Notes offers to move browser data into a newly signed-in account.
+- Account data: the tool_data table (user, tool, key → JSON value) behind
+  /api/tools/<tool>/data[/<key>] (src/lib/tools/api.ts): sign-in and same-origin
+  checks, at most 500 keys and 200 KB per value, and the tool's own
+  `isValidValue` from its meta. Deleting an account deletes its tool data.
+
 ## Deploy
 
 - Runbook: deploy/README.md. Push to main → CI → Deploy workflow builds two
@@ -180,4 +200,27 @@
 
 ## Adding a new tool
 
-(Fill in once the first tool is added; this becomes the checklist.)
+Copy apps/notes as the template, then:
+
+1. Package: apps/<name>, named `@trilleo/tool-<name>`, with exports `.` (the React
+   app) and `./meta` (its `ToolMeta`: slug, name, description, status, shape).
+   Keep meta free of React imports: the server reads it.
+2. Saving data? Use `useToolStorage` + `useToolItems` from @trilleo/tool-kit, and
+   give the meta an `isValidValue` (the server's only check on what's saved).
+   Without one, the data API refuses the tool.
+3. Register it: add the meta to `TOOLS` in apps/web/src/lib/tools/registry.ts;
+   add the package to apps/web's dependencies as `workspace:*`; and copy its
+   package.json in the Dockerfile's build stage, next to the others (otherwise
+   the image build can't install it).
+4. Page: apps/web/src/pages/tools/<name>.astro, as notes.astro does
+   (`prerender = false`, no-store, `ToolLayout`, the app with `client:load`).
+5. Styles: add `@source "../../../<name>/src";` to apps/web/src/styles/global.css
+   so Tailwind sees the tool's classes. Use the design system's classes.
+6. Tests: Vitest in the package (logic, and components with Testing Library);
+   a Playwright spec in apps/web/e2e/ (fresh accounts via `freshLogin()`); add its
+   page to e2e/a11y.spec.ts.
+7. Before pushing: typecheck, lint, test, test:e2e, then `pnpm build` and
+   `pnpm --filter @trilleo/web run check:server` (the server must still run
+   without node_modules). No server changes are needed to deploy.
+8. A tool that needs its own server gets a subdomain instead; that recipe isn't
+   written yet.

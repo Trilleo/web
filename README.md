@@ -35,8 +35,10 @@ First-time Playwright setup: `pnpm --filter @trilleo/web exec playwright install
 
 ```
 apps/web        Astro site (static by default, a Node server for dynamic routes), Tailwind v4
+apps/notes      @trilleo/tool-notes: the Notes tool (/tools/notes/)
 packages/ui     @trilleo/ui: shared React components + Tailwind theme (theme.css)
 packages/db     @trilleo/db: Drizzle schema, migrations, and database client
+packages/tool-kit  @trilleo/tool-kit: what tools share (storage, data hook, types)
 deploy/         Caddy config, server compose file, deploy and backup scripts, runbook
 Dockerfile      Production images: `web` (Caddy + static site) and `app` (Node server)
 ```

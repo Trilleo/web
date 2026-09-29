@@ -33,7 +33,10 @@ test("home renders every section with self-hosted fonts and no errors", async ({
     page.getByRole("heading", { level: 2, name: /Built by hand/ }),
   ).toBeVisible();
   await expect(page.locator("#writing ol > li")).toHaveCount(4);
-  await expect(page.locator("#tools ul > li")).toHaveCount(3);
+  await expect(page.locator("#tools ul > li")).toHaveCount(1);
+  await expect(
+    page.locator("#tools").getByRole("link", { name: /Notes/ }),
+  ).toHaveAttribute("href", "/tools/notes/");
 
   await page.evaluate(() => document.fonts.ready);
   const brandFontLoaded = await page.evaluate(() =>

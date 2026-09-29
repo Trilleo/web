@@ -10,6 +10,7 @@ export const GITHUB_URL = "https://github.com/Trilleo";
 export const PRIVATE_PATHS = [
   "/account",
   "/admin",
+  "/api/",
   "/auth/",
   "/comments",
   "/sign-in",
@@ -28,7 +29,7 @@ export interface NavItem {
 /** Main navigation. Numbers match the home page's section headers. */
 export const NAV_ITEMS: readonly NavItem[] = [
   { number: "01", label: "Writing", href: "/writing/" },
-  { number: "02", label: "Tools", href: "/#tools" },
+  { number: "02", label: "Tools", href: "/tools/" },
   { number: "03", label: "About", href: "/#colophon" },
 ];
 

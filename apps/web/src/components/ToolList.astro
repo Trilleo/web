@@ -9,9 +9,12 @@ import ToolShape from "./ToolShape.astro";
 
 interface Props {
   tools: readonly ToolListing[];
+  /** 3 under a page section's h2 (home); 2 straight under the page's h1 (/tools). */
+  headingLevel?: 2 | 3;
 }
 
-const { tools } = Astro.props;
+const { tools, headingLevel = 3 } = Astro.props;
+const Heading = headingLevel === 2 ? "h2" : "h3";
 ---
 
 <ul class="tools border-t border-l border-ink">
@@ -38,9 +41,9 @@ const { tools } = Astro.props;
           />
         </div>
         <div class="tool-body flex flex-col gap-2 md:gap-2.5 xl:gap-3">
-          <h3 class="type-card">
+          <Heading class="type-card">
             {tool.href ? <a href={tool.href}>{tool.name}</a> : tool.name}
-          </h3>
+          </Heading>
           <p class="text-[15px] leading-normal text-muted xl:text-base">
             {tool.description}
           </p>

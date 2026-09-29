@@ -1,0 +1,27 @@
+---
+import { signInHref } from "@trilleo/tool-kit";
+import { NotesApp, meta, type Note } from "@trilleo/tool-notes";
+import ToolLayout from "../../components/tools/ToolLayout.astro";
+import { getDb } from "../../lib/db";
+import { toolPath } from "../../lib/tools/registry";
+import { listToolData } from "../../lib/tools/store";
+
+// Rendered per visit: signed-in people get their notes in the page itself.
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const { user } = Astro.locals;
+const initialNotes = user
+  ? await listToolData<Note>(await getDb(), user.id, meta.slug)
+  : undefined;
+---
+
+<ToolLayout meta={meta}>
+  <NotesApp
+    client:load
+    signedIn={user !== null}
+    signInHref={signInHref(toolPath(meta.slug))}
+    initialNotes={initialNotes}
+  />
+</ToolLayout>

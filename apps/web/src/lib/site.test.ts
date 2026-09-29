@@ -6,6 +6,7 @@ describe("isPrivatePath", () => {
     for (const path of [
       "/account",
       "/admin/",
+      "/api/tools/notes/data",
       "/auth/github",
       "/comments",
       "/sign-in/",

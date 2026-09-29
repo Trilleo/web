@@ -1,0 +1,40 @@
+---
+import ToolList from "../../components/ToolList.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { toolListings } from "../../lib/tools/registry";
+
+const tools = toolListings();
+const count = `${String(tools.length)} ${tools.length === 1 ? "tool" : "tools"}`;
+---
+
+<BaseLayout
+  title="Tools"
+  description="Small web tools that work in your browser; sign in to keep what you make."
+>
+  <section
+    aria-labelledby="tools-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <div class="grid-swiss type-label">
+      <span class="col-span-2 md:col-span-4 xl:col-span-3">(02) Tools</span>
+      <span class="col-span-2 text-right text-muted md:col-span-4 xl:col-span-3 xl:col-start-10">
+        {count}
+      </span>
+    </div>
+
+    <h1 id="tools-title" class="type-display mt-5 -ml-[0.03em] xl:mt-7">
+      Tools<span class="text-accent">.</span>
+    </h1>
+
+    <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <p class="type-lead col-span-4 md:col-span-6 md:col-start-3 xl:col-start-4">
+        Small web tools, built alongside the writing. They work in your browser;
+        sign in to keep what you make.
+      </p>
+    </div>
+
+    <div class="mt-10 md:mt-14 xl:mt-16">
+      <ToolList tools={tools} headingLevel={2} />
+    </div>
+  </section>
+</BaseLayout>

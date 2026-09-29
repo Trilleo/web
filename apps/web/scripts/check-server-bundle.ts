@@ -70,6 +70,9 @@ const expected: [string, number][] = [
   ["/sign-in", 200],
   ["/admin", 302],
   ["/account", 302],
+  // Renders the Notes app (React, the tool packages, markdown-it) on the server.
+  ["/tools/notes/", 200],
+  ["/api/tools/notes/data", 401],
   ["/api/health", 503],
 ];
 for (const [path, status] of expected) {

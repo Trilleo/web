@@ -1,0 +1,45 @@
+---
+/** The frame around a tool's app: the site's layout, a way back, the tool's name. */
+import type { ToolMeta } from "@trilleo/tool-kit";
+import { ArrowLeftIcon } from "@trilleo/ui";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+interface Props {
+  meta: ToolMeta;
+}
+
+const { meta } = Astro.props;
+---
+
+<BaseLayout title={meta.name} description={meta.description}>
+  <div class="grid-swiss px-page type-label border-b border-hair py-3 xl:py-4">
+    <span class="col-span-2 md:col-span-4 xl:col-span-3">
+      (02) Tools / {meta.name}
+    </span>
+    <a
+      href="/tools/"
+      class="col-span-2 inline-flex items-center gap-2 justify-self-end underline-offset-4 hover:underline md:col-span-4 xl:col-span-3 xl:col-start-10"
+    >
+      <ArrowLeftIcon size={16} />
+      All tools
+    </a>
+  </div>
+
+  <section
+    aria-labelledby="tool-title"
+    class="px-page pt-8 pb-24 md:pt-10 xl:pt-14 xl:pb-32"
+  >
+    <div class="grid-swiss gap-y-4 pb-8 md:pb-10">
+      <h1
+        id="tool-title"
+        class="type-headline col-span-4 md:col-span-6 xl:col-span-9"
+      >
+        {meta.name}
+      </h1>
+      <p class="type-dek col-span-4 max-w-[47.5rem] text-muted md:col-span-6 xl:col-span-9">
+        {meta.description}
+      </p>
+    </div>
+    <slot />
+  </section>
+</BaseLayout>

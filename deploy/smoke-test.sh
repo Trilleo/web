@@ -154,6 +154,16 @@ status="$(site --output /dev/null --write-out '%{http_code}' --request POST \
 	"https://www.trilleo.net/comments")"
 [[ "$status" == "404" ]] || fail "posting a comment answered $status"
 
+echo "==> tools: pages render, and the data API wants a signed-in user"
+status="$(site --output "$stack/notes.html" --write-out '%{http_code}' "https://www.trilleo.net/tools/notes/")"
+[[ "$status" == "200" ]] || fail "/tools/notes/ answered $status"
+grep -q 'astro-island' "$stack/notes.html" || fail "/tools/notes/ has no app to hydrate"
+status="$(site --output /dev/null --write-out '%{http_code}' "https://www.trilleo.net/tools/")"
+[[ "$status" == "200" ]] || fail "/tools/ answered $status"
+headers="$(site --dump-header - --output /dev/null "https://www.trilleo.net/api/tools/notes/data")"
+grep -qi '^HTTP/[0-9.]* 401' <<<"$headers" || fail "tool data API without sign-in: $headers"
+grep -qi '^cache-control: no-store' <<<"$headers" || fail "tool data API should not be cached"
+
 echo "==> the database was migrated"
 migrations="$(docker compose exec -T db psql --username=trilleo --dbname=trilleo --tuples-only --no-align \
 	--command='select count(*) from drizzle.__drizzle_migrations')" || fail "couldn't read the migrations table"

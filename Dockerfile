@@ -20,8 +20,11 @@ WORKDIR /repo
 
 # Manifests first, so dependency installs stay cached until they change.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Every workspace package's manifest (a new tool package needs a line here too).
 COPY apps/web/package.json apps/web/
+COPY apps/notes/package.json apps/notes/
 COPY packages/db/package.json packages/db/
+COPY packages/tool-kit/package.json packages/tool-kit/
 COPY packages/ui/package.json packages/ui/
 RUN pnpm install --frozen-lockfile
 

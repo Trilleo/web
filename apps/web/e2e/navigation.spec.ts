@@ -24,13 +24,14 @@ test.describe("phone", () => {
   test("choosing a section closes the menu", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Menu" }).click();
+    // A link to a section of this same page, so the menu has to close itself.
     await page
       .locator("#site-menu")
-      .getByRole("link", { name: /Tools/ })
+      .getByRole("link", { name: /About/ })
       .click();
 
     await expect(page.locator("#site-menu")).toBeHidden();
-    await expect(page).toHaveURL(/#tools$/);
+    await expect(page).toHaveURL(/#colophon$/);
   });
 });
 

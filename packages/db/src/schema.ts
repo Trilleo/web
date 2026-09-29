@@ -7,8 +7,10 @@ import {
   bigint,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uuid,
@@ -91,7 +93,30 @@ export const comments = pgTable(
   ],
 );
 
+/**
+ * What tools save for signed-in people: one JSON value per (user, tool, key), e.g. a
+ * note per key in Notes. The site's tool API checks each tool's own schema and size
+ * limits before anything lands here. Goes with the account.
+ */
+export const toolData = pgTable(
+  "tool_data",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** The tool's slug, e.g. "notes". */
+    tool: text("tool").notNull(),
+    key: text("key").notNull(),
+    value: jsonb("value").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.tool, table.key] })],
+);
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
 export type CommentStatus = (typeof commentStatus.enumValues)[number];
+export type ToolDataRow = typeof toolData.$inferSelect;

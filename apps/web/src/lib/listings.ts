@@ -1,4 +1,7 @@
 /** Shapes of the post and tool lists. */
+import type { ToolShape, ToolStatus } from "@trilleo/tool-kit";
+
+export type { ToolShape, ToolStatus };
 
 export interface PostListing {
   /** Stable post number, e.g. "002" (see numberPosts). */
@@ -10,11 +13,6 @@ export interface PostListing {
   draft: boolean;
   readingMinutes: number;
 }
-
-export type ToolStatus = "planned" | "in-progress" | "live";
-
-/** The geometric mark on a tool card. */
-export type ToolShape = "circle" | "quarter" | "triangle";
 
 export interface ToolListing {
   name: string;

@@ -4,11 +4,14 @@ import Colophon from "../components/Colophon.astro";
 import PostList from "../components/PostList.astro";
 import SectionHeader from "../components/SectionHeader.astro";
 import ToolList from "../components/ToolList.astro";
-import { sampleTools } from "../data/samples";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { getPosts } from "../lib/collection";
 import { toListings } from "../lib/posts";
 import { SITE_BIO, SITE_DESCRIPTION, SITE_NAME } from "../lib/site";
+import { toolListings } from "../lib/tools/registry";
+
+const tools = toolListings();
+const toolCount = `${String(tools.length)} ${tools.length === 1 ? "tool" : "tools"}`;
 
 const HOME_POST_COUNT = 4;
 const posts = await getPosts();
@@ -94,10 +97,11 @@ const pageLinkClass =
       number="02"
       title="Tools"
       headingId="tools-title"
-      meta={`${String(sampleTools.length)} tools`}
+      meta={`All ${toolCount}`}
+      href="/tools/"
     />
     <div class="mt-6 md:mt-8 xl:mt-10">
-      <ToolList tools={sampleTools} />
+      <ToolList tools={tools} />
     </div>
   </section>
 

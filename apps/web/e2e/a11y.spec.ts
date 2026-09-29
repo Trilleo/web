@@ -9,6 +9,8 @@ const PAGES = [
   "/does-not-exist",
   "/sign-in",
   "/sign-in?error=state",
+  "/tools/",
+  "/tools/notes/",
 ];
 const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 900 },
