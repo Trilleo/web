@@ -9,7 +9,7 @@ draft: true
 
 The old site ran on WordPress. The new one starts from an empty repository: a static Astro site for writing, and a place to publish small web tools alongside it.
 
-[Your reasons for leaving WordPress go here.]
+WordPress had become slow and heavy for a site that was mostly text, and it never had a natural home for the tools I wanted to build. I also wanted a site I'd made myself, where every part is something I chose. The longer version is in [Why I moved off WordPress](/writing/why-i-moved-off-wordpress/).
 
 ## The shape of the repo
 
@@ -17,14 +17,17 @@ Everything lives in one pnpm workspace. Turborepo runs the tasks and caches thei
 
 ```text
 apps/
-  web/        Astro site: blog and pages
+  web/        Astro site: blog, pages, and sign-in
+  notes/      the first tool
 packages/
   ui/         React components and Tailwind theme
+  tool-kit/   what tools share: storage and hooks
+  db/         database schema and migrations
 turbo.json
 pnpm-workspace.yaml
 ```
 
-Each tool will get its own package under `apps/` and be served at `/tools/<name>`. The shared theme is plain CSS, so every app picks up the same type and color.[^theme]
+Each tool gets its own package under `apps/` and is served at `/tools/<name>`. The shared theme is plain CSS, so every app picks up the same type and color.[^theme]
 
 > Static by default. Server-rendered only where it has to be.
 

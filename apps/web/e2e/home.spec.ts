@@ -19,9 +19,9 @@ test("home renders every section with self-hosted fonts and no errors", async ({
 
   await page.goto("/");
 
-  await expect(page).toHaveTitle("Trilleo");
+  await expect(page).toHaveTitle("Trilleo Network");
   await expect(
-    page.getByRole("heading", { level: 1, name: "Trilleo." }),
+    page.getByRole("heading", { level: 1, name: "Hey It’s Trilleo." }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { level: 2, name: "Writing" }),

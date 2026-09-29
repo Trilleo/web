@@ -147,6 +147,21 @@
   }
 }
 
+/* The home page greeting: display type, shrunk so its longest line ("It’s
+   Trilleo.", about 4.55em wide) fits between the page gutters. */
+@utility type-hero {
+  font-size: min(5.5rem, calc((100vw - 2.5rem) / 4.7));
+  font-weight: 800;
+  line-height: 0.86;
+  letter-spacing: -0.065em;
+  @media (width >= 48rem) {
+    font-size: min(11rem, calc((100vw - 4rem) / 4.7));
+  }
+  @media (width >= 80rem) {
+    font-size: min(20rem, calc((100vw - 6rem) / 4.7));
+  }
+}
+
 @utility type-title {
   font-size: 3.25rem;
   font-weight: 700;

@@ -1,6 +1,7 @@
 ---
 import { CloseIcon, MenuIcon } from "@trilleo/ui";
 import { NAV_ITEMS, SITE_NAME } from "../lib/site";
+import Logo from "./Logo.astro";
 import ThemeToggle from "./ThemeToggle.astro";
 ---
 
@@ -10,7 +11,7 @@ import ThemeToggle from "./ThemeToggle.astro";
       href="/"
       class="col-span-2 inline-flex items-center gap-2.5 text-lg font-bold tracking-[-0.03em] md:text-xl xl:col-span-3"
     >
-      <span class="size-2.5 bg-accent" aria-hidden="true"></span>
+      <Logo class="size-6 shrink-0 md:size-7" />
       {SITE_NAME}
     </a>
 
@@ -29,7 +30,6 @@ import ThemeToggle from "./ThemeToggle.astro";
       ))}
     </nav>
 
-    <!-- Room for the GitHub sign-in button (Phase 5) sits here too. -->
     <div class="col-span-2 flex items-center justify-end gap-1 md:gap-3 xl:col-span-3">
       <ThemeToggle />
       <button

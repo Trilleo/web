@@ -21,17 +21,23 @@ test.describe("phone", () => {
     await expect(button).toBeFocused();
   });
 
-  test("choosing a section closes the menu", async ({ page }) => {
+  test("the menu's About link opens the about page", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Menu" }).click();
-    // A link to a section of this same page, so the menu has to close itself.
     await page
       .locator("#site-menu")
       .getByRole("link", { name: /About/ })
       .click();
 
-    await expect(page.locator("#site-menu")).toBeHidden();
-    await expect(page).toHaveURL(/#colophon$/);
+    await expect(page).toHaveURL("/about/");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "About." }),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole("navigation", { name: "Around the site" })
+        .getByRole("link"),
+    ).toHaveText([/^Writing/, /^Tools/, /^GitHub/]);
   });
 });
 

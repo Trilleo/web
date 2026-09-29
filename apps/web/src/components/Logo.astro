@@ -1,0 +1,26 @@
+---
+/**
+ * The Trilleo mark, traced from the channel's transparent logo (Trans Logo.png, 1024px)
+ * without its drop shadow. It draws in currentColor, so it follows the theme; the
+ * i's dot is the accent, like the full stop in the page titles.
+ * public/favicon.svg uses the same shapes; change both together.
+ */
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+---
+
+<svg
+  viewBox="160 162 704 704"
+  class={className}
+  fill="currentColor"
+  aria-hidden="true"
+  focusable="false"
+>
+  <path d="M174 198H849V304H284V827H174Z"></path>
+  <path d="M399 415H616V521H505V827H399Z"></path>
+  <path d="M721 589H828V827H721Z"></path>
+  <path d="M748 401L848 438L811 538L711 501Z" class="fill-accent"></path>
+</svg>

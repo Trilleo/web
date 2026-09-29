@@ -158,7 +158,7 @@ test.describe("feeds", () => {
     expect(response.ok()).toBe(true);
     const xml = await response.text();
     expect(xml).toContain("<channel>");
-    expect(xml).toContain("<title>Trilleo · Writing</title>");
+    expect(xml).toContain("<title>Trilleo Network · Writing</title>");
     expect(xml).not.toContain("<item>");
   });
 
