@@ -4,8 +4,26 @@ import node from "@astrojs/node";
 import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
+import type { AstroIntegration } from "astro";
 import { defineConfig } from "astro/config";
 import { SITE_URL, isPrivatePath } from "./src/lib/site";
+
+/**
+ * The app image has no node_modules (every new layer is a slow upload to SWR in
+ * China), so the production server must be one self-contained bundle. Vite leaves
+ * this package's own dependencies (react, drizzle-orm, …) as runtime imports unless
+ * told otherwise. Build-only: the dev server keeps Vite's usual handling.
+ * scripts/check-server-bundle.ts proves the result runs on its own.
+ */
+const bundleServerDependencies: AstroIntegration = {
+  name: "trilleo:bundle-server-dependencies",
+  hooks: {
+    "astro:config:setup": ({ command, updateConfig }) => {
+      if (command === "build")
+        updateConfig({ vite: { ssr: { noExternal: true } } });
+    },
+  },
+};
 
 // Local secrets for `pnpm dev` (apps/web/.env, gitignored; see .env.example). Server
 // code reads process.env, which Vite doesn't fill. Variables already set win, and
@@ -35,6 +53,7 @@ export default defineConfig({
     mdx(),
     // The sitemap would also list server pages such as /admin/; leave those out.
     sitemap({ filter: (page) => !isPrivatePath(new URL(page).pathname) }),
+    bundleServerDependencies,
   ],
   markdown: {
     shikiConfig: { theme: "vesper" },
@@ -42,9 +61,9 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     ssr: {
-      // The server build bundles its dependencies, but PGlite loads its WebAssembly
-      // files from next to its own code. Only dev and the e2e build use it (a
-      // devDependency here); production talks to Postgres and never imports it.
+      // The one exception to bundling (this list wins over `noExternal: true`):
+      // PGlite loads its WebAssembly files from next to its own code. Only dev and
+      // the e2e build use it (a devDependency here); production never imports it.
       external: ["@electric-sql/pglite"],
     },
   },

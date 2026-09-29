@@ -7,6 +7,7 @@
     "dev": "astro dev",
     "build": "astro build && node scripts/build-search-index.ts dist/client",
     "build:e2e": "astro build && node scripts/build-search-index.ts dist-e2e/client",
+    "check:server": "node scripts/check-server-bundle.ts dist",
     "preview": "astro preview",
     "typecheck": "astro check",
     "lint": "eslint .",

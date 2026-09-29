@@ -25,6 +25,11 @@ updates:
     groups:
       base-images:
         patterns: ["*"]
+    ignore:
+      # Node stays on the LTS line in .nvmrc (24); moving to a new major is a
+      # deliberate change there, in package.json#engines, and here together.
+      - dependency-name: node
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /

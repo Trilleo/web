@@ -49,6 +49,9 @@ jobs:
         run: pnpm test
       - name: Build
         run: pnpm build
+      # The app image has no node_modules, so the server must run from its bundle alone.
+      - name: Server runs without node_modules
+        run: pnpm --filter @trilleo/web run check:server
 
   e2e:
     name: E2E (Playwright)

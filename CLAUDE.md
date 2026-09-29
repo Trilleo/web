@@ -13,7 +13,10 @@
 - apps/web: Astro (TypeScript strict), static by default, server-rendered
   routes only where needed (`export const prerender = false`, run by
   @astrojs/node). Tailwind for styling. Builds to dist/client (static files) and
-  dist/server (a self-contained Node server: dependencies are bundled).
+  dist/server (a self-contained Node server: the build bundles every dependency
+  except PGlite, because the app image has no node_modules).
+  `pnpm --filter @trilleo/web run check:server` runs the build outside the repo to
+  prove it (CI does too); run it after adding server-side dependencies.
 - apps/<tool-name>: each standalone tool/app in its own package.
 - packages/ui (@trilleo/ui): shared React components and the Tailwind v4
   theme (`theme.css`, CSS `@theme` tokens). Source-only, no build step.
