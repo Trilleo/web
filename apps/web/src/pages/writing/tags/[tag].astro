@@ -30,18 +30,18 @@ const count = `${String(listings.length)} ${listings.length === 1 ? "post" : "po
     <div class="grid-swiss type-label text-muted">
       <a
         href="/writing/"
-        class="group col-span-2 text-ink md:col-span-4 xl:col-span-3"
+        class="group col-span-2 text-ink md:col-span-4 xl:col-span-2"
       >
         <span class="link-wipe">(01) Writing</span>
       </a>
-      <span class="hidden xl:col-span-3 xl:block">Tag</span>
+      <span class="hidden xl:col-span-4 xl:block">Tag</span>
       <span class="col-span-2 text-right md:col-span-4 xl:col-span-6">
         {count}
       </span>
     </div>
 
     <div class="grid-swiss mt-10 gap-y-6 pb-10 md:mt-14 md:pb-14 xl:mt-16 xl:pb-16">
-      <p class="type-label col-span-4 flex items-start gap-2 md:col-span-2 xl:col-span-3">
+      <p class="type-label col-span-4 flex items-start gap-2 md:col-span-2 xl:col-span-2">
         <span
           class="mt-0.5 size-2 bg-accent xl:size-2.5"
           aria-hidden="true"
@@ -50,11 +50,11 @@ const count = `${String(listings.length)} ${listings.length === 1 ? "post" : "po
       </p>
       <h1
         id="tag-title"
-        class="type-headline col-span-4 md:col-span-6 xl:col-span-9"
+        class="type-headline col-span-4 md:col-span-6 xl:col-span-10"
       >
         {name}
       </h1>
-      <div class="col-span-4 md:col-span-6 md:col-start-3 xl:col-span-9 xl:col-start-4">
+      <div class="col-span-4 md:col-span-6 md:col-start-3 xl:col-span-10 xl:col-start-3">
         <TagLinks tags={collectTags(posts)} current={tag} label="All tags" />
       </div>
     </div>

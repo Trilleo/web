@@ -52,11 +52,11 @@ const sections: Section[] = [
     <div class="grid-swiss gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
       <h2
         id={section.id}
-        class="type-label col-span-4 md:col-span-2 xl:col-span-3"
+        class="type-label col-span-4 md:col-span-2 xl:col-span-2"
       >
         {section.title}
       </h2>
-      <div class="col-span-4 md:col-span-6 xl:col-span-9">
+      <div class="col-span-4 md:col-span-6 xl:col-span-10">
         {section.comments.length === 0 ? (
           <p class="text-muted">{section.empty}</p>
         ) : (
@@ -167,10 +167,10 @@ const sections: Section[] = [
   ))}
 
   <div class="grid-swiss gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
-    <h2 id="blocked" class="type-label col-span-4 md:col-span-2 xl:col-span-3">
+    <h2 id="blocked" class="type-label col-span-4 md:col-span-2 xl:col-span-2">
       Blocked accounts ({blocked.length})
     </h2>
-    <div class="col-span-4 md:col-span-6 xl:col-span-9">
+    <div class="col-span-4 md:col-span-6 xl:col-span-10">
       {blocked.length === 0 ? (
         <p class="text-muted">Nobody is blocked.</p>
       ) : (

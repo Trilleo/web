@@ -12,7 +12,7 @@ const isCurrent = (href: string) => Astro.url.pathname.startsWith(href);
   <div class="grid-swiss px-page items-center py-3 md:py-4">
     <a
       href="/"
-      class="col-span-2 inline-flex items-center gap-2.5 text-lg font-bold tracking-[-0.03em] md:text-xl xl:col-span-3"
+      class="col-span-2 inline-flex items-center gap-2.5 text-lg font-bold tracking-[-0.03em] md:text-xl xl:col-span-2"
     >
       <Logo class="size-6 shrink-0 md:size-7" />
       {SITE_NAME}
@@ -20,7 +20,7 @@ const isCurrent = (href: string) => Astro.url.pathname.startsWith(href);
 
     <nav
       aria-label="Main"
-      class="hidden md:col-span-4 md:flex md:gap-7 xl:col-span-6 xl:gap-10"
+      class="hidden md:col-span-4 md:flex md:gap-7 xl:col-span-7 xl:gap-10"
     >
       {NAV_ITEMS.map((item) => (
         <a

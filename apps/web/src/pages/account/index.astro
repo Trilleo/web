@@ -40,8 +40,8 @@ const STATUS = {
     <DisplayTitle id="account-title">Account</DisplayTitle>
 
     <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
-      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-3">You</h2>
-      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-9">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">You</h2>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
         <p class="text-lg">
           Signed in with GitHub as{" "}
           <strong>{user.name ?? user.githubLogin}</strong>
@@ -85,10 +85,10 @@ const STATUS = {
       id="comments"
       class="grid-swiss mt-12 scroll-mt-6 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6"
     >
-      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-3">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
         Your comments ({own.length})
       </h2>
-      <div class="col-span-4 md:col-span-6 xl:col-span-9">
+      <div class="col-span-4 md:col-span-6 xl:col-span-10">
         {own.length === 0 ? (
           <p class="text-muted">You haven’t commented yet.</p>
         ) : (
@@ -137,13 +137,13 @@ const STATUS = {
     </div>
 
     <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
-      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-3">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
         Delete account
       </h2>
       <form
         method="post"
         action="/account/delete"
-        class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-6"
+        class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-7"
       >
         <p>
           Deletes your account, all your comments, and everything saved in tools

@@ -52,8 +52,8 @@ const facts: Fact[] = [
     </div>
 
     <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
-      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-3">Account</h2>
-      <dl class="col-span-4 grid grid-cols-2 gap-x-5 gap-y-4 md:col-span-6 xl:col-span-9 xl:grid-cols-3 xl:gap-x-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">Account</h2>
+      <dl class="col-span-4 grid grid-cols-2 gap-x-5 gap-y-4 md:col-span-6 xl:col-span-10 xl:grid-cols-3 xl:gap-x-6">
         {facts.map((fact) => (
           <div class="flex flex-col gap-1 xl:gap-1.5">
             <dt class="type-label text-muted">{fact.term}</dt>
@@ -70,7 +70,7 @@ const facts: Fact[] = [
         ))}
       </dl>
 
-      <div class="col-span-4 flex flex-wrap gap-3 md:col-span-6 md:col-start-3 xl:col-span-9 xl:col-start-4">
+      <div class="col-span-4 flex flex-wrap gap-3 md:col-span-6 md:col-start-3 xl:col-span-10 xl:col-start-3">
         <form method="post" action="/auth/logout">
           <button type="submit" class={buttonClasses()}>
             Sign out

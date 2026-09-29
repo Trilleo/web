@@ -55,6 +55,9 @@
   tokens switch themselves.
 - Breakpoints: phone < 768px (4 columns), md ≥ 768px (8), xl ≥ 1280px (12). Lay
   pages out with `grid-swiss` + `px-page`, and type with the `type-*` roles.
+- Small labels ("(01)", "About", post meta, contents) hang in a left column:
+  2 of 8 columns on iPad, 2 of 12 on desktop, so content starts at column 3.
+  Right-hand asides take columns 10–12 on desktop; post text is columns 3–9.
 - Fonts are self-hosted from npm (@fontsource-variable/*); no third-party requests.
 - Astro scoped styles don't reach child components: wrap a child in an element
   you own if the parent's CSS must place it.

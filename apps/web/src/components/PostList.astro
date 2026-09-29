@@ -112,7 +112,7 @@ const { posts, emptyMessage = "No posts yet.", headings = true } = Astro.props;
   /* Desktop: one row per post, like a table. */
   @media (width >= 80rem) {
     .post-row {
-      grid-template-areas: "num num num title title title title title title read date arrow";
+      grid-template-areas: "num num title title title title title title title read date arrow";
       align-items: baseline;
     }
     .post-number {
