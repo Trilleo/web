@@ -85,7 +85,7 @@ for header in \
 	grep -qi "^$header" <<<"$headers" || fail "missing header '$header'"
 done
 if grep -qi '^server:' <<<"$headers"; then fail "Server header should be removed"; fi
-grep -q '<title>Trilleo</title>' "$stack/home.html" || fail "home page content"
+grep -q '<title>Trilleo Network</title>' "$stack/home.html" || fail "home page content"
 
 echo "==> compression"
 site --output /dev/null --dump-header - -H 'Accept-Encoding: gzip' "https://www.trilleo.net/" |
