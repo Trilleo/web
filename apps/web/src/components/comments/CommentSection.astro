@@ -1,0 +1,131 @@
+---
+/**
+ * A post's comments. Used as a server island (`server:defer`): the post page stays
+ * pre-built and the browser fetches this per visit, since it depends on who's
+ * signed in (their own pending comments, delete buttons, the form).
+ */
+import { GitHubIcon, buttonClasses } from "@trilleo/ui";
+import { authConfig } from "../../lib/auth/config";
+import { isAdmin } from "../../lib/auth/guard";
+import { listThreads, type Thread } from "../../lib/comments/store";
+import { getDb } from "../../lib/db";
+import { postHref } from "../../lib/posts";
+import CommentForm from "./CommentForm.astro";
+import CommentItem from "./CommentItem.astro";
+
+interface Props {
+  slug: string;
+}
+
+const { slug } = Astro.props;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const { user } = Astro.locals;
+const admin = isAdmin(user);
+const reviewed = user !== null && !admin && user.trustedAt === null;
+const back = `${postHref(slug)}#comments`;
+
+let loaded: { threads: Thread[]; count: number } | null = null;
+try {
+  loaded = await listThreads(await getDb(), slug, user?.id ?? null);
+} catch (error) {
+  console.error("Loading comments failed:", error);
+}
+
+const canDelete = (comment: Thread["comment"]) => admin || comment.mine;
+/** A reply goes to the thread; if its first comment was removed, via a reply. */
+const replyTarget = (thread: Thread) =>
+  thread.comment.removed ? thread.replies.at(-1)?.id : thread.comment.id;
+const countLabel = (count: number) =>
+  `${String(count)} ${count === 1 ? "comment" : "comments"}`;
+---
+
+<div class="flex flex-col gap-8">
+  {loaded === null ? (
+    <p class="text-muted">Comments can’t be shown right now.</p>
+  ) : (
+    <>
+      <p class="type-label text-muted">
+        {loaded.count === 0 ? "No comments yet" : countLabel(loaded.count)}
+      </p>
+      {loaded.threads.length > 0 && (
+        <ol class="flex flex-col">
+          {loaded.threads.map((thread) => (
+            <li class="flex flex-col gap-6 border-t border-hair py-6">
+              <CommentItem
+                comment={thread.comment}
+                canDelete={canDelete(thread.comment)}
+                back={back}
+              />
+              {thread.replies.length > 0 && (
+                <ol
+                  class="flex flex-col gap-6 border-l border-hair pl-5 md:pl-8"
+                  aria-label="Replies"
+                >
+                  {thread.replies.map((reply) => (
+                    <li>
+                      <CommentItem
+                        comment={reply}
+                        canDelete={canDelete(reply)}
+                        back={back}
+                      />
+                    </li>
+                  ))}
+                </ol>
+              )}
+              {user && replyTarget(thread) !== undefined && (
+                <details class="md:pl-8">
+                  <summary class="type-label w-fit cursor-pointer underline-offset-4 hover:underline">
+                    Reply
+                  </summary>
+                  <div class="mt-4">
+                    <CommentForm
+                      postSlug={slug}
+                      parentId={replyTarget(thread)}
+                      reviewed={reviewed}
+                      idSuffix={`reply-${String(thread.comment.id)}`}
+                    />
+                  </div>
+                </details>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </>
+  )}
+
+  {user ? (
+    <div class="flex flex-col gap-4 border-t border-ink pt-6">
+      <CommentForm postSlug={slug} reviewed={reviewed} />
+      <p class="text-sm text-muted">
+        Signed in as @{user.githubLogin} ·{" "}
+        <a href="/account" class="underline underline-offset-4">
+          Your account
+        </a>
+      </p>
+    </div>
+  ) : (
+    authConfig() !== null && (
+      <div class="flex flex-col items-start gap-4 border-t border-ink pt-6">
+        <p>Sign in with GitHub to join the conversation.</p>
+        <a
+          href={`/auth/github?next=${encodeURIComponent(back)}`}
+          class={buttonClasses()}
+        >
+          <GitHubIcon size={16} />
+          Sign in to comment
+        </a>
+      </div>
+    )
+  )}
+</div>
+
+<!-- The page loaded before its comments, so a #comment-… link had nothing to scroll
+     to yet (e.g. right after posting). Island HTML runs its scripts when inserted. -->
+<script is:inline>
+  (() => {
+    const id = decodeURIComponent(location.hash.slice(1));
+    if (id.startsWith("comment")) document.getElementById(id)?.scrollIntoView();
+  })();
+</script>

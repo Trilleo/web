@@ -18,6 +18,7 @@ const error = signInErrorMessage(
   configured ? params.get("error") : "not-configured",
 );
 const signedOut = params.has("signed-out") && !user;
+const accountDeleted = params.has("account-deleted") && !user;
 ---
 
 <BaseLayout title="Sign in" noindex>
@@ -43,13 +44,19 @@ const signedOut = params.has("signed-out") && !user;
             You’ve signed out.
           </p>
         )}
+        {accountDeleted && (
+          <p role="status" class="type-lead">
+            Your account and comments have been deleted.
+          </p>
+        )}
         {user ? (
           <p class="type-lead">
             You’re signed in as <strong>@{user.githubLogin}</strong>.
           </p>
         ) : (
           <p class="type-lead">
-            Sign in with your GitHub account. For now, only the site owner can.
+            Sign in with your GitHub account to comment. Only your public name
+            and username are kept.
           </p>
         )}
       </div>

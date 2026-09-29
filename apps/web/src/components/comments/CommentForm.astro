@@ -1,0 +1,55 @@
+---
+import { buttonClasses } from "@trilleo/ui";
+import { COMMENT_MAX_LENGTH } from "../../lib/comments/store";
+
+interface Props {
+  postSlug: string;
+  /** Set for a reply: the comment (thread) it answers. */
+  parentId?: number | undefined;
+  /** Text to start with, e.g. after a refused post. */
+  body?: string;
+  /** The writer's comments wait for approval (they're new here). */
+  reviewed?: boolean;
+  /** Keeps ids unique when a page has several forms. */
+  idSuffix?: string;
+}
+
+const {
+  postSlug,
+  parentId,
+  body = "",
+  reviewed = false,
+  idSuffix = "new",
+} = Astro.props;
+const isReply = parentId !== undefined;
+const fieldId = `comment-body-${idSuffix}`;
+const hintId = `comment-hint-${idSuffix}`;
+---
+
+<form method="post" action="/comments" class="flex flex-col gap-3">
+  <input type="hidden" name="post" value={postSlug} />
+  {isReply && <input type="hidden" name="parent" value={String(parentId)} />}
+  <label for={fieldId} class="type-label">
+    {isReply ? "Your reply" : "Your comment"}
+  </label>
+  <textarea
+    id={fieldId}
+    name="body"
+    required
+    maxlength={COMMENT_MAX_LENGTH}
+    rows={isReply ? 3 : 5}
+    aria-describedby={hintId}
+    class="w-full resize-y border border-ink bg-paper px-3 py-2.5 text-base text-ink focus:outline-2 focus:outline-offset-2 focus:outline-accent"
+    set:text={body}
+  />
+  <p id={hintId} class="text-sm text-muted">
+    <code>*emphasis*</code>, <code>`code`</code>, <code>```</code> code blocks,
+    <code>&gt;</code> quotes and links work.
+    {reviewed && " Your first comment appears once it’s approved."}
+  </p>
+  <div>
+    <button type="submit" class={buttonClasses()}>
+      {isReply ? "Post reply" : "Post comment"}
+    </button>
+  </div>
+</form>

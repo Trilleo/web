@@ -97,13 +97,15 @@
   Postgres as the SHA-256 of the cookie's token; 30 days, extended when used in
   the last 15. Cookie `__Host-trilleo_session` over HTTPS, `trilleo_session` on
   plain-HTTP dev/e2e. GitHub's access token is used once and never stored.
-- For now only ADMIN_GITHUB_IDS may sign in (`completeSignIn` refuses everyone
-  else without creating a user); comments will open it up.
+- Anyone with a GitHub account can sign in (to comment); blocked accounts can't,
+  and their sessions stop working. ADMIN_GITHUB_IDS only decides who can use
+  /admin. After sign-in, visitors land on `next` (default /account).
 - src/middleware.ts sets `Astro.locals.user` / `session` on server-rendered
-  requests. Admin-only pages start with
-  `const admin = requireAdmin(Astro); if (admin instanceof Response) return admin;`
-  and send `Cache-Control: private, no-store`. Anything that changes state is a
-  POST form (Astro's origin check blocks cross-site posts), never a GET.
+  requests. Guarded pages start with
+  `const user = requireUser(Astro); if (user instanceof Response) return user;`
+  (or `requireAdmin`) and send `Cache-Control: private, no-store`. Anything that
+  changes state is a POST form (Astro's origin check blocks cross-site posts),
+  never a GET.
 - astro.config's `security.allowedDomains` must list every host the server is
   reached as; otherwise Astro sees `localhost`, and redirect URIs, cookies and the
   origin check all break (the smoke test checks this behind Caddy).
@@ -113,6 +115,27 @@
   e2e/fake-github.ts.
 - New private pages: add their prefix to PRIVATE_PATHS (src/lib/site.ts) to keep
   them out of robots.txt and the sitemap.
+
+## Comments
+
+- Post pages stay pre-built; their comments are a server island
+  (src/components/comments/CommentSection.astro, `server:defer`), fetched per
+  visit and never cached, since they depend on who's signed in.
+- Rules live in src/lib/comments/store.ts: people see published comments plus
+  their own pending ones; one level of replies (a reply to a reply joins the
+  thread); a newcomer's comments wait until the admin approves one, which sets
+  users.trusted_at; LIMITS caps bursts, daily totals and pending comments (the
+  admin is exempt); deleting a comment that has replies leaves a placeholder;
+  blocking hides everything the person wrote and ends their sessions.
+- Formatting (src/lib/comments/render.ts) is markdown-it's "zero" preset with a
+  fixed list of rules, HTML off, and only http(s) or site-relative links (rel
+  nofollow ugc). Changing what's enabled means updating its XSS tests too.
+- All actions are plain POST forms that work without JavaScript: /comments (a
+  refused comment gets a page that keeps the text), /comments/delete,
+  /admin/moderate, /account/delete. Only published posts take comments.
+- E2E tests share one database, run in parallel and may be retried: commenters
+  are fresh accounts (`freshLogin()` in e2e/support.ts) with unique comment text,
+  and no test may sign the shared admin out everywhere.
 
 ## Deploy
 

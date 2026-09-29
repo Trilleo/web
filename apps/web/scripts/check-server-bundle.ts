@@ -69,6 +69,7 @@ const origin = await new Promise<string>((found) => {
 const expected: [string, number][] = [
   ["/sign-in", 200],
   ["/admin", 302],
+  ["/account", 302],
   ["/api/health", 503],
 ];
 for (const [path, status] of expected) {

@@ -1,3 +1,4 @@
 @import "tailwindcss";
 @import "@trilleo/ui/theme.css";
 @import "./prose.css";
+@import "./comments.css";

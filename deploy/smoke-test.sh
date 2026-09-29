@@ -144,6 +144,16 @@ status="$(logout https://www.trilleo.net)"
 status="$(logout https://evil.example)"
 [[ "$status" == "403" ]] || fail "cross-site sign-out answered $status"
 
+echo "==> comments: /account needs sign-in, and posting goes through the app"
+headers="$(site --dump-header - --output /dev/null "https://www.trilleo.net/account")"
+grep -qi '^location: /sign-in?next=%2Faccount' <<<"$headers" || fail "/account redirect: $headers"
+# The production build has no published posts yet, so any post is "not found" here;
+# what matters is reaching the handler (not Caddy's or the origin check's answer).
+status="$(site --output /dev/null --write-out '%{http_code}' --request POST \
+	--header 'Origin: https://www.trilleo.net' --data 'post=no-such-post&body=hi' \
+	"https://www.trilleo.net/comments")"
+[[ "$status" == "404" ]] || fail "posting a comment answered $status"
+
 echo "==> the database was migrated"
 migrations="$(docker compose exec -T db psql --username=trilleo --dbname=trilleo --tuples-only --no-align \
 	--command='select count(*) from drizzle.__drizzle_migrations')" || fail "couldn't read the migrations table"

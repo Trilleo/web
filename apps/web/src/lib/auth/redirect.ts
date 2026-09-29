@@ -1,4 +1,4 @@
-export const DEFAULT_NEXT = "/admin";
+export const DEFAULT_NEXT = "/account";
 
 const PLACEHOLDER_ORIGIN = "https://placeholder.invalid";
 

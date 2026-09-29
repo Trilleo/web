@@ -1,4 +1,9 @@
-import { openDatabase, sessions, type DatabaseHandle } from "@trilleo/db";
+import {
+  openDatabase,
+  sessions,
+  users,
+  type DatabaseHandle,
+} from "@trilleo/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { hashToken } from "./crypto";
 import {
@@ -73,6 +78,15 @@ describe("sessions", () => {
     expect(
       await validateSession(handle.db, token, later(SESSION_TTL_MS)),
     ).toBeNull();
+    expect(await handle.db.select().from(sessions)).toEqual([]);
+  });
+
+  it("ends a blocked user's session", async () => {
+    const user = await upsertGitHubUser(handle.db, VISITOR_PROFILE, start);
+    const { token } = await createSession(handle.db, user.id, start);
+    await handle.db.update(users).set({ blockedAt: start });
+
+    expect(await validateSession(handle.db, token, start)).toBeNull();
     expect(await handle.db.select().from(sessions)).toEqual([]);
   });
 

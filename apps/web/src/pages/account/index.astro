@@ -1,0 +1,172 @@
+---
+import { buttonClasses } from "@trilleo/ui";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { isAdmin, requireUser } from "../../lib/auth/guard";
+import { getPosts } from "../../lib/collection";
+import { renderComment } from "../../lib/comments/render";
+import { userComments } from "../../lib/comments/store";
+import { getDb } from "../../lib/db";
+import { formatPostDate } from "../../lib/listings";
+import { postHref } from "../../lib/posts";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const admin = isAdmin(user);
+const own = await userComments(await getDb(), user.id);
+const titles = new Map(
+  (await getPosts()).map((post) => [post.id, post.data.title]),
+);
+const STATUS = {
+  pending: "Awaiting approval",
+  published: "Published",
+  hidden: "Hidden by the admin",
+} as const;
+---
+
+<BaseLayout title="Account" noindex>
+  <section
+    aria-labelledby="account-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">(Account) @{user.githubLogin}</p>
+
+    <h1 id="account-title" class="type-display mt-5 -ml-[0.03em] xl:mt-7">
+      Account<span class="text-accent">.</span>
+    </h1>
+
+    <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-3">You</h2>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-9">
+        <p class="text-lg">
+          Signed in with GitHub as{" "}
+          <strong>{user.name ?? user.githubLogin}</strong>
+          (@{user.githubLogin}). Only your public name and username are kept.
+        </p>
+        <p class="text-muted">
+          {admin || user.trustedAt
+            ? "Your comments appear right away."
+            : "Your first comment appears once it’s approved; after that, right away."}
+        </p>
+        <div class="flex flex-wrap gap-3">
+          {admin && (
+            <a href="/admin" class={buttonClasses()}>
+              Admin
+            </a>
+          )}
+          <form method="post" action="/auth/logout">
+            <button
+              type="submit"
+              class={buttonClasses({
+                variant: admin ? "secondary" : "primary",
+              })}
+            >
+              Sign out
+            </button>
+          </form>
+          <form method="post" action="/auth/logout">
+            <input type="hidden" name="everywhere" value="1" />
+            <button
+              type="submit"
+              class={buttonClasses({ variant: "secondary" })}
+            >
+              Sign out everywhere
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="comments"
+      class="grid-swiss mt-12 scroll-mt-6 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6"
+    >
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-3">
+        Your comments ({own.length})
+      </h2>
+      <div class="col-span-4 md:col-span-6 xl:col-span-9">
+        {own.length === 0 ? (
+          <p class="text-muted">You haven’t commented yet.</p>
+        ) : (
+          <ol class="flex flex-col">
+            {own.map((comment) => (
+              <li class="flex flex-col gap-2.5 border-t border-hair py-5 first:border-t-0 first:pt-0">
+                <p class="type-label flex flex-wrap gap-x-3 gap-y-1 text-muted">
+                  <a
+                    href={`${postHref(comment.postSlug)}#comment-${String(comment.id)}`}
+                    class="text-ink underline-offset-4 hover:underline"
+                  >
+                    {titles.get(comment.postSlug) ?? comment.postSlug}
+                  </a>
+                  <time datetime={comment.createdAt.toISOString()}>
+                    {formatPostDate(comment.createdAt)}
+                  </time>
+                  <span>{STATUS[comment.status]}</span>
+                </p>
+                <div class="comment-body">
+                  <Fragment set:html={renderComment(comment.body)} />
+                </div>
+                <details class="type-label text-muted">
+                  <summary class="w-fit cursor-pointer underline-offset-4 hover:text-ink hover:underline">
+                    Delete
+                  </summary>
+                  <form method="post" action="/comments/delete" class="mt-2">
+                    <input type="hidden" name="id" value={String(comment.id)} />
+                    <input
+                      type="hidden"
+                      name="back"
+                      value="/account#comments"
+                    />
+                    <button
+                      type="submit"
+                      class="type-label border border-ink px-2.5 py-1.5 text-ink hover:bg-ink hover:text-paper"
+                    >
+                      Yes, delete this comment
+                    </button>
+                  </form>
+                </details>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </div>
+
+    <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-3">
+        Delete account
+      </h2>
+      <form
+        method="post"
+        action="/account/delete"
+        class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-6"
+      >
+        <p>
+          Deletes your account and all your comments. Where others replied to
+          you, a “removed” note keeps their replies readable. This can’t be
+          undone; signing in again later starts a new, empty account.
+        </p>
+        <label class="flex items-start gap-3">
+          <input
+            type="checkbox"
+            name="confirm"
+            value="yes"
+            required
+            class="mt-1 size-4 shrink-0 accent-accent"
+          />
+          I understand: delete my account and comments.
+        </label>
+        <div>
+          <button type="submit" class={buttonClasses({ variant: "secondary" })}>
+            Delete my account
+          </button>
+        </div>
+      </form>
+    </div>
+  </section>
+</BaseLayout>

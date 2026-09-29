@@ -7,7 +7,13 @@ export const SITE_BIO = "[Short bio — who you are and what you work on.]";
 export const GITHUB_URL = "https://github.com/Trilleo";
 
 /** Account pages: kept out of search (robots.txt) and the sitemap. Prefixes. */
-export const PRIVATE_PATHS = ["/admin", "/auth/", "/sign-in"] as const;
+export const PRIVATE_PATHS = [
+  "/account",
+  "/admin",
+  "/auth/",
+  "/comments",
+  "/sign-in",
+] as const;
 
 export function isPrivatePath(pathname: string): boolean {
   return PRIVATE_PATHS.some((prefix) => pathname.startsWith(prefix));

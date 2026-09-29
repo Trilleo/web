@@ -1,6 +1,6 @@
 import type { User } from "@trilleo/db";
 import { describe, expect, it } from "vitest";
-import { isAdmin, requireAdmin } from "./guard";
+import { isAdmin, requireAdmin, requireUser } from "./guard";
 import { TEST_CONFIG } from "./testing";
 
 function user(githubId: number): User {
@@ -12,6 +12,8 @@ function user(githubId: number): User {
     name: null,
     createdAt: date,
     lastSignInAt: date,
+    trustedAt: null,
+    blockedAt: null,
   };
 }
 
@@ -48,6 +50,23 @@ describe("requireAdmin", () => {
   it("lets nobody through while sign-in isn't set up", () => {
     const response = requireAdmin(context(user(1001)), null);
     expect(response).toBeInstanceOf(Response);
+  });
+});
+
+describe("requireUser", () => {
+  it("sends visitors who aren't signed in to sign in, then back", () => {
+    const response = requireUser(context(null));
+    expect(response).toBeInstanceOf(Response);
+    if (response instanceof Response) {
+      expect(response.headers.get("Location")).toBe(
+        "/sign-in?next=%2Fadmin%3Ftab%3D1",
+      );
+    }
+  });
+
+  it("lets anyone signed in through", () => {
+    const visitor = user(2002);
+    expect(requireUser(context(visitor))).toBe(visitor);
   });
 });
 

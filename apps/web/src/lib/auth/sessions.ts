@@ -70,7 +70,7 @@ export async function createSession(
   return { token, session };
 }
 
-/** The session and user for a cookie's token, or null if it's unknown or expired. */
+/** The session and user for a cookie's token; null if unknown, expired, or blocked. */
 export async function validateSession(
   db: Database,
   token: string,
@@ -86,7 +86,8 @@ export async function validateSession(
   if (!row) return null;
 
   const remaining = row.session.expiresAt.getTime() - now.getTime();
-  if (remaining <= 0) {
+  // Blocking also deletes sessions; this covers any that slipped past.
+  if (remaining <= 0 || row.user.blockedAt !== null) {
     await db.delete(sessions).where(eq(sessions.id, id));
     return null;
   }

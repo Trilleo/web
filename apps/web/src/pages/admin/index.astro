@@ -1,7 +1,11 @@
 ---
 import { buttonClasses } from "@trilleo/ui";
+import Moderation from "../../components/admin/Moderation.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { requireAdmin } from "../../lib/auth/guard";
+import { getPosts } from "../../lib/collection";
+import { moderationOverview } from "../../lib/comments/store";
+import { getDb } from "../../lib/db";
 
 export const prerender = false;
 
@@ -10,6 +14,11 @@ if (admin instanceof Response) return admin;
 
 Astro.response.headers.set("Cache-Control", "private, no-store");
 Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const overview = await moderationOverview(await getDb());
+const titles = new Map(
+  (await getPosts()).map((post) => [post.id, post.data.title]),
+);
 
 const dateTime = new Intl.DateTimeFormat("en-GB", {
   dateStyle: "long",
@@ -39,7 +48,11 @@ const facts: Fact[] = [
       Admin<span class="text-accent">.</span>
     </h1>
 
-    <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+    <div class="mt-7 md:mt-8 xl:mt-12">
+      <Moderation {...overview} titles={titles} adminId={admin.id} />
+    </div>
+
+    <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
       <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-3">Account</h2>
       <dl class="col-span-4 grid grid-cols-2 gap-x-5 gap-y-4 md:col-span-6 xl:col-span-9 xl:grid-cols-3 xl:gap-x-6">
         {facts.map((fact) => (

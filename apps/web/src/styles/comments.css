@@ -1,0 +1,62 @@
+/*
+ * A comment's rendered text (see src/lib/comments/render.ts for what it can contain).
+ * Quieter than .prose: comments are conversation, not articles.
+ */
+
+.comment-body {
+  font-size: 1rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+
+  @media (width >= 48rem) {
+    font-size: 1.0625rem;
+  }
+}
+
+.comment-body > * + * {
+  margin-top: 0.875rem;
+}
+
+.comment-body a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.comment-body a:hover {
+  text-decoration-color: var(--tr-accent);
+  text-decoration-thickness: 2px;
+}
+
+.comment-body strong {
+  font-weight: 600;
+}
+
+.comment-body :not(pre) > code {
+  padding: 0.1em 0.35em;
+  background-color: var(--tr-chip);
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+.comment-body pre {
+  overflow-x: auto;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--tr-code-line);
+  background-color: var(--tr-code-bg);
+  color: var(--tr-code-fg);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  overflow-wrap: normal;
+}
+
+.comment-body blockquote {
+  padding-left: 1rem;
+  border-left: 2px solid var(--tr-accent);
+  color: var(--tr-muted);
+}
+
+.comment-body blockquote > * + * {
+  margin-top: 0.5rem;
+}

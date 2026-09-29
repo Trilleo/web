@@ -100,12 +100,27 @@ describe("completeSignIn", () => {
     expect(await handle.db.select().from(users)).toEqual([]);
   });
 
-  it("turns away accounts that aren't admins, without creating them", async () => {
+  it("signs in any GitHub account, not only the admin's", async () => {
     const { result } = signIn(callback({ code: "c", state: "the-state" }), {
       github: { user: VISITOR_PROFILE },
     });
-    expect(await result).toEqual({ ok: false, error: "not-allowed" });
-    expect(await handle.db.select().from(users)).toEqual([]);
+    const outcome = await result;
+    expect(outcome.ok).toBe(true);
+    const [visitor] = await handle.db.select().from(users);
+    expect(visitor).toMatchObject({ githubId: 2002, githubLogin: "visitor" });
+  });
+
+  it("turns away accounts the admin has blocked", async () => {
+    const first = signIn(callback({ code: "c", state: "the-state" }), {
+      github: { user: VISITOR_PROFILE },
+    });
+    await first.result;
+    await handle.db.update(users).set({ blockedAt: new Date() });
+
+    const again = signIn(callback({ code: "c", state: "the-state" }), {
+      github: { user: VISITOR_PROFILE },
+    });
+    expect(await again.result).toEqual({ ok: false, error: "not-allowed" });
   });
 });
 

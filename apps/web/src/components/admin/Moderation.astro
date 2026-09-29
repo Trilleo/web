@@ -1,0 +1,203 @@
+---
+import type { User } from "@trilleo/db";
+import { renderComment } from "../../lib/comments/render";
+import type { CommentSummary } from "../../lib/comments/store";
+import { formatPostDate } from "../../lib/listings";
+import { postHref } from "../../lib/posts";
+
+interface Props {
+  pending: CommentSummary[];
+  recent: CommentSummary[];
+  blocked: User[];
+  /** Post titles by slug. */
+  titles: Map<string, string>;
+  /** The signed-in admin, who can't block themselves. */
+  adminId: string;
+}
+
+const { pending, recent, blocked, titles, adminId } = Astro.props;
+
+const button =
+  "type-label border border-ink px-2.5 py-1.5 hover:bg-ink hover:text-paper";
+const strongButton =
+  "type-label border border-ink bg-ink px-2.5 py-1.5 text-paper hover:border-accent hover:bg-accent hover:text-on-accent";
+
+type Section = {
+  id: string;
+  title: string;
+  empty: string;
+  comments: CommentSummary[];
+  queue: boolean;
+};
+const sections: Section[] = [
+  {
+    id: "review",
+    title: `Review (${String(pending.length)})`,
+    empty: "Nothing waiting for review.",
+    comments: pending,
+    queue: true,
+  },
+  {
+    id: "recent",
+    title: "Recent comments",
+    empty: "No comments yet.",
+    comments: recent,
+    queue: false,
+  },
+];
+---
+
+<div id="moderation" class="flex scroll-mt-6 flex-col gap-12">
+  {sections.map((section) => (
+    <div class="grid-swiss gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+      <h2
+        id={section.id}
+        class="type-label col-span-4 md:col-span-2 xl:col-span-3"
+      >
+        {section.title}
+      </h2>
+      <div class="col-span-4 md:col-span-6 xl:col-span-9">
+        {section.comments.length === 0 ? (
+          <p class="text-muted">{section.empty}</p>
+        ) : (
+          <ol class="flex flex-col" aria-labelledby={section.id}>
+            {section.comments.map((comment) => (
+              <li class="flex flex-col gap-3 border-t border-hair py-5 first:border-t-0 first:pt-0">
+                <p class="type-label flex flex-wrap gap-x-3 gap-y-1 text-muted">
+                  <span class="text-ink">
+                    {comment.author
+                      ? `${comment.author.name ?? comment.author.login} @${comment.author.login}`
+                      : "Deleted account"}
+                  </span>
+                  {comment.author &&
+                    !comment.author.trusted &&
+                    comment.author.id !== adminId && <span>New commenter</span>}
+                  <a
+                    href={`${postHref(comment.postSlug)}#comment-${String(comment.id)}`}
+                    class="underline-offset-4 hover:text-ink hover:underline"
+                  >
+                    {titles.get(comment.postSlug) ?? comment.postSlug}
+                  </a>
+                  {comment.parentId !== null && <span>Reply</span>}
+                  <time datetime={comment.createdAt.toISOString()}>
+                    {formatPostDate(comment.createdAt)}
+                  </time>
+                  {!section.queue && (
+                    <span
+                      class:list={[
+                        comment.status === "hidden" &&
+                          "bg-accent px-1.5 text-on-accent",
+                      ]}
+                    >
+                      {comment.status === "hidden" ? "Hidden" : "Published"}
+                    </span>
+                  )}
+                </p>
+                <div class="comment-body">
+                  <Fragment set:html={renderComment(comment.body)} />
+                </div>
+                <form
+                  method="post"
+                  action="/admin/moderate"
+                  class="flex flex-wrap gap-2"
+                >
+                  <input type="hidden" name="id" value={String(comment.id)} />
+                  {comment.author && (
+                    <input
+                      type="hidden"
+                      name="user"
+                      value={comment.author.id}
+                    />
+                  )}
+                  {section.queue && (
+                    <button
+                      type="submit"
+                      name="action"
+                      value="approve"
+                      class={strongButton}
+                    >
+                      Approve
+                    </button>
+                  )}
+                  {!section.queue && comment.status === "published" && (
+                    <button
+                      type="submit"
+                      name="action"
+                      value="hide"
+                      class={button}
+                    >
+                      Hide
+                    </button>
+                  )}
+                  {comment.status === "hidden" && (
+                    <button
+                      type="submit"
+                      name="action"
+                      value="unhide"
+                      class={button}
+                    >
+                      Unhide
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    name="action"
+                    value="delete"
+                    class={button}
+                  >
+                    Delete
+                  </button>
+                  {comment.author && comment.author.id !== adminId && (
+                    <button
+                      type="submit"
+                      name="action"
+                      value="block"
+                      class={button}
+                    >
+                      Block @{comment.author.login}
+                    </button>
+                  )}
+                </form>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </div>
+  ))}
+
+  <div class="grid-swiss gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+    <h2 id="blocked" class="type-label col-span-4 md:col-span-2 xl:col-span-3">
+      Blocked accounts ({blocked.length})
+    </h2>
+    <div class="col-span-4 md:col-span-6 xl:col-span-9">
+      {blocked.length === 0 ? (
+        <p class="text-muted">Nobody is blocked.</p>
+      ) : (
+        <ul class="flex flex-col gap-3" aria-labelledby="blocked">
+          {blocked.map((account) => (
+            <li class="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <span>
+                {account.name ?? account.githubLogin}{" "}
+                <span class="type-label text-muted">
+                  @{account.githubLogin}
+                </span>
+              </span>
+              <form method="post" action="/admin/moderate">
+                <input type="hidden" name="user" value={account.id} />
+                <button
+                  type="submit"
+                  name="action"
+                  value="unblock"
+                  class={button}
+                >
+                  Unblock
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  </div>
+</div>

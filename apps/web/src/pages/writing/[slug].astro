@@ -2,6 +2,7 @@
 import { ArrowLeftIcon, ArrowRightIcon } from "@trilleo/ui";
 import type { GetStaticPaths } from "astro";
 import { render } from "astro:content";
+import CommentSection from "../../components/comments/CommentSection.astro";
 import TagLinks from "../../components/TagLinks.astro";
 import TableOfContents from "../../components/TableOfContents.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
@@ -142,4 +143,25 @@ const { title, description, pubDate, updatedDate, tags, draft } = post.data;
       </a>
     )}
   </footer>
+
+  <section
+    id="comments"
+    aria-labelledby="comments-title"
+    class="grid-swiss mx-page scroll-mt-6 gap-y-6 border-t-2 border-ink pt-4 pb-16 md:pb-24"
+  >
+    <h2
+      id="comments-title"
+      class="type-label col-span-4 md:col-span-2 xl:col-span-3"
+    >
+      (Comments)
+    </h2>
+    <div class="col-span-4 md:col-span-6 xl:col-span-6">
+      <CommentSection server:defer slug={post.id}>
+        <p slot="fallback" class="text-muted">
+          Loading comments…
+          <noscript>Comments need JavaScript to load.</noscript>
+        </p>
+      </CommentSection>
+    </div>
+  </section>
 </BaseLayout>

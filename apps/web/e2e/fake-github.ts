@@ -9,14 +9,41 @@ import { createServer, type IncomingMessage } from "node:http";
 
 export const FAKE_GITHUB_PORT = 4330;
 export const FAKE_CLIENT = { id: "e2e-client", secret: "e2e-secret" };
+/** Accounts with buttons on the sign-in page. `admin` is ADMIN_GITHUB_IDS's. */
 export const FAKE_USERS = {
   admin: { id: 1001, login: "site-owner", name: "Site Owner" },
   visitor: { id: 2002, login: "visitor", name: null },
 };
 export type FakeUser = keyof typeof FAKE_USERS;
 
+interface Profile {
+  id: number;
+  login: string;
+  name: string | null;
+}
+
+/**
+ * Any other login also signs in (via /fake/approve?user=<login>), as an account with
+ * an ID derived from the login. Tests use a fresh one per attempt, so a retry never
+ * meets what an earlier attempt left in the database.
+ */
+export function fakeUserId(login: string): number {
+  let hash = 0;
+  for (const char of login)
+    hash = (hash * 31 + char.charCodeAt(0)) % 1_000_000_000;
+  return 1_000_000_000 + hash;
+}
+
+function profileFor(user: string | null): Profile | null {
+  if (user === null) return null;
+  if (Object.hasOwn(FAKE_USERS, user)) return FAKE_USERS[user as FakeUser];
+  return /^[a-z][a-z0-9-]{1,38}$/.test(user)
+    ? { id: fakeUserId(user), login: user, name: null }
+    : null;
+}
+
 interface IssuedCode {
-  user: FakeUser;
+  profile: Profile;
   redirectUri: string;
   challenge: string;
 }
@@ -29,7 +56,7 @@ interface Reply {
 }
 
 const codes = new Map<string, IssuedCode>();
-const tokens = new Map<string, FakeUser>();
+const tokens = new Map<string, Profile>();
 
 const text = (status: number, body: string): Reply => ({
   status,
@@ -42,10 +69,6 @@ const json = (body: object, status = 200): Reply => ({
   type: "application/json",
 });
 const redirectTo = (location: string): Reply => ({ status: 302, location });
-
-function isFakeUser(value: string | null): value is FakeUser {
-  return value !== null && Object.hasOwn(FAKE_USERS, value);
-}
 
 async function readBody(req: IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
@@ -87,15 +110,15 @@ function authorize(url: URL): Reply {
 /** The visitor approved: back to the site with a one-time code. */
 function approve(url: URL): Reply {
   const q = url.searchParams;
-  const user = q.get("user");
+  const profile = profileFor(q.get("user"));
   const redirectUri = q.get("redirect_uri");
   const state = q.get("state");
   const challenge = q.get("challenge");
-  if (!isFakeUser(user) || !redirectUri || !state || !challenge) {
+  if (!profile || !redirectUri || !state || !challenge) {
     return text(400, "Bad approval");
   }
   const code = randomBytes(16).toString("hex");
-  codes.set(code, { user, redirectUri, challenge });
+  codes.set(code, { profile, redirectUri, challenge });
   const target = new URL(redirectUri);
   target.search = new URLSearchParams({ code, state }).toString();
   return redirectTo(target.href);
@@ -138,7 +161,7 @@ async function accessToken(req: IncomingMessage): Promise<Reply> {
     return json({ error: "bad_verification_code" });
   }
   const token = `gho_${randomBytes(16).toString("hex")}`;
-  tokens.set(token, issued.user);
+  tokens.set(token, issued.profile);
   return json({ access_token: token, token_type: "bearer", scope: "" });
 }
 
@@ -146,9 +169,7 @@ async function accessToken(req: IncomingMessage): Promise<Reply> {
 function user(req: IncomingMessage): Reply {
   const token = req.headers.authorization?.replace(/^Bearer /, "") ?? "";
   const who = tokens.get(token);
-  return who
-    ? json(FAKE_USERS[who])
-    : json({ message: "Bad credentials" }, 401);
+  return who ? json(who) : json({ message: "Bad credentials" }, 401);
 }
 
 const routes: Record<

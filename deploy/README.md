@@ -290,8 +290,8 @@ callback URL, so production and local development get one each.
    chown root:deploy app.env && chmod 640 app.env && ls -l app.env && grep -c . app.env
    ```
 
-   It should list `-rw-r----- root deploy` and count 3 lines. Only these accounts can
-   sign in (for now, just you).
+   It should list `-rw-r----- root deploy` and count 3 lines. These accounts can use
+   /admin; anyone with a GitHub account can sign in to comment.
 
 4. For `pnpm dev`, optionally: a second OAuth App named `trilleo.net (local)`, homepage
    `http://localhost:4321`, callback `http://localhost:4321/auth/github/callback`; copy
@@ -319,9 +319,13 @@ at <https://www.trilleo.net/admin>.
   Rolling back doesn't undo database migrations; they're written to stay compatible with
   the previous release (see `packages/db/src/schema.ts`).
 
-- **Change who can sign in, or the OAuth secret:** edit `/srv/trilleo/app.env`, then
+- **Moderate comments:** <https://www.trilleo.net/admin>. A newcomer's comments wait in
+  **Review** until you approve one (after that theirs appear at once). You can hide,
+  delete, or block from there; blocking hides all of that person's comments and signs
+  them out. There are no notifications, so check it now and then.
+- **Change who is admin, or the OAuth secret:** edit `/srv/trilleo/app.env`, then
   `cd /srv/trilleo && docker compose up -d --force-recreate app` (a plain restart keeps
-  the old values). Sessions of someone removed stop working at once.
+  the old values). Someone removed from the list keeps their account but loses /admin.
 - **Logs / status:** `cd /srv/trilleo && docker compose ps` and
   `docker compose logs -f app` (or `web`, `db`).
 - **Database shell:** `cd /srv/trilleo && docker compose exec db psql -U trilleo`.
@@ -364,8 +368,9 @@ at <https://www.trilleo.net/admin>.
 | Deploy fails at "Check the live site"                          | The site is up but not the new version: check `trilleo-deploy` output in the job log and `docker compose ps`.                                                                                                                                                                                                                     |
 | Deploy log: `env file … db.env not found`                      | §4c's `db.env` is missing.                                                                                                                                                                                                                                                                                                        |
 | Deploy log: `env file … app.env not found`                     | §7's `app.env` is missing.                                                                                                                                                                                                                                                                                                        |
-| `/sign-in` says sign-in isn't set up                           | `app.env` lacks a value, or the app hasn't been recreated since it changed (see "Change who can sign in").                                                                                                                                                                                                                        |
+| `/sign-in` says sign-in isn't set up                           | `app.env` lacks a value, or the app hasn't been recreated since it changed (see "Change who is admin").                                                                                                                                                                                                                           |
 | GitHub: "redirect_uri is not associated with this application" | The OAuth App's callback URL isn't exactly `https://www.trilleo.net/auth/github/callback`.                                                                                                                                                                                                                                        |
-| Sign-in ends at "That GitHub account can't sign in here"       | Your ID isn't in `ADMIN_GITHUB_IDS` (`gh api user --jq .id`).                                                                                                                                                                                                                                                                     |
+| Sign-in ends at "That GitHub account can't sign in here"       | The account is blocked: unblock it under **Blocked accounts** on `/admin`.                                                                                                                                                                                                                                                        |
+| `/admin` says "Only the site owner can see this page"          | Your ID isn't in `ADMIN_GITHUB_IDS` (`gh api user --jq .id`), or the app wasn't recreated after changing it.                                                                                                                                                                                                                      |
 | Deploy log: a container is `unhealthy`                         | The job log shows `docker compose ps` and the app's last log lines. Usually the app can't reach or migrate the database: `docker compose logs db app`. The static site keeps running meanwhile.                                                                                                                                   |
 | Cloudflare **502** on some pages only                          | Static pages work but the app is down or restarting: `docker compose ps`, `docker compose logs app`.                                                                                                                                                                                                                              |

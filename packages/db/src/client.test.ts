@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq, sql, type SQL } from "drizzle-orm";
@@ -10,10 +10,17 @@ import {
   type Database,
   type DatabaseHandle,
 } from "./client";
-import { sessions, users } from "./schema";
+import { comments, sessions, users } from "./schema";
 
 const open: DatabaseHandle[] = [];
 const temporaryDirs: string[] = [];
+
+const journal = JSON.parse(
+  readFileSync(
+    new URL("../migrations/meta/_journal.json", import.meta.url),
+    "utf8",
+  ),
+) as { entries: unknown[] };
 
 /** Raw query rows. `execute` results differ by driver; these tests run on PGlite. */
 async function queryRows<Row>(db: Database, query: SQL): Promise<Row[]> {
@@ -55,7 +62,11 @@ describe("openDatabase", () => {
       sql`select table_name from information_schema.tables
           where table_schema = 'public' order by table_name`,
     );
-    expect(tables.map((row) => row.table_name)).toEqual(["sessions", "users"]);
+    expect(tables.map((row) => row.table_name)).toEqual([
+      "comments",
+      "sessions",
+      "users",
+    ]);
   });
 
   it("creates a data folder and migrates it only once across restarts", async () => {
@@ -78,7 +89,7 @@ describe("openDatabase", () => {
       second.db,
       sql`select * from drizzle.__drizzle_migrations`,
     );
-    expect(applied).toHaveLength(1);
+    expect(applied).toHaveLength(journal.entries.length);
   });
 
   it("explains a missing migrations folder", async () => {
@@ -135,6 +146,61 @@ describe("schema", () => {
         expiresAt: new Date(),
       }),
     ).rejects.toThrow();
+  });
+});
+
+describe("comments schema", () => {
+  async function withAuthor() {
+    const handle = await memoryDb();
+    const [author] = await handle.db
+      .insert(users)
+      .values({ githubId: 11, githubLogin: "author" })
+      .returning();
+    if (!author) throw new Error("insert returned nothing");
+    return { db: handle.db, author };
+  }
+
+  it("numbers comments and starts them as pending", async () => {
+    const { db, author } = await withAuthor();
+    const inserted = await db
+      .insert(comments)
+      .values([
+        { postSlug: "a-post", authorId: author.id, body: "First" },
+        { postSlug: "a-post", authorId: author.id, body: "Second" },
+      ])
+      .returning();
+    expect(inserted.map((comment) => comment.id)).toEqual([1, 2]);
+    expect(inserted.every((comment) => comment.status === "pending")).toBe(
+      true,
+    );
+    expect(inserted[0]?.deletedAt).toBeNull();
+  });
+
+  it("keeps comments, without an author, when the author's account goes", async () => {
+    const { db, author } = await withAuthor();
+    await db
+      .insert(comments)
+      .values({ postSlug: "p", authorId: author.id, body: "x" });
+    await db.delete(users).where(eq(users.id, author.id));
+    const [left] = await db.select().from(comments);
+    expect(left?.authorId).toBeNull();
+  });
+
+  it("removes replies with the comment they belong to", async () => {
+    const { db, author } = await withAuthor();
+    const [parent] = await db
+      .insert(comments)
+      .values({ postSlug: "p", authorId: author.id, body: "parent" })
+      .returning();
+    if (!parent) throw new Error("insert returned nothing");
+    await db.insert(comments).values({
+      postSlug: "p",
+      authorId: author.id,
+      body: "reply",
+      parentId: parent.id,
+    });
+    await db.delete(comments).where(eq(comments.id, parent.id));
+    expect(await db.select().from(comments)).toEqual([]);
   });
 });
 

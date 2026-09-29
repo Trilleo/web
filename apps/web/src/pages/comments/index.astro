@@ -1,0 +1,112 @@
+---
+/**
+ * POST: adds a comment, then back to it on the post. If it's refused, this page says
+ * why and keeps the text, so nothing typed is lost.
+ */
+import { ArrowLeftIcon } from "@trilleo/ui";
+import CommentForm from "../../components/comments/CommentForm.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { isAdmin } from "../../lib/auth/guard";
+import { noStoreRedirect } from "../../lib/auth/redirect";
+import { getPosts } from "../../lib/collection";
+import { field, parseId } from "../../lib/comments/form";
+import {
+  commentErrorMessage,
+  commentErrorStatus,
+} from "../../lib/comments/messages";
+import {
+  createComment,
+  normalizeBody,
+  type CreateResult,
+} from "../../lib/comments/store";
+import { getDb } from "../../lib/db";
+import { postHref } from "../../lib/posts";
+
+export const prerender = false;
+
+if (Astro.request.method !== "POST") {
+  return new Response("Comments are posted from a post's page.", {
+    status: 405,
+    headers: { Allow: "POST", "Content-Type": "text/plain; charset=utf-8" },
+  });
+}
+
+const form = await Astro.request.formData();
+const postSlug = field(form, "post");
+const post = (await getPosts()).find((entry) => entry.id === postSlug);
+if (!post) {
+  return new Response("That post doesn’t take comments.", {
+    status: 404,
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  });
+}
+const postPath = postHref(post.id);
+
+const { user } = Astro.locals;
+if (!user) {
+  return noStoreRedirect(
+    `/sign-in?next=${encodeURIComponent(`${postPath}#comments`)}`,
+    303,
+  );
+}
+
+const body = field(form, "body");
+const parentField = field(form, "parent");
+const parentId = parentField === "" ? null : parseId(parentField);
+
+const result: CreateResult =
+  parentField !== "" && parentId === null
+    ? { ok: false, error: "no-parent" }
+    : await createComment(await getDb(), {
+        author: user,
+        isAdmin: isAdmin(user),
+        postSlug: post.id,
+        parentId,
+        body,
+      });
+if (result.ok) {
+  return noStoreRedirect(
+    `${postPath}#comment-${String(result.comment.id)}`,
+    303,
+  );
+}
+
+Astro.response.status = commentErrorStatus(result.error);
+Astro.response.headers.set("Cache-Control", "private, no-store");
+const message = commentErrorMessage(result.error, normalizeBody(body).length);
+---
+
+<BaseLayout title="Comment not posted" noindex>
+  <section
+    aria-labelledby="not-posted-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">(Comments) Not posted</p>
+
+    <h1 id="not-posted-title" class="type-display mt-5 -ml-[0.03em] xl:mt-7">
+      Not posted<span class="text-accent">.</span>
+    </h1>
+
+    <div class="grid-swiss mt-7 gap-y-8 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <div class="col-span-4 flex flex-col gap-8 md:col-span-6 md:col-start-3 xl:col-start-4">
+        <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+          {message}
+        </p>
+        {result.error !== "blocked" && (
+          <CommentForm
+            postSlug={post.id}
+            parentId={parentId ?? undefined}
+            body={body}
+          />
+        )}
+        <a
+          href={`${postPath}#comments`}
+          class="type-label inline-flex w-fit items-center gap-2 underline-offset-4 hover:underline"
+        >
+          <ArrowLeftIcon size={16} />
+          Back to “{post.data.title}”
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

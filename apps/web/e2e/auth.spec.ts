@@ -1,15 +1,16 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { FAKE_USERS, type FakeUser } from "./fake-github";
+import { continueAs, freshLogin } from "./support";
 
-/** From /admin, through the sign-in page and (fake) GitHub, as one of its users. */
-async function signInAs(page: Page, user: FakeUser) {
-  await page.goto("/admin");
-  await expect(page).toHaveURL("/sign-in?next=%2Fadmin");
+/**
+ * From a guarded page (/admin by default), through the sign-in page and (fake)
+ * GitHub, as one of its users or any login.
+ */
+async function signInAs(page: Page, user: string, start = "/admin") {
+  await page.goto(start);
+  await expect(page).toHaveURL(`/sign-in?next=${encodeURIComponent(start)}`);
   await page.getByRole("link", { name: "Sign in with GitHub" }).click();
-  await page
-    .getByRole("link", { name: `Continue as ${FAKE_USERS[user].login}` })
-    .click();
+  await continueAs(page, user);
 }
 
 async function cookieNames(page: Page) {
@@ -23,7 +24,10 @@ test("the site owner signs in with GitHub and lands back on /admin", async ({
 
   await expect(page).toHaveURL("/admin");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Admin.");
-  await expect(page.getByText("@site-owner")).toBeVisible();
+  // The account details (comments on the page may mention the owner too).
+  await expect(
+    page.getByRole("definition").filter({ hasText: "@site-owner" }),
+  ).toBeVisible();
 
   const cookies = await page.context().cookies();
   expect(
@@ -65,26 +69,38 @@ test("signing out everywhere ends the other browsers' sessions too", async ({
   browser,
   baseURL,
 }) => {
+  // Its own account: signing the shared admin out everywhere would sign out
+  // every other test using it at the same time.
+  const me = freshLogin("traveller");
   const laptop = await (await browser.newContext({ baseURL })).newPage();
   const phone = await (await browser.newContext({ baseURL })).newPage();
-  await signInAs(laptop, "admin");
-  await signInAs(phone, "admin");
+  await signInAs(laptop, me, "/account");
+  await signInAs(phone, me, "/account");
+  await expect(phone).toHaveURL("/account");
 
   await laptop.getByRole("button", { name: "Sign out everywhere" }).click();
   await expect(laptop).toHaveURL("/sign-in?signed-out=1");
-  await phone.goto("/admin");
-  await expect(phone).toHaveURL("/sign-in?next=%2Fadmin");
+  await phone.goto("/account");
+  await expect(phone).toHaveURL("/sign-in?next=%2Faccount");
 
   await laptop.context().close();
   await phone.context().close();
 });
 
-test("other GitHub accounts can't sign in", async ({ page }) => {
+test("anyone can sign in, but /admin stays the site owner's", async ({
+  page,
+}) => {
   await signInAs(page, "visitor");
 
-  await expect(page).toHaveURL("/sign-in?error=not-allowed&next=%2Fadmin");
-  await expect(page.getByRole("alert")).toContainText("only the site owner");
-  expect(await cookieNames(page)).not.toContain("trilleo_session");
+  await expect(page).toHaveURL("/admin");
+  await expect(
+    page.getByText("Only the site owner can see this page."),
+  ).toBeVisible();
+  expect(await cookieNames(page)).toContain("trilleo_session");
+
+  await page.goto("/account");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Account.");
+  await expect(page.getByRole("link", { name: "Admin" })).toHaveCount(0);
 });
 
 test("cancelling on GitHub says so", async ({ page }) => {
@@ -92,7 +108,7 @@ test("cancelling on GitHub says so", async ({ page }) => {
   await page.getByRole("link", { name: "Sign in with GitHub" }).click();
   await page.getByRole("link", { name: "Cancel" }).click();
 
-  await expect(page).toHaveURL("/sign-in?error=denied&next=%2Fadmin");
+  await expect(page).toHaveURL("/sign-in?error=denied&next=%2Faccount");
   await expect(page.getByRole("alert")).toContainText("cancelled");
 });
 
@@ -112,8 +128,8 @@ test("a callback this browser didn't start is refused", async ({ page }) => {
 test("signing in never sends visitors to another site", async ({ page }) => {
   await page.goto("/sign-in?next=https://evil.example/");
   await page.getByRole("link", { name: "Sign in with GitHub" }).click();
-  await page.getByRole("link", { name: "Continue as site-owner" }).click();
-  await expect(page).toHaveURL("/admin");
+  await continueAs(page, "admin");
+  await expect(page).toHaveURL("/account");
 });
 
 test("sign-out only accepts posts from this site", async ({ page }) => {

@@ -3,7 +3,13 @@ import { SITE_NAME, formatTitle, isPrivatePath } from "./site";
 
 describe("isPrivatePath", () => {
   it("covers the account pages", () => {
-    for (const path of ["/admin", "/admin/", "/auth/github", "/sign-in/"]) {
+    for (const path of [
+      "/account",
+      "/admin/",
+      "/auth/github",
+      "/comments",
+      "/sign-in/",
+    ]) {
       expect(isPrivatePath(path)).toBe(true);
     }
   });

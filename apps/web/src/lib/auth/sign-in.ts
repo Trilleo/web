@@ -1,4 +1,5 @@
-import type { Database } from "@trilleo/db";
+import { users, type Database } from "@trilleo/db";
+import { eq } from "drizzle-orm";
 import type { AuthConfig } from "./config";
 import type { OAuthState } from "./cookies";
 import { exchangeCode, fetchGitHubUser, type GitHubProfile } from "./github";
@@ -19,7 +20,8 @@ export type SignInResult =
 /**
  * Finishes a sign-in when GitHub sends the visitor back to /auth/github/callback.
  * Nothing is stored unless the state matches, GitHub vouches for the account, and
- * the account is allowed in.
+ * the admin hasn't blocked it. Any GitHub account may sign in (to comment); only
+ * ADMIN_GITHUB_IDS may use /admin.
  */
 export async function completeSignIn(input: {
   db: Database;
@@ -70,8 +72,12 @@ export async function completeSignIn(input: {
     return { ok: false, error: "failed" };
   }
 
-  if (!config.adminIds.has(profile.id))
-    return { ok: false, error: "not-allowed" };
+  const [existing] = await db
+    .select({ blockedAt: users.blockedAt })
+    .from(users)
+    .where(eq(users.githubId, profile.id))
+    .limit(1);
+  if (existing?.blockedAt) return { ok: false, error: "not-allowed" };
 
   const user = await upsertGitHubUser(db, profile, now);
   await deleteExpiredSessions(db, now);
@@ -83,8 +89,7 @@ const MESSAGES: Record<SignInError, string> = {
   state: "That sign-in expired or didn’t start here. Please try again.",
   denied: "Sign-in was cancelled on GitHub.",
   failed: "GitHub didn’t complete the sign-in. Please try again in a moment.",
-  "not-allowed":
-    "That GitHub account can’t sign in here. For now, only the site owner can.",
+  "not-allowed": "That GitHub account can’t sign in here.",
   "not-configured": "Sign-in isn’t set up on this server yet.",
 };
 

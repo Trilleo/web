@@ -1,0 +1,82 @@
+---
+import { renderComment } from "../../lib/comments/render";
+import type { CommentView } from "../../lib/comments/store";
+import { formatPostDate } from "../../lib/listings";
+
+interface Props {
+  comment: CommentView;
+  /** Show a delete button (the viewer wrote it, or is the admin). */
+  canDelete: boolean;
+  /** Where to come back to after deleting. */
+  back: string;
+}
+
+const { comment, canDelete, back } = Astro.props;
+const anchor = `comment-${String(comment.id)}`;
+---
+
+<article
+  id={anchor}
+  class="flex scroll-mt-6 flex-col gap-2.5"
+  aria-label={
+    comment.removed
+      ? "Removed comment"
+      : `Comment by ${comment.author?.login ?? "a deleted account"}`
+  }
+>
+  {comment.removed ? (
+    <p class="type-label text-muted">This comment has been removed.</p>
+  ) : (
+    <>
+      <header class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        {comment.author ? (
+          <a
+            href={`https://github.com/${comment.author.login}`}
+            rel="nofollow ugc noopener"
+            class="font-medium underline-offset-4 hover:underline"
+          >
+            {comment.author.name ?? comment.author.login}
+            <span class="type-label ml-1 text-muted">
+              @{comment.author.login}
+            </span>
+          </a>
+        ) : (
+          <span class="font-medium text-muted">Deleted account</span>
+        )}
+        <a
+          href={`#${anchor}`}
+          class="type-label text-muted underline-offset-4 hover:underline"
+        >
+          <time datetime={comment.createdAt.toISOString()}>
+            {formatPostDate(comment.createdAt)}
+          </time>
+        </a>
+        {comment.pending && (
+          <span class="type-label bg-accent px-1.5 py-0.5 text-on-accent">
+            Awaiting approval
+          </span>
+        )}
+      </header>
+      <div class="comment-body">
+        <Fragment set:html={renderComment(comment.body)} />
+      </div>
+      {canDelete && (
+        <details class="type-label text-muted">
+          <summary class="w-fit cursor-pointer underline-offset-4 hover:text-ink hover:underline">
+            Delete
+          </summary>
+          <form method="post" action="/comments/delete" class="mt-2">
+            <input type="hidden" name="id" value={String(comment.id)} />
+            <input type="hidden" name="back" value={back} />
+            <button
+              type="submit"
+              class="type-label border border-ink px-2.5 py-1.5 text-ink hover:bg-ink hover:text-paper"
+            >
+              Yes, delete this comment
+            </button>
+          </form>
+        </details>
+      )}
+    </>
+  )}
+</article>
