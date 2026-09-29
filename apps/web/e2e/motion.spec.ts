@@ -50,7 +50,7 @@ test.describe("with motion", () => {
     const before = await html.getAttribute("data-theme");
     await page
       .getByRole("banner")
-      .getByRole("button", { name: "Dark mode" })
+      .getByRole("button", { name: /^(Dark|Light) mode$/ })
       .click();
     await expect(html).not.toHaveAttribute("data-theme", before ?? "");
     await expect(html).not.toHaveAttribute("data-theme-switching");

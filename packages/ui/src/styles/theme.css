@@ -233,8 +233,16 @@
   }
 }
 
-/* Theme switch (../theme.ts): the new theme wipes out from the toggle as a circle.
-   Named elements join the root snapshot so the whole page wipes as one. */
+/* Theme switch (../theme.ts): the new theme sweeps in behind a straight diagonal
+   edge, from the top-right corner to the bottom-left. Named elements join the root
+   snapshot so the whole page switches as one.
+
+   The shown area is everything right of a line running parallel to the page's
+   top-left → bottom-right diagonal. In page fractions (u across, v down) that's
+   u - v >= c: c = 1 touches only the top-right corner, c = -1 covers up to the
+   bottom-left. The polygon is that half-plane cut far outside the page; its
+   first and last points slide along the edge as c goes from 1.02 to -1.02, so it
+   starts fully hidden and ends fully shown at any size or aspect ratio. */
 html[data-theme-switching] * {
   view-transition-name: none !important;
 }
@@ -242,16 +250,14 @@ html[data-theme-switching]::view-transition-old(root) {
   animation: none;
 }
 html[data-theme-switching]::view-transition-new(root) {
-  animation: tr-wipe var(--tr-dur-slow) var(--tr-ease) both;
+  animation: tr-sweep 650ms cubic-bezier(0.65, 0, 0.35, 1) both;
 }
-@keyframes tr-wipe {
+@keyframes tr-sweep {
   from {
-    clip-path: circle(0 at var(--tr-wipe-x, 100%) var(--tr-wipe-y, 0));
+    clip-path: polygon(2% -100%, 400% -100%, 400% 200%, 302% 200%);
   }
   to {
-    clip-path: circle(
-      var(--tr-wipe-r, 150vmax) at var(--tr-wipe-x, 100%) var(--tr-wipe-y, 0)
-    );
+    clip-path: polygon(-202% -100%, 400% -100%, 400% 200%, 98% 200%);
   }
 }
 

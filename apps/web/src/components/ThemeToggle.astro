@@ -2,21 +2,48 @@
 import { ContrastIcon } from "@trilleo/ui";
 ---
 
-<!-- aria-pressed = dark mode on. The script keeps it in sync with the applied theme. -->
+<!-- Names the mode it switches to: "Dark mode" in light, "Light mode" in dark. The
+     label follows <html data-theme> in CSS, which is set before first paint, so it's
+     never wrong for a moment; the hidden one is display: none, so only the visible
+     label names the button. -->
 <button
   type="button"
-  aria-pressed="false"
   class="group press type-nav inline-flex min-h-11 min-w-11 items-center justify-center gap-2 md:justify-start"
   data-theme-toggle
 >
-  <ContrastIcon
-    size={18}
-    className="transition-transform duration-(--tr-dur-slow) ease-swiss group-hover:rotate-45 group-aria-pressed:rotate-180 group-aria-pressed:group-hover:rotate-225"
-  />
+  <span class="theme-icon">
+    <ContrastIcon size={18} />
+  </span>
   <span class="sr-only md:not-sr-only">
-    <span class="link-wipe">Dark mode</span>
+    <span class="link-wipe to-dark">Dark mode</span>
+    <span class="link-wipe to-light">Light mode</span>
   </span>
 </button>
+
+<style>
+  .to-light,
+  :global([data-theme="dark"]) .to-dark {
+    display: none;
+  }
+  :global([data-theme="dark"]) .to-light {
+    display: inline;
+  }
+
+  /* The icon turns a little on hover and half a turn with the theme. */
+  .theme-icon {
+    display: inline-flex;
+    transition: rotate var(--tr-dur-slow) var(--tr-ease);
+  }
+  button:hover .theme-icon {
+    rotate: 45deg;
+  }
+  :global([data-theme="dark"]) .theme-icon {
+    rotate: 180deg;
+  }
+  :global([data-theme="dark"]) button:hover .theme-icon {
+    rotate: 225deg;
+  }
+</style>
 
 <script>
   import { bindThemeToggle } from "@trilleo/ui/theme";

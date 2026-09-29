@@ -87,15 +87,12 @@ export const themeInitScript = `(function(){var s=null;try{s=localStorage.getIte
 )}:${JSON.stringify(THEME_COLORS.light)};d.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.content=c})})();`;
 
 /**
- * Runs `update` (which applies a theme) so the new theme wipes out from `origin` as a
- * growing circle (styles/theme.css). Falls back to an instant switch without the View
- * Transitions API or when the visitor prefers reduced motion.
+ * Runs `update` (which applies a theme) so the new theme sweeps across the page behind
+ * a straight diagonal edge, from the top-right corner to the bottom-left
+ * (styles/theme.css). Falls back to an instant switch without the View Transitions
+ * API or when the visitor prefers reduced motion.
  */
-export function switchThemeWithWipe(
-  doc: Document,
-  origin: Element,
-  update: () => void,
-): void {
+export function switchThemeWithWipe(doc: Document, update: () => void): void {
   const win = doc.defaultView;
   if (
     !win ||
@@ -106,18 +103,7 @@ export function switchThemeWithWipe(
     return;
   }
 
-  const rect = origin.getBoundingClientRect();
-  const x = rect.left + rect.width / 2;
-  const y = rect.top + rect.height / 2;
-  // Far enough to cover the farthest corner of the viewport.
-  const radius = Math.hypot(
-    Math.max(x, win.innerWidth - x),
-    Math.max(y, win.innerHeight - y),
-  );
   const root = doc.documentElement;
-  root.style.setProperty("--tr-wipe-x", `${String(x)}px`);
-  root.style.setProperty("--tr-wipe-y", `${String(y)}px`);
-  root.style.setProperty("--tr-wipe-r", `${String(Math.ceil(radius))}px`);
   root.setAttribute("data-theme-switching", "");
 
   const done = (): void => {
@@ -131,9 +117,10 @@ export function switchThemeWithWipe(
 }
 
 /**
- * Wires a toggle button: flips the theme on click (with a wipe from the button, see
- * switchThemeWithWipe), keeps `aria-pressed` (pressed = dark) in sync, and follows
- * system changes while no override is stored. Returns a cleanup.
+ * Wires a toggle button: flips the theme on click (with a sweep, see
+ * switchThemeWithWipe) and follows system changes while no override is stored. The
+ * button's label ("Dark mode" / "Light mode") follows <html data-theme> in CSS, so
+ * it's right from first paint. Returns a cleanup.
  */
 export function bindThemeToggle(
   button: HTMLButtonElement,
@@ -143,25 +130,19 @@ export function bindThemeToggle(
   const system = win.matchMedia(DARK_QUERY);
   const current = (): Theme =>
     doc.documentElement.dataset.theme === "dark" ? "dark" : "light";
-  const sync = (): void => {
-    button.setAttribute("aria-pressed", String(current() === "dark"));
-  };
 
   const onClick = (): void => {
     const { theme, stored } = nextThemeChoice(current(), system.matches);
     writeStoredTheme(win, stored);
-    switchThemeWithWipe(doc, button, () => {
+    switchThemeWithWipe(doc, () => {
       applyTheme(doc, theme);
-      sync();
     });
   };
   const onSystemChange = (): void => {
     if (readStoredTheme(win) !== null) return;
     applyTheme(doc, resolveTheme(null, system.matches));
-    sync();
   };
 
-  sync();
   button.addEventListener("click", onClick);
   system.addEventListener("change", onSystemChange);
   return () => {

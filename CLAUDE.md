@@ -85,7 +85,9 @@
   items: morphs only go list → page, and never to an off-screen element; see
   packages/ui/src/page-transition.ts). Names must be unique on a page and sit on a
   box that doesn't wrap across lines (a fragmented inline box aborts the
-  transition). The theme toggle wipes the new theme out from the button.
+  transition). The theme toggle sweeps the new theme in behind a diagonal
+  edge, top right to bottom left, and is labelled with the mode it switches to
+  ("Dark mode" / "Light mode", driven by CSS from <html data-theme>).
 - Everything respects prefers-reduced-motion; never run an infinite animation
   outside `@media (prefers-reduced-motion: no-preference)`. E2E runs with reduced
   motion by default; e2e/motion.spec.ts covers the motion itself.

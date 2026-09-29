@@ -167,26 +167,28 @@ describe("bindThemeToggle", () => {
     return { button, system, cleanup };
   }
 
-  it("flips the theme, reflects it in aria-pressed, and forgets a choice that matches the system", () => {
+  it("flips the theme and forgets a choice that matches the system", () => {
     const { button } = setup(false);
-    expect(button.getAttribute("aria-pressed")).toBe("false");
 
     button.click();
     expect(document.documentElement.dataset.theme).toBe("dark");
-    expect(button.getAttribute("aria-pressed")).toBe("true");
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
 
     button.click();
     expect(document.documentElement.dataset.theme).toBe("light");
-    expect(button.getAttribute("aria-pressed")).toBe("false");
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
   });
 
+  it("is a plain action button: its label says what it does, no pressed state", () => {
+    const { button } = setup(false);
+    button.click();
+    expect(button.hasAttribute("aria-pressed")).toBe(false);
+  });
+
   it("follows system changes while there is no override", () => {
-    const { button, system } = setup(false);
+    const { system } = setup(false);
     system.setDark(true);
     expect(document.documentElement.dataset.theme).toBe("dark");
-    expect(button.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("keeps an override when the system changes", () => {
@@ -236,28 +238,23 @@ describe("switchThemeWithWipe", () => {
 
   it("switches instantly without the View Transitions API", () => {
     const update = vi.fn();
-    switchThemeWithWipe(document, document.body, update);
+    switchThemeWithWipe(document, update);
     expect(update).toHaveBeenCalledOnce();
     expect(document.documentElement.hasAttribute("data-theme-switching")).toBe(
       false,
     );
   });
 
-  it("wipes from the button's center inside a view transition", async () => {
+  it("sweeps inside a view transition, marking the page while it runs", async () => {
     vi.stubGlobal("matchMedia", () => ({ matches: false }));
     const vt = mockViewTransitions();
-    const button = document.createElement("button");
-    button.getBoundingClientRect = () =>
-      ({ left: 100, top: 20, width: 40, height: 20 }) as DOMRect;
     const update = vi.fn();
 
-    switchThemeWithWipe(document, button, update);
+    switchThemeWithWipe(document, update);
 
     const root = document.documentElement;
     expect(vt.start).toHaveBeenCalledOnce();
     expect(update).toHaveBeenCalledOnce();
-    expect(root.style.getPropertyValue("--tr-wipe-x")).toBe("120px");
-    expect(root.style.getPropertyValue("--tr-wipe-y")).toBe("30px");
     expect(root.hasAttribute("data-theme-switching")).toBe(true);
 
     vt.finish();
@@ -270,7 +267,7 @@ describe("switchThemeWithWipe", () => {
     vi.stubGlobal("matchMedia", () => ({ matches: true }));
     const vt = mockViewTransitions();
     const update = vi.fn();
-    switchThemeWithWipe(document, document.body, update);
+    switchThemeWithWipe(document, update);
     expect(vt.start).not.toHaveBeenCalled();
     expect(update).toHaveBeenCalledOnce();
   });

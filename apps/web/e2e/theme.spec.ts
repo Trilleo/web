@@ -11,7 +11,9 @@ declare global {
 }
 
 const html = (page: Page) => page.locator("html");
-const toggle = (page: Page) => page.getByRole("button", { name: "Dark mode" });
+// The toggle names the mode it switches to.
+const toggle = (page: Page) =>
+  page.getByRole("banner").getByRole("button", { name: /^(Dark|Light) mode$/ });
 const paper = (page: Page) =>
   page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 const stored = (page: Page) =>
@@ -23,18 +25,18 @@ test.describe("light system setting", () => {
   test("starts light, toggles to dark, and remembers it", async ({ page }) => {
     await page.goto("/");
     await expect(html(page)).toHaveAttribute("data-theme", "light");
-    await expect(toggle(page)).toHaveAttribute("aria-pressed", "false");
+    await expect(toggle(page)).toHaveAccessibleName("Dark mode");
     expect(await paper(page)).toBe(LIGHT_PAPER);
 
     await toggle(page).click();
     await expect(html(page)).toHaveAttribute("data-theme", "dark");
-    await expect(toggle(page)).toHaveAttribute("aria-pressed", "true");
+    await expect(toggle(page)).toHaveAccessibleName("Light mode");
     expect(await paper(page)).toBe(DARK_PAPER);
     expect(await stored(page)).toBe("dark");
 
     await page.reload();
     await expect(html(page)).toHaveAttribute("data-theme", "dark");
-    await expect(toggle(page)).toHaveAttribute("aria-pressed", "true");
+    await expect(toggle(page)).toHaveAccessibleName("Light mode");
   });
 
   test("flipping back to match the system forgets the override", async ({
@@ -54,7 +56,7 @@ test.describe("dark system setting", () => {
   test("starts dark with nothing stored", async ({ page }) => {
     await page.goto("/");
     await expect(html(page)).toHaveAttribute("data-theme", "dark");
-    await expect(toggle(page)).toHaveAttribute("aria-pressed", "true");
+    await expect(toggle(page)).toHaveAccessibleName("Light mode");
     expect(await paper(page)).toBe(DARK_PAPER);
     expect(await stored(page)).toBeNull();
   });
@@ -65,7 +67,7 @@ test.describe("dark system setting", () => {
     await page.goto("/");
     await page.emulateMedia({ colorScheme: "light" });
     await expect(html(page)).toHaveAttribute("data-theme", "light");
-    await expect(toggle(page)).toHaveAttribute("aria-pressed", "false");
+    await expect(toggle(page)).toHaveAccessibleName("Dark mode");
   });
 });
 
