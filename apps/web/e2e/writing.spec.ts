@@ -78,6 +78,28 @@ test.describe("post page on desktop", () => {
     );
   });
 
+  test("sets the text in the self-hosted serif and headings in the grotesk", async ({
+    page,
+  }) => {
+    await page.goto(POST);
+
+    await expect(page.locator(".prose > p").first()).toHaveCSS(
+      "font-family",
+      /^"Source Serif 4 Variable"/,
+    );
+    await expect(page.locator(".prose h2").first()).toHaveCSS(
+      "font-family",
+      /^"Schibsted Grotesk Variable"/,
+    );
+    // The face actually loads (from this site, not a system Georgia).
+    expect(
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+        return document.fonts.check('1rem "Source Serif 4 Variable"');
+      }),
+    ).toBe(true);
+  });
+
   test("marks the section being read in the contents", async ({ page }) => {
     await page.goto(POST);
     const contents = page.getByRole("navigation", { name: "Contents" });

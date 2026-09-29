@@ -1,14 +1,25 @@
 /*
  * Article typography for rendered Markdown (the post body).
  * Colors come from the --tr-* tokens, so it follows light/dark automatically.
+ * Running text is serif; headings, quotes, tables and code keep the grotesk/mono.
  */
 
 .prose {
-  font-size: 1.125rem;
-  line-height: 1.65;
+  font-family: var(--font-serif);
+  font-size: 1.1875rem;
+  line-height: 1.6;
+  font-variant-numeric: oldstyle-nums proportional-nums;
+  text-wrap: pretty;
+  hanging-punctuation: first;
+  /* Phones: the narrow column needs hyphens to avoid ragged gaps. */
+  hyphens: auto;
+
+  @media (width >= 48rem) {
+    hyphens: manual;
+  }
 
   @media (width >= 80rem) {
-    font-size: 1.1875rem;
+    font-size: 1.25rem;
     /* Side notes size themselves from this box (see .sidenote). */
     container-type: inline-size;
   }
@@ -16,6 +27,16 @@
 
 .prose > * + * {
   margin-top: 1.5rem;
+}
+
+.prose :is(h1, h2, h3, h4, h5, h6, blockquote, table) {
+  font-family: var(--font-sans);
+  font-variant-numeric: normal;
+  hyphens: manual;
+}
+
+.prose :is(h1, h2, h3, h4, h5, h6) {
+  text-wrap: balance;
 }
 
 /* Posts start at h2 (the page has the h1); notes and other tools' Markdown may not. */
@@ -171,6 +192,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 1rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .prose th {

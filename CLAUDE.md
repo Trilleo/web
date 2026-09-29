@@ -41,7 +41,8 @@
 - New domain, fresh start: no WordPress content or URLs carried over.
 - Node 24 LTS, pnpm (version pinned in package.json#packageManager).
   TypeScript stays on 6.x until typescript-eslint and @astrojs/check support 7.
-- Design: "Swiss grid" direction (Schibsted Grotesk + Geist Mono, orange accent).
+- Design: "Swiss grid" direction (Schibsted Grotesk + Geist Mono, orange accent),
+  with Source Serif 4 for reading text.
   Light/dark follows the system; the header toggle overrides it, and flipping
   back to the system's choice clears the override.
 
@@ -59,6 +60,9 @@
   2 of 8 columns on iPad, 2 of 12 on desktop, so content starts at column 3.
   Right-hand asides take columns 10–12 on desktop; post text is columns 3–9.
 - Fonts are self-hosted from npm (@fontsource-variable/*); no third-party requests.
+- Typefaces by role: the grotesk (`font-sans`) for headings, UI and quotes; the
+  serif (`font-serif`, Source Serif 4 with optical sizes) for reading text: .prose
+  (posts, rendered notes), .comment-body, and `type-dek`; mono for labels and code.
 - Astro scoped styles don't reach child components: wrap a child in an element
   you own if the parent's CSS must place it.
 

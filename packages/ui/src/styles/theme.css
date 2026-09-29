@@ -11,6 +11,9 @@
 
 @import "@fontsource-variable/schibsted-grotesk";
 @import "@fontsource-variable/geist-mono";
+/* The opsz build: text at every size gets the cut drawn for it (side notes, …). */
+@import "@fontsource-variable/source-serif-4/opsz.css";
+@import "@fontsource-variable/source-serif-4/opsz-italic.css";
 
 /* Scan this package's components for class names; apps don't scan node_modules. */
 @source "../";
@@ -60,6 +63,8 @@
 
   --font-sans:
     "Schibsted Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  /* Reading text: post bodies, comments, rendered notes, deks. Georgia is the fallback. */
+  --font-serif: "Source Serif 4 Variable", Georgia, ui-serif, serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
 
   --ease-swiss: cubic-bezier(0.2, 0, 0, 1);
@@ -390,11 +395,11 @@ html[data-theme-switching]::view-transition-new(root) {
   }
 }
 
-/* The summary under a post title. */
+/* The summary under a post or tool title. Reading text, so it's serif. */
 @utility type-dek {
+  font-family: var(--font-serif);
   font-size: 1.25rem;
   line-height: 1.4;
-  letter-spacing: -0.01em;
   @media (width >= 48rem) {
     font-size: 1.375rem;
   }

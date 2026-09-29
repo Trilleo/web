@@ -1,15 +1,18 @@
 /*
  * A comment's rendered text (see src/lib/comments/render.ts for what it can contain).
- * Quieter than .prose: comments are conversation, not articles.
+ * Quieter than .prose: comments are conversation, not articles. Serif like the post
+ * text; quotes stay grotesk.
  */
 
 .comment-body {
-  font-size: 1rem;
-  line-height: 1.6;
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  text-wrap: pretty;
   overflow-wrap: anywhere;
 
   @media (width >= 48rem) {
-    font-size: 1.0625rem;
+    font-size: 1.125rem;
   }
 }
 
@@ -59,6 +62,7 @@
 
 .comment-body blockquote {
   padding-left: 1rem;
+  font-family: var(--font-sans);
   border-left: 2px solid var(--tr-accent);
   color: var(--tr-muted);
 }
