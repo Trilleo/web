@@ -5,5 +5,8 @@ import { getViteConfig } from "astro/config";
 export default getViteConfig({
   test: {
     include: ["src/**/*.test.{ts,tsx}"],
+    // Database tests start an in-memory PGlite (Postgres compiled to WebAssembly).
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });

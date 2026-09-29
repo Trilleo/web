@@ -7,6 +7,8 @@ const PAGES = [
   "/writing/rebuilding-this-site/",
   "/writing/tags/astro/",
   "/does-not-exist",
+  "/sign-in",
+  "/sign-in?error=state",
 ];
 const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 900 },

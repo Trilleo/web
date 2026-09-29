@@ -267,10 +267,41 @@ The last line should list 2 variables and 5 secrets (values are never shown). Th
 delete `$env:USERPROFILE\trilleo-keys` from your PC: GitHub has the key, and if it's
 ever needed again, make a new one and update the server's `authorized_keys`.
 
-### 7. First deploy
+### 7. GitHub sign-in
+
+Sign-in uses a GitHub **OAuth App** (not a GitHub App). Each OAuth App allows one
+callback URL, so production and local development get one each.
+
+1. <https://github.com/settings/applications/new> (Settings → Developer settings → OAuth
+   Apps → New OAuth App):
+   - Application name `trilleo.net`, homepage `https://www.trilleo.net`
+   - Authorization callback URL `https://www.trilleo.net/auth/github/callback`
+   - Leave **Enable Device Flow** off. **Register application**, then **Generate a new
+     client secret** and keep the page open (the secret is shown once).
+2. Your numeric GitHub user ID (usernames can change; IDs can't). From your PC:
+   `gh api user --jq .id`
+3. On the server, as root. The prompts keep the secret out of shell history; paste it,
+   nothing echoes:
+
+   ```bash
+   cd /srv/trilleo
+   read -r -p 'Client ID: ' id; read -r -s -p 'Client secret: ' secret; echo; read -r -p 'Admin GitHub user ID(s), comma-separated: ' admins
+   ( umask 077; printf 'GITHUB_CLIENT_ID=%s\nGITHUB_CLIENT_SECRET=%s\nADMIN_GITHUB_IDS=%s\n' "$id" "$secret" "$admins" > app.env ); unset secret
+   chown root:deploy app.env && chmod 640 app.env && ls -l app.env && grep -c . app.env
+   ```
+
+   It should list `-rw-r----- root deploy` and count 3 lines. Only these accounts can
+   sign in (for now, just you).
+
+4. For `pnpm dev`, optionally: a second OAuth App named `trilleo.net (local)`, homepage
+   `http://localhost:4321`, callback `http://localhost:4321/auth/github/callback`; copy
+   `apps/web/.env.example` to `apps/web/.env` and fill it in.
+
+### 8. First deploy
 
 Push to `main`, or run **Actions → Deploy → Run workflow**. Watch it at
-<https://github.com/Trilleo/web/actions>, then open <https://www.trilleo.net>.
+<https://github.com/Trilleo/web/actions>, then open <https://www.trilleo.net> and sign in
+at <https://www.trilleo.net/admin>.
 
 ## Day to day
 
@@ -288,6 +319,9 @@ Push to `main`, or run **Actions → Deploy → Run workflow**. Watch it at
   Rolling back doesn't undo database migrations; they're written to stay compatible with
   the previous release (see `packages/db/src/schema.ts`).
 
+- **Change who can sign in, or the OAuth secret:** edit `/srv/trilleo/app.env`, then
+  `cd /srv/trilleo && docker compose up -d --force-recreate app` (a plain restart keeps
+  the old values). Sessions of someone removed stop working at once.
 - **Logs / status:** `cd /srv/trilleo && docker compose ps` and
   `docker compose logs -f app` (or `web`, `db`).
 - **Database shell:** `cd /srv/trilleo && docker compose exec db psql -U trilleo`.
@@ -318,16 +352,20 @@ Push to `main`, or run **Actions → Deploy → Run workflow**. Watch it at
 
 ## Troubleshooting
 
-| Symptom                                        | Likely cause                                                                                                                                                                                                                                                                                                                      |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cloudflare **521** (web server is down)        | Container not running (`docker compose ps`), or the security group blocks Cloudflare on 443.                                                                                                                                                                                                                                      |
-| Cloudflare **522** (timed out)                 | Security group or provider firewall drops Cloudflare; check the 443 rules and the ICP filing status.                                                                                                                                                                                                                              |
-| Cloudflare **525/526** (SSL handshake/invalid) | SSL mode isn't Full (strict), or `origin.pem`/`origin.key` don't match or aren't the Origin certificate.                                                                                                                                                                                                                          |
-| Cloudflare **520** or empty reply              | Caddy dropped the connection: Cloudflare's ranges changed; see "Cloudflare IP ranges changed" above.                                                                                                                                                                                                                              |
-| Deploy fails at "Log in to Huawei SWR"         | `SWR_USERNAME` must be `<REGION>@<AK>`; the password is the long-term hex string; check org permissions.                                                                                                                                                                                                                          |
-| Deploy fails at "Deploy on the server"         | `Host key verification failed`: `DEPLOY_KNOWN_HOSTS` is wrong; redo its §6 lines. `Load key … invalid format` or `Permission denied (publickey)`: `DEPLOY_SSH_KEY` isn't the exact key file (set it with §6's `cmd /c` line) or the key isn't in `authorized_keys`. A `docker pull` error: the server's pull login expired (§4f). |
-| `Permission denied (publickey)` for root       | Key login wasn't set up before §4g. Log in via Huawei console → ECS → Remote Login → **VNC**, move `/etc/ssh/sshd_config.d/10-trilleo.conf` away, `systemctl reload ssh`, redo §4a until `key login works`, then restore the file (§4g).                                                                                          |
-| Deploy fails at "Check the live site"          | The site is up but not the new version: check `trilleo-deploy` output in the job log and `docker compose ps`.                                                                                                                                                                                                                     |
-| Deploy log: `env file … db.env not found`      | §4c's `db.env` is missing.                                                                                                                                                                                                                                                                                                        |
-| Deploy log: a container is `unhealthy`         | The job log shows `docker compose ps` and the app's last log lines. Usually the app can't reach or migrate the database: `docker compose logs db app`. The static site keeps running meanwhile.                                                                                                                                   |
-| Cloudflare **502** on some pages only          | Static pages work but the app is down or restarting: `docker compose ps`, `docker compose logs app`.                                                                                                                                                                                                                              |
+| Symptom                                                        | Likely cause                                                                                                                                                                                                                                                                                                                      |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cloudflare **521** (web server is down)                        | Container not running (`docker compose ps`), or the security group blocks Cloudflare on 443.                                                                                                                                                                                                                                      |
+| Cloudflare **522** (timed out)                                 | Security group or provider firewall drops Cloudflare; check the 443 rules and the ICP filing status.                                                                                                                                                                                                                              |
+| Cloudflare **525/526** (SSL handshake/invalid)                 | SSL mode isn't Full (strict), or `origin.pem`/`origin.key` don't match or aren't the Origin certificate.                                                                                                                                                                                                                          |
+| Cloudflare **520** or empty reply                              | Caddy dropped the connection: Cloudflare's ranges changed; see "Cloudflare IP ranges changed" above.                                                                                                                                                                                                                              |
+| Deploy fails at "Log in to Huawei SWR"                         | `SWR_USERNAME` must be `<REGION>@<AK>`; the password is the long-term hex string; check org permissions.                                                                                                                                                                                                                          |
+| Deploy fails at "Deploy on the server"                         | `Host key verification failed`: `DEPLOY_KNOWN_HOSTS` is wrong; redo its §6 lines. `Load key … invalid format` or `Permission denied (publickey)`: `DEPLOY_SSH_KEY` isn't the exact key file (set it with §6's `cmd /c` line) or the key isn't in `authorized_keys`. A `docker pull` error: the server's pull login expired (§4f). |
+| `Permission denied (publickey)` for root                       | Key login wasn't set up before §4g. Log in via Huawei console → ECS → Remote Login → **VNC**, move `/etc/ssh/sshd_config.d/10-trilleo.conf` away, `systemctl reload ssh`, redo §4a until `key login works`, then restore the file (§4g).                                                                                          |
+| Deploy fails at "Check the live site"                          | The site is up but not the new version: check `trilleo-deploy` output in the job log and `docker compose ps`.                                                                                                                                                                                                                     |
+| Deploy log: `env file … db.env not found`                      | §4c's `db.env` is missing.                                                                                                                                                                                                                                                                                                        |
+| Deploy log: `env file … app.env not found`                     | §7's `app.env` is missing.                                                                                                                                                                                                                                                                                                        |
+| `/sign-in` says sign-in isn't set up                           | `app.env` lacks a value, or the app hasn't been recreated since it changed (see "Change who can sign in").                                                                                                                                                                                                                        |
+| GitHub: "redirect_uri is not associated with this application" | The OAuth App's callback URL isn't exactly `https://www.trilleo.net/auth/github/callback`.                                                                                                                                                                                                                                        |
+| Sign-in ends at "That GitHub account can't sign in here"       | Your ID isn't in `ADMIN_GITHUB_IDS` (`gh api user --jq .id`).                                                                                                                                                                                                                                                                     |
+| Deploy log: a container is `unhealthy`                         | The job log shows `docker compose ps` and the app's last log lines. Usually the app can't reach or migrate the database: `docker compose logs db app`. The static site keeps running meanwhile.                                                                                                                                   |
+| Cloudflare **502** on some pages only                          | Static pages work but the app is down or restarting: `docker compose ps`, `docker compose logs app`.                                                                                                                                                                                                                              |

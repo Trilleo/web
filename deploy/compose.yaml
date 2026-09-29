@@ -1,7 +1,8 @@
 # Production stack on the server (/srv/trilleo). This file ships inside the web image and
 # trilleo-deploy copies it out on every deploy, so it always matches the running release.
-#   .env    written by trilleo-deploy: REGISTRY, WEB_IMAGE, APP_IMAGE
-#   db.env  created once by hand (deploy/README.md): the database password
+#   .env     written by trilleo-deploy: REGISTRY, WEB_IMAGE, APP_IMAGE
+#   db.env   created once by hand (deploy/README.md): the database password
+#   app.env  created once by hand: GitHub sign-in (OAuth App, admin IDs)
 name: trilleo
 
 x-logging: &logging
@@ -58,7 +59,9 @@ services:
     environment:
       # No password here: postgres.js reads PGPASSWORD from db.env.
       DATABASE_URL: postgres://trilleo@db:5432/trilleo
-    env_file: db.env
+    env_file:
+      - db.env
+      - app.env
     read_only: true
     tmpfs:
       - /tmp

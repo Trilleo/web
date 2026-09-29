@@ -46,6 +46,8 @@ docker run --rm --entrypoint cat "$web_image" /deploy/compose.yaml >"$stack/comp
 printf 'REGISTRY=%s\nWEB_IMAGE=%s\nAPP_IMAGE=%s\n' "$registry" "$web_image" "$app_image" >"$stack/.env"
 password="$(openssl rand -hex 16)"
 printf 'POSTGRES_PASSWORD=%s\nPGPASSWORD=%s\n' "$password" "$password" >"$stack/db.env"
+# Placeholder OAuth App: enough to start a sign-in, which never reaches GitHub here.
+printf 'GITHUB_CLIENT_ID=smoke-client\nGITHUB_CLIENT_SECRET=smoke-secret\nADMIN_GITHUB_IDS=1\n' >"$stack/app.env"
 # "Open": every address counts as Cloudflare, so curl can reach it.
 cat >"$stack/compose.smoke.yaml" <<'YAML'
 services:
@@ -113,6 +115,34 @@ grep -q '404' "$stack/404.html" || fail "404 page content"
 echo "==> the app's health check isn't public"
 status="$(site --output /dev/null --write-out '%{http_code}' "https://www.trilleo.net/api/health")"
 [[ "$status" == "404" ]] || fail "/api/health answered $status from outside"
+
+# These need Caddy's forwarded headers to reach Astro intact (security.allowedDomains):
+# otherwise the app thinks it's http://localhost and all of them go wrong.
+echo "==> sign-in: admin pages redirect, and sign-in starts at GitHub with the right URLs"
+headers="$(site --dump-header - --output /dev/null "https://www.trilleo.net/admin")"
+grep -qi '^HTTP/[0-9.]* 302' <<<"$headers" || fail "/admin status: $headers"
+grep -qi '^location: /sign-in?next=%2Fadmin' <<<"$headers" || fail "/admin redirect: $headers"
+headers="$(site --dump-header - --output /dev/null "https://www.trilleo.net/sign-in")"
+grep -qi '^HTTP/[0-9.]* 200' <<<"$headers" || fail "/sign-in status: $headers"
+grep -qi '^cache-control: private, no-store' <<<"$headers" || fail "/sign-in should not be cached"
+headers="$(site --dump-header - --output /dev/null "https://www.trilleo.net/auth/github")"
+grep -qi '^location: https://github.com/login/oauth/authorize?client_id=smoke-client&redirect_uri=https%3A%2F%2Fwww.trilleo.net%2Fauth%2Fgithub%2Fcallback&' <<<"$headers" ||
+	fail "sign-in redirect: $headers"
+cookie="$(grep -i '^set-cookie: __Host-trilleo_oauth=' <<<"$headers")" ||
+	fail "no __Host-trilleo_oauth cookie: $headers"
+for attribute in 'Path=/' 'HttpOnly' 'Secure' 'SameSite=Lax'; do
+	grep -qi "; $attribute" <<<"$cookie" || fail "sign-in cookie lacks $attribute: $cookie"
+done
+
+echo "==> sign-out accepts this site's forms and refuses other sites'"
+logout() {
+	site --output /dev/null --write-out '%{http_code}' --request POST \
+		--header "Origin: $1" --data 'everywhere=0' "https://www.trilleo.net/auth/logout"
+}
+status="$(logout https://www.trilleo.net)"
+[[ "$status" == "303" ]] || fail "same-site sign-out answered $status"
+status="$(logout https://evil.example)"
+[[ "$status" == "403" ]] || fail "cross-site sign-out answered $status"
 
 echo "==> the database was migrated"
 migrations="$(docker compose exec -T db psql --username=trilleo --dbname=trilleo --tuples-only --no-align \

@@ -23,6 +23,7 @@
     "@trilleo/db": "workspace:*",
     "@trilleo/ui": "workspace:*",
     "astro": "^7.3.5",
+    "drizzle-orm": "^0.45.3",
     "hast-util-from-html": "^2.0.3",
     "hast-util-to-html": "^9.0.5",
     "hast-util-to-string": "^3.0.1",

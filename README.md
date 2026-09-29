@@ -46,6 +46,11 @@ to WebAssembly) in `apps/web/.data/`, and tests use an in-memory one. After chan
 `packages/db/src/schema.ts`, run `pnpm --filter @trilleo/db db:generate` and commit the
 new migration.
 
+Sign-in (`/admin`) works in development once `apps/web/.env` has a localhost GitHub OAuth
+App's credentials: copy `apps/web/.env.example` and see
+[deploy/README.md §7](deploy/README.md#7-github-sign-in). The e2e tests use a fake GitHub
+and need nothing.
+
 Lint, format, and TypeScript base configs live at the repo root (`eslint.config.js`,
 `.prettierrc.json`, `tsconfig.base.json`).
 

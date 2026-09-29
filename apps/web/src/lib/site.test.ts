@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { SITE_NAME, formatTitle } from "./site";
+import { SITE_NAME, formatTitle, isPrivatePath } from "./site";
+
+describe("isPrivatePath", () => {
+  it("covers the account pages", () => {
+    for (const path of ["/admin", "/admin/", "/auth/github", "/sign-in/"]) {
+      expect(isPrivatePath(path)).toBe(true);
+    }
+  });
+
+  it("leaves everything else public", () => {
+    for (const path of [
+      "/",
+      "/writing/",
+      "/writing/admin-notes/",
+      "/authors/",
+    ]) {
+      expect(isPrivatePath(path)).toBe(false);
+    }
+  });
+});
 
 describe("formatTitle", () => {
   it("returns the site name when no page title is given", () => {

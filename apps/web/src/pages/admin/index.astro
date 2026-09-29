@@ -1,0 +1,76 @@
+---
+import { buttonClasses } from "@trilleo/ui";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { requireAdmin } from "../../lib/auth/guard";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const dateTime = new Intl.DateTimeFormat("en-GB", {
+  dateStyle: "long",
+  timeStyle: "short",
+  timeZone: "UTC",
+});
+const expiresAt = Astro.locals.session?.expiresAt;
+
+type Fact = { term: string; value: string } | { term: string; date: Date };
+const facts: Fact[] = [
+  { term: "GitHub", value: `@${admin.githubLogin}` },
+  { term: "Name", value: admin.name ?? "—" },
+  { term: "GitHub ID", value: String(admin.githubId) },
+  { term: "First signed in", date: admin.createdAt },
+  ...(expiresAt ? [{ term: "Signed in until", date: expiresAt }] : []),
+];
+---
+
+<BaseLayout title="Admin" noindex>
+  <section
+    aria-labelledby="admin-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">(Admin) Dashboard</p>
+
+    <h1 id="admin-title" class="type-display mt-5 -ml-[0.03em] xl:mt-7">
+      Admin<span class="text-accent">.</span>
+    </h1>
+
+    <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-3">Account</h2>
+      <dl class="col-span-4 grid grid-cols-2 gap-x-5 gap-y-4 md:col-span-6 xl:col-span-9 xl:grid-cols-3 xl:gap-x-6">
+        {facts.map((fact) => (
+          <div class="flex flex-col gap-1 xl:gap-1.5">
+            <dt class="type-label text-muted">{fact.term}</dt>
+            <dd class="text-base font-medium md:text-[17px] xl:text-lg">
+              {"date" in fact ? (
+                <time datetime={fact.date.toISOString()}>
+                  {dateTime.format(fact.date)} UTC
+                </time>
+              ) : (
+                fact.value
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      <div class="col-span-4 flex flex-wrap gap-3 md:col-span-6 md:col-start-3 xl:col-span-9 xl:col-start-4">
+        <form method="post" action="/auth/logout">
+          <button type="submit" class={buttonClasses()}>
+            Sign out
+          </button>
+        </form>
+        <form method="post" action="/auth/logout">
+          <input type="hidden" name="everywhere" value="1" />
+          <button type="submit" class={buttonClasses({ variant: "secondary" })}>
+            Sign out everywhere
+          </button>
+        </form>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

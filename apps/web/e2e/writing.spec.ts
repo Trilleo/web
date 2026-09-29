@@ -169,4 +169,13 @@ test.describe("feeds", () => {
       "Sitemap: https://www.trilleo.net/sitemap-index.xml",
     );
   });
+
+  test("account pages stay out of search", async ({ request }) => {
+    const robots = await (await request.get("/robots.txt")).text();
+    for (const path of ["/admin", "/auth/", "/sign-in"]) {
+      expect(robots).toContain(`Disallow: ${path}\n`);
+    }
+    const sitemap = await (await request.get("/sitemap-0.xml")).text();
+    expect(sitemap).not.toMatch(/\/(admin|auth|sign-in)/);
+  });
 });

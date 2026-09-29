@@ -1,0 +1,90 @@
+---
+import { ArrowRightIcon, GitHubIcon, buttonClasses } from "@trilleo/ui";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { authConfig } from "../lib/auth/config";
+import { safeNextPath } from "../lib/auth/redirect";
+import { signInErrorMessage } from "../lib/auth/sign-in";
+
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const { user } = Astro.locals;
+const params = Astro.url.searchParams;
+const configured = authConfig() !== null;
+const next = safeNextPath(params.get("next"));
+const error = signInErrorMessage(
+  configured ? params.get("error") : "not-configured",
+);
+const signedOut = params.has("signed-out") && !user;
+---
+
+<BaseLayout title="Sign in" noindex>
+  <section
+    aria-labelledby="sign-in-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">(Account) Sign in</p>
+
+    <h1 id="sign-in-title" class="type-display mt-5 -ml-[0.03em] xl:mt-7">
+      Sign in<span class="text-accent">.</span>
+    </h1>
+
+    <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 md:col-start-3 xl:col-start-4">
+        {error && (
+          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+            {error}
+          </p>
+        )}
+        {signedOut && (
+          <p role="status" class="type-lead">
+            You’ve signed out.
+          </p>
+        )}
+        {user ? (
+          <p class="type-lead">
+            You’re signed in as <strong>@{user.githubLogin}</strong>.
+          </p>
+        ) : (
+          <p class="type-lead">
+            Sign in with your GitHub account. For now, only the site owner can.
+          </p>
+        )}
+      </div>
+
+      <div class="col-span-4 flex flex-col gap-3 md:col-span-6 md:col-start-3 xl:col-span-3 xl:col-start-10">
+        {user ? (
+          <>
+            <a href={next} class={buttonClasses()}>
+              Continue
+              <ArrowRightIcon size={16} />
+            </a>
+            <form method="post" action="/auth/logout">
+              <button
+                type="submit"
+                class={buttonClasses({
+                  variant: "secondary",
+                  className: "w-full",
+                })}
+              >
+                Sign out
+              </button>
+            </form>
+          </>
+        ) : (
+          configured && (
+            <a
+              href={`/auth/github?next=${encodeURIComponent(next)}`}
+              class={buttonClasses()}
+            >
+              <GitHubIcon size={16} />
+              Sign in with GitHub
+            </a>
+          )
+        )}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

@@ -250,6 +250,9 @@ importers:
       astro:
         specifier: ^7.3.5
         version: 7.3.5(@types/node@26.6.3)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
+      drizzle-orm:
+        specifier: ^0.45.3
+        version: 0.45.3(@electric-sql/pglite@0.5.8)(postgres@3.4.9)
       hast-util-from-html:
         specifier: ^2.0.3
         version: 2.0.3

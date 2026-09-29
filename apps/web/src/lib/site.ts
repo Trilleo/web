@@ -6,6 +6,13 @@ export const SITE_DESCRIPTION = "Writing, tools, and experiments on the web.";
 export const SITE_BIO = "[Short bio — who you are and what you work on.]";
 export const GITHUB_URL = "https://github.com/Trilleo";
 
+/** Account pages: kept out of search (robots.txt) and the sitemap. Prefixes. */
+export const PRIVATE_PATHS = ["/admin", "/auth/", "/sign-in"] as const;
+
+export function isPrivatePath(pathname: string): boolean {
+  return PRIVATE_PATHS.some((prefix) => pathname.startsWith(prefix));
+}
+
 export interface NavItem {
   number: string;
   label: string;

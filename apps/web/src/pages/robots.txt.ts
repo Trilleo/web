@@ -1,9 +1,13 @@
 import type { APIRoute } from "astro";
-import { SITE_URL } from "../lib/site";
+import { PRIVATE_PATHS, SITE_URL } from "../lib/site";
 
 export const GET: APIRoute = ({ site }) => {
   const sitemap = new URL("sitemap-index.xml", site ?? SITE_URL).href;
-  return new Response(`User-agent: *\nAllow: /\n\nSitemap: ${sitemap}\n`, {
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
-  });
+  const disallow = PRIVATE_PATHS.map((path) => `Disallow: ${path}\n`).join("");
+  return new Response(
+    `User-agent: *\nAllow: /\n${disallow}\nSitemap: ${sitemap}\n`,
+    {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    },
+  );
 };

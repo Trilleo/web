@@ -87,6 +87,30 @@
   dependency of apps/web; production never imports it.
 - Use the query builder in app code: raw `db.execute()` results differ by driver.
 
+## Auth
+
+- GitHub OAuth, hand-written in apps/web/src/lib/auth/: /auth/github → GitHub
+  (state + PKCE, no scopes) → /auth/github/callback → a session. Sessions live in
+  Postgres as the SHA-256 of the cookie's token; 30 days, extended when used in
+  the last 15. Cookie `__Host-trilleo_session` over HTTPS, `trilleo_session` on
+  plain-HTTP dev/e2e. GitHub's access token is used once and never stored.
+- For now only ADMIN_GITHUB_IDS may sign in (`completeSignIn` refuses everyone
+  else without creating a user); comments will open it up.
+- src/middleware.ts sets `Astro.locals.user` / `session` on server-rendered
+  requests. Admin-only pages start with
+  `const admin = requireAdmin(Astro); if (admin instanceof Response) return admin;`
+  and send `Cache-Control: private, no-store`. Anything that changes state is a
+  POST form (Astro's origin check blocks cross-site posts), never a GET.
+- astro.config's `security.allowedDomains` must list every host the server is
+  reached as; otherwise Astro sees `localhost`, and redirect URIs, cookies and the
+  origin check all break (the smoke test checks this behind Caddy).
+- Settings: GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, ADMIN_GITHUB_IDS. Production:
+  /srv/trilleo/app.env. Dev: apps/web/.env (from .env.example, loaded in
+  astro.config), with a separate localhost OAuth App. E2E signs in against
+  e2e/fake-github.ts.
+- New private pages: add their prefix to PRIVATE_PATHS (src/lib/site.ts) to keep
+  them out of robots.txt and the sitemap.
+
 ## Deploy
 
 - Runbook: deploy/README.md. Push to main → CI → Deploy workflow builds two
