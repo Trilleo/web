@@ -59,6 +59,37 @@
 - Astro scoped styles don't reach child components: wrap a child in an element
   you own if the parent's CSS must place it.
 
+## Motion
+
+- Crisp, not bouncy: 150/260/450ms (`--tr-dur-fast|base|slow`), `ease-swiss`
+  (plus `-out` for entrances, `-in` for exits); things slide along the grid.
+  Tokens, keyframes and utilities live in theme.css; packages/ui/src/motion.ts
+  (`MOTION`) mirrors them for JS.
+- Utilities: `link-wipe` (underline drawn from the left; put it on the text span,
+  it reacts to the enclosing link/button/`group`), `press` (click press-in; owns
+  the element's transitions), `animate-rise|fade|mask-up|pop|draw` (entrances,
+  `backwards` fill so hover transforms still work afterwards). `buttonClasses`
+  gives buttons a sliding fill.
+- Scroll reveals: add `data-reveal` (or `="rule"` / `="fade"`); reveal.ts staggers
+  whatever arrives together. Content is only hidden while `<html data-motion>`
+  is set (JS on, motion allowed), with a CSS failsafe. Don't nest reveals or put
+  them inside server islands (they load after the observer starts).
+- Page transitions are native cross-document View Transitions (no client
+  router). The header holds still. Only a tool's name morphs into its page title
+  (post titles deliberately don't: too busy for the style); morphing elements share
+  `view-transition-name: transitionName(prefix, id)` (src/lib/site.ts) plus
+  `view-transition-class: tr-morph` and `data-morph` (`data-morph="from"` on list
+  items: morphs only go list → page, and never to an off-screen element; see
+  packages/ui/src/page-transition.ts). Names must be unique on a page and sit on a
+  box that doesn't wrap across lines (a fragmented inline box aborts the
+  transition). The theme toggle wipes the new theme out from the button.
+- Everything respects prefers-reduced-motion; never run an infinite animation
+  outside `@media (prefers-reduced-motion: no-preference)`. E2E runs with reduced
+  motion by default; e2e/motion.spec.ts covers the motion itself.
+- React tools animate with Motion (`motion/react`) inside
+  `<MotionConfig reducedMotion="user">`, timed with `MOTION`; their Vitest setup
+  sets `MotionGlobalConfig.skipAnimations`. Plain pages ship no animation library.
+
 ## Blog
 
 - Posts: apps/web/src/content/writing/<slug>.md(x) → /writing/<slug>/. Schema in
@@ -215,7 +246,8 @@ Copy apps/notes as the template, then:
 4. Page: apps/web/src/pages/tools/<name>.astro, as notes.astro does
    (`prerender = false`, no-store, `ToolLayout`, the app with `client:load`).
 5. Styles: add `@source "../../../<name>/src";` to apps/web/src/styles/global.css
-   so Tailwind sees the tool's classes. Use the design system's classes.
+   so Tailwind sees the tool's classes. Use the design system's classes, and
+   animate with Motion + `MOTION` (see Motion above).
 6. Tests: Vitest in the package (logic, and components with Testing Library);
    a Playwright spec in apps/web/e2e/ (fresh accounts via `freshLogin()`); add its
    page to e2e/a11y.spec.ts.

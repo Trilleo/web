@@ -1,4 +1,5 @@
 ---
+import DisplayTitle from "../../components/DisplayTitle.astro";
 import { buttonClasses } from "@trilleo/ui";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { isAdmin, requireUser } from "../../lib/auth/guard";
@@ -36,9 +37,7 @@ const STATUS = {
   >
     <p class="type-label text-ink">(Account) @{user.githubLogin}</p>
 
-    <h1 id="account-title" class="type-display mt-5 -ml-[0.03em] xl:mt-7">
-      Account<span class="text-accent">.</span>
-    </h1>
+    <DisplayTitle id="account-title">Account</DisplayTitle>
 
     <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
       <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-3">You</h2>
@@ -99,7 +98,7 @@ const STATUS = {
                 <p class="type-label flex flex-wrap gap-x-3 gap-y-1 text-muted">
                   <a
                     href={`${postHref(comment.postSlug)}#comment-${String(comment.id)}`}
-                    class="text-ink underline-offset-4 hover:underline"
+                    class="link-wipe text-ink"
                   >
                     {titles.get(comment.postSlug) ?? comment.postSlug}
                   </a>
@@ -112,7 +111,7 @@ const STATUS = {
                   <Fragment set:html={renderComment(comment.body)} />
                 </div>
                 <details class="type-label text-muted">
-                  <summary class="w-fit cursor-pointer underline-offset-4 hover:text-ink hover:underline">
+                  <summary class="link-wipe w-fit cursor-pointer hover:text-ink">
                     Delete
                   </summary>
                   <form method="post" action="/comments/delete" class="mt-2">

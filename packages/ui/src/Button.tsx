@@ -2,12 +2,16 @@ import type { ComponentProps } from "react";
 
 export type ButtonVariant = "primary" | "secondary";
 
+// On hover/focus a color panel slides in from the left behind the label (the
+// `before:` layer); `press` handles the click and the label's color change.
 const base =
-  "inline-flex h-11 items-center justify-center gap-2.5 px-4 type-nav whitespace-nowrap transition-colors duration-150 ease-swiss disabled:pointer-events-none disabled:opacity-50";
+  "relative isolate inline-flex h-11 items-center justify-center gap-2.5 overflow-hidden px-4 type-nav whitespace-nowrap press before:absolute before:inset-0 before:-z-10 before:origin-left before:scale-x-0 before:transition-transform before:duration-(--tr-dur-base) before:ease-swiss hover:before:scale-x-100 focus-visible:before:scale-x-100 disabled:pointer-events-none disabled:opacity-50";
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "bg-ink text-paper hover:bg-accent hover:text-on-accent",
-  secondary: "border border-ink text-ink hover:bg-ink hover:text-paper",
+  primary:
+    "bg-ink text-paper before:bg-accent hover:text-on-accent focus-visible:text-on-accent",
+  secondary:
+    "border border-ink text-ink before:bg-ink hover:text-paper focus-visible:text-paper",
 };
 
 /** Button styling for elements that can't use <Button>/<ButtonLink> (e.g. Astro markup). */

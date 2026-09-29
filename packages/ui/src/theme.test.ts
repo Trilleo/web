@@ -8,6 +8,7 @@ import {
   nextThemeChoice,
   readStoredTheme,
   resolveTheme,
+  switchThemeWithWipe,
   themeInitScript,
   writeStoredTheme,
 } from "./theme";
@@ -48,6 +49,7 @@ function addThemeColorMeta(): HTMLMetaElement {
 
 beforeEach(() => {
   localStorage.clear();
+  document.documentElement.removeAttribute("data-theme-switching");
   delete document.documentElement.dataset.theme;
   document.head.innerHTML = "";
   document.body.innerHTML = "";
@@ -200,5 +202,76 @@ describe("bindThemeToggle", () => {
     expect(system.listenerCount()).toBe(0);
     button.click();
     expect(document.documentElement.dataset.theme).toBe("light");
+  });
+});
+
+describe("switchThemeWithWipe", () => {
+  /** Stubs document.startViewTransition; returns the mock. */
+  function mockViewTransitions() {
+    let finish: (() => void) | undefined;
+    const start = vi.fn((update: () => void) => {
+      update();
+      return {
+        ready: Promise.resolve(),
+        finished: new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+      };
+    });
+    Object.defineProperty(document, "startViewTransition", {
+      configurable: true,
+      value: start,
+    });
+    return {
+      start,
+      finish: () => {
+        finish?.();
+      },
+    };
+  }
+
+  afterEach(() => {
+    Reflect.deleteProperty(document, "startViewTransition");
+  });
+
+  it("switches instantly without the View Transitions API", () => {
+    const update = vi.fn();
+    switchThemeWithWipe(document, document.body, update);
+    expect(update).toHaveBeenCalledOnce();
+    expect(document.documentElement.hasAttribute("data-theme-switching")).toBe(
+      false,
+    );
+  });
+
+  it("wipes from the button's center inside a view transition", async () => {
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    const vt = mockViewTransitions();
+    const button = document.createElement("button");
+    button.getBoundingClientRect = () =>
+      ({ left: 100, top: 20, width: 40, height: 20 }) as DOMRect;
+    const update = vi.fn();
+
+    switchThemeWithWipe(document, button, update);
+
+    const root = document.documentElement;
+    expect(vt.start).toHaveBeenCalledOnce();
+    expect(update).toHaveBeenCalledOnce();
+    expect(root.style.getPropertyValue("--tr-wipe-x")).toBe("120px");
+    expect(root.style.getPropertyValue("--tr-wipe-y")).toBe("30px");
+    expect(root.hasAttribute("data-theme-switching")).toBe(true);
+
+    vt.finish();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(root.hasAttribute("data-theme-switching")).toBe(false);
+  });
+
+  it("switches instantly when the visitor prefers reduced motion", () => {
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+    const vt = mockViewTransitions();
+    const update = vi.fn();
+    switchThemeWithWipe(document, document.body, update);
+    expect(vt.start).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledOnce();
   });
 });

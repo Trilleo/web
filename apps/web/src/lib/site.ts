@@ -38,3 +38,17 @@ export function formatTitle(page?: string): string {
   const trimmed = page?.trim();
   return trimmed ? `${trimmed} · ${SITE_NAME}` : SITE_NAME;
 }
+
+/**
+ * A `view-transition-name` for something that appears on two pages (a post's title
+ * in a list and on its page), so it morphs across the navigation. Names must be
+ * valid CSS identifiers and unique on a page.
+ */
+export function transitionName(prefix: string, id: string): string {
+  const safe = id
+    .toLowerCase()
+    // Letters from any script are fine in CSS identifiers; everything else isn't.
+    .replace(/[^\p{L}\p{N}_-]+/gu, "-")
+    .replace(/^-+|-+$/g, "");
+  return `${prefix}-${safe || "item"}`;
+}

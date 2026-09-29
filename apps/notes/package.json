@@ -19,7 +19,8 @@
   "dependencies": {
     "@trilleo/tool-kit": "workspace:*",
     "@trilleo/ui": "workspace:*",
-    "markdown-it": "^15.0.2"
+    "markdown-it": "^15.0.2",
+    "motion": "^13.4.4"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.2",

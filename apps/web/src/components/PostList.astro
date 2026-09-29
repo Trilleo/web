@@ -29,7 +29,7 @@ const { posts, emptyMessage = "No posts yet.", headings = true } = Astro.props;
     )}
     <ol class="border-b border-ink">
       {posts.map((post) => (
-        <li class="border-t border-ink">
+        <li class="border-t border-ink" data-reveal>
           <a
             href={post.href}
             class="post-row group grid-swiss py-[18px] md:py-[22px] xl:py-6"
@@ -37,8 +37,8 @@ const { posts, emptyMessage = "No posts yet.", headings = true } = Astro.props;
             <span class="post-number type-label text-muted tabular-nums">
               {post.number}
             </span>
-            <span class="post-title type-row underline-offset-4 group-hover:underline">
-              {post.title}
+            <span class="post-title type-row">
+              <span class="link-wipe">{post.title}</span>
             </span>
             <span class="post-read type-label">{post.readingMinutes} min</span>
             <span class="post-date type-label text-muted">
@@ -52,7 +52,7 @@ const { posts, emptyMessage = "No posts yet.", headings = true } = Astro.props;
                 formatPostDate(null)
               )}
             </span>
-            <span class="post-arrow transition-transform duration-150 ease-swiss group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
+            <span class="post-arrow transition-transform duration-(--tr-dur-fast) ease-swiss group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
               <ArrowUpRightIcon size={22} />
             </span>
           </a>

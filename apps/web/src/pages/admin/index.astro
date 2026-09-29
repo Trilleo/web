@@ -1,4 +1,5 @@
 ---
+import DisplayTitle from "../../components/DisplayTitle.astro";
 import { buttonClasses } from "@trilleo/ui";
 import Moderation from "../../components/admin/Moderation.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
@@ -44,9 +45,7 @@ const facts: Fact[] = [
   >
     <p class="type-label text-ink">(Admin) Dashboard</p>
 
-    <h1 id="admin-title" class="type-display mt-5 -ml-[0.03em] xl:mt-7">
-      Admin<span class="text-accent">.</span>
-    </h1>
+    <DisplayTitle id="admin-title">Admin</DisplayTitle>
 
     <div class="mt-7 md:mt-8 xl:mt-12">
       <Moderation {...overview} titles={titles} adminId={admin.id} />

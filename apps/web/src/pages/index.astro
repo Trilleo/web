@@ -19,12 +19,14 @@ const latestPosts = toListings(posts).slice(0, HOME_POST_COUNT);
 const postCount = `${String(posts.length)} ${posts.length === 1 ? "post" : "posts"}`;
 
 const pageLinkClass =
-  "flex min-h-12 items-center justify-between border-b border-ink font-semibold underline-offset-4 hover:underline";
+  "group flex min-h-12 items-center justify-between border-b border-ink font-semibold";
+const pageArrowClass =
+  "transition-transform duration-(--tr-dur-base) ease-swiss group-hover:translate-x-1";
 ---
 
 <BaseLayout>
   <section aria-labelledby="site-title" class="px-page pt-4 xl:pt-5">
-    <div class="grid-swiss type-label text-muted">
+    <div class="grid-swiss type-label animate-fade text-muted">
       <span class="col-span-2 text-ink md:col-span-4 xl:col-span-3">
         (00) Index
       </span>
@@ -39,14 +41,23 @@ const pageLinkClass =
       </span>
     </div>
 
-    <h1 id="site-title" class="type-hero mt-5 -ml-[0.03em] xl:mt-7">
-      <span class="block">Hey</span>
-      <span class="block">
-        It’s Trilleo<span class="text-accent">.</span>
-      </span>
+    <!-- Each line rises out of its baseline, then the period drops in. Named
+         explicitly: the animated inline-blocks would read as "Trilleo ." -->
+    <h1
+      id="site-title"
+      aria-label="Hey It’s Trilleo."
+      class="type-hero mt-5 -ml-[0.03em] xl:mt-7"
+    >
+      <span class="block animate-mask-up">Hey</span>
+      <!-- prettier-ignore -->
+      <span class="block animate-mask-up [animation-delay:90ms]">It’s Trilleo<span class="inline-block origin-[50%_80%] animate-pop text-accent [animation-delay:600ms]">.</span></span>
     </h1>
 
-    <div class="grid-swiss mt-7 gap-y-4 border-t border-ink pt-4 pb-10 md:mt-8 md:gap-y-7 md:pt-5 md:pb-14 xl:mt-12 xl:pt-6 xl:pb-16">
+    <div class="h-px bg-ink mt-7 md:mt-8 xl:mt-12 origin-left animate-draw [animation-delay:300ms]"></div>
+    <div
+      class="grid-swiss gap-y-4 pt-4 pb-10 md:gap-y-7 md:pt-5 md:pb-14 xl:pt-6 xl:pb-16"
+      data-reveal
+    >
       <p class="type-label col-span-4 flex items-start gap-2 md:col-span-2 xl:col-span-3">
         <span
           class="mt-0.5 size-2 bg-accent xl:size-2.5"
@@ -61,12 +72,12 @@ const pageLinkClass =
         </p>
         <div class="flex flex-col border-t border-ink">
           <a href="#writing" class={pageLinkClass}>
-            Start reading
-            <ArrowRightIcon />
+            <span class="link-wipe">Start reading</span>
+            <ArrowRightIcon className={pageArrowClass} />
           </a>
           <a href="#tools" class={pageLinkClass}>
-            Browse tools
-            <ArrowRightIcon />
+            <span class="link-wipe">Browse tools</span>
+            <ArrowRightIcon className={pageArrowClass} />
           </a>
         </div>
       </div>

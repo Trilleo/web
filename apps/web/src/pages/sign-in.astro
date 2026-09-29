@@ -1,4 +1,5 @@
 ---
+import DisplayTitle from "../components/DisplayTitle.astro";
 import { ArrowRightIcon, GitHubIcon, buttonClasses } from "@trilleo/ui";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { authConfig } from "../lib/auth/config";
@@ -28,9 +29,7 @@ const accountDeleted = params.has("account-deleted") && !user;
   >
     <p class="type-label text-ink">(Account) Sign in</p>
 
-    <h1 id="sign-in-title" class="type-display mt-5 -ml-[0.03em] xl:mt-7">
-      Sign in<span class="text-accent">.</span>
-    </h1>
+    <DisplayTitle id="sign-in-title">Sign in</DisplayTitle>
 
     <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
       <div class="col-span-4 flex flex-col gap-4 md:col-span-6 md:col-start-3 xl:col-start-4">

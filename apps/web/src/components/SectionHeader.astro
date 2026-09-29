@@ -18,8 +18,10 @@ const metaClass =
   "type-label col-span-2 col-start-3 row-start-1 self-start justify-self-end md:col-start-7 md:self-end xl:col-span-3 xl:col-start-10";
 ---
 
-<!-- Phone: number and meta share the first row, title below. iPad/desktop: one row. -->
-<div class="grid-swiss items-end border-t-2 border-ink pt-3 md:pt-4">
+<!-- The 2px rule draws in from the left as it scrolls into view, then the row rises.
+     Phone: number and meta share the first row, title below. iPad/desktop: one row. -->
+<div class="h-0.5 bg-ink" data-reveal="rule"></div>
+<div class="grid-swiss items-end pt-3 md:pt-4" data-reveal>
   <span class="type-label col-span-2 row-start-1 self-start xl:col-span-3">
     ({number})
   </span>
@@ -33,10 +35,13 @@ const metaClass =
     (href ? (
       <a
         href={href}
-        class={`${metaClass} inline-flex min-h-8 items-center gap-1.5 underline-offset-4 hover:underline`}
+        class={`${metaClass} group inline-flex min-h-8 items-center gap-1.5`}
       >
-        {meta}
-        <ArrowUpRightIcon size={14} />
+        <span class="link-wipe">{meta}</span>
+        <ArrowUpRightIcon
+          size={14}
+          className="transition-transform duration-(--tr-dur-fast) ease-swiss group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+        />
       </a>
     ) : (
       <span class={`${metaClass} text-muted`}>{meta}</span>

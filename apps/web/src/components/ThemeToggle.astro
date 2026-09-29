@@ -6,14 +6,16 @@ import { ContrastIcon } from "@trilleo/ui";
 <button
   type="button"
   aria-pressed="false"
-  class="group type-nav inline-flex min-h-11 min-w-11 items-center justify-center gap-2 md:justify-start"
+  class="group press type-nav inline-flex min-h-11 min-w-11 items-center justify-center gap-2 md:justify-start"
   data-theme-toggle
 >
   <ContrastIcon
     size={18}
-    className="transition-transform duration-150 ease-swiss group-aria-pressed:rotate-180"
+    className="transition-transform duration-(--tr-dur-slow) ease-swiss group-hover:rotate-45 group-aria-pressed:rotate-180 group-aria-pressed:group-hover:rotate-225"
   />
-  <span class="sr-only md:not-sr-only">Dark mode</span>
+  <span class="sr-only md:not-sr-only">
+    <span class="link-wipe">Dark mode</span>
+  </span>
 </button>
 
 <script>

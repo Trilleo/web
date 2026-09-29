@@ -1,5 +1,7 @@
 ---
 import "../styles/global.css";
+import { morphGuardScript } from "@trilleo/ui/page-transition";
+import { motionInitScript } from "@trilleo/ui/reveal";
 import { THEME_COLORS, themeInitScript } from "@trilleo/ui/theme";
 import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
@@ -34,6 +36,10 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     />
     <!-- Sets data-theme before first paint so dark-mode visitors never see a light flash. -->
     <script is:inline set:html={themeInitScript}></script>
+    <!-- Opts into scroll reveals before first paint (only with JS and motion allowed). -->
+    <script is:inline set:html={motionInitScript}></script>
+    <!-- Titles morph from list to page only, and only when both ends are on screen. -->
+    <script is:inline set:html={morphGuardScript}></script>
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex" />}
     <meta name="generator" content={Astro.generator} />
@@ -63,5 +69,10 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
       <slot />
     </main>
     <SiteFooter />
+    <script>
+      import { bindReveal } from "@trilleo/ui/reveal";
+
+      bindReveal(document);
+    </script>
   </body>
 </html>

@@ -31,6 +31,19 @@
   /* Same in both themes; text on the accent stays black. */
   --tr-accent: #e5470f;
   --tr-on-accent: #0e0e0e;
+
+  /* Motion. Short and mechanical: things slide along the grid, nothing bounces.
+     ../motion.ts mirrors these for React tools (Motion). */
+  --tr-dur-fast: 150ms;
+  --tr-dur-base: 260ms;
+  --tr-dur-slow: 450ms;
+  --tr-stagger: 45ms;
+  --tr-ease: cubic-bezier(0.2, 0, 0, 1);
+  --tr-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --tr-ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+
+  /* Lets `height: auto` (and friends) transition, e.g. the phone menu. */
+  interpolate-size: allow-keywords;
 }
 
 :root[data-theme="light"] {
@@ -50,6 +63,54 @@
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
 
   --ease-swiss: cubic-bezier(0.2, 0, 0, 1);
+  --ease-swiss-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-swiss-in: cubic-bezier(0.7, 0, 0.84, 0);
+
+  /* Entrances. `backwards` fill: once finished, the element's own styles (hover
+     transforms, …) apply again. */
+  --animate-rise: tr-rise var(--tr-dur-slow) var(--tr-ease-out) backwards;
+  --animate-mask-up: tr-mask-up 700ms var(--tr-ease-out) backwards;
+  --animate-pop: tr-pop var(--tr-dur-slow) var(--tr-ease-out) backwards;
+  --animate-fade: tr-fade var(--tr-dur-slow) var(--tr-ease) backwards;
+  /* A rule drawing in from the left: pair it with origin-left. */
+  --animate-draw: tr-draw 900ms var(--tr-ease) backwards;
+}
+
+/* Outside @theme so they are always emitted (the reveal CSS uses them too). */
+@keyframes tr-rise {
+  from {
+    opacity: 0;
+    translate: 0 0.75rem;
+  }
+}
+@keyframes tr-fade {
+  from {
+    opacity: 0;
+  }
+}
+/* Rises out of its own baseline: the clip opens upward as the text moves up. */
+@keyframes tr-mask-up {
+  from {
+    translate: 0 0.35em;
+    clip-path: inset(100% -0.1em -0.25em -0.1em);
+  }
+  to {
+    translate: 0 0;
+    clip-path: inset(-0.25em -0.1em -0.25em -0.1em);
+  }
+}
+@keyframes tr-pop {
+  0% {
+    scale: 0;
+  }
+  60% {
+    scale: 1.25;
+  }
+}
+@keyframes tr-draw {
+  from {
+    scale: 0 1;
+  }
 }
 
 @theme inline {
@@ -81,9 +142,16 @@
     color: var(--tr-on-accent);
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* The ring closes in on the element. An animation, so it never replaces an
+     element's own transitions. */
   :focus-visible {
     outline: 2px solid var(--tr-accent);
     outline-offset: 2px;
+    animation: tr-focus var(--tr-dur-fast) var(--tr-ease-out);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -93,7 +161,133 @@
       scroll-behavior: auto !important;
       transition-duration: 0.01ms !important;
       animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
     }
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+      animation: none !important;
+    }
+  }
+}
+
+@keyframes tr-focus {
+  from {
+    outline-offset: 6px;
+    outline-color: transparent;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Page transitions: native cross-document View Transitions (no client router).
+ * The header holds still, the page lifts away and the next one rises in. Elements
+ * that exist on both pages share a view-transition-name and morph (a tool's name
+ * into its page title); give those `view-transition-class: tr-morph` and `data-morph`.
+ * ------------------------------------------------------------------------- */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root) {
+  animation: tr-page-out var(--tr-dur-fast) var(--tr-ease-in) both;
+}
+::view-transition-new(root) {
+  animation: tr-page-in var(--tr-dur-base) var(--tr-ease-out) both;
+}
+::view-transition-group(site-header) {
+  animation: none;
+}
+::view-transition-old(site-header) {
+  display: none;
+}
+::view-transition-new(site-header) {
+  animation: none;
+}
+::view-transition-group(.tr-morph) {
+  animation-duration: var(--tr-dur-slow);
+  animation-timing-function: var(--tr-ease);
+}
+::view-transition-old(.tr-morph),
+::view-transition-new(.tr-morph) {
+  animation-duration: var(--tr-dur-slow);
+}
+/* A morph whose other end is off screen (see ../page-transition.ts) goes with its
+   page instead: leaves like the old page, arrives like the new one. */
+::view-transition-old(.tr-morph):only-child {
+  animation: tr-page-out var(--tr-dur-fast) var(--tr-ease-in) both;
+}
+::view-transition-new(.tr-morph):only-child {
+  animation: tr-page-in var(--tr-dur-base) var(--tr-ease-out) both;
+}
+
+@keyframes tr-page-out {
+  to {
+    opacity: 0;
+    translate: 0 -0.75rem;
+  }
+}
+@keyframes tr-page-in {
+  from {
+    opacity: 0;
+    translate: 0 0.75rem;
+  }
+}
+
+/* Theme switch (../theme.ts): the new theme wipes out from the toggle as a circle.
+   Named elements join the root snapshot so the whole page wipes as one. */
+html[data-theme-switching] * {
+  view-transition-name: none !important;
+}
+html[data-theme-switching]::view-transition-old(root) {
+  animation: none;
+}
+html[data-theme-switching]::view-transition-new(root) {
+  animation: tr-wipe var(--tr-dur-slow) var(--tr-ease) both;
+}
+@keyframes tr-wipe {
+  from {
+    clip-path: circle(0 at var(--tr-wipe-x, 100%) var(--tr-wipe-y, 0));
+  }
+  to {
+    clip-path: circle(
+      var(--tr-wipe-r, 150vmax) at var(--tr-wipe-x, 100%) var(--tr-wipe-y, 0)
+    );
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Scroll reveals (../reveal.ts). `data-reveal` elements rise in the first time
+ * they scroll into view; `data-reveal="rule"` draws from the left instead. Only
+ * hidden while <html data-motion> is set (JS running, motion allowed), so
+ * no-JS and reduced-motion visitors always see everything. If the reveal script
+ * never starts ("ready" never set), a CSS failsafe shows everything after 3s.
+ * ------------------------------------------------------------------------- */
+@layer components {
+  html[data-motion] [data-reveal]:not([data-revealed]) {
+    opacity: 0;
+  }
+  html[data-motion]:not([data-motion="ready"])
+    [data-reveal]:not([data-revealed]) {
+    animation: tr-failsafe 0s 3s forwards;
+  }
+  html[data-motion] [data-reveal][data-revealed] {
+    animation: tr-rise var(--tr-dur-slow) var(--tr-ease-out) backwards;
+    animation-delay: var(--tr-reveal-delay, 0ms);
+  }
+  html[data-motion] [data-reveal="rule"][data-revealed] {
+    animation-name: tr-draw;
+    animation-duration: 700ms;
+    animation-timing-function: var(--tr-ease);
+    transform-origin: left center;
+  }
+  html[data-motion] [data-reveal="fade"][data-revealed] {
+    animation-name: tr-fade;
+  }
+}
+
+@keyframes tr-failsafe {
+  to {
+    opacity: 1;
   }
 }
 
@@ -280,5 +474,37 @@
   text-transform: uppercase;
   @media (width >= 80rem) {
     font-size: 0.8125rem;
+  }
+}
+
+/* Motion utilities. */
+
+/* An underline that draws in from the left on hover/focus, of the element itself
+   or of the link, button or `group` it sits in. Put it on the text (an inline
+   span), not on a tall flex link: the line sits at the bottom of the box. Wraps
+   onto every line of a multi-line title. */
+@utility link-wipe {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% max(1px, 0.065em);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-size var(--tr-dur-base) var(--tr-ease);
+  &:hover,
+  &:focus-visible,
+  :where(a, button, .group):is(:hover, :focus-visible) & {
+    background-size: 100% max(1px, 0.065em);
+  }
+}
+
+/* A small press-in on click, for buttons and toggles. Owns the element's
+   transitions (colors included), so don't combine it with transition-* classes. */
+@utility press {
+  transition-property: color, background-color, border-color, opacity, scale;
+  transition-duration: var(--tr-dur-fast);
+  transition-timing-function: var(--tr-ease);
+  &:active {
+    scale: 0.97;
   }
 }

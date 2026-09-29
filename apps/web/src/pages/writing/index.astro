@@ -1,4 +1,5 @@
 ---
+import DisplayTitle from "../../components/DisplayTitle.astro";
 import PostList from "../../components/PostList.astro";
 import PostSearch from "../../components/PostSearch.astro";
 import TagLinks from "../../components/TagLinks.astro";
@@ -24,9 +25,7 @@ const count = `${String(posts.length)} ${posts.length === 1 ? "post" : "posts"}`
       </span>
     </div>
 
-    <h1 id="writing-title" class="type-display mt-5 -ml-[0.03em] xl:mt-7">
-      Writing<span class="text-accent">.</span>
-    </h1>
+    <DisplayTitle id="writing-title">Writing</DisplayTitle>
 
     <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 pb-10 md:mt-8 md:gap-y-8 md:pt-5 md:pb-14 xl:mt-12 xl:pt-6 xl:pb-16">
       <p class="type-label col-span-4 flex items-start gap-2 md:col-span-2 xl:col-span-3">

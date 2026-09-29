@@ -9,6 +9,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./theme": "./src/theme.ts",
+    "./motion": "./src/motion.ts",
+    "./reveal": "./src/reveal.ts",
+    "./page-transition": "./src/page-transition.ts",
     "./theme.css": "./src/styles/theme.css"
   },
   "scripts": {

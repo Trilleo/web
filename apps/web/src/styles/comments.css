@@ -23,6 +23,12 @@
   text-underline-offset: 3px;
 }
 
+.comment-body a {
+  transition:
+    text-decoration-color var(--tr-dur-fast) var(--tr-ease),
+    text-decoration-thickness var(--tr-dur-fast) var(--tr-ease);
+}
+
 .comment-body a:hover {
   text-decoration-color: var(--tr-accent);
   text-decoration-thickness: 2px;
@@ -59,4 +65,22 @@
 
 .comment-body blockquote > * + * {
   margin-top: 0.5rem;
+}
+
+/* The comment a link points at (a notification, the one just posted) flashes: an
+   accent rule in the margin and a tint that fade after a moment. */
+[id^="comment-"]:target {
+  animation: comment-flash 2.4s var(--tr-ease) both;
+}
+
+@keyframes comment-flash {
+  0%,
+  55% {
+    background-color: var(--tr-chip);
+    box-shadow: -0.75rem 0 0 -0.5rem var(--tr-accent);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: -0.75rem 0 0 -0.5rem transparent;
+  }
 }

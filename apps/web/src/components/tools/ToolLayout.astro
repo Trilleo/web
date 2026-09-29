@@ -3,6 +3,7 @@
 import type { ToolMeta } from "@trilleo/tool-kit";
 import { ArrowLeftIcon } from "@trilleo/ui";
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import { transitionName } from "../../lib/site";
 
 interface Props {
   meta: ToolMeta;
@@ -18,10 +19,13 @@ const { meta } = Astro.props;
     </span>
     <a
       href="/tools/"
-      class="col-span-2 inline-flex items-center gap-2 justify-self-end underline-offset-4 hover:underline md:col-span-4 xl:col-span-3 xl:col-start-10"
+      class="group col-span-2 inline-flex items-center gap-2 justify-self-end md:col-span-4 xl:col-span-3 xl:col-start-10"
     >
-      <ArrowLeftIcon size={16} />
-      All tools
+      <ArrowLeftIcon
+        size={16}
+        className="transition-transform duration-(--tr-dur-base) ease-swiss group-hover:-translate-x-1"
+      />
+      <span class="link-wipe">All tools</span>
     </a>
   </div>
 
@@ -30,13 +34,20 @@ const { meta } = Astro.props;
     class="px-page pt-8 pb-24 md:pt-10 xl:pt-14 xl:pb-32"
   >
     <div class="grid-swiss gap-y-4 pb-8 md:pb-10">
+      <!-- Morphs from the tool's name in a list (ToolList). -->
       <h1
         id="tool-title"
         class="type-headline col-span-4 md:col-span-6 xl:col-span-9"
       >
-        {meta.name}
+        <span
+          class="inline-block"
+          data-morph
+          style={`view-transition-name: ${transitionName("tool", meta.name)}; view-transition-class: tr-morph`}
+        >
+          {meta.name}
+        </span>
       </h1>
-      <p class="type-dek col-span-4 max-w-[47.5rem] text-muted md:col-span-6 xl:col-span-9">
+      <p class="type-dek col-span-4 max-w-[47.5rem] animate-rise text-muted [animation-delay:120ms] md:col-span-6 xl:col-span-9">
         {meta.description}
       </p>
     </div>

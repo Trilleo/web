@@ -3,9 +3,12 @@ import { CloseIcon, MenuIcon } from "@trilleo/ui";
 import { NAV_ITEMS, SITE_NAME } from "../lib/site";
 import Logo from "./Logo.astro";
 import ThemeToggle from "./ThemeToggle.astro";
+
+const isCurrent = (href: string) => Astro.url.pathname.startsWith(href);
 ---
 
-<header class="border-b border-ink">
+<!-- Named so it holds still while pages transition (styles in @trilleo/ui's theme.css). -->
+<header class="border-b border-ink [view-transition-name:site-header]">
   <div class="grid-swiss px-page items-center py-3 md:py-4">
     <a
       href="/"
@@ -22,10 +25,17 @@ import ThemeToggle from "./ThemeToggle.astro";
       {NAV_ITEMS.map((item) => (
         <a
           href={item.href}
-          class="type-nav inline-flex min-h-11 items-center gap-1.5 underline-offset-[5px] hover:underline"
+          aria-current={isCurrent(item.href) ? "page" : undefined}
+          class="group type-nav inline-flex min-h-11 items-center gap-1.5"
         >
-          <span class="text-muted">{item.number}</span>
-          {item.label}
+          <span class="relative text-muted">
+            {item.number}
+            <span
+              class="absolute top-1/2 -left-3.5 hidden size-1.5 -translate-y-1/2 bg-accent group-aria-[current=page]:block group-aria-[current=page]:animate-pop"
+              aria-hidden="true"
+            />
+          </span>
+          <span class="link-wipe">{item.label}</span>
         </a>
       ))}
     </nav>
@@ -34,14 +44,20 @@ import ThemeToggle from "./ThemeToggle.astro";
       <ThemeToggle />
       <button
         type="button"
-        class="group -mr-2.5 inline-flex size-11 items-center justify-center md:hidden"
+        class="group press -mr-2.5 grid size-11 place-items-center md:hidden"
         aria-expanded="false"
         aria-controls="site-menu"
         data-menu-button
       >
         <span class="sr-only">Menu</span>
-        <MenuIcon size={22} className="group-aria-expanded:hidden" />
-        <CloseIcon size={22} className="hidden group-aria-expanded:block" />
+        <MenuIcon
+          size={22}
+          className="col-start-1 row-start-1 transition-[opacity,rotate] duration-(--tr-dur-base) ease-swiss group-aria-expanded:rotate-90 group-aria-expanded:opacity-0"
+        />
+        <CloseIcon
+          size={22}
+          className="col-start-1 row-start-1 -rotate-90 opacity-0 transition-[opacity,rotate] duration-(--tr-dur-base) ease-swiss group-aria-expanded:rotate-0 group-aria-expanded:opacity-100"
+        />
       </button>
     </div>
   </div>
@@ -53,20 +69,64 @@ import ThemeToggle from "./ThemeToggle.astro";
     hidden
   >
     <ul class="px-page">
-      {NAV_ITEMS.map((item) => (
-        <li class="border-b border-ink last:border-b-0">
+      {NAV_ITEMS.map((item, index) => (
+        <li
+          class="border-b border-ink last:border-b-0"
+          style={`--i: ${String(index)}`}
+        >
           <a
             href={item.href}
-            class="type-card flex min-h-16 items-baseline gap-4 py-3"
+            aria-current={isCurrent(item.href) ? "page" : undefined}
+            class="group type-card flex min-h-16 items-baseline gap-4 py-3"
           >
-            <span class="type-label text-muted">{item.number}</span>
-            {item.label}
+            <span class="type-label text-muted group-aria-[current=page]:text-accent">
+              {item.number}
+            </span>
+            <span class="link-wipe">{item.label}</span>
           </a>
         </li>
       ))}
     </ul>
   </nav>
 </header>
+
+<style>
+  /* The phone menu slides open and shut. `hidden` stays the source of truth; the
+     discrete display transition keeps it on screen while it closes. Browsers
+     without these features just show and hide it. */
+  #site-menu {
+    overflow: clip;
+    height: auto;
+    transition:
+      height var(--tr-dur-base) var(--tr-ease),
+      display var(--tr-dur-base) allow-discrete;
+  }
+  #site-menu[hidden] {
+    height: 0;
+  }
+  @starting-style {
+    #site-menu:not([hidden]) {
+      height: 0;
+    }
+  }
+  #site-menu li {
+    transition:
+      opacity var(--tr-dur-base) var(--tr-ease-out),
+      translate var(--tr-dur-base) var(--tr-ease-out);
+    transition-delay: calc(60ms + var(--i, 0) * var(--tr-stagger));
+  }
+  #site-menu[hidden] li {
+    opacity: 0;
+    translate: 0 -0.5rem;
+    transition-delay: 0ms;
+  }
+  @starting-style {
+    #site-menu:not([hidden]) li {
+      opacity: 0;
+      translate: 0 -0.5rem;
+    }
+  }
+</style>
 
 <script>
   const button =

@@ -6,6 +6,8 @@
  * so the page follows the system again ("smart reset").
  */
 
+import { prefersReducedMotion } from "./motion";
+
 export type Theme = "light" | "dark";
 
 export const THEME_STORAGE_KEY = "trilleo-theme";
@@ -85,8 +87,53 @@ export const themeInitScript = `(function(){var s=null;try{s=localStorage.getIte
 )}:${JSON.stringify(THEME_COLORS.light)};d.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.content=c})})();`;
 
 /**
- * Wires a toggle button: flips the theme on click, keeps `aria-pressed` (pressed = dark)
- * in sync, and follows system changes while no override is stored. Returns a cleanup.
+ * Runs `update` (which applies a theme) so the new theme wipes out from `origin` as a
+ * growing circle (styles/theme.css). Falls back to an instant switch without the View
+ * Transitions API or when the visitor prefers reduced motion.
+ */
+export function switchThemeWithWipe(
+  doc: Document,
+  origin: Element,
+  update: () => void,
+): void {
+  const win = doc.defaultView;
+  if (
+    !win ||
+    typeof doc.startViewTransition !== "function" ||
+    prefersReducedMotion(win)
+  ) {
+    update();
+    return;
+  }
+
+  const rect = origin.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  // Far enough to cover the farthest corner of the viewport.
+  const radius = Math.hypot(
+    Math.max(x, win.innerWidth - x),
+    Math.max(y, win.innerHeight - y),
+  );
+  const root = doc.documentElement;
+  root.style.setProperty("--tr-wipe-x", `${String(x)}px`);
+  root.style.setProperty("--tr-wipe-y", `${String(y)}px`);
+  root.style.setProperty("--tr-wipe-r", `${String(Math.ceil(radius))}px`);
+  root.setAttribute("data-theme-switching", "");
+
+  const done = (): void => {
+    root.removeAttribute("data-theme-switching");
+  };
+  const transition = doc.startViewTransition(update);
+  // A quick second click skips this transition, which rejects `ready`; the theme
+  // still switches, so that's fine.
+  transition.ready.catch(done);
+  transition.finished.then(done, done);
+}
+
+/**
+ * Wires a toggle button: flips the theme on click (with a wipe from the button, see
+ * switchThemeWithWipe), keeps `aria-pressed` (pressed = dark) in sync, and follows
+ * system changes while no override is stored. Returns a cleanup.
  */
 export function bindThemeToggle(
   button: HTMLButtonElement,
@@ -102,9 +149,11 @@ export function bindThemeToggle(
 
   const onClick = (): void => {
     const { theme, stored } = nextThemeChoice(current(), system.matches);
-    applyTheme(doc, theme);
     writeStoredTheme(win, stored);
-    sync();
+    switchThemeWithWipe(doc, button, () => {
+      applyTheme(doc, theme);
+      sync();
+    });
   };
   const onSystemChange = (): void => {
     if (readStoredTheme(win) !== null) return;

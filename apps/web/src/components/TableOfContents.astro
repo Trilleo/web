@@ -17,21 +17,18 @@ const { headings } = Astro.props;
   <ol class="flex flex-col gap-3">
     {headings.map((heading, index) => (
       <li>
-        <a
-          href={`#${heading.slug}`}
-          class="group flex gap-3 underline-offset-4 hover:underline"
-          data-toc-link
-        >
-          <span class="flex w-5 shrink-0 items-center text-muted">
+        <a href={`#${heading.slug}`} class="group flex gap-3" data-toc-link>
+          <!-- The number gives way to an accent square for the section being read. -->
+          <span class="grid w-5 shrink-0 items-center text-muted">
             <span
-              class="hidden size-2 bg-accent group-aria-[current]:block"
+              class="col-start-1 row-start-1 size-2 scale-0 bg-accent transition-transform duration-(--tr-dur-base) ease-swiss group-aria-[current]:scale-100"
               aria-hidden="true"
             />
-            <span class="group-aria-[current]:hidden">
+            <span class="col-start-1 row-start-1 transition-opacity duration-(--tr-dur-fast) ease-swiss group-aria-[current]:opacity-0">
               {formatListingNumber(index, 2)}
             </span>
           </span>
-          {heading.text}
+          <span class="link-wipe self-start">{heading.text}</span>
         </a>
       </li>
     ))}

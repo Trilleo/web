@@ -32,16 +32,22 @@ const stroke = outline ? "currentColor" : "none";
       cx="60"
       cy="60"
       r={outline ? 59 : 60}
+      data-shape="circle"
       vector-effect="non-scaling-stroke"
     />
   )}
   {shape === "quarter" && (
     <path
       d="M0 120A120 120 0 0 1 120 0V120Z"
+      data-shape="quarter"
       vector-effect="non-scaling-stroke"
     />
   )}
   {shape === "triangle" && (
-    <path d="M60 3L117 117H3Z" vector-effect="non-scaling-stroke" />
+    <path
+      d="M60 3L117 117H3Z"
+      data-shape="triangle"
+      vector-effect="non-scaling-stroke"
+    />
   )}
 </svg>

@@ -33,9 +33,11 @@ const anchor = `comment-${String(comment.id)}`;
           <a
             href={`https://github.com/${comment.author.login}`}
             rel="nofollow ugc noopener"
-            class="font-medium underline-offset-4 hover:underline"
+            class="group font-medium"
           >
-            {comment.author.name ?? comment.author.login}
+            <span class="link-wipe">
+              {comment.author.name ?? comment.author.login}
+            </span>
             <span class="type-label ml-1 text-muted">
               @{comment.author.login}
             </span>
@@ -43,10 +45,7 @@ const anchor = `comment-${String(comment.id)}`;
         ) : (
           <span class="font-medium text-muted">Deleted account</span>
         )}
-        <a
-          href={`#${anchor}`}
-          class="type-label text-muted underline-offset-4 hover:underline"
-        >
+        <a href={`#${anchor}`} class="type-label link-wipe text-muted">
           <time datetime={comment.createdAt.toISOString()}>
             {formatPostDate(comment.createdAt)}
           </time>
@@ -62,7 +61,7 @@ const anchor = `comment-${String(comment.id)}`;
       </div>
       {canDelete && (
         <details class="type-label text-muted">
-          <summary class="w-fit cursor-pointer underline-offset-4 hover:text-ink hover:underline">
+          <summary class="link-wipe w-fit cursor-pointer hover:text-ink">
             Delete
           </summary>
           <form method="post" action="/comments/delete" class="mt-2">

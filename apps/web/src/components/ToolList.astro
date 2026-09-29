@@ -5,6 +5,7 @@ import {
   formatListingNumber,
   type ToolListing,
 } from "../lib/listings";
+import { transitionName } from "../lib/site";
 import ToolShape from "./ToolShape.astro";
 
 interface Props {
@@ -21,7 +22,7 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
   {tools.map((tool, index) => {
     const planned = tool.status === "planned";
     return (
-      <li class="tool border-r border-b border-ink">
+      <li class="tool group border-r border-b border-ink" data-reveal>
         <p class="tool-meta type-label">
           <span>T—{formatListingNumber(index, 2)}</span>
           <span class="tool-status text-muted">
@@ -41,8 +42,19 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
           />
         </div>
         <div class="tool-body flex flex-col gap-2 md:gap-2.5 xl:gap-3">
-          <Heading class="type-card">
-            {tool.href ? <a href={tool.href}>{tool.name}</a> : tool.name}
+          {/* Morphs into the tool page's title (ToolLayout). */}
+          <Heading
+            class="type-card w-fit"
+            data-morph="from"
+            style={`view-transition-name: ${transitionName("tool", tool.name)}; view-transition-class: tr-morph`}
+          >
+            {tool.href ? (
+              <a href={tool.href} class="link-wipe">
+                {tool.name}
+              </a>
+            ) : (
+              tool.name
+            )}
           </Heading>
           <p class="text-[15px] leading-normal text-muted xl:text-base">
             {tool.description}
@@ -50,7 +62,12 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
         </div>
         <p class="tool-path inline-flex items-center gap-1.5 font-mono text-xs">
           {tool.path}
-          {tool.href && <ArrowUpRightIcon size={14} />}
+          {tool.href && (
+            <ArrowUpRightIcon
+              size={14}
+              className="transition-transform duration-(--tr-dur-fast) ease-swiss group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+            />
+          )}
         </p>
       </li>
     );
@@ -74,6 +91,36 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
   }
   .tool-shape {
     grid-area: shape;
+  }
+
+  /* Hovering a card wakes its mark: the circle breathes in, the quarter turns a
+     quarter, the triangle flips. */
+  .tool {
+    transition: background-color var(--tr-dur-base) var(--tr-ease);
+  }
+  .tool:hover,
+  .tool:focus-within {
+    background-color: var(--tr-fig);
+  }
+  /* Turning marks swing past the square's corners mid-turn. */
+  .tool-shape :global(svg) {
+    overflow: visible;
+  }
+  .tool-shape :global(svg > *) {
+    transform-box: fill-box;
+    transform-origin: center;
+    transition:
+      scale var(--tr-dur-slow) var(--tr-ease),
+      rotate var(--tr-dur-slow) var(--tr-ease);
+  }
+  .tool:is(:hover, :focus-within) .tool-shape :global([data-shape="circle"]) {
+    scale: 0.86;
+  }
+  .tool:is(:hover, :focus-within) .tool-shape :global([data-shape="quarter"]) {
+    rotate: 90deg;
+  }
+  .tool:is(:hover, :focus-within) .tool-shape :global([data-shape="triangle"]) {
+    rotate: 180deg;
   }
   .tool-body {
     grid-area: body;
@@ -156,12 +203,25 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
       background-color: transparent;
       border: 1.5px solid var(--tr-ink);
     }
+    /* A live tool's dot breathes. Only with motion allowed: an infinite animation
+       squeezed to 0.01ms by the reduced-motion reset would flicker. */
+    @media (prefers-reduced-motion: no-preference) {
+      .tool-dot:not(.tool-dot-outline) {
+        animation: tool-breathe 2.4s var(--tr-ease) infinite alternate;
+      }
+    }
     .tool-shape {
       align-self: center;
     }
     .tool-path {
       justify-self: start;
       padding-top: 0.5rem;
+    }
+  }
+
+  @keyframes tool-breathe {
+    to {
+      opacity: 0.25;
     }
   }
 </style>

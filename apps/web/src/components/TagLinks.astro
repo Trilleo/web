@@ -24,10 +24,11 @@ const { tags, current, label = "Tags" } = Astro.props;
               href={href}
               aria-current={isCurrent ? "page" : undefined}
               class:list={[
-                "type-label inline-flex min-h-9 items-center gap-2 border px-3 transition-colors duration-150 ease-swiss",
+                "type-label press inline-flex min-h-9 items-center gap-2 border px-3",
                 isCurrent
                   ? "border-ink bg-ink text-paper"
-                  : "border-ink hover:bg-ink hover:text-paper",
+                  : // Ink slides in from the left behind the label, like buttons.
+                    "relative isolate overflow-hidden border-ink before:absolute before:inset-0 before:-z-10 before:origin-left before:scale-x-0 before:bg-ink before:transition-transform before:duration-(--tr-dur-base) before:ease-swiss hover:text-paper hover:before:scale-x-100 focus-visible:text-paper focus-visible:before:scale-x-100",
               ]}
             >
               {tag.name}

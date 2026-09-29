@@ -53,6 +53,9 @@ export default defineConfig({
   use: {
     baseURL: ORIGIN,
     trace: "on-first-retry",
+    // Everything shows at once, so specs never wait on (or race) an animation.
+    // e2e/motion.spec.ts opts back in.
+    reducedMotion: "reduce",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [

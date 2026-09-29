@@ -11,3 +11,4 @@ export {
   MenuIcon,
 } from "./icons";
 export type { IconProps } from "./icons";
+export { MOTION, REDUCED_MOTION_QUERY, prefersReducedMotion } from "./motion";

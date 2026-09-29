@@ -1,4 +1,5 @@
 ---
+import DisplayTitle from "../../components/DisplayTitle.astro";
 import ToolList from "../../components/ToolList.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { toolListings } from "../../lib/tools/registry";
@@ -22,9 +23,7 @@ const count = `${String(tools.length)} ${tools.length === 1 ? "tool" : "tools"}`
       </span>
     </div>
 
-    <h1 id="tools-title" class="type-display mt-5 -ml-[0.03em] xl:mt-7">
-      Tools<span class="text-accent">.</span>
-    </h1>
+    <DisplayTitle id="tools-title">Tools</DisplayTitle>
 
     <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
       <p class="type-lead col-span-4 md:col-span-6 md:col-start-3 xl:col-start-4">
