@@ -58,6 +58,25 @@ async function signedOut(browser: Browser, baseURL: string | undefined) {
   return newPage(browser, baseURL);
 }
 
+// The display title's glyphs reach up over the nav; it has to stay clickable.
+for (const [device, width] of [
+  ["iPad", 820],
+  ["desktop", 1440],
+] as const) {
+  test(`the admin nav switches sections on ${device}`, async ({
+    browser,
+    baseURL,
+  }) => {
+    const admin = await adminPage(browser, baseURL);
+    await admin.setViewportSize({ width, height: 1000 });
+    const nav = admin.getByRole("navigation", { name: "Admin" });
+    await nav.getByRole("link", { name: "Posts" }).click();
+    await expect(admin).toHaveURL("/admin/posts/");
+    await nav.getByRole("link", { name: "Dashboard" }).click();
+    await expect(admin).toHaveURL("/admin/");
+  });
+}
+
 test("the admin writes, previews and publishes a post; readers find it", async ({
   browser,
   baseURL,
