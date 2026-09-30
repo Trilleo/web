@@ -42,6 +42,7 @@ export const SKILL_NAMES: Readonly<Record<SkillId, string>> = {
   mining: "Mining",
   foraging: "Foraging",
   fishing: "Fishing",
+  combat: "Combat",
 };
 
 /** Each level adds this much fortune (percent more drops) to its skill's gathering. */

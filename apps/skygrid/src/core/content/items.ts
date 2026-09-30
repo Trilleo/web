@@ -1,4 +1,5 @@
-import type { ItemId, SkillId } from "../types";
+import type { GearSlot, ItemId, SkillId } from "../types";
+import type { Stats } from "./combat";
 
 export type ToolType = "axe" | "pickaxe" | "hoe" | "rod";
 
@@ -12,13 +13,21 @@ export interface ToolStats {
   fortune: number;
 }
 
+export interface GearStats {
+  slot: GearSlot;
+  stats: Partial<Stats>;
+  /** Armor sets (see SET_BONUSES in combat.ts). */
+  set?: string;
+}
+
 export interface ItemDef {
   name: string;
-  kind: "resource" | "enchanted" | "tool" | "minion";
+  kind: "resource" | "enchanted" | "tool" | "minion" | "gear";
   /** What the merchant pays for one. 0: not sellable. */
   price: number;
   tool?: ToolStats;
   minion?: { kind: ItemId; tier: number };
+  gear?: GearStats;
 }
 
 export interface ResourceDef {
@@ -61,6 +70,15 @@ export const RESOURCES = {
   pufferfish: { name: "Pufferfish", price: 15, skill: "fishing" },
   prismarine: { name: "Prismarine Shard", price: 12, skill: "fishing" },
   sponge: { name: "Sponge", price: 40, skill: "fishing" },
+  rotten_flesh: {
+    name: "Rotten Flesh",
+    price: 2,
+    skill: "combat",
+    minionSeconds: 44,
+  },
+  string: { name: "String", price: 4, skill: "combat", minionSeconds: 50 },
+  spider_eye: { name: "Spider Eye", price: 8, skill: "combat" },
+  brood_fang: { name: "Brood Fang", price: 400, skill: "combat" },
 } as const satisfies Record<string, ResourceDef>;
 
 export type ResourceId = keyof typeof RESOURCES;
@@ -155,6 +173,81 @@ const TOOLS: Record<string, { name: string; price: number; tool: ToolStats }> =
     },
   };
 
+type GearEntry = Omit<ItemDef, "kind"> & { gear: GearStats };
+
+function armor(
+  set: string,
+  name: string,
+  price: number,
+  pieces: Record<Exclude<GearSlot, "weapon">, Partial<Stats>>,
+): Record<string, GearEntry> {
+  const entries: Record<string, GearEntry> = {};
+  for (const [slot, stats] of Object.entries(pieces) as [
+    Exclude<GearSlot, "weapon">,
+    Partial<Stats>,
+  ][]) {
+    const label = `${slot.charAt(0).toUpperCase()}${slot.slice(1)}`;
+    entries[`${set}_${slot}`] = {
+      name: `${name} ${label}`,
+      price,
+      gear: { slot, stats, set },
+    };
+  }
+  return entries;
+}
+
+const GEAR: Record<string, GearEntry> = {
+  wooden_sword: {
+    name: "Wooden Sword",
+    price: 5,
+    gear: { slot: "weapon", stats: { damage: 20 } },
+  },
+  stone_sword: {
+    name: "Stone Sword",
+    price: 20,
+    gear: { slot: "weapon", stats: { damage: 30, strength: 5 } },
+  },
+  iron_sword: {
+    name: "Iron Sword",
+    price: 80,
+    gear: {
+      slot: "weapon",
+      stats: { damage: 45, strength: 10, critChance: 5 },
+    },
+  },
+  undead_sword: {
+    name: "Undead Sword",
+    price: 300,
+    gear: { slot: "weapon", stats: { damage: 60, strength: 25 } },
+  },
+  broodfang: {
+    name: "Broodfang",
+    price: 2000,
+    gear: {
+      slot: "weapon",
+      stats: { damage: 90, strength: 40, critChance: 10, critDamage: 30 },
+    },
+  },
+  ...armor("iron", "Iron", 60, {
+    helmet: { health: 15, defense: 15 },
+    chestplate: { health: 25, defense: 30 },
+    leggings: { health: 20, defense: 25 },
+    boots: { health: 10, defense: 10 },
+  }),
+  ...armor("zombie", "Zombie", 250, {
+    helmet: { health: 30, defense: 20 },
+    chestplate: { health: 50, defense: 40 },
+    leggings: { health: 40, defense: 30 },
+    boots: { health: 20, defense: 15 },
+  }),
+  ...armor("spider", "Spider", 300, {
+    helmet: { health: 20, defense: 10, strength: 5 },
+    chestplate: { health: 30, defense: 20, strength: 5 },
+    leggings: { health: 25, defense: 15, strength: 5 },
+    boots: { health: 15, defense: 10, strength: 5 },
+  }),
+};
+
 function buildItems(): Record<ItemId, ItemDef> {
   const items: Record<ItemId, ItemDef> = {};
   for (const id of RESOURCE_IDS) {
@@ -172,6 +265,9 @@ function buildItems(): Record<ItemId, ItemDef> {
   }
   for (const [id, tool] of Object.entries(TOOLS)) {
     items[id] = { kind: "tool", ...tool };
+  }
+  for (const [id, gear] of Object.entries(GEAR)) {
+    items[id] = { kind: "gear", ...gear };
   }
   for (const kind of MINION_KINDS) {
     for (let tier = 1; tier <= MINION_TIERS; tier++) {
@@ -201,5 +297,6 @@ export const SHOP: readonly { item: ItemId; price: number }[] = [
   { item: "wooden_axe", price: 25 },
   { item: "wooden_pickaxe", price: 25 },
   { item: "wooden_hoe", price: 20 },
+  { item: "wooden_sword", price: 30 },
   { item: "fishing_rod", price: 60 },
 ];

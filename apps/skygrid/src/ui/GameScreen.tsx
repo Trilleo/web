@@ -6,7 +6,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { ISLAND_MAPS, type Dir } from "../core";
+import { ISLAND_MAPS, playerStats, type Dir } from "../core";
 import { Controller, type Tab } from "./controller";
 import { PanelBody, TABS } from "./Panels";
 import type { GameSession, View } from "./session";
@@ -169,6 +169,36 @@ export function GameScreen({ session, saveNote }: GameScreenProps) {
   );
 }
 
+/** "HP 92/120" and a thin bar: the numbers are the text, the bar is decoration. */
+function Meter({
+  label,
+  value,
+  max,
+}: {
+  label: string;
+  value: number;
+  max: number;
+}) {
+  return (
+    <span className="flex items-center gap-2">
+      <span>
+        {label}{" "}
+        <span className="font-bold">
+          {Math.max(0, Math.ceil(value))}/{max}
+        </span>
+      </span>
+      <span className="block h-1.5 w-16 bg-chip md:w-20" aria-hidden="true">
+        <span
+          className="block h-full bg-ink"
+          style={{
+            width: `${String(Math.max(0, Math.min(1, value / max)) * 100)}%`,
+          }}
+        />
+      </span>
+    </span>
+  );
+}
+
 function Hud({
   view,
   now,
@@ -178,9 +208,16 @@ function Hud({
   now: number;
   saveNote: ReactNode;
 }) {
-  const { state, busy } = view;
+  const { state, busy, target } = view;
+  const stats = playerStats(state);
   let activity: React.ReactNode = null;
-  if (busy) {
+  const key = target && `${String(target.x)},${String(target.y)}`;
+  const wounded = target && key ? state.mobs[target.island]?.[key] : undefined;
+  if (target && wounded && target.island === state.pos.island) {
+    activity = (
+      <Meter label={target.name} value={wounded.hp} max={target.max} />
+    );
+  } else if (busy) {
     const done = Math.min(1, (now - busy.start) / (busy.until - busy.start));
     activity = (
       <span className="flex items-center gap-2">
@@ -198,7 +235,10 @@ function Hud({
   }
   return (
     <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-5 gap-y-1 border-b border-ink px-4 py-2 type-label md:px-5">
-      <span>{ISLAND_MAPS[state.pos.island].name}</span>
+      <span className="flex items-center gap-5">
+        <span>{ISLAND_MAPS[state.pos.island].name}</span>
+        <Meter label="HP" value={state.health} max={stats.health} />
+      </span>
       <span className="text-muted">{activity}</span>
       <span className="flex items-center gap-4">
         <span className="text-muted">{saveNote}</span>

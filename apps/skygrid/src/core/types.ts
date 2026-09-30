@@ -2,10 +2,23 @@
 
 export type Dir = "U" | "D" | "L" | "R";
 
-export const SKILLS = ["farming", "mining", "foraging", "fishing"] as const;
+export const SKILLS = [
+  "farming",
+  "mining",
+  "foraging",
+  "fishing",
+  "combat",
+] as const;
 export type SkillId = (typeof SKILLS)[number];
 
-export const ISLANDS = ["home", "hub", "forest", "mines", "shore"] as const;
+export const ISLANDS = [
+  "home",
+  "hub",
+  "forest",
+  "mines",
+  "shore",
+  "cave",
+] as const;
 export type IslandId = (typeof ISLANDS)[number];
 
 export type ItemId = string;
@@ -24,6 +37,22 @@ export interface PlacedMinion {
   stored: number;
   /** When its next item started: it makes one every interval after this. */
   lastAt: number;
+}
+
+export const GEAR_SLOTS = [
+  "weapon",
+  "helmet",
+  "chestplate",
+  "leggings",
+  "boots",
+] as const;
+export type GearSlot = (typeof GEAR_SLOTS)[number];
+
+/** A mob that's been hit and hasn't healed yet. */
+export interface WoundedMob {
+  hp: number;
+  /** When it was last hit: it heals fully MOB_RESET_MS later. */
+  at: number;
 }
 
 export interface Fishing {
@@ -56,12 +85,21 @@ export interface GameState {
   /** Gathered nodes, per island: "x,y" → when they grow back. */
   depleted: Partial<Record<IslandId, Record<string, number>>>;
   fishing: Fishing | null;
+  /** Current health (it regenerates towards the maximum; see playerStats). */
+  health: number;
+  /** What you're wearing and holding; the rest is in the bag. */
+  equipment: Partial<Record<GearSlot, ItemId>>;
+  /** Wounded mobs, per island: "x,y" → how they are. Dead ones are in `depleted`. */
+  mobs: Partial<Record<IslandId, Record<string, WoundedMob>>>;
 }
 
 /** One thing the player did. `t` is when it started (ms since the epoch). */
 export type Action =
   | { t: number; k: "move"; d: Dir }
   | { t: number; k: "gather"; x: number; y: number }
+  | { t: number; k: "attack"; x: number; y: number }
+  | { t: number; k: "equip"; item: ItemId }
+  | { t: number; k: "unequip"; slot: GearSlot }
   | { t: number; k: "cast"; x: number; y: number }
   | { t: number; k: "reel" }
   | { t: number; k: "craft"; recipe: string; times: number }
@@ -80,6 +118,21 @@ export type GameEvent =
   | { type: "level"; skill: SkillId; level: number; coins: number }
   | { type: "collection"; item: ItemId; tier: number; coins: number }
   | { type: "travel"; to: IslandId }
+  /** You hit a mob at (x, y); `hp` is what it has left. */
+  | {
+      type: "hit";
+      mob: string;
+      x: number;
+      y: number;
+      damage: number;
+      crit: boolean;
+      hp: number;
+      max: number;
+    }
+  | { type: "kill"; mob: string; x: number; y: number }
+  /** A mob hit you. */
+  | { type: "hurt"; mob: string; damage: number }
+  | { type: "death"; lost: number }
   | { type: "note"; text: string };
 
 export interface Step {

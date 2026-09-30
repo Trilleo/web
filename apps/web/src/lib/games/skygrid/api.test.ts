@@ -1,6 +1,7 @@
 import { openDatabase, type DatabaseHandle, type User } from "@trilleo/db";
 import {
   IMPORT_LIMITS,
+  ISLAND_MAPS,
   newGame,
   type Action,
   type GameState,
@@ -213,6 +214,35 @@ describe("sync", () => {
     const reply = await call("sync", { version: 1, actions: [sky] });
     expect(reply.status).toBe(422);
     expect(reply.body.state?.inventory).toEqual({});
+  });
+});
+
+describe("combat", () => {
+  it("replays a fight: the zombie falls, and the drops and XP are kept", async () => {
+    // A zombie in the Hub, and the tile below it (open ground).
+    const map = ISLAND_MAPS.hub;
+    const y = map.tiles.findIndex((row) => row.includes("z"));
+    const x = map.tiles[y]?.indexOf("z") ?? -1;
+    const guest = {
+      ...newGame(7, T0 - 1000),
+      pos: { island: "hub" as const, x, y: y + 1 },
+      equipment: { weapon: "iron_sword" },
+    };
+    expect((await call("import", { state: guest })).status).toBe(201);
+    clock = T0 + 60_000;
+    const swings = Array.from({ length: 6 }, (_, i) => ({
+      t: T0 + 1000 + i * 500,
+      k: "attack",
+      x,
+      y,
+    }));
+    const reply = await call("sync", { version: 1, actions: swings });
+    // The zombie is gone before the last swings: they're refused, the rest kept.
+    expect(reply.status).toBe(422);
+    const saved = await loadSkygridSave(handle.db, alice.id);
+    expect(saved?.state.skills.combat).toBe(8);
+    expect(saved?.state.inventory.rotten_flesh).toBeGreaterThanOrEqual(1);
+    expect(saved?.state.equipment.weapon).toBe("iron_sword");
   });
 });
 

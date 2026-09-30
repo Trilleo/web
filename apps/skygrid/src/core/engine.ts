@@ -3,6 +3,18 @@
  * and (to check it) on the server. Time is always passed in, never read.
  */
 import {
+  ATTACK_MS,
+  BASE_STATS,
+  COMBAT_DAMAGE_PER_LEVEL,
+  DEATH_PENALTY,
+  MOBS,
+  MOB_RESET_MS,
+  REGEN_PER_SECOND,
+  SET_BONUSES,
+  SKILL_STATS,
+  type Stats,
+} from "./content/combat";
+import {
   ITEMS,
   MINION_SPEED,
   MINION_STORAGE,
@@ -42,11 +54,14 @@ import {
 import { RECIPE_BY_ID, unlocksAt, type Recipe } from "./content/recipes";
 import { random, roll } from "./rng";
 import {
+  GEAR_SLOTS,
   GameRuleError,
+  SKILLS,
   type Action,
   type Dir,
   type GameEvent,
   type GameState,
+  type GearSlot,
   type ItemId,
   type PlacedMinion,
   type SkillId,
@@ -80,11 +95,14 @@ export function newGame(seed: number, now: number): GameState {
     busyUntil: 0,
     lastMoveAt: 0,
     inventory: {},
-    skills: { farming: 0, mining: 0, foraging: 0, fishing: 0 },
+    skills: { farming: 0, mining: 0, foraging: 0, fishing: 0, combat: 0 },
     collections: {},
     minions: home.slots.map(() => null),
     depleted: {},
     fishing: null,
+    health: BASE_STATS.health,
+    equipment: {},
+    mobs: {},
   };
 }
 
@@ -160,6 +178,37 @@ export function gatherCheck(
 
 function tierName(tier: number): string {
   return ["wooden", "wooden", "stone", "iron"][tier] ?? "better";
+}
+
+function addStats(total: Stats, extra: Partial<Stats>, times = 1): void {
+  for (const [key, value] of Object.entries(extra) as [keyof Stats, number][]) {
+    total[key] += value * times;
+  }
+}
+
+/** Your stats: the base, plus skill levels, gear, and a full set's bonus. */
+export function playerStats(state: GameState): Stats {
+  const stats = { ...BASE_STATS };
+  for (const skill of SKILLS) {
+    addStats(stats, SKILL_STATS[skill], skillLevel(state, skill));
+  }
+  const sets = new Map<string, number>();
+  for (const item of Object.values(state.equipment)) {
+    const gear = ITEMS[item]?.gear;
+    if (!gear) continue;
+    addStats(stats, gear.stats);
+    if (gear.set) sets.set(gear.set, (sets.get(gear.set) ?? 0) + 1);
+  }
+  for (const [set, pieces] of sets) {
+    const bonus = SET_BONUSES[set];
+    if (bonus && pieces >= 4) addStats(stats, bonus.stats);
+  }
+  return stats;
+}
+
+/** Your health right now, rounded down for showing. */
+export function currentHealth(state: GameState): number {
+  return Math.floor(state.health);
 }
 
 export function nearMerchant(state: GameState): boolean {
@@ -306,6 +355,23 @@ function advanceInPlace(state: GameState, now: number): void {
       minion.lastAt += made * interval;
     }
   }
+  const max = playerStats(state).health;
+  if (state.health < max) {
+    const regained = ((now - state.now) / 1000) * max * REGEN_PER_SECOND;
+    state.health = Math.min(max, state.health + regained);
+  } else {
+    state.health = max;
+  }
+  const mobs: GameState["mobs"] = {};
+  for (const [island, wounded] of Object.entries(state.mobs)) {
+    const still = Object.entries(wounded).filter(
+      ([, mob]) => now - mob.at < MOB_RESET_MS,
+    );
+    if (still.length > 0) {
+      mobs[island as keyof typeof mobs] = Object.fromEntries(still);
+    }
+  }
+  state.mobs = mobs;
   const depleted: GameState["depleted"] = {};
   for (const [island, nodes] of Object.entries(state.depleted)) {
     const growing = Object.entries(nodes).filter(([, until]) => until > now);
@@ -515,6 +581,124 @@ function pickup(state: GameState, events: GameEvent[], slot: number): void {
   give(state, events, `${minion.kind}_minion_${String(minion.tier)}`, 1);
 }
 
+function randomInt(state: GameState, min: number, max: number): number {
+  return min + Math.floor(random(state) * (max - min + 1));
+}
+
+/** Whether you can attack what's at (x, y). */
+export function attackCheck(
+  state: GameState,
+  x: number,
+  y: number,
+): Check<null> {
+  if (!MOBS[charAt(islandOf(state), x, y)])
+    return fail("There's nothing to fight there.");
+  if (!isAdjacent(state, x, y)) return fail("Too far away.");
+  if (isDepleted(state, x, y)) return fail("Nothing's there right now.");
+  return { ok: true, value: null };
+}
+
+function die(state: GameState, events: GameEvent[]): void {
+  const lost = Math.floor(state.coins * DEATH_PENALTY);
+  state.coins -= lost;
+  const hub = ISLAND_MAPS.hub;
+  state.pos = { island: "hub", x: hub.spawn.x, y: hub.spawn.y };
+  state.health = playerStats(state).health;
+  state.fishing = null;
+  events.push({ type: "death", lost });
+}
+
+function attack(
+  state: GameState,
+  events: GameEvent[],
+  t: number,
+  x: number,
+  y: number,
+): void {
+  const check = attackCheck(state, x, y);
+  if (!check.ok) throw new GameRuleError(check.reason);
+  const mob = MOBS[charAt(islandOf(state), x, y)];
+  if (!mob) return;
+  state.busyUntil = t + ATTACK_MS;
+  state.fishing = null;
+  const island = state.pos.island;
+  const key = `${String(x)},${String(y)}`;
+  const wounded = (state.mobs[island] ??= {});
+  const hp = wounded[key]?.hp ?? mob.hp;
+
+  const stats = playerStats(state);
+  const combat = skillLevel(state, "combat");
+  const crit = random(state) * 100 < stats.critChance;
+  const damage = Math.max(
+    1,
+    Math.round(
+      stats.damage *
+        (1 + stats.strength / 100) *
+        (1 + (combat * COMBAT_DAMAGE_PER_LEVEL) / 100) *
+        (crit ? 1 + stats.critDamage / 100 : 1),
+    ),
+  );
+  const left = Math.max(0, hp - damage);
+  events.push({
+    type: "hit",
+    mob: mob.name,
+    x,
+    y,
+    damage,
+    crit,
+    hp: left,
+    max: mob.hp,
+  });
+
+  if (left === 0) {
+    state.mobs[island] = Object.fromEntries(
+      Object.entries(wounded).filter(([spot]) => spot !== key),
+    );
+    (state.depleted[island] ??= {})[key] = t + mob.respawn;
+    events.push({ type: "kill", mob: mob.name, x, y });
+    addCoins(state, events, randomInt(state, mob.coins[0], mob.coins[1]));
+    for (const drop of mob.drops) {
+      if (random(state) >= drop.chance) continue;
+      const n = randomInt(state, drop.min, drop.max);
+      give(state, events, drop.item, n);
+      addCollection(state, events, drop.item, n);
+    }
+    addXp(state, events, "combat", mob.xp);
+    return;
+  }
+
+  wounded[key] = { hp: left, at: t };
+  const taken = Math.max(
+    1,
+    Math.round((mob.damage * 100) / (100 + stats.defense)),
+  );
+  state.health -= taken;
+  events.push({ type: "hurt", mob: mob.name, damage: taken });
+  if (state.health <= 0) die(state, events);
+}
+
+function equip(state: GameState, events: GameEvent[], item: ItemId): void {
+  const gear = ITEMS[item]?.gear;
+  if (!gear) throw new GameRuleError("You can't wear or wield that.");
+  take(state, events, item, 1);
+  const previous = state.equipment[gear.slot];
+  if (previous) give(state, events, previous, 1);
+  state.equipment[gear.slot] = item;
+  state.health = Math.min(state.health, playerStats(state).health);
+}
+
+function unequip(state: GameState, events: GameEvent[], slot: GearSlot): void {
+  if (!GEAR_SLOTS.includes(slot))
+    throw new GameRuleError("There's no such slot.");
+  const item = state.equipment[slot];
+  if (!item) throw new GameRuleError("There's nothing there.");
+  state.equipment = Object.fromEntries(
+    Object.entries(state.equipment).filter(([key]) => key !== slot),
+  );
+  give(state, events, item, 1);
+  state.health = Math.min(state.health, playerStats(state).health);
+}
+
 /**
  * Applies one action, or throws GameRuleError (and changes nothing). Actions must
  * come in time order, and not while you're busy gathering.
@@ -534,6 +718,15 @@ export function applyAction(state: GameState, action: Action): Step {
       break;
     case "gather":
       gather(next, events, t, action.x, action.y);
+      break;
+    case "attack":
+      attack(next, events, t, action.x, action.y);
+      break;
+    case "equip":
+      equip(next, events, action.item);
+      break;
+    case "unequip":
+      unequip(next, events, action.slot);
       break;
     case "cast":
       cast(next, t, action.x, action.y);

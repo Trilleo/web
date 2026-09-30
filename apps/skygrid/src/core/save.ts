@@ -2,7 +2,9 @@
  * Reading saves back: a save may be old, hand-edited or broken. `parseSave` returns
  * a state the engine can trust, or null. The server will use it on imported saves.
  */
+import { playerStats } from "./engine";
 import {
+  ITEMS,
   MINION_KINDS,
   MINION_STORAGE,
   MINION_TIERS,
@@ -11,11 +13,13 @@ import {
 import { LEVEL_XP } from "./content/progression";
 import { ISLAND_MAPS, isWalkable, charAt } from "./content/islands";
 import {
+  GEAR_SLOTS,
   ISLANDS,
   SKILLS,
   type Action,
   type Dir,
   type GameState,
+  type GearSlot,
   type IslandId,
   type PlacedMinion,
 } from "./types";
@@ -65,6 +69,37 @@ function minion(value: unknown): PlacedMinion | null | undefined {
     return undefined;
   }
   return { kind, tier: tier as number, stored, lastAt };
+}
+
+function parseEquipment(value: unknown): GameState["equipment"] | null {
+  if (value === undefined) return {};
+  if (!isRecord(value)) return null;
+  const equipment: GameState["equipment"] = {};
+  for (const [slot, item] of Object.entries(value)) {
+    if (!GEAR_SLOTS.includes(slot as GearSlot) || typeof item !== "string") {
+      return null;
+    }
+    if (ITEMS[item]?.gear?.slot !== slot) return null;
+    equipment[slot] = item;
+  }
+  return equipment;
+}
+
+function parseMobs(value: unknown): GameState["mobs"] | null {
+  if (value === undefined) return {};
+  if (!isRecord(value)) return null;
+  const mobs: GameState["mobs"] = {};
+  for (const [id, wounded] of Object.entries(value)) {
+    if (!isIsland(id) || !isRecord(wounded)) return null;
+    const kept: Record<string, { hp: number; at: number }> = {};
+    for (const [key, mob] of Object.entries(wounded)) {
+      if (!/^\d+,\d+$/.test(key) || !isRecord(mob)) return null;
+      if (!isCount(mob.hp) || !isTime(mob.at)) return null;
+      kept[key] = { hp: mob.hp, at: mob.at };
+    }
+    mobs[id] = kept;
+  }
+  return mobs;
 }
 
 export function parseSave(value: unknown): GameState | null {
@@ -129,7 +164,11 @@ export function parseSave(value: unknown): GameState | null {
     fishing = { x: f.x as number, y: f.y as number, biteAt: f.biteAt };
   }
 
-  return {
+  const equipment = parseEquipment(value.equipment);
+  const mobs = parseMobs(value.mobs);
+  if (!equipment || !mobs) return null;
+
+  const state: GameState = {
     v: 1,
     seed: seed as number,
     now,
@@ -144,12 +183,23 @@ export function parseSave(value: unknown): GameState | null {
       mining: skills.mining ?? 0,
       foraging: skills.foraging ?? 0,
       fishing: skills.fishing ?? 0,
+      combat: skills.combat ?? 0,
     },
     collections,
     minions,
     depleted,
     fishing,
+    health: 0,
+    equipment,
+    mobs,
   };
+  // Saves from before combat have no health: they start at full.
+  const max = playerStats(state).health;
+  state.health =
+    typeof value.health === "number" && Number.isFinite(value.health)
+      ? Math.min(Math.max(value.health, 1), max)
+      : max;
+  return state;
 }
 
 const DIR_VALUES = new Set(["U", "D", "L", "R"]);
@@ -168,12 +218,22 @@ function parseAction(value: unknown): Action | null {
         ? { t, k: "move", d: value.d as Dir }
         : null;
     case "gather":
+    case "attack":
     case "cast":
       return isInt(value.x) && isInt(value.y)
         ? { t, k: value.k, x: value.x, y: value.y }
         : null;
     case "reel":
       return { t, k: "reel" };
+    case "equip":
+      return typeof value.item === "string"
+        ? { t, k: "equip", item: value.item }
+        : null;
+    case "unequip":
+      return typeof value.slot === "string" &&
+        GEAR_SLOTS.includes(value.slot as GearSlot)
+        ? { t, k: "unequip", slot: value.slot as GearSlot }
+        : null;
     case "craft":
       return typeof value.recipe === "string" && isInt(value.times)
         ? { t, k: "craft", recipe: value.recipe, times: value.times }
@@ -239,7 +299,7 @@ export function prepareImport(
   seed: number,
 ): GameState {
   const maxXp = LEVEL_XP[IMPORT_LIMITS.level] ?? 0;
-  return {
+  const imported: GameState = {
     ...state,
     seed: seed | 0,
     now,
@@ -254,6 +314,7 @@ export function prepareImport(
       mining: Math.min(state.skills.mining, maxXp),
       foraging: Math.min(state.skills.foraging, maxXp),
       fishing: Math.min(state.skills.fishing, maxXp),
+      combat: Math.min(state.skills.combat, maxXp),
     },
     minions: state.minions.map((minion) =>
       minion
@@ -269,7 +330,10 @@ export function prepareImport(
     ),
     depleted: {},
     fishing: null,
+    mobs: {},
+    health: 0,
   };
+  return { ...imported, health: playerStats(imported).health };
 }
 
 /** Totals kept beside a save for leaderboards: all skill XP. */

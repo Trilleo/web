@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { ISLAND_MAPS, newGame } from "@trilleo/game-skygrid/core";
 import { continueAs, freshLogin, newPage } from "./support";
 
 // Each test has its own browser, so each starts a new island (saved in localStorage).
@@ -137,6 +138,39 @@ test("a new account without a browser island starts a new one", async ({
   await continueAs(page, freshLogin("newcomer"));
   await expect(page.getByText("Saved to your account")).toBeVisible();
   await expect(log(page)).toContainText("You wake up");
+});
+
+test("walking into a zombie fights it, and holding the key keeps swinging", async ({
+  page,
+}) => {
+  // A save that starts right above a zombie in the Hub's graveyard, sword in hand.
+  const hub = ISLAND_MAPS.hub;
+  const y = hub.tiles.findIndex((row) => row.includes("z"));
+  const x = hub.tiles[y]?.indexOf("z") ?? -1;
+  const save = {
+    ...newGame(1, Date.now() - 60_000),
+    now: Date.now() - 30_000,
+    pos: { island: "hub", x, y: y - 1 },
+    equipment: { weapon: "wooden_sword" },
+  };
+  await page.goto("/about/");
+  await page.evaluate(
+    ([key, value]) => {
+      localStorage.setItem(key, value);
+    },
+    ["trilleo:game:skygrid", JSON.stringify(save)] as const,
+  );
+  await page.goto(GAME);
+  await ready(page, /Welcome back/);
+
+  await page.keyboard.down("ArrowDown");
+  await expect(log(page)).toContainText("You defeated a Zombie.", {
+    timeout: 10_000,
+  });
+  await page.keyboard.up("ArrowDown");
+  await expect(log(page)).toContainText("Rotten Flesh");
+  await page.getByRole("tab", { name: "Skills" }).click();
+  await expect(page.getByRole("tabpanel")).toContainText("8 / 25 XP");
 });
 
 test("the game's API is only for signed-in players on this site", async ({

@@ -15,6 +15,9 @@ describe("parseActions", () => {
     const actions = [
       { t: T0, k: "move", d: "L" },
       { t: T0, k: "gather", x: 1, y: 2 },
+      { t: T0, k: "attack", x: 3, y: 4 },
+      { t: T0, k: "equip", item: "wooden_sword" },
+      { t: T0, k: "unequip", slot: "weapon" },
       { t: T0, k: "cast", x: 1, y: 2 },
       { t: T0, k: "reel" },
       { t: T0, k: "craft", recipe: "wooden_axe", times: 2 },
@@ -35,6 +38,9 @@ describe("parseActions", () => {
     expect(parseActions([{ t: -1, k: "reel" }], 10)).toBeNull();
     expect(parseActions([{ t: T0, k: "gather", x: 1.5, y: 2 }], 10)).toBeNull();
     expect(parseActions([{ t: T0, k: "teleport" }], 10)).toBeNull();
+    expect(
+      parseActions([{ t: T0, k: "unequip", slot: "cape" }], 10),
+    ).toBeNull();
     expect(parseActions({ length: 1 }, 10)).toBeNull();
     expect(
       parseActions(
@@ -55,7 +61,13 @@ describe("prepareImport", () => {
     busyUntil: T0 + 5000,
     inventory: { wheat: 1_000_000, oak_log: 12 },
     collections: { wheat: 9_000_000 },
-    skills: { farming: 99_999_999, mining: 10, foraging: 0, fishing: 0 },
+    skills: {
+      farming: 99_999_999,
+      mining: 10,
+      foraging: 0,
+      fishing: 0,
+      combat: 0,
+    },
     depleted: { home: { "1,1": T0 + 9000 } },
     fishing: { x: 1, y: 1, biteAt: T0 + 100 },
     minions: [
@@ -102,7 +114,7 @@ describe("prepareImport", () => {
     expect(
       totalSkillXp({
         ...rich,
-        skills: { farming: 5, mining: 6, foraging: 7, fishing: 8 },
+        skills: { farming: 5, mining: 6, foraging: 7, fishing: 8, combat: 0 },
       }),
     ).toBe(26);
   });

@@ -51,9 +51,15 @@ describe.each(ISLANDS)("the %s island", (id) => {
       row.forEach((char, x) => {
         const kind = tileKind(char);
         if (
-          !["node", "slot", "merchant", "guide", "portal", "water"].includes(
-            kind,
-          )
+          ![
+            "node",
+            "mob",
+            "slot",
+            "merchant",
+            "guide",
+            "portal",
+            "water",
+          ].includes(kind)
         ) {
           return;
         }

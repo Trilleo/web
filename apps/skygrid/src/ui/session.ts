@@ -48,12 +48,22 @@ export interface Busy {
   until: number;
 }
 
+/** The mob you last hit, for the health bar in the top bar. */
+export interface Target {
+  island: IslandId;
+  x: number;
+  y: number;
+  name: string;
+  max: number;
+}
+
 export interface View {
   state: GameState;
   log: readonly LogLine[];
   floaters: readonly Floater[];
   /** What you're working on, while it lasts. */
   busy: Busy | null;
+  target: Target | null;
 }
 
 type ActionInput = Action extends infer A
@@ -116,8 +126,17 @@ function describe(event: GameEvent): Omit<LogLine, "id"> | null {
       };
     case "note":
       return { text: event.text, tone: "info" };
+    case "kill":
+      return { text: `You defeated a ${event.mob}.`, tone: "info" };
+    case "death":
+      return {
+        text: `You died and woke up in the Hub, ${String(event.lost)} coins lighter.`,
+        tone: "big",
+      };
     case "lose":
     case "xp":
+    case "hit":
+    case "hurt":
       return null;
   }
 }
@@ -138,7 +157,13 @@ export class GameSession {
     this.onAction = options.onAction;
     const now = this.now();
     const loaded = state ?? newGame(Math.floor(Math.random() * 2 ** 31), now);
-    this.view = { state: loaded, log: [], floaters: [], busy: null };
+    this.view = {
+      state: loaded,
+      log: [],
+      floaters: [],
+      busy: null,
+      target: null,
+    };
     // An island nobody has played yet (e.g. just made by the server) is new.
     if (state && state.now > state.createdAt) this.welcomeBack(state, now);
     else this.say("You wake up on a small island in the sky.", "big");
@@ -209,20 +234,20 @@ export class GameSession {
       throw error;
     }
     const { state, events } = step;
+    const where = this.view.state.pos;
     const busy =
-      input.k === "gather" && state.busyUntil > t
+      (input.k === "gather" || input.k === "attack") && state.busyUntil > t
         ? { x: input.x, y: input.y, start: t, until: state.busyUntil }
         : null;
     this.update({ state, busy: busy ?? this.view.busy });
-    // Gathering shows its haul when the work is done.
     if (busy) {
       setTimeout(() => {
-        this.update({ busy: null });
-        this.report(events);
+        if (this.view.busy === busy) this.update({ busy: null });
+        // Gathering shows its haul when the work is done; blows land at once.
+        if (input.k === "gather") this.report(events, where);
       }, busy.until - t);
-    } else {
-      this.report(events);
     }
+    if (input.k !== "gather") this.report(events, where);
     this.onAction?.(action);
     this.scheduleSave();
     return true;
@@ -230,17 +255,41 @@ export class GameSession {
 
   /** Takes the server's island instead of this one (it refused something). */
   replace(state: GameState, message: string): void {
-    this.update({ state, busy: null, floaters: [] });
+    this.update({ state, busy: null, floaters: [], target: null });
     this.say(message, "warn");
   }
 
-  private report(events: readonly GameEvent[]): void {
-    const { pos } = this.view.state;
+  /** Logs what happened and floats it over the map; `pos`: where you were. */
+  private report(events: readonly GameEvent[], pos: GameState["pos"]): void {
     const floaters: Floater[] = [];
+    let target = this.view.target;
     for (const event of events) {
       const line = describe(event);
       if (line) this.say(line.text, line.tone);
-      if (event.type === "gain" || event.type === "xp") {
+      if (event.type === "hit") {
+        target = {
+          island: pos.island,
+          x: event.x,
+          y: event.y,
+          name: event.mob,
+          max: event.max,
+        };
+        floaters.push({
+          id: this.nextId++,
+          text: `${event.crit ? "Crit! " : ""}−${String(event.damage)}`,
+          island: pos.island,
+          x: event.x,
+          y: event.y,
+        });
+      } else if (event.type === "hurt") {
+        floaters.push({
+          id: this.nextId++,
+          text: `−${String(event.damage)} HP`,
+          ...pos,
+        });
+      } else if (event.type === "kill" || event.type === "death") {
+        target = null;
+      } else if (event.type === "gain" || event.type === "xp") {
         const text =
           event.type === "gain"
             ? `+${String(event.n)} ${itemName(event.item)}`
@@ -248,6 +297,7 @@ export class GameSession {
         floaters.push({ id: this.nextId++, text, ...pos });
       }
     }
+    if (target !== this.view.target) this.update({ target });
     if (floaters.length === 0) return;
     this.update({ floaters: [...this.view.floaters, ...floaters].slice(-6) });
     setTimeout(() => {

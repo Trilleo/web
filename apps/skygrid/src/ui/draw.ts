@@ -36,6 +36,7 @@ function baseTone(char: string): Tone {
     case "slot":
       return "dim";
     case "node":
+    case "mob":
     case "portal":
     case "merchant":
     case "guide":
@@ -64,7 +65,8 @@ export function drawWorld(
 
   island.tiles.forEach((row, y) => {
     row.forEach((char, x) => {
-      if (tileKind(char) === "node" && isDepleted(state, x, y)) {
+      const kind = tileKind(char);
+      if ((kind === "node" || kind === "mob") && isDepleted(state, x, y)) {
         set(x, y, DEPLETED, "dim");
       }
     });
@@ -79,7 +81,8 @@ export function drawWorld(
     });
   }
 
-  if (busy) set(busy.x, busy.y, island.grid[busy.y]?.[busy.x] ?? " ", "mark");
+  // What's there now (a defeated mob is already gone), marked while you work on it.
+  if (busy) set(busy.x, busy.y, chars[busy.y]?.[busy.x] ?? " ", "mark");
 
   const { fishing } = state;
   if (fishing) {

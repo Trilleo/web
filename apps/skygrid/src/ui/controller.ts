@@ -7,6 +7,7 @@ import {
   STEP_MS,
   charAt,
   count,
+  isDepleted,
   islandOf,
   isWalkable,
   pathNextTo,
@@ -18,7 +19,8 @@ import {
 } from "../core";
 import type { GameSession } from "./session";
 
-export type Tab = "skills" | "bag" | "craft" | "minions" | "collections";
+export type Tab =
+  "skills" | "gear" | "bag" | "craft" | "minions" | "collections";
 
 export interface ControllerUi {
   open(tab: Tab, slot?: number): void;
@@ -32,6 +34,9 @@ const TIPS = [
   "Every skill level adds fortune to that skill: more drops the more you practise.",
   "Deeper in the Mines lie iron and gold, for miners with the level and the pickaxe.",
   "At the Shore, cast a line into the water and reel in the moment something bites.",
+  "Zombies (z) roam the graveyard. Walk into one to fight; hold the key to keep swinging.",
+  "The Spider Cave is past the graveyard. Bring a good sword and armor: spiders bite back.",
+  "Dying costs a quarter of your coins. Health comes back on its own: step away and wait.",
 ];
 
 export function guideTip(state: GameState, visits: number): string {
@@ -153,9 +158,11 @@ export class Controller {
       if (!this.session.act({ k: "move", d })) this.queue.unshift(d);
       return;
     }
-    // Walked into something: use it once (holding the key doesn't repeat it).
-    this.held = null;
+    // Walked into something: use it once. Mobs are the exception: holding the key
+    // keeps swinging (each swing waits for the last).
     this.queue = [];
+    if (tileKind(charAt(islandOf(this.state), x, y)) !== "mob")
+      this.held = null;
     this.interact(x, y);
   }
 
@@ -165,6 +172,10 @@ export class Controller {
     switch (kind) {
       case "node":
         this.session.act({ k: "gather", x, y });
+        return;
+      case "mob":
+        // A fallen mob: nothing to hit until it's back, and no need to say so.
+        if (!isDepleted(state, x, y)) this.session.act({ k: "attack", x, y });
         return;
       case "water":
         if (state.fishing) this.session.act({ k: "reel" });

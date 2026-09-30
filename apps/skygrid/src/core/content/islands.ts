@@ -1,4 +1,5 @@
 import type { IslandId } from "../types";
+import { MOBS } from "./combat";
 import { NODES } from "./nodes";
 
 /**
@@ -8,6 +9,7 @@ import { NODES } from "./nodes";
  *   @  where a new game starts (grass)   >  portal: walk onto it to travel
  *   M  merchant   G  guide   _  minion slot   ~  water (fish from the shore)
  *   crops " v o   trees T Y A   ores * % = $ (see nodes.ts)
+ *   mobs z s B (see combat.ts)   + gravestone (scenery)
  *   [TEXT] is a sign: scenery, whatever letters it holds.
  * Portals lead, in reading order, to the islands listed in `portals`.
  */
@@ -33,7 +35,7 @@ const MAPS: Record<
   },
   hub: {
     name: "The Hub",
-    portals: ["home", "forest", "shore", "mines"],
+    portals: ["home", "forest", "shore", "mines", "cave"],
     map: String.raw`
                              ~~~~~~~~~~
                   T.T.T    ~~~~~~~~~~~~~~
@@ -44,10 +46,13 @@ const MAPS: Record<
        ..""""""""....:....................:.....vvvvvv...
        ..............::::::::::::::::::::::.............
          .....ooo..........................ooo.....>[SHORE]
-           ...ooo............>.............ooo....
-              .............[MINES]...........
-                   .......................
-                         ...........`,
+           ...ooo............>.............ooo.........
+              .............[MINES]...........+..z...+..
+                   ...........................z.....z..
+                         ..............+..z..+....+..z.
+                              ..........z......>[SPIDER CAVE]
+                                   ...+...z..+...
+                                        ......`,
   },
   forest: {
     name: "The Forest",
@@ -78,6 +83,18 @@ const MAPS: Record<
                  #.......................#
                  ##.$$.$$$.$$.$$$.$$.####
                   ######################`,
+  },
+  cave: {
+    name: "Spider Cave",
+    portals: ["hub"],
+    map: String.raw`
+      ##################################
+      #..s....#......s.....#....s......##
+[HUB]>......s......s...#.......s.........#
+      #...s.......#...........s....###..#
+      #......s....#....s...#.......#B...#
+      ##....s.........s....#...s.......##
+       ##############################`,
   },
   shore: {
     name: "The Shore",
@@ -115,6 +132,7 @@ export type TileKind =
   | "slot"
   | "water"
   | "node"
+  | "mob"
   | "sign";
 
 const KINDS: Readonly<Record<string, TileKind>> = {
@@ -134,7 +152,8 @@ const KINDS: Readonly<Record<string, TileKind>> = {
 /** The kind of a tile, from its character in `tiles` (see charAt). */
 export function tileKind(char: string): TileKind {
   if (Object.hasOwn(KINDS, char)) return KINDS[char] ?? "sign";
-  return Object.hasOwn(NODES, char) ? "node" : "sign";
+  if (Object.hasOwn(NODES, char)) return "node";
+  return Object.hasOwn(MOBS, char) ? "mob" : "sign";
 }
 
 export function isWalkable(char: string): boolean {
@@ -237,6 +256,7 @@ export const ISLAND_MAPS: Readonly<Record<IslandId, Island>> = {
   forest: parse("forest"),
   mines: parse("mines"),
   shore: parse("shore"),
+  cave: parse("cave"),
 };
 
 /** The tile's character as the rules see it (signs are "["); sky outside the map. */

@@ -231,6 +231,7 @@ describe("gathering", () => {
         mining: 0,
         foraging: 0,
         fishing: 0,
+        combat: 0,
       },
     };
     // 25 levels × 4 + 45 = 145% fortune: 2 or 3 wheat each time.

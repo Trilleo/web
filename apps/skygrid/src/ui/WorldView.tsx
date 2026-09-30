@@ -120,8 +120,9 @@ export function WorldView({ view, now, onTile }: WorldViewProps) {
               key={floater.id}
               className="pointer-events-none absolute z-10 bg-paper px-1 text-[12px] leading-tight font-semibold whitespace-nowrap text-ink"
               style={{
-                left: `${String((floater.x - cam.x) * CELL_EM)}em`,
-                top: `${String((floater.y - cam.y) * LINE_EM)}em`,
+                // Pixels: the floater's own font is smaller, so its em isn't a cell.
+                left: `${String((floater.x - cam.x) * CELL_EM * font)}px`,
+                top: `${String((floater.y - cam.y) * LINE_EM * font)}px`,
               }}
               initial={{ opacity: 0, y: 0 }}
               animate={{ opacity: 1, y: -18 - index * 16 }}

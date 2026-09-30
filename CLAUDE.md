@@ -285,6 +285,12 @@
   server can later replay a player's actions to check them. Content (items, nodes,
   recipes, island maps) lives in src/core/content/; src/ui/ is the browser side
   (GameSession, Controller, WorldView). Pacing guard rails: src/core/balance.test.ts.
+- Skygrid combat (src/core/content/combat.ts): stats come from skills, gear and full
+  armor sets (`playerStats`); mobs are letters on the map (z, s, B). Fights are
+  exchanges: each swing that doesn't kill is answered, so the engine stays
+  event-based and replayable. Wounded mobs and your health live in the save;
+  health regenerates in `advance`. Saves from before a field existed are filled in
+  by `parseSave` (keep doing that rather than bumping `v`).
 - Skygrid saves: signed out, in localStorage (`trilleo:game:skygrid`); signed in,
   in `skygrid_saves` (one row per account, deleted with it, in the export). The
   browser sends its actions in batches (src/ui/sync.ts) to

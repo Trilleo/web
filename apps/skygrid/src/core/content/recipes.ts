@@ -65,6 +65,84 @@ function tools(): Recipe[] {
   return list;
 }
 
+const ARMOR_SLOTS = ["helmet", "chestplate", "leggings", "boots"] as const;
+/** How much of a set's material each piece takes, relative to the others. */
+const ARMOR_SHARE = {
+  helmet: 5,
+  chestplate: 8,
+  leggings: 7,
+  boots: 4,
+} as const;
+
+function gear(): Recipe[] {
+  const list: Recipe[] = [
+    {
+      id: "wooden_sword",
+      output: "wooden_sword",
+      qty: 1,
+      inputs: { oak_log: 8 },
+    },
+    {
+      id: "stone_sword",
+      output: "stone_sword",
+      qty: 1,
+      inputs: { oak_log: 4, cobblestone: 24 },
+      unlock: { item: "cobblestone", tier: 1 },
+    },
+    {
+      id: "iron_sword",
+      output: "iron_sword",
+      qty: 1,
+      inputs: { birch_log: 8, iron: 48 },
+      unlock: { item: "iron", tier: 2 },
+    },
+    {
+      id: "undead_sword",
+      output: "undead_sword",
+      qty: 1,
+      inputs: { iron_sword: 1, [enchantedId("rotten_flesh")]: 4 },
+      unlock: { item: "rotten_flesh", tier: 3 },
+    },
+    {
+      id: "broodfang",
+      output: "broodfang",
+      qty: 1,
+      inputs: { brood_fang: 3, [enchantedId("string")]: 8 },
+      unlock: { item: "string", tier: 4 },
+    },
+  ];
+  for (const slot of ARMOR_SLOTS) {
+    const share = ARMOR_SHARE[slot];
+    list.push(
+      {
+        id: `iron_${slot}`,
+        output: `iron_${slot}`,
+        qty: 1,
+        inputs: { iron: share * 8 },
+        unlock: { item: "iron", tier: 3 },
+      },
+      {
+        id: `zombie_${slot}`,
+        output: `zombie_${slot}`,
+        qty: 1,
+        inputs: { [enchantedId("rotten_flesh")]: Math.ceil(share / 2) },
+        unlock: { item: "rotten_flesh", tier: 4 },
+      },
+      {
+        id: `spider_${slot}`,
+        output: `spider_${slot}`,
+        qty: 1,
+        inputs: {
+          [enchantedId("string")]: Math.ceil(share / 2),
+          spider_eye: share * 2,
+        },
+        unlock: { item: "string", tier: 3 },
+      },
+    );
+  }
+  return list;
+}
+
 function enchanted(): Recipe[] {
   return RESOURCE_IDS.map((item) => ({
     id: enchantedId(item),
@@ -100,6 +178,7 @@ function minions(): Recipe[] {
 
 export const RECIPES: readonly Recipe[] = [
   ...tools(),
+  ...gear(),
   ...enchanted(),
   ...minions(),
 ];

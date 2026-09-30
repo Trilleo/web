@@ -1,5 +1,14 @@
 import {
   COLLECTION_TIERS,
+  COMBAT_DAMAGE_PER_LEVEL,
+  GEAR_SLOTS,
+  SET_BONUSES,
+  SKILL_STATS,
+  STAT_NAMES,
+  playerStats,
+  type GearSlot,
+  type SkillId,
+  type Stats,
   FORTUNE_PER_LEVEL,
   ISLAND_MAPS,
   ITEMS,
@@ -31,10 +40,11 @@ import type { GameSession } from "./session";
 
 export const TABS: readonly { id: Tab; label: string; key: string }[] = [
   { id: "skills", label: "Skills", key: "1" },
-  { id: "bag", label: "Bag", key: "2" },
-  { id: "craft", label: "Craft", key: "3" },
-  { id: "minions", label: "Minions", key: "4" },
-  { id: "collections", label: "Collections", key: "5" },
+  { id: "gear", label: "Gear", key: "2" },
+  { id: "bag", label: "Bag", key: "3" },
+  { id: "craft", label: "Craft", key: "4" },
+  { id: "minions", label: "Minions", key: "5" },
+  { id: "collections", label: "Collections", key: "6" },
 ];
 
 const smallButton =
@@ -73,6 +83,152 @@ function Heading({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** What a skill's levels add, e.g. "+12% drops · +6 Health". */
+function skillPerks(skill: SkillId, level: number): string {
+  const perks: string[] = [];
+  if (skill === "farming" || skill === "mining" || skill === "foraging") {
+    perks.push(`+${String(level * FORTUNE_PER_LEVEL)}% drops`);
+  }
+  if (skill === "combat") {
+    perks.push(`+${String(level * COMBAT_DAMAGE_PER_LEVEL)}% damage`);
+  }
+  for (const [stat, per] of Object.entries(SKILL_STATS[skill]) as [
+    keyof Stats,
+    number,
+  ][]) {
+    perks.push(`+${formatStat(stat, per * level)} ${STAT_NAMES[stat]}`);
+  }
+  return perks.join(" · ");
+}
+
+function formatStat(stat: keyof Stats, value: number): string {
+  const rounded = Number.isInteger(value) ? String(value) : value.toFixed(1);
+  return stat === "critChance" || stat === "critDamage" || stat === "strength"
+    ? `${rounded}%`
+    : rounded;
+}
+
+const SLOT_NAMES: Readonly<Record<GearSlot, string>> = {
+  weapon: "Weapon",
+  helmet: "Helmet",
+  chestplate: "Chestplate",
+  leggings: "Leggings",
+  boots: "Boots",
+};
+
+function describeGear(stats: Partial<Stats>): string {
+  return (Object.entries(stats) as [keyof Stats, number][])
+    .map(([stat, value]) => `+${formatStat(stat, value)} ${STAT_NAMES[stat]}`)
+    .join(" · ");
+}
+
+function GearPanel({
+  state,
+  session,
+}: {
+  state: GameState;
+  session: GameSession;
+}) {
+  const stats = playerStats(state);
+  const spare = Object.keys(state.inventory).filter(
+    (item) => ITEMS[item]?.gear,
+  );
+  return (
+    <div>
+      <Heading>Stats</Heading>
+      <dl className="grid grid-cols-2 gap-x-4 font-mono text-sm">
+        {(Object.keys(STAT_NAMES) as (keyof Stats)[]).map((stat) => (
+          <div
+            key={stat}
+            className="flex justify-between border-b border-hair py-1.5"
+          >
+            <dt className="text-muted">{STAT_NAMES[stat]}</dt>
+            <dd>{formatStat(stat, stats[stat])}</dd>
+          </div>
+        ))}
+      </dl>
+      <Heading>Wearing</Heading>
+      <ul className="flex flex-col">
+        {GEAR_SLOTS.map((slot) => {
+          const item = state.equipment[slot];
+          const gear = item ? ITEMS[item]?.gear : undefined;
+          return (
+            <li
+              key={slot}
+              className="flex min-h-10 items-center justify-between gap-2 border-b border-hair py-1.5"
+            >
+              <span className="min-w-0">
+                <span className="block type-label text-muted">
+                  {SLOT_NAMES[slot]}
+                </span>
+                <span className="block">{item ? itemName(item) : "—"}</span>
+                {gear && (
+                  <span className="block font-mono text-xs text-muted">
+                    {describeGear(gear.stats)}
+                  </span>
+                )}
+              </span>
+              {item && (
+                <button
+                  type="button"
+                  className={smallButton}
+                  onClick={() => session.act({ k: "unequip", slot })}
+                  aria-label={`Take off ${itemName(item)}`}
+                >
+                  Take off
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-3 text-sm text-muted">
+        A full set of four armor pieces adds a bonus:{" "}
+        {Object.values(SET_BONUSES)
+          .map((set) => `${set.name} ${describeGear(set.stats)}`)
+          .join("; ")}
+        .
+      </p>
+      <Heading>In your bag</Heading>
+      {spare.length === 0 ? (
+        <p className="text-sm text-muted">
+          No gear to put on. Swords and armor are in Craft; the merchant sells a
+          Wooden Sword.
+        </p>
+      ) : (
+        <ul className="flex flex-col">
+          {spare.map((item) => {
+            const gear = ITEMS[item]?.gear;
+            return (
+              <li
+                key={item}
+                className="flex min-h-10 items-center justify-between gap-2 border-b border-hair py-1.5"
+              >
+                <span className="min-w-0">
+                  <span className="block">{itemName(item)}</span>
+                  {gear && (
+                    <span className="block font-mono text-xs text-muted">
+                      {SLOT_NAMES[gear.slot]} · {describeGear(gear.stats)}
+                    </span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  className={smallButton}
+                  onClick={() => session.act({ k: "equip", item })}
+                  aria-label={`Put on ${itemName(item)}`}
+                >
+                  Put on
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function SkillsPanel({ state }: { state: GameState }) {
   return (
     <ul className="flex flex-col gap-4">
@@ -98,9 +254,7 @@ function SkillsPanel({ state }: { state: GameState }) {
                   ? `${xp.toLocaleString("en")} XP`
                   : `${xp.toLocaleString("en")} / ${next.toLocaleString("en")} XP`}
               </span>
-              {skill !== "fishing" && (
-                <span>+{String(level * FORTUNE_PER_LEVEL)}% drops</span>
-              )}
+              <span>{skillPerks(skill, level)}</span>
             </p>
           </li>
         );
@@ -203,6 +357,7 @@ function BagPanel({
 
 const CRAFT_GROUPS: readonly { label: string; kinds: readonly string[] }[] = [
   { label: "Tools", kinds: ["tool"] },
+  { label: "Weapons and armor", kinds: ["gear"] },
   { label: "Minions", kinds: ["minion"] },
   { label: "Enchanted", kinds: ["enchanted"] },
 ];
@@ -465,6 +620,8 @@ export function PanelBody({
   switch (tab) {
     case "skills":
       return <SkillsPanel state={state} />;
+    case "gear":
+      return <GearPanel state={state} session={session} />;
     case "bag":
       return <BagPanel state={state} session={session} />;
     case "craft":
