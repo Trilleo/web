@@ -10,10 +10,13 @@ import { getDb } from "../lib/db";
 import { toListings } from "../lib/posts";
 import { authorJsonLd, websiteJsonLd } from "../lib/seo";
 import { SITE_BIO, SITE_DESCRIPTION } from "../lib/site";
+import { gameListings } from "../lib/games/registry";
 import { toolListings } from "../lib/tools/registry";
 
 const tools = toolListings();
 const toolCount = `${String(tools.length)} ${tools.length === 1 ? "tool" : "tools"}`;
+const games = gameListings();
+const gameCount = `${String(games.length)} ${games.length === 1 ? "game" : "games"}`;
 
 // The latest posts come from the database, so the page renders per request.
 export const prerender = false;
@@ -120,6 +123,23 @@ const pageArrowClass =
     />
     <div class="mt-6 md:mt-8 xl:mt-10">
       <ToolList tools={tools} />
+    </div>
+  </section>
+
+  <section
+    id="games"
+    aria-labelledby="games-title"
+    class="px-page pt-16 md:pt-24 xl:pt-30"
+  >
+    <SectionHeader
+      number="03"
+      title="Games"
+      headingId="games-title"
+      meta={`All ${gameCount}`}
+      href="/games/"
+    />
+    <div class="mt-6 md:mt-8 xl:mt-10">
+      <ToolList tools={games} code="G" morph="game" />
     </div>
   </section>
 

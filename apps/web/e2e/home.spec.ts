@@ -37,6 +37,9 @@ test("home renders every section with self-hosted fonts and no errors", async ({
   await expect(
     page.locator("#tools").getByRole("link", { name: /Notes/ }),
   ).toHaveAttribute("href", "/tools/notes/");
+  await expect(
+    page.locator("#games").getByRole("link", { name: /Skygrid/ }),
+  ).toHaveAttribute("href", "/games/skygrid/");
 
   await page.evaluate(() => document.fonts.ready);
   const brandFontLoaded = await page.evaluate(() =>

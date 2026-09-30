@@ -1,0 +1,47 @@
+---
+import DisplayTitle from "../../components/DisplayTitle.astro";
+import ToolList from "../../components/ToolList.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { gameListings } from "../../lib/games/registry";
+import { breadcrumbJsonLd } from "../../lib/seo";
+
+const games = gameListings();
+const count = `${String(games.length)} ${games.length === 1 ? "game" : "games"}`;
+---
+
+<BaseLayout
+  title="Games"
+  description="Browser games drawn in text, made for long, slow play: no install, no account needed."
+  jsonLd={[
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Games", path: "/games/" },
+    ]),
+  ]}
+>
+  <section
+    aria-labelledby="games-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <div class="grid-swiss type-label">
+      <span class="col-span-2 md:col-span-4 xl:col-span-2">(03) Games</span>
+      <span class="col-span-2 text-right text-muted md:col-span-4 xl:col-span-3 xl:col-start-10">
+        {count}
+      </span>
+    </div>
+
+    <DisplayTitle id="games-title">Games</DisplayTitle>
+
+    <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <p class="type-lead col-span-4 md:col-span-6 md:col-start-3 xl:col-start-3">
+        Games drawn in text and thin lines, made for long, slow play. They run
+        in your browser; sign in to keep your progress and trade with other
+        players.
+      </p>
+    </div>
+
+    <div class="mt-10 md:mt-14 xl:mt-16">
+      <ToolList tools={games} headingLevel={2} code="G" morph="game" />
+    </div>
+  </section>
+</BaseLayout>

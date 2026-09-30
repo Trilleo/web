@@ -1,0 +1,56 @@
+---
+import { signInHref } from "@trilleo/tool-kit";
+import { SkygridApp, meta } from "@trilleo/game-skygrid";
+import GameLayout from "../../components/games/GameLayout.astro";
+import { gamePath } from "../../lib/games/registry";
+
+// Rendered per visit: the game starts from who's signed in.
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const { user } = Astro.locals;
+
+const controls = [
+  ["Arrow keys / WASD", "Walk. Hold to keep walking."],
+  ["Walk into something", "Use it: chop, harvest, mine, fish, trade."],
+  ["E / Space", "Use what you face; reel in a bite."],
+  ["Click or tap", "Walk there, and use it when you arrive."],
+  ["1–5", "Switch panels: skills, bag, craft, minions, collections."],
+] as const;
+---
+
+<GameLayout meta={meta}>
+  <SkygridApp
+    client:load
+    signedIn={user !== null}
+    signInHref={signInHref(gamePath(meta.slug))}
+  />
+  <Fragment slot="about">
+    <p class="text-[15px] leading-normal xl:text-base">
+      You start on a small island in the sky with nothing. Chop trees and
+      harvest crops, craft tools, and head through the portals: to the Hub and
+      its merchant, the Forest, the Mines and the Shore. Every skill levels up
+      as you work, and every resource grows a collection that unlocks new
+      recipes, among them minions, which keep working on your island while
+      you’re away.
+    </p>
+    <h3 class="type-label mt-2">How to play</h3>
+    <dl class="grid grid-cols-1 border-t border-ink md:grid-cols-[14rem_1fr]">
+      {controls.map(([keys, what]) => (
+        <>
+          <dt class="pt-3 font-mono text-sm md:border-b md:border-hair md:pb-3">
+            {keys}
+          </dt>
+          <dd class="border-b border-hair pb-3 text-[15px] text-muted md:pt-3">
+            {what}
+          </dd>
+        </>
+      ))}
+    </dl>
+    <p class="text-[15px] leading-normal text-muted">
+      Your island is saved in this browser. Account saves, the player Bazaar and
+      leaderboards are on the way.
+    </p>
+  </Fragment>
+</GameLayout>

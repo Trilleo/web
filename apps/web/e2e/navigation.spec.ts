@@ -37,7 +37,7 @@ test.describe("phone", () => {
       page
         .getByRole("navigation", { name: "Around the site" })
         .getByRole("link"),
-    ).toHaveText([/^Writing/, /^Tools/, /^GitHub/]);
+    ).toHaveText([/^Writing/, /^Tools/, /^Games/, /^GitHub/]);
   });
 });
 
@@ -53,7 +53,8 @@ test.describe("iPad", () => {
     await expect(nav.getByRole("link")).toHaveText([
       "01Writing",
       "02Tools",
-      "03About",
+      "03Games",
+      "04About",
     ]);
   });
 });

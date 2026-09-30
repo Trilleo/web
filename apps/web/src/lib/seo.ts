@@ -3,7 +3,7 @@
  * structured data (JSON-LD). BaseLayout turns these into tags. Pure functions, so
  * they're tested directly.
  */
-import type { ToolMeta } from "@trilleo/tool-kit";
+import type { GameMeta, ToolMeta } from "@trilleo/tool-kit";
 import { formatPostDate } from "./listings";
 import { readingMinutes, type PostEntry } from "./posts";
 import { GITHUB_URL, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "./site";
@@ -129,7 +129,7 @@ export const SITE_CARD: OgCard = {
   section: "(00) Index",
   // The card's footer already names the site.
   title: SITE_DESCRIPTION,
-  meta: "Writing · Tools · About",
+  meta: "Writing · Tools · Games · About",
 };
 
 export const SITE_IMAGE = ogImagePath("site", SITE_CARD);
@@ -151,6 +151,14 @@ export function toolCard(tool: ToolMeta): OgCard {
     section: "(02) Tools",
     title: tool.name,
     meta: truncate(tool.description, CARD_META_LENGTH),
+  };
+}
+
+export function gameCard(game: GameMeta): OgCard {
+  return {
+    section: "(03) Games",
+    title: game.name,
+    meta: truncate(game.description, CARD_META_LENGTH),
   };
 }
 
@@ -263,6 +271,28 @@ export function toolJsonLd(
     applicationCategory: "UtilitiesApplication",
     operatingSystem: "Any (web browser)",
     browserRequirements: "Requires JavaScript.",
+    isAccessibleForFree: true,
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+    author: { "@id": AUTHOR_ID },
+  };
+}
+
+/** A game, free to play in the browser. */
+export function gameJsonLd(
+  game: GameMeta,
+  path: string,
+  image: string,
+): JsonLd {
+  return {
+    "@type": "VideoGame",
+    name: game.name,
+    description: game.description,
+    url: absolute(path),
+    image: absolute(image),
+    genre: ["MMO", "Idle", "Sandbox"],
+    gamePlatform: "Web browser",
+    applicationCategory: "GameApplication",
+    operatingSystem: "Any (web browser)",
     isAccessibleForFree: true,
     offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
     author: { "@id": AUTHOR_ID },

@@ -264,6 +264,46 @@ importers:
         specifier: ^5.0.2
         version: 5.0.2(@types/node@26.6.3)(jsdom@30.1.1)(vite@8.3.1(@types/node@26.6.3)(jiti@2.7.0))
 
+  apps/skygrid:
+    dependencies:
+      '@trilleo/tool-kit':
+        specifier: workspace:*
+        version: link:../../packages/tool-kit
+      '@trilleo/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      motion:
+        specifier: ^13.4.4
+        version: 13.4.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+    devDependencies:
+      '@testing-library/dom':
+        specifier: ^10.4.2
+        version: 10.4.2
+      '@testing-library/react':
+        specifier: ^16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      jsdom:
+        specifier: ^30.1.1
+        version: 30.1.1
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.2
+        version: 5.0.2(@types/node@26.6.3)(jsdom@30.1.1)(vite@8.3.1(@types/node@26.6.3)(jiti@2.7.0))
+
   apps/web:
     dependencies:
       '@astrojs/node':
@@ -293,6 +333,9 @@ importers:
       '@trilleo/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@trilleo/game-skygrid':
+        specifier: workspace:*
+        version: link:../skygrid
       '@trilleo/tool-kit':
         specifier: workspace:*
         version: link:../../packages/tool-kit

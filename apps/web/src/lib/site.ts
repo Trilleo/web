@@ -31,7 +31,8 @@ export interface NavItem {
 export const NAV_ITEMS: readonly NavItem[] = [
   { number: "01", label: "Writing", href: "/writing/" },
   { number: "02", label: "Tools", href: "/tools/" },
-  { number: "03", label: "About", href: "/about/" },
+  { number: "03", label: "Games", href: "/games/" },
+  { number: "04", label: "About", href: "/about/" },
 ];
 
 /** Document title: "Page · Trilleo Network", or just the site name when no page title is given. */

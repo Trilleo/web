@@ -25,6 +25,9 @@ export interface ToolListing {
   href: string | null;
 }
 
+/** Games list like tools do: same card, same fields ("/games/<name>" paths). */
+export type GameListing = ToolListing;
+
 export const TOOL_STATUS_LABEL: Readonly<Record<ToolStatus, string>> = {
   planned: "Planned",
   "in-progress": "In progress",

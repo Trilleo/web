@@ -4,6 +4,7 @@ export {
   MAX_VALUE_BYTES,
   signInHref,
 } from "./meta";
+export type { GameMeta } from "./games";
 export type { StoredItem, ToolMeta, ToolShape, ToolStatus } from "./meta";
 export {
   ToolStorageError,

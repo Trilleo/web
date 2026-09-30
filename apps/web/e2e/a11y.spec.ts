@@ -12,6 +12,8 @@ const PAGES = [
   "/sign-in?error=state",
   "/tools/",
   "/tools/notes/",
+  "/games/",
+  "/games/skygrid/",
 ];
 const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 900 },

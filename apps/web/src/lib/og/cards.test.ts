@@ -53,6 +53,16 @@ describe("resolveCard", () => {
     expect(await resolveCard(database, "tools/nope", now)).toBeUndefined();
   });
 
+  it("draws games that exist", async () => {
+    const resolved = await resolveCard(database, "games/skygrid", now);
+    expect(resolved?.card).toMatchObject({
+      section: "(03) Games",
+      title: "Skygrid",
+    });
+    expect(resolved?.href).toMatch(/^\/og\/games\/skygrid\.png\?v=/);
+    expect(await resolveCard(database, "games/nope", now)).toBeUndefined();
+  });
+
   it("draws public posts only", async () => {
     await post("live", "publish");
     await post("draft", "save");

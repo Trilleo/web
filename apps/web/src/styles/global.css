@@ -5,3 +5,4 @@
 
 /* Tools' own components use Tailwind classes too (workspace packages aren't scanned). */
 @source "../../../notes/src";
+@source "../../../skygrid/src";

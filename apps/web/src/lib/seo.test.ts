@@ -1,4 +1,5 @@
 import { describe as group, expect, it } from "vitest";
+import { meta as skygrid } from "@trilleo/game-skygrid/meta";
 import { meta as notes } from "@trilleo/tool-notes/meta";
 import type { PostEntry } from "./posts";
 import {
@@ -7,6 +8,7 @@ import {
   blogPostingJsonLd,
   breadcrumbJsonLd,
   describe,
+  gameJsonLd,
   htmlToText,
   ogImagePath,
   postCard,
@@ -144,6 +146,17 @@ group("structured data", () => {
     ).toMatchObject({
       "@type": "WebApplication",
       name: notes.name,
+      isAccessibleForFree: true,
+    });
+  });
+
+  it("describes a game as a free video game", () => {
+    expect(
+      gameJsonLd(skygrid, "/games/skygrid/", "/og/games/skygrid.png"),
+    ).toMatchObject({
+      "@type": "VideoGame",
+      name: skygrid.name,
+      url: "https://www.trilleo.net/games/skygrid/",
       isAccessibleForFree: true,
     });
   });

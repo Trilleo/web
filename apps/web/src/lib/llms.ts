@@ -1,9 +1,10 @@
 /**
  * /llms.txt (https://llmstxt.org): a plain Markdown map of the site for AI
- * assistants and their crawlers: what it is, then links to every public post and
- * tool with a line on each.
+ * assistants and their crawlers: what it is, then links to every public post,
+ * tool and game with a line on each.
  */
-import type { ToolMeta } from "@trilleo/tool-kit";
+import type { GameMeta, ToolMeta } from "@trilleo/tool-kit";
+import { gamePath } from "./games/registry";
 import { postHref } from "./posts";
 import { SITE_BIO, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "./site";
 import { toolPath } from "./tools/registry";
@@ -33,8 +34,10 @@ function item(name: string, path: string, note: string): string {
 export function llmsTxt(
   posts: readonly LlmsPost[],
   tools: readonly ToolMeta[],
+  games: readonly GameMeta[] = [],
 ): string {
   const live = tools.filter((tool) => tool.status !== "planned");
+  const playable = games.filter((game) => game.status !== "planned");
   return [
     `# ${SITE_NAME}`,
     "",
@@ -58,6 +61,16 @@ export function llmsTxt(
         )
       : ["No tools yet."]),
     "",
+    ...(playable.length > 0
+      ? [
+          "## Games",
+          "",
+          ...playable.map((game) =>
+            item(game.name, gamePath(game.slug), game.description),
+          ),
+          "",
+        ]
+      : []),
     "## Optional",
     "",
     item("About", "/about/", `Who runs ${SITE_NAME}, and how to get in touch.`),

@@ -12,9 +12,13 @@ interface Props {
   tools: readonly ToolListing[];
   /** 3 under a page section's h2 (home); 2 straight under the page's h1 (/tools). */
   headingLevel?: 2 | 3;
+  /** The card number's letter: T—01 for tools, G—01 for games. */
+  code?: string;
+  /** Morphs into the page title that uses the same prefix (ToolLayout, GameLayout). */
+  morph?: string;
 }
 
-const { tools, headingLevel = 3 } = Astro.props;
+const { tools, headingLevel = 3, code = "T", morph = "tool" } = Astro.props;
 const Heading = headingLevel === 2 ? "h2" : "h3";
 ---
 
@@ -24,7 +28,9 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
     return (
       <li class="tool group border-r border-b border-ink" data-reveal>
         <p class="tool-meta type-label">
-          <span>T—{formatListingNumber(index, 2)}</span>
+          <span>
+            {code}—{formatListingNumber(index, 2)}
+          </span>
           <span class="tool-status text-muted">
             <span
               class:list={["tool-dot", { "tool-dot-outline": planned }]}
@@ -42,11 +48,11 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
           />
         </div>
         <div class="tool-body flex flex-col gap-2 md:gap-2.5 xl:gap-3">
-          {/* Morphs into the tool page's title (ToolLayout). */}
+          {/* Morphs into the tool or game page's title (ToolLayout, GameLayout). */}
           <Heading
             class="type-card w-fit"
             data-morph="from"
-            style={`view-transition-name: ${transitionName("tool", tool.name)}; view-transition-class: tr-morph`}
+            style={`view-transition-name: ${transitionName(morph, tool.name)}; view-transition-class: tr-morph`}
           >
             {tool.href ? (
               <a href={tool.href} class="link-wipe">

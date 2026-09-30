@@ -20,6 +20,9 @@
 - apps/<tool-name> (@trilleo/tool-<name>): each tool in its own source-only
   package, exporting its details (`./meta`) and a React app that apps/web mounts
   at /tools/<name>/. First tool: apps/notes.
+- apps/<game-name> (@trilleo/game-<name>): each game in its own source-only
+  package, like tools (`.` the React app, `./meta` its `GameMeta`), mounted at
+  /games/<name>/. First game: apps/skygrid.
 - packages/tool-kit (@trilleo/tool-kit): what tools share: `ToolMeta`, storage
   (this browser, or the account via the data API), and the `useToolItems` hook.
 - packages/ui (@trilleo/ui): shared React components and the Tailwind v4
@@ -269,6 +272,27 @@
   /api/tools/<tool>/data[/<key>] (src/lib/tools/api.ts): sign-in and same-origin
   checks, at most 500 keys and 200 KB per value, and the tool's own
   `isValidValue` from its meta. Deleting an account deletes its tool data.
+
+## Games
+
+- apps/web/src/lib/games/registry.ts lists every game (`GAMES`); /games, the
+  home page's Games section (03), llms.txt and /og/games/<slug>.png read it. Game
+  cards reuse ToolList (`code="G"`, `morph="game"`); pages use `GameLayout`
+  (VideoGame JSON-LD). Adding a game follows the tool recipe (package, registry,
+  workspace dependency, Dockerfile, `@source`, page, a11y), minus the data API.
+- Skygrid (apps/skygrid): a Skyblock-style MMO-lite drawn in text. `./core` is the
+  engine: pure and deterministic (time passed in, seeded RNG in the state), so the
+  server can later replay a player's actions to check them. Content (items, nodes,
+  recipes, island maps) lives in src/core/content/; src/ui/ is the browser side
+  (GameSession, Controller, WorldView). Pacing guard rails: src/core/balance.test.ts.
+- The grid is set in Geist Mono, which (self-hosted) has ASCII and almost no
+  symbols: maps and overlays use only `MONO_GLYPHS` (tested), since fallback
+  glyphs are wider and not code-like. Signs are `[TEXT]`: the rules see them as
+  scenery (`Island.tiles`), whatever letters they hold. Each cell is 1ch wide.
+- The accent is only a background in the grid (dark text on orange): orange text
+  on the light paper is too faint.
+- Server-rendered game content must be visible without JavaScript: don't start it
+  at opacity 0 for an entrance animation (axe also flags it mid-fade).
 
 ## Deploy
 

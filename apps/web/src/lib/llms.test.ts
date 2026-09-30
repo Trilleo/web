@@ -1,3 +1,4 @@
+import { meta as skygrid } from "@trilleo/game-skygrid/meta";
 import { meta as notes } from "@trilleo/tool-notes/meta";
 import { describe, expect, it } from "vitest";
 import { llmsTxt } from "./llms";
@@ -25,6 +26,24 @@ describe("llmsTxt", () => {
       `- [Notes](https://www.trilleo.net/tools/notes/): ${notes.description}`,
     );
     expect(text).not.toContain("Later");
+  });
+
+  it("lists playable games, and leaves the section out when there are none", () => {
+    const text = llmsTxt(
+      [],
+      [],
+      [
+        skygrid,
+        { ...skygrid, slug: "someday", name: "Someday", status: "planned" },
+      ],
+    );
+    expect(text).toContain(
+      `## Games
+
+- [Skygrid](https://www.trilleo.net/games/skygrid/): ${skygrid.description}`,
+    );
+    expect(text).not.toContain("Someday");
+    expect(llmsTxt([], [])).not.toContain("## Games");
   });
 
   it("says so when there's nothing yet", () => {

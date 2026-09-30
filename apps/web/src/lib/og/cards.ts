@@ -1,6 +1,6 @@
 /**
- * Which card each share image URL draws: /og/site.png, /og/posts/<slug>.png and
- * /og/tools/<slug>.png. The pages link them through ogImagePath, with the same
+ * Which card each share image URL draws: /og/site.png, /og/posts/<slug>.png,
+ * /og/tools/<slug>.png and /og/games/<slug>.png. The pages link them through ogImagePath, with the same
  * card, so the `v` in their URLs matches.
  */
 import { findPublicPost, listPublicPosts, toBlogPost } from "../blog/store";
@@ -8,11 +8,13 @@ import type { Database } from "@trilleo/db";
 import { numberPosts } from "../posts";
 import {
   SITE_CARD,
+  gameCard,
   ogImagePath,
   postCard,
   toolCard,
   type OgCard,
 } from "../seo";
+import { findGame } from "../games/registry";
 import { findTool } from "../tools/registry";
 
 export interface ResolvedCard {
@@ -21,7 +23,7 @@ export interface ResolvedCard {
   href: string;
 }
 
-/** `database` is only opened for posts: the site's and tools' cards don't need it. */
+/** `database` is only opened for posts: the other cards don't need it. */
 export async function resolveCard(
   database: () => Promise<Database>,
   path: string,
@@ -39,6 +41,12 @@ export async function resolveCard(
     const tool = findTool(slug);
     return tool && tool.status !== "planned"
       ? resolved(toolCard(tool))
+      : undefined;
+  }
+  if (kind === "games") {
+    const game = findGame(slug);
+    return game && game.status !== "planned"
+      ? resolved(gameCard(game))
       : undefined;
   }
   if (kind === "posts") {

@@ -55,6 +55,7 @@ test("share images exist only for public things", async ({ request }) => {
   // No or an old version: still the image, but not cached for good.
   expect(site.headers()["cache-control"]).not.toContain("immutable");
   expect((await request.get("/og/tools/notes.png")).status()).toBe(200);
+  expect((await request.get("/og/games/skygrid.png")).status()).toBe(200);
   expect((await request.get("/og/posts/no-such-post.png")).status()).toBe(404);
   expect((await request.get("/og/people/admin.png")).status()).toBe(404);
 });
@@ -70,6 +71,12 @@ test("a tool's page has its own card and structured data", async ({ page }) => {
   await page.goto("/tools/notes/");
   expect(await meta(page, "og:image")).toMatch(/\/og\/tools\/notes\.png\?v=/);
   expect(await jsonLdTypes(page)).toEqual(["WebApplication", "BreadcrumbList"]);
+});
+
+test("a game's page has its own card and structured data", async ({ page }) => {
+  await page.goto("/games/skygrid/");
+  expect(await meta(page, "og:image")).toMatch(/\/og\/games\/skygrid\.png\?v=/);
+  expect(await jsonLdTypes(page)).toEqual(["VideoGame", "BreadcrumbList"]);
 });
 
 test("search results and missing pages stay out of the index", async ({
@@ -170,6 +177,7 @@ test("llms.txt maps the site for AI assistants", async ({ request }) => {
   expect(text).toMatch(/^# Trilleo Network\n/);
   expect(text).toContain(`(https://www.trilleo.net${POST})`);
   expect(text).toContain("(https://www.trilleo.net/tools/notes/)");
+  expect(text).toContain("(https://www.trilleo.net/games/skygrid/)");
 });
 
 test("without an IndexNow key there's no key file", async ({ request }) => {
