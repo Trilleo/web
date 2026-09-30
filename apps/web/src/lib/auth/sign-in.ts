@@ -33,6 +33,8 @@ export async function completeSignIn(input: {
   redirectUri: string;
   fetchImpl?: typeof fetch;
   now?: Date;
+  /** The browser's User-Agent, shown in the sessions list. */
+  userAgent?: string | null;
 }): Promise<SignInResult> {
   const {
     db,
@@ -42,6 +44,7 @@ export async function completeSignIn(input: {
     redirectUri,
     fetchImpl,
     now = new Date(),
+    userAgent = null,
   } = input;
 
   // Only a callback for the sign-in this browser started (CSRF protection).
@@ -81,7 +84,7 @@ export async function completeSignIn(input: {
 
   const user = await upsertGitHubUser(db, profile, now);
   await deleteExpiredSessions(db, now);
-  const { token, session } = await createSession(db, user.id, now);
+  const { token, session } = await createSession(db, user.id, now, userAgent);
   return { ok: true, token, expiresAt: session.expiresAt, next: saved.next };
 }
 

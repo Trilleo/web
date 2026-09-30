@@ -1,0 +1,29 @@
+---
+/** Someone's initials in a square: the site's stand-in for an avatar. */
+import type { User } from "@trilleo/db";
+import { monogram } from "../../lib/profile/profile";
+
+interface Props {
+  user: Pick<User, "githubLogin" | "name" | "displayName">;
+  size?: "sm" | "md" | "lg";
+  class?: string;
+}
+
+const { user, size = "sm", class: className } = Astro.props;
+---
+
+<span
+  class:list={[
+    "grid shrink-0 place-items-center font-mono leading-none font-medium select-none",
+    {
+      sm: "size-8 bg-ink text-[0.8125rem] text-paper",
+      md: "size-14 bg-accent text-xl text-on-accent",
+      lg: "size-24 bg-accent text-4xl text-on-accent md:size-32 md:text-5xl",
+    }[size],
+    className,
+  ]}
+  aria-hidden="true"
+  data-monogram
+>
+  {monogram(user)}
+</span>

@@ -19,6 +19,7 @@ import {
   isNull,
   sql,
 } from "drizzle-orm";
+import { commentName, displayName } from "../profile/profile";
 
 export const COMMENT_MAX_LENGTH = 4000;
 
@@ -32,7 +33,10 @@ export const LIMITS = {
 
 export interface CommentAuthor {
   login: string;
+  /** The name they sign with; null when they chose to show only @login. */
   name: string | null;
+  /** Their profile page is public (/people/<login>). */
+  profile: boolean;
 }
 
 /** A comment as one visitor sees it on a post. */
@@ -83,7 +87,16 @@ export async function listThreads(
   pinnedId: number | null = null,
 ): Promise<{ threads: Thread[]; count: number }> {
   const rows = await db
-    .select({ comment: comments, login: users.githubLogin, name: users.name })
+    .select({
+      comment: comments,
+      author: {
+        githubLogin: users.githubLogin,
+        name: users.name,
+        displayName: users.displayName,
+        commentName: users.commentName,
+        profilePublic: users.profilePublic,
+      },
+    })
     .from(comments)
     .leftJoin(users, eq(comments.authorId, users.id))
     .where(eq(comments.postSlug, postSlug))
@@ -94,9 +107,13 @@ export async function listThreads(
     body: removed ? "" : row.comment.body,
     createdAt: row.comment.createdAt,
     author:
-      removed || row.login === null
+      removed || row.author === null
         ? null
-        : { login: row.login, name: row.name },
+        : {
+            login: row.author.githubLogin,
+            name: commentName(row.author),
+            profile: row.author.profilePublic,
+          },
     pending: !removed && row.comment.status === "pending",
     mine: !removed && viewerId !== null && row.comment.authorId === viewerId,
     removed,
@@ -479,7 +496,8 @@ async function summaries(
     author: author && {
       id: author.id,
       login: author.githubLogin,
-      name: author.name,
+      name: displayName(author),
+      profile: author.profilePublic,
       trusted: author.trustedAt !== null,
     },
     pinned: pinnedIn !== null,

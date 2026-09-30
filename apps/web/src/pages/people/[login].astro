@@ -1,0 +1,165 @@
+---
+/**
+ * Someone's public profile: /people/<login>/. A private profile, a blocked account,
+ * or an unknown login is a 404, except that people can always see their own.
+ */
+import { ArrowUpRightIcon, buttonClasses } from "@trilleo/ui";
+import Monogram from "../../components/account/Monogram.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { renderComment } from "../../lib/comments/render";
+import { getDb } from "../../lib/db";
+import { formatPostDate } from "../../lib/listings";
+import { postHref } from "../../lib/posts";
+import { displayName } from "../../lib/profile/profile";
+import { findProfile } from "../../lib/profile/store";
+
+export const prerender = false;
+
+const login = Astro.params.login ?? "";
+const viewer = Astro.locals.user;
+const found = await findProfile(await getDb(), login, viewer?.id ?? null);
+if (!found) return Astro.rewrite("/404");
+
+// Depends on who's looking (own/private), so never shared from a cache.
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const { user, comments, commentCount } = found;
+const own = viewer?.id === user.id;
+const name = displayName(user);
+const facts = [
+  user.pronouns,
+  user.location,
+  `Joined ${formatPostDate(user.createdAt)}`,
+].filter((fact): fact is string => Boolean(fact));
+
+const row = "grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6";
+const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body = "col-span-4 md:col-span-6 xl:col-span-7";
+---
+
+<BaseLayout title={name} description={`${name} (@${user.githubLogin})`} noindex>
+  <section
+    aria-labelledby="profile-name"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">(Profile) @{user.githubLogin}</p>
+
+    {own && !user.profilePublic && (
+      <p role="status" class="type-lead mt-6 border-l-2 border-accent pl-4">
+        Your profile is private: only you can see this page.{" "}
+        <a href="/account/profile/" class="link-wipe">
+          Make it public
+        </a>
+        .
+      </p>
+    )}
+
+    <div class="grid-swiss mt-7 items-end gap-y-6 md:mt-8 xl:mt-12">
+      <div class="col-span-4 md:col-span-2 xl:col-span-2">
+        <Monogram user={user} size="lg" class="animate-pop" />
+      </div>
+      <div class="col-span-4 flex flex-col gap-3 md:col-span-6 xl:col-span-10">
+        <h1 id="profile-name" class="type-title animate-rise break-words">
+          {name}
+        </h1>
+        <p class="type-label flex flex-wrap gap-x-4 gap-y-1 text-muted">
+          <span class="text-ink">@{user.githubLogin}</span>
+          {facts.map((fact) => (
+            <span>{fact}</span>
+          ))}
+        </p>
+      </div>
+    </div>
+
+    {user.status && (
+      <div class={row}>
+        <h2 class={heading}>Currently</h2>
+        <p class:list={[body, "type-dek"]}>{user.status}</p>
+      </div>
+    )}
+
+    {user.bio && (
+      <div class={row}>
+        <h2 class={heading}>About</h2>
+        <div class:list={[body, "comment-body"]}>
+          <Fragment set:html={renderComment(user.bio)} />
+        </div>
+      </div>
+    )}
+
+    {user.links.length > 0 && (
+      <div class={row}>
+        <h2 id="profile-links" class={heading}>
+          Links
+        </h2>
+        <ul class={body} aria-labelledby="profile-links">
+          {user.links.map((link) => (
+            <li class="border-t border-hair first:border-t-0">
+              <a
+                href={link.url}
+                rel="me nofollow ugc noopener noreferrer"
+                class="group flex min-h-12 items-center justify-between gap-4 py-2"
+              >
+                <span class="link-wipe type-nav">{link.label}</span>
+                <span class="type-label flex min-w-0 items-center gap-2 text-muted">
+                  <span class="truncate">
+                    {link.url
+                      .replace(/^https?:\/\/(www\.)?/, "")
+                      .replace(/\/$/, "")}
+                  </span>
+                  <ArrowUpRightIcon size={14} className="shrink-0" />
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+
+    <div class={row}>
+      <h2 id="profile-comments" class={heading}>
+        Comments ({commentCount})
+      </h2>
+      <div class={body}>
+        {comments.length === 0 ? (
+          <p class="text-muted">No comments yet.</p>
+        ) : (
+          <ol class="flex flex-col" aria-labelledby="profile-comments">
+            {comments.map((comment) => (
+              <li class="flex flex-col gap-2.5 border-t border-hair py-5 first:border-t-0 first:pt-0">
+                <p class="type-label flex flex-wrap gap-x-3 gap-y-1 text-muted">
+                  <a
+                    href={`${postHref(comment.postSlug)}#comment-${String(comment.id)}`}
+                    class="link-wipe text-ink"
+                  >
+                    {comment.postTitle}
+                  </a>
+                  <time datetime={comment.createdAt.toISOString()}>
+                    {formatPostDate(comment.createdAt)}
+                  </time>
+                </p>
+                <div class="comment-body">
+                  <Fragment set:html={renderComment(comment.body)} />
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </div>
+
+    {own && (
+      <div class={row}>
+        <div class="col-span-4 flex flex-wrap gap-3 md:col-span-6 md:col-start-3 xl:col-start-3">
+          <a href="/account/profile/" class={buttonClasses()}>
+            Edit profile
+          </a>
+          <a href="/account/" class={buttonClasses({ variant: "secondary" })}>
+            Account
+          </a>
+        </div>
+      </div>
+    )}
+  </section>
+</BaseLayout>

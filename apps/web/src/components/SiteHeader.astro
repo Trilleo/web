@@ -1,10 +1,16 @@
 ---
 import { CloseIcon, MenuIcon } from "@trilleo/ui";
 import { NAV_ITEMS, SITE_NAME } from "../lib/site";
+import HeaderAccount from "./account/HeaderAccount.astro";
 import Logo from "./Logo.astro";
 import ThemeToggle from "./ThemeToggle.astro";
 
 const isCurrent = (href: string) => Astro.url.pathname.startsWith(href);
+// After signing in, come back here (the sign-in page itself keeps its own `next`).
+const { pathname, search } = Astro.url;
+const next = pathname.startsWith("/sign-in")
+  ? (Astro.url.searchParams.get("next") ?? "/account")
+  : pathname + search;
 ---
 
 <!-- Named so it holds still while pages transition (styles in @trilleo/ui's theme.css). -->
@@ -42,6 +48,17 @@ const isCurrent = (href: string) => Astro.url.pathname.startsWith(href);
 
     <div class="col-span-2 flex items-center justify-end gap-1 md:gap-3 xl:col-span-3">
       <ThemeToggle />
+      <div class="account-slot flex min-w-11 justify-end">
+        <HeaderAccount server:defer next={next}>
+          <a
+            slot="fallback"
+            href={`/sign-in?next=${encodeURIComponent(next)}`}
+            class="account-fallback group type-nav inline-flex min-h-11 items-center"
+          >
+            <span class="link-wipe">Sign in</span>
+          </a>
+        </HeaderAccount>
+      </div>
       <button
         type="button"
         class="group press -mr-2.5 grid size-11 place-items-center md:hidden"
@@ -91,6 +108,14 @@ const isCurrent = (href: string) => Astro.url.pathname.startsWith(href);
 </header>
 
 <style>
+  /* Until the account island arrives, "Sign in" only shows without JavaScript (the
+     island can't load then); signed-in visitors would otherwise see it flash. */
+  @media (scripting: enabled) {
+    .account-fallback {
+      visibility: hidden;
+    }
+  }
+
   /* The phone menu slides open and shut. `hidden` stays the source of truth; the
      discrete display transition keeps it on screen while it closes. Browsers
      without these features just show and hide it. */
@@ -155,4 +180,27 @@ const isCurrent = (href: string) => Astro.url.pathname.startsWith(href);
       }
     });
   }
+
+  // The account menu (a <details> from the HeaderAccount island, which arrives after
+  // this runs, so it's found through the document): Escape or a click elsewhere
+  // closes it.
+  const openAccountMenu = () =>
+    document.querySelector<HTMLDetailsElement>("[data-account-menu][open]");
+  document.addEventListener("keydown", (event) => {
+    const menu = openAccountMenu();
+    if (event.key !== "Escape" || !menu) return;
+    menu.open = false;
+    menu.querySelector<HTMLElement>("[data-account-button]")?.focus();
+  });
+  document.addEventListener("click", (event) => {
+    const menu = openAccountMenu();
+    if (menu && event.target instanceof Node && !menu.contains(event.target))
+      menu.open = false;
+  });
+  // Tabbing out of the menu closes it too.
+  document.addEventListener("focusin", (event) => {
+    const menu = openAccountMenu();
+    if (menu && event.target instanceof Node && !menu.contains(event.target))
+      menu.open = false;
+  });
 </script>

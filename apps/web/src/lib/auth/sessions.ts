@@ -5,7 +5,7 @@ import {
   type Session,
   type User,
 } from "@trilleo/db";
-import { eq, lte } from "drizzle-orm";
+import { and, desc, eq, lte, ne } from "drizzle-orm";
 import { hashToken, randomToken } from "./crypto";
 import type { GitHubProfile } from "./github";
 
@@ -15,6 +15,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const SESSION_TTL_MS = 30 * DAY_MS;
 /** A session used in its last 15 days is extended, so active visitors stay signed in. */
 export const SESSION_RENEW_MS = 15 * DAY_MS;
+/** `lastUsedAt` is only written when it's this stale, so most requests don't write. */
+export const SESSION_TOUCH_MS = 5 * 60 * 1000;
+/** Enough of a User-Agent to name the browser; the rest isn't kept. */
+const USER_AGENT_MAX = 300;
 
 export interface ValidSession {
   user: User;
@@ -55,6 +59,7 @@ export async function createSession(
   db: Database,
   userId: string,
   now = new Date(),
+  userAgent: string | null = null,
 ): Promise<{ token: string; session: Session }> {
   const token = randomToken();
   const [session] = await db
@@ -63,7 +68,9 @@ export async function createSession(
       id: hashToken(token),
       userId,
       createdAt: now,
+      lastUsedAt: now,
       expiresAt: new Date(now.getTime() + SESSION_TTL_MS),
+      userAgent: userAgent ? userAgent.slice(0, USER_AGENT_MAX) : null,
     })
     .returning();
   if (!session) throw new Error("Saving the session returned nothing");
@@ -91,16 +98,21 @@ export async function validateSession(
     await db.delete(sessions).where(eq(sessions.id, id));
     return null;
   }
-  if (remaining < SESSION_RENEW_MS) {
-    const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
-    await db.update(sessions).set({ expiresAt }).where(eq(sessions.id, id));
-    return {
-      user: row.user,
-      session: { ...row.session, expiresAt },
-      renewed: true,
-    };
-  }
-  return { ...row, renewed: false };
+  const renew = remaining < SESSION_RENEW_MS;
+  const touch =
+    now.getTime() - row.session.lastUsedAt.getTime() >= SESSION_TOUCH_MS;
+  if (!renew && !touch) return { ...row, renewed: false };
+
+  const changes = {
+    lastUsedAt: now,
+    ...(renew && { expiresAt: new Date(now.getTime() + SESSION_TTL_MS) }),
+  };
+  await db.update(sessions).set(changes).where(eq(sessions.id, id));
+  return {
+    user: row.user,
+    session: { ...row.session, ...changes },
+    renewed: renew,
+  };
 }
 
 /** Signs out one browser. */
@@ -117,6 +129,42 @@ export async function invalidateUserSessions(
   userId: string,
 ): Promise<void> {
   await db.delete(sessions).where(eq(sessions.userId, userId));
+}
+
+/** Someone's signed-in browsers, most recently used first. */
+export async function listUserSessions(
+  db: Database,
+  userId: string,
+): Promise<Session[]> {
+  return db
+    .select()
+    .from(sessions)
+    .where(eq(sessions.userId, userId))
+    .orderBy(desc(sessions.lastUsedAt), desc(sessions.createdAt));
+}
+
+/** Signs out one of their browsers by its id; false if it isn't theirs (or is gone). */
+export async function revokeUserSession(
+  db: Database,
+  userId: string,
+  sessionId: string,
+): Promise<boolean> {
+  const deleted = await db
+    .delete(sessions)
+    .where(and(eq(sessions.id, sessionId), eq(sessions.userId, userId)))
+    .returning({ id: sessions.id });
+  return deleted.length > 0;
+}
+
+/** Signs a user out of every browser but this one. */
+export async function invalidateOtherSessions(
+  db: Database,
+  userId: string,
+  keepSessionId: string,
+): Promise<void> {
+  await db
+    .delete(sessions)
+    .where(and(eq(sessions.userId, userId), ne(sessions.id, keepSessionId)));
 }
 
 export async function deleteExpiredSessions(

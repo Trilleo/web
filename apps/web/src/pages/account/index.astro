@@ -9,6 +9,8 @@ import { userComments } from "../../lib/comments/store";
 import { getDb } from "../../lib/db";
 import { formatPostDate } from "../../lib/listings";
 import { postHref } from "../../lib/posts";
+import { displayName, profileHref } from "../../lib/profile/profile";
+import Monogram from "../../components/account/Monogram.astro";
 
 export const prerender = false;
 
@@ -40,11 +42,13 @@ const STATUS = {
     <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
       <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">You</h2>
       <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
-        <p class="text-lg">
-          Signed in with GitHub as{" "}
-          <strong>{user.name ?? user.githubLogin}</strong>
-          (@{user.githubLogin}). Only your public name and username are kept.
-        </p>
+        <div class="flex items-center gap-4">
+          <Monogram user={user} size="md" />
+          <p class="text-lg">
+            Signed in with GitHub as <strong>{displayName(user)}</strong>
+            (@{user.githubLogin}).
+          </p>
+        </div>
         <p class="text-muted">
           {admin || user.trustedAt
             ? "Your comments appear right away."
@@ -77,6 +81,67 @@ const STATUS = {
           </form>
         </div>
       </div>
+    </div>
+
+    <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
+        Your profile
+      </h2>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-7">
+        <p>
+          {user.profilePublic ? (
+            <>
+              Your profile is public at{" "}
+              <a href={profileHref(user.githubLogin)} class="link-wipe">
+                {profileHref(user.githubLogin)}
+              </a>
+              . Add a display name, a bio and links, or make it private.
+            </>
+          ) : (
+            "Your profile is private: only you can see it. Add a display name, a bio and links, or make it public."
+          )}
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <a href="/account/profile/" class={buttonClasses()}>
+            Edit profile
+          </a>
+          <a
+            href={profileHref(user.githubLogin)}
+            class={buttonClasses({ variant: "secondary" })}
+          >
+            View profile
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">Privacy</h2>
+      <ul class="col-span-4 flex flex-col md:col-span-6 xl:col-span-7">
+        <li class="border-b border-hair">
+          <a
+            href="/account/sessions/"
+            class="group flex min-h-14 flex-col justify-center gap-0.5 py-3"
+          >
+            <span class="link-wipe type-nav w-fit">Sessions</span>
+            <span class="text-muted">
+              See where you’re signed in, and sign out of other browsers.
+            </span>
+          </a>
+        </li>
+        <li>
+          <a
+            href="/account/export.json"
+            download
+            class="group flex min-h-14 flex-col justify-center gap-0.5 py-3"
+          >
+            <span class="link-wipe type-nav w-fit">Download your data</span>
+            <span class="text-muted">
+              Your account, profile, sessions, comments and tool data, as JSON.
+            </span>
+          </a>
+        </li>
+      </ul>
     </div>
 
     <div

@@ -12,7 +12,7 @@ import { getDb } from "../../../lib/db";
 export const prerender = false;
 
 /** Where GitHub sends the visitor back to. */
-export const GET: APIRoute = async ({ url, cookies }) => {
+export const GET: APIRoute = async ({ url, cookies, request }) => {
   const config = authConfig();
   if (!config) return noStoreRedirect("/sign-in?error=not-configured");
 
@@ -26,6 +26,7 @@ export const GET: APIRoute = async ({ url, cookies }) => {
     params: url.searchParams,
     saved,
     redirectUri: new URL("/auth/github/callback", url.origin).href,
+    userAgent: request.headers.get("user-agent"),
   });
   if (!result.ok) {
     const params = new URLSearchParams({ error: result.error });
