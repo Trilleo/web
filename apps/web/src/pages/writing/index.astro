@@ -12,6 +12,7 @@ import {
   searchSummary,
   toListings,
 } from "../../lib/posts";
+import { breadcrumbJsonLd } from "../../lib/seo";
 
 export const prerender = false;
 
@@ -20,12 +21,24 @@ const posts = await listPublicPosts(db);
 // Without JavaScript, the search box submits here (?q=…) and the results render below.
 const query = Astro.url.searchParams.get("q")?.trim() ?? "";
 const found = query ? await searchPosts(db, query) : null;
+// Result pages are thin and endless: fine to follow, not to index.
+const noindex = query !== "";
 const listings = toListings(posts);
 const tags = collectTags(posts);
 const count = `${String(posts.length)} ${posts.length === 1 ? "post" : "posts"}`;
 ---
 
-<BaseLayout title="Writing" description="All posts, newest first.">
+<BaseLayout
+  title="Writing"
+  description="All posts, newest first."
+  {noindex}
+  jsonLd={[
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Writing", path: "/writing/" },
+    ]),
+  ]}
+>
   <section aria-labelledby="writing-title" class="px-page pt-4 xl:pt-5">
     <div class="grid-swiss type-label text-muted">
       <span class="col-span-2 text-ink md:col-span-4 xl:col-span-2">

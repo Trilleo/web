@@ -4,7 +4,8 @@ import TagLinks from "../../../components/TagLinks.astro";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { listPublicPosts } from "../../../lib/blog/store";
 import { getDb } from "../../../lib/db";
-import { collectTags, hasTag, toListings } from "../../../lib/posts";
+import { collectTags, hasTag, tagHref, toListings } from "../../../lib/posts";
+import { TAG_INDEX_MIN_POSTS, breadcrumbJsonLd } from "../../../lib/seo";
 
 export const prerender = false;
 
@@ -18,9 +19,22 @@ const listings = toListings(posts).filter((_, index) => {
   return post !== undefined && hasTag(post, tag);
 });
 const count = `${String(listings.length)} ${listings.length === 1 ? "post" : "posts"}`;
+// A tag with one post only repeats that post: crawlers may follow it, not index it.
+const noindex = listings.length < TAG_INDEX_MIN_POSTS;
 ---
 
-<BaseLayout title={`${name} · Writing`} description={`Posts tagged ${name}.`}>
+<BaseLayout
+  title={`${name} · Writing`}
+  description={`Posts tagged ${name}.`}
+  {noindex}
+  jsonLd={[
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Writing", path: "/writing/" },
+      { name, path: tagHref(name) },
+    ]),
+  ]}
+>
   <section aria-labelledby="tag-title" class="px-page pt-4 xl:pt-5">
     <div class="grid-swiss type-label text-muted">
       <a

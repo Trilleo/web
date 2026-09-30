@@ -14,6 +14,11 @@ updates:
       # typescript-eslint and @astrojs/check don't support TypeScript 7 yet.
       - dependency-name: typescript
         update-types: [version-update:semver-major]
+      # From 0.33, satori loads harfbuzzjs, which reads its WebAssembly from beside
+      # its own file: the self-contained server bundle can't carry it. See
+      # apps/web/src/lib/og/render.ts.
+      - dependency-name: satori
+        versions: [">=0.33.0"]
 
   # Dockerfile base images (pinned by digest). Each update means a slow first upload
   # to SWR in China, so check monthly. Postgres is pinned in deploy/compose.yaml,

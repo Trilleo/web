@@ -74,6 +74,8 @@ const expected: [string, number][] = [
   ["/tools/notes/", 200],
   ["/api/tools/notes/data", 401],
   ["/api/health", 503],
+  // Draws a share image: satori, resvg's WebAssembly and the fonts are all bundled.
+  ["/og/tools/notes.png", 200],
 ];
 for (const [path, status] of expected) {
   const response = await fetch(origin + path, { redirect: "manual" }).catch(
