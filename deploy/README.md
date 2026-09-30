@@ -16,8 +16,9 @@ visitor ─HTTPS─▶ Cloudflare ─HTTPS (Origin cert, "Full (strict)")─▶ 
 
 - The server only answers Cloudflare's IP ranges (`cloudflare-ips.txt`); `trilleo.net`
   redirects to `www.trilleo.net`.
-- Caddy serves any file that exists and forwards other requests to the app, so the static
-  site keeps working even if the app is down. Only Caddy's ports are published.
+- Caddy serves any file that exists and forwards other requests to the app, so prerendered
+  pages (/about, /tools, assets) keep working even if the app is down; the home page and
+  posts render on the app. Only Caddy's ports are published.
 - The app applies database migrations when it starts; Docker's health check waits for it.
 - The web image carries `compose.yaml`, so server config ships with each release.
 - Files here: `Caddyfile`, `compose.yaml`, `start-caddy.sh` (image entrypoint),

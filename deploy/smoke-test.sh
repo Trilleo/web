@@ -183,8 +183,9 @@ docker compose exec -T db pg_restore --list <"$dump" | grep -q 'TABLE public use
 
 echo "==> with the app stopped, static pages still work and the rest fails fast"
 docker compose stop app >/dev/null
-status="$(site --output /dev/null --write-out '%{http_code}' "https://www.trilleo.net/")"
-[[ "$status" == "200" ]] || fail "home page was $status while the app was down"
+# The home page and posts render on the app now; /about/ is still a prerendered file.
+status="$(site --output /dev/null --write-out '%{http_code}' "https://www.trilleo.net/about/")"
+[[ "$status" == "200" ]] || fail "about page was $status while the app was down"
 status="$(site --output /dev/null --write-out '%{http_code}' "https://www.trilleo.net/does-not-exist")"
 [[ "$status" == "502" ]] || fail "non-file request was $status while the app was down (expected 502 from the proxy)"
 docker compose start app >/dev/null
