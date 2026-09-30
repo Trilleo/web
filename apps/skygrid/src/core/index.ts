@@ -1,6 +1,7 @@
 /** The Skygrid engine: pure rules and content, shared by the browser and the server. */
 export * from "./types";
 export * from "./engine";
+export * from "./bazaar";
 export {
   IMPORT_LIMITS,
   parseActions,

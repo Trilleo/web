@@ -57,6 +57,13 @@
       "when": 1790780184388,
       "tag": "0007_skygrid-saves",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790783197015,
+      "tag": "0008_skygrid-bazaar",
+      "breakpoints": true
     }
   ]
 }

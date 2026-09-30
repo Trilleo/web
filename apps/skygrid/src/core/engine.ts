@@ -211,15 +211,25 @@ export function currentHealth(state: GameState): number {
   return Math.floor(state.health);
 }
 
-export function nearMerchant(state: GameState): boolean {
+/** Whether a tile with `char` is within `reach` tiles of you (any direction). */
+function near(state: GameState, char: string, reach: number): boolean {
   const island = islandOf(state);
-  for (let dy = -MERCHANT_REACH; dy <= MERCHANT_REACH; dy++) {
-    for (let dx = -MERCHANT_REACH; dx <= MERCHANT_REACH; dx++) {
-      if (charAt(island, state.pos.x + dx, state.pos.y + dy) === "M")
+  for (let dy = -reach; dy <= reach; dy++) {
+    for (let dx = -reach; dx <= reach; dx++) {
+      if (charAt(island, state.pos.x + dx, state.pos.y + dy) === char)
         return true;
     }
   }
   return false;
+}
+
+export function nearMerchant(state: GameState): boolean {
+  return near(state, "M", MERCHANT_REACH);
+}
+
+/** At the Bazaar's stall in the Hub (trading happens there). */
+export function nearBazaar(state: GameState): boolean {
+  return near(state, "¤", MERCHANT_REACH);
 }
 
 export function isUnlocked(state: GameState, recipe: Recipe): boolean {

@@ -219,7 +219,15 @@ export class GameSession {
   }
 
   /** Tries an action; on a rule it breaks, logs why and returns false. */
+  /** While true (a trade is on its way), actions wait: the island is about to change. */
+  private paused = false;
+
+  setPaused(paused: boolean): void {
+    this.paused = paused;
+  }
+
   act(input: ActionInput): boolean {
+    if (this.paused) return false;
     const t = this.time();
     const action: Action = { ...input, t };
     let step;
@@ -251,6 +259,11 @@ export class GameSession {
     this.onAction?.(action);
     this.scheduleSave();
     return true;
+  }
+
+  /** Takes the server's island after a trade (it changed coins and items). */
+  adopt(state: GameState): void {
+    this.update({ state });
   }
 
   /** Takes the server's island instead of this one (it refused something). */

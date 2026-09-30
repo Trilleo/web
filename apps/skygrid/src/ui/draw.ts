@@ -39,6 +39,7 @@ function baseTone(char: string): Tone {
     case "mob":
     case "portal":
     case "merchant":
+    case "bazaar":
     case "guide":
       return "strong";
     default:

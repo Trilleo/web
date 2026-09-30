@@ -7,7 +7,7 @@ import { NODES } from "./nodes";
  * symbols beyond it). Legend:
  *   (space) sky         .  grass          :  path          #  rock
  *   @  where a new game starts (grass)   >  portal: walk onto it to travel
- *   M  merchant   G  guide   _  minion slot   ~  water (fish from the shore)
+ *   M  merchant   ¤  Bazaar   G  guide   _  minion slot   ~  water (fish from the shore)
  *   crops " v o   trees T Y A   ores * % = $ (see nodes.ts)
  *   mobs z s B (see combat.ts)   + gravestone (scenery)
  *   [TEXT] is a sign: scenery, whatever letters it holds.
@@ -43,7 +43,7 @@ const MAPS: Record<
          ..................................T.T...
        ..""""""""....::::::::::::::::::::::.....vvvvvv...
 [HOME]>..............:......M.......G.....:...............>[FOREST]
-       ..""""""""....:....................:.....vvvvvv...
+       ..""""""""....:.....¤[BAZAAR]......:.....vvvvvv...
        ..............::::::::::::::::::::::.............
          .....ooo..........................ooo.....>[SHORE]
            ...ooo............>.............ooo.........
@@ -117,7 +117,7 @@ const MAPS: Record<
  * ASCII and little else: anything outside falls back to another font, wider and
  * not code-like.
  */
-export const MONO_GLYPHS = /^[ -~•]$/u;
+export const MONO_GLYPHS = /^[\x20-\x7e•¤]$/u;
 
 /** What a sign's letters count as in the rules (the map still shows the letters). */
 const SIGN = "[";
@@ -128,6 +128,7 @@ export type TileKind =
   | "wall"
   | "portal"
   | "merchant"
+  | "bazaar"
   | "guide"
   | "slot"
   | "water"
@@ -143,6 +144,7 @@ const KINDS: Readonly<Record<string, TileKind>> = {
   "#": "wall",
   ">": "portal",
   M: "merchant",
+  "¤": "bazaar",
   G: "guide",
   _: "slot",
   "~": "water",

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { GameState } from "./core";
 import { GameScreen } from "./ui/GameScreen";
 import { GameSession, SAVE_KEY, TICK_MS, loadSave } from "./ui/session";
+import { bazaarReader, bazaarTrader } from "./ui/bazaar";
 import { Syncer, type SyncStatus } from "./ui/sync";
 
 /** The account's island as the server has it. */
@@ -103,6 +104,7 @@ export function SkygridApp(props: SkygridAppProps) {
 }
 
 function GuestGame({ signInHref }: { signInHref: string }) {
+  const reader = useMemo(() => bazaarReader(), []);
   const session = useMemo(() => new GameSession(loadSave(safeStorage())), []);
   const flush = useMemo(
     () => () => {
@@ -122,11 +124,16 @@ function GuestGame({ signInHref }: { signInHref: string }) {
           </a>
         </>
       }
+      bazaar={{ reader, trader: null, signInHref }}
     />
   );
 }
 
-function AccountGame({ account = null, serverTime }: SkygridAppProps) {
+function AccountGame({
+  account = null,
+  serverTime,
+  signInHref,
+}: SkygridAppProps) {
   const [save, setSave] = useState<{
     save: AccountSave;
     serverTime: number;
@@ -142,7 +149,13 @@ function AccountGame({ account = null, serverTime }: SkygridAppProps) {
       />
     );
   }
-  return <AccountRunner save={save.save} serverTime={save.serverTime} />;
+  return (
+    <AccountRunner
+      save={save.save}
+      serverTime={save.serverTime}
+      signInHref={signInHref}
+    />
+  );
 }
 
 /**
@@ -168,9 +181,11 @@ const STATUS_NOTE: Record<SyncStatus, string> = {
 function AccountRunner({
   save,
   serverTime,
+  signInHref,
 }: {
   save: AccountSave;
   serverTime: number;
+  signInHref: string;
 }) {
   const { session, syncer } = useMemo(() => {
     const now = serverClock(serverTime);
@@ -202,7 +217,21 @@ function AccountRunner({
     syncer.getStatus,
     syncer.getStatus,
   );
-  return <GameScreen session={session} saveNote={STATUS_NOTE[status]} />;
+  const bazaar = useMemo(
+    () => ({
+      reader: bazaarReader(),
+      trader: bazaarTrader(session, syncer),
+      signInHref,
+    }),
+    [session, syncer, signInHref],
+  );
+  return (
+    <GameScreen
+      session={session}
+      saveNote={STATUS_NOTE[status]}
+      bazaar={bazaar}
+    />
+  );
 }
 
 interface ImportReply {

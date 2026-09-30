@@ -20,7 +20,7 @@ import {
 import type { GameSession } from "./session";
 
 export type Tab =
-  "skills" | "gear" | "bag" | "craft" | "minions" | "collections";
+  "skills" | "gear" | "bag" | "craft" | "minions" | "collections" | "bazaar";
 
 export interface ControllerUi {
   open(tab: Tab, slot?: number): void;
@@ -36,6 +36,7 @@ const TIPS = [
   "At the Shore, cast a line into the water and reel in the moment something bites.",
   "Zombies (z) roam the graveyard. Walk into one to fight; hold the key to keep swinging.",
   "The Spider Cave is past the graveyard. Bring a good sword and armor: spiders bite back.",
+  "The Bazaar (¤) in the Hub is where players trade. Buy orders and sell offers wait until someone takes them.",
   "Dying costs a quarter of your coins. Health comes back on its own: step away and wait.",
 ];
 
@@ -188,6 +189,12 @@ export class Controller {
           "Merchant: “I’ll buy anything you gather. Tools for sale, too.”",
         );
         this.ui.open("bag");
+        return;
+      case "bazaar":
+        this.session.say(
+          "The Bazaar: players buy and sell here. See the Bazaar tab.",
+        );
+        this.ui.open("bazaar");
         return;
       case "guide":
         this.session.say(`Guide: “${guideTip(state, this.guideVisits++)}”`);

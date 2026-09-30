@@ -1,5 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ISLAND_MAPS, newGame } from "@trilleo/game-skygrid/core";
+import {
+  BAZAAR_ITEMS,
+  ISLAND_MAPS,
+  itemName,
+  newGame,
+} from "@trilleo/game-skygrid/core";
 import { continueAs, freshLogin, newPage } from "./support";
 
 // Each test has its own browser, so each starts a new island (saved in localStorage).
@@ -171,6 +176,88 @@ test("walking into a zombie fights it, and holding the key keeps swinging", asyn
   await expect(log(page)).toContainText("Rotten Flesh");
   await page.getByRole("tab", { name: "Skills" }).click();
   await expect(page.getByRole("tabpanel")).toContainText("8 / 25 XP");
+});
+
+/** Signs a new account in with a browser island made from `save`, moved into it. */
+async function islander(
+  page: Page,
+  login: string,
+  save: Record<string, unknown>,
+) {
+  await page.goto("/about/");
+  await page.evaluate(
+    ([key, value]) => {
+      localStorage.setItem(key, value);
+    },
+    ["trilleo:game:skygrid", JSON.stringify(save)] as const,
+  );
+  await page.goto(`/auth/github?next=${encodeURIComponent(GAME)}`);
+  await continueAs(page, login);
+  await page.getByRole("button", { name: "Move it to my account" }).click();
+  await expect(page.getByText("Saved to your account")).toBeVisible();
+}
+
+function atStall(extra: Record<string, unknown>) {
+  const hub = ISLAND_MAPS.hub;
+  const y = hub.tiles.findIndex((row) => row.includes("¤"));
+  const x = hub.tiles[y]?.indexOf("¤") ?? -1;
+  return {
+    ...newGame(1, Date.now() - 60_000),
+    now: Date.now() - 30_000,
+    pos: { island: "hub", x, y: y + 1 },
+    ...extra,
+  };
+}
+
+async function openProduct(page: Page, name: string) {
+  await page.getByRole("tab", { name: "Bazaar" }).click();
+  await page.getByRole("searchbox", { name: "Search products" }).fill(name);
+  await page.getByRole("button", { name, exact: true }).click();
+}
+
+async function tradeForm(
+  page: Page,
+  title: string,
+  amount: string,
+  price?: string,
+) {
+  const form = page.locator("form", {
+    has: page.getByRole("heading", { name: title }),
+  });
+  await form.getByLabel("Amount").fill(amount);
+  if (price) await form.getByLabel("Price each").fill(price);
+  await form.getByRole("button", { name: "Go" }).click();
+}
+
+test("two players trade on the Bazaar", async ({ page, browser, baseURL }) => {
+  // Each attempt trades something different: e2e tests share one database.
+  const items = BAZAAR_ITEMS.filter((item) => !item.startsWith("enchanted_"));
+  const item = items[Math.floor(Math.random() * items.length)] ?? "wheat";
+  const name = itemName(item);
+
+  await islander(
+    page,
+    freshLogin("seller"),
+    atStall({ inventory: { [item]: 20 } }),
+  );
+  await openProduct(page, name);
+  await tradeForm(page, "Place a sell offer", "10", "1");
+  await expect(log(page)).toContainText(
+    `Sell offer placed: 10 ${name} at 1 coins each.`,
+  );
+
+  const buyerPage = await newPage(browser, baseURL);
+  await islander(buyerPage, freshLogin("buyer"), atStall({ coins: 500 }));
+  await openProduct(buyerPage, name);
+  await tradeForm(buyerPage, "Buy now", "4");
+  await expect(log(buyerPage)).toContainText(`Bought 4 ${name} for 4 coins.`);
+  await buyerPage.context().close();
+
+  await page.reload();
+  await page.getByRole("tab", { name: "Bazaar" }).click();
+  await expect(page.getByText(/4 to claim/)).toBeVisible();
+  await page.getByRole("button", { name: "Claim all" }).click();
+  await expect(log(page)).toContainText("Claimed 1 order (3 coins).");
 });
 
 test("the game's API is only for signed-in players on this site", async ({

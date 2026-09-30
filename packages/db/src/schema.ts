@@ -279,6 +279,56 @@ export const skygridSaves = pgTable(
   (table) => [index("skygrid_saves_skill_xp_idx").on(table.skillXp)],
 );
 
+/**
+ * Skygrid's Bazaar: players' buy orders and sell offers. What an order holds (coins
+ * for a buy, items for a sell) was taken from the player's save when it was made.
+ * Others fill it (`filled`); the owner collects the proceeds later (`claimed`), so
+ * a trade never writes anyone else's save. `status`: open (in the book), filled
+ * (waiting to be claimed), done, or cancelled. Goes with the account.
+ */
+export const skygridOrders = pgTable(
+  "skygrid_orders",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    item: text("item").notNull(),
+    side: text("side", { enum: ["buy", "sell"] }).notNull(),
+    /** Coins per item. */
+    price: integer("price").notNull(),
+    quantity: integer("quantity").notNull(),
+    filled: integer("filled").notNull().default(0),
+    claimed: integer("claimed").notNull().default(0),
+    status: text("status", { enum: ["open", "filled", "done", "cancelled"] })
+      .notNull()
+      .default("open"),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index("skygrid_orders_book_idx").on(
+      table.item,
+      table.side,
+      table.status,
+      table.price,
+    ),
+    index("skygrid_orders_user_idx").on(table.userId, table.status),
+  ],
+);
+
+/** Every Bazaar trade, for price history. Anonymous: no one's name is kept. */
+export const skygridTrades = pgTable(
+  "skygrid_trades",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    item: text("item").notNull(),
+    price: integer("price").notNull(),
+    quantity: integer("quantity").notNull(),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("skygrid_trades_item_idx").on(table.item, table.at)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
@@ -290,3 +340,4 @@ export type CommentMode = (typeof commentMode.enumValues)[number];
 export type Media = typeof media.$inferSelect;
 export type ToolDataRow = typeof toolData.$inferSelect;
 export type SkygridSave = typeof skygridSaves.$inferSelect;
+export type SkygridOrder = typeof skygridOrders.$inferSelect;

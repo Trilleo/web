@@ -300,6 +300,13 @@
   the server's state. /api/games/skygrid/import gives an account its first island,
   new or moved from the browser (`prepareImport` caps it: nobody checked it).
   Actions are stamped with server time (the page passes `serverTime`).
+- Skygrid's Bazaar (src/lib/games/skygrid/bazaar.ts): trades involve other players,
+  so they run on the server, not in the replayed engine. One request = one
+  transaction: lock the player's save (version check, at the ¤ stall), lock and
+  fill the other side's orders best price first, record trades, save. Orders hold
+  what they cost (coins or items) out of the save; makers collect fills later
+  (claim), so no request writes another player's save. The client pauses input and
+  flushes its sync first (`Syncer.exclusive`), then adopts the returned island.
 - The grid is set in Geist Mono, which (self-hosted) has ASCII and almost no
   symbols: maps and overlays use only `MONO_GLYPHS` (tested), since fallback
   glyphs are wider and not code-like. Signs are `[TEXT]`: the rules see them as

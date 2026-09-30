@@ -122,5 +122,6 @@ describe("the islands", () => {
     const hub = ISLAND_MAPS.hub.rows.join("");
     expect(hub).toContain("M");
     expect(hub).toContain("G");
+    expect(hub).toContain("¤");
   });
 });

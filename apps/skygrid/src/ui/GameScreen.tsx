@@ -8,7 +8,7 @@ import {
 } from "react";
 import { ISLAND_MAPS, playerStats, type Dir } from "../core";
 import { Controller, type Tab } from "./controller";
-import { PanelBody, TABS } from "./Panels";
+import { PanelBody, TABS, type BazaarAccess } from "./Panels";
 import type { GameSession, View } from "./session";
 import { WorldView } from "./WorldView";
 
@@ -31,10 +31,11 @@ export interface GameScreenProps {
   session: GameSession;
   /** Where the island is kept, for the top bar ("Saved in this browser", …). */
   saveNote: ReactNode;
+  bazaar: BazaarAccess;
 }
 
 /** The game on screen: the world, what's going on, and the panels. */
-export function GameScreen({ session, saveNote }: GameScreenProps) {
+export function GameScreen({ session, saveNote, bazaar }: GameScreenProps) {
   const view = useSyncExternalStore(
     session.subscribe,
     session.getView,
@@ -162,6 +163,7 @@ export function GameScreen({ session, saveNote }: GameScreenProps) {
             session={session}
             selectedSlot={slot}
             now={now}
+            bazaar={bazaar}
           />
         </div>
       </aside>

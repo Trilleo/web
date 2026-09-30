@@ -3,13 +3,17 @@
  * which replays it (see apps/web/src/lib/games/skygrid/api.ts). Actions go in
  * batches every few seconds, and at once when the page is left.
  */
-import { parseSave, type Action } from "../core";
+import { parseSave, type Action, type GameState } from "../core";
 import type { GameSession } from "./session";
 
 export const SYNC_URL = "/api/games/skygrid/sync";
 export const SYNC_EVERY_MS = 3000;
 /** The server takes at most this many per request. */
 export const SYNC_BATCH = 500;
+
+export type ExclusiveResult =
+  | { ok: true; save: { state: GameState; version: number } }
+  | { ok: false; error: string; save?: { state: GameState; version: number } };
 
 export type SyncStatus =
   /** Everything played so far is in the account. */
@@ -96,6 +100,34 @@ export class Syncer {
     }
     if (this.pending.length === 0 && this.status !== "signed-out") {
       this.setStatus("saved");
+    }
+  }
+
+  /**
+   * Runs a request that changes the island on the server (a trade): input pauses,
+   * everything played so far is sent first, then `request` gets the version to
+   * build on and returns the island the server made, or an error message.
+   */
+  async exclusive(
+    request: (version: number) => Promise<ExclusiveResult>,
+  ): Promise<ExclusiveResult> {
+    this.session.setPaused(true);
+    try {
+      await this.flush();
+      if (this.pending.length > 0 || this.status === "offline") {
+        return {
+          ok: false,
+          error: "Can’t reach the server. Try again in a moment.",
+        };
+      }
+      const result = await request(this.version);
+      if (result.save) {
+        this.version = result.save.version;
+        this.session.adopt(result.save.state);
+      }
+      return result;
+    } finally {
+      this.session.setPaused(false);
     }
   }
 

@@ -40,7 +40,7 @@ export const MAX_BODY_BYTES = 128 * 1024;
 
 const HEADERS = { "Cache-Control": "no-store" };
 
-function json(
+export function json(
   body: unknown,
   status = 200,
   extra: Record<string, string> = {},
@@ -48,7 +48,11 @@ function json(
   return Response.json(body, { status, headers: { ...HEADERS, ...extra } });
 }
 
-function problem(status: number, error: string, extra: object = {}): Response {
+export function problem(
+  status: number,
+  error: string,
+  extra: object = {},
+): Response {
   return json({ error, ...extra }, status);
 }
 
@@ -56,7 +60,7 @@ function randomSeed(): number {
   return crypto.getRandomValues(new Int32Array(1))[0] ?? 0;
 }
 
-function withSave(save: AccountSave, serverTime: number) {
+export function withSave(save: AccountSave, serverTime: number) {
   return { state: save.state, version: save.version, serverTime };
 }
 
@@ -141,7 +145,15 @@ async function sync(
   }
 }
 
-export async function handleSkygrid(input: SkygridRequest): Promise<Response> {
+/**
+ * The checks every change goes through: a POST of JSON, from this site, by someone
+ * signed in. Returns the body and the user, or the response to send instead.
+ */
+export async function readChange(input: {
+  request: Request;
+  url: URL;
+  user: User | null;
+}): Promise<{ body: object; user: User } | Response> {
   const { request, url, user } = input;
   if (request.method !== "POST") {
     return json({ error: "Not allowed." }, 405, { Allow: "POST" });
@@ -152,7 +164,13 @@ export async function handleSkygrid(input: SkygridRequest): Promise<Response> {
     return problem(403, "Changes can only come from this site.");
   }
   const body = await readBody(request);
-  if (body instanceof Response) return body;
+  return body instanceof Response ? body : { body, user };
+}
+
+export async function handleSkygrid(input: SkygridRequest): Promise<Response> {
+  const change = await readChange(input);
+  if (change instanceof Response) return change;
+  const { body, user } = change;
   const now = (input.now ?? Date.now)();
   return input.endpoint === "import"
     ? importSave(input, user, body, now)

@@ -35,6 +35,8 @@ import {
   type ItemId,
   type Recipe,
 } from "../core";
+import type { BazaarReader, BazaarTrader } from "./bazaar";
+import { BazaarPanel } from "./BazaarPanel";
 import type { Tab } from "./controller";
 import type { GameSession } from "./session";
 
@@ -45,6 +47,7 @@ export const TABS: readonly { id: Tab; label: string; key: string }[] = [
   { id: "craft", label: "Craft", key: "4" },
   { id: "minions", label: "Minions", key: "5" },
   { id: "collections", label: "Collections", key: "6" },
+  { id: "bazaar", label: "Bazaar", key: "7" },
 ];
 
 const smallButton =
@@ -604,18 +607,27 @@ function CollectionsPanel({ state }: { state: GameState }) {
   );
 }
 
+/** What the Bazaar tab can do: read prices always, trade when signed in. */
+export interface BazaarAccess {
+  reader: BazaarReader;
+  trader: BazaarTrader | null;
+  signInHref: string;
+}
+
 export function PanelBody({
   tab,
   state,
   session,
   selectedSlot,
   now,
+  bazaar,
 }: {
   tab: Tab;
   state: GameState;
   session: GameSession;
   selectedSlot: number | null;
   now: number;
+  bazaar: BazaarAccess;
 }) {
   switch (tab) {
     case "skills":
@@ -637,6 +649,8 @@ export function PanelBody({
       );
     case "collections":
       return <CollectionsPanel state={state} />;
+    case "bazaar":
+      return <BazaarPanel state={state} {...bazaar} />;
   }
 }
 

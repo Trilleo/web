@@ -31,7 +31,8 @@ test.describe("light system setting", () => {
     await toggle(page).click();
     await expect(html(page)).toHaveAttribute("data-theme", "dark");
     await expect(toggle(page)).toHaveAccessibleName("Light mode");
-    expect(await paper(page)).toBe(DARK_PAPER);
+    // The new colors land a frame after the attribute: poll rather than read once.
+    await expect.poll(() => paper(page)).toBe(DARK_PAPER);
     expect(await stored(page)).toBe("dark");
 
     await page.reload();
