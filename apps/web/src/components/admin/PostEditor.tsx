@@ -721,8 +721,9 @@ export function PostEditor(props: EditorProps) {
             )}
           </p>
 
-          <div className="grid gap-5 md:grid-cols-2">
-            <div className="flex flex-col gap-2">
+          {/* The date only needs room for its text; the comment modes take the rest. */}
+          <div className="grid gap-5 md:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
+            <div className="flex min-w-0 flex-col gap-2">
               <label htmlFor={`${uid}-date`} className="type-label">
                 {props.state === "draft" ? "Publish at" : "Published at"}
               </label>
@@ -735,7 +736,9 @@ export function PostEditor(props: EditorProps) {
                 }}
                 aria-invalid={errors.publishedAt ? true : undefined}
                 aria-describedby={described("publishedAt", `${uid}-date-hint`)}
-                className={`${fieldClass} h-11 px-3 accent-(--tr-accent)`}
+                // Safari draws date inputs natively, with its own height and a minimum
+                // width; without that they overflow the column and outgrow h-11.
+                className={`${fieldClass} h-11 min-w-0 appearance-none px-3 accent-(--tr-accent) [&::-webkit-date-and-time-value]:text-left`}
               />
               <input
                 type="hidden"
@@ -753,7 +756,7 @@ export function PostEditor(props: EditorProps) {
               />
             </div>
 
-            <fieldset className="flex flex-col gap-2">
+            <fieldset className="flex min-w-0 flex-col gap-2">
               <legend className="mb-2 type-label">Comments</legend>
               {/* A segmented control, not a <select>: the native option list can't
                   take the site's colors. Real radios, so the form still posts it. */}
