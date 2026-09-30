@@ -8,11 +8,15 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { hashToken } from "./crypto";
 import {
   SESSION_RENEW_MS,
+  SESSION_TOUCH_MS,
   SESSION_TTL_MS,
   createSession,
   deleteExpiredSessions,
+  invalidateOtherSessions,
   invalidateSession,
   invalidateUserSessions,
+  listUserSessions,
+  revokeUserSession,
   upsertGitHubUser,
   validateSession,
 } from "./sessions";
@@ -131,5 +135,89 @@ describe("sessions", () => {
     const remaining = await handle.db.select().from(sessions);
     expect(remaining.map((row) => row.id)).toEqual([recent.session.id]);
     expect(remaining.map((row) => row.id)).not.toContain(old.session.id);
+  });
+
+  it("notes when a session was last used, without writing on every request", async () => {
+    const user = await upsertGitHubUser(handle.db, ADMIN_PROFILE, start);
+    const { token } = await createSession(handle.db, user.id, start);
+    const stored = async () =>
+      (await handle.db.select().from(sessions))[0]?.lastUsedAt;
+    expect(await stored()).toEqual(start);
+
+    const soon = later(SESSION_TOUCH_MS - 1);
+    expect(
+      (await validateSession(handle.db, token, soon))?.session.lastUsedAt,
+    ).toEqual(start);
+    expect(await stored()).toEqual(start);
+
+    const afterwards = later(SESSION_TOUCH_MS);
+    const touched = await validateSession(handle.db, token, afterwards);
+    expect(touched?.session.lastUsedAt).toEqual(afterwards);
+    expect(touched?.renewed).toBe(false);
+    expect(await stored()).toEqual(afterwards);
+  });
+
+  it("keeps a trimmed User-Agent for the sessions list", async () => {
+    const user = await upsertGitHubUser(handle.db, ADMIN_PROFILE, start);
+    const { session } = await createSession(
+      handle.db,
+      user.id,
+      start,
+      "x".repeat(1000),
+    );
+    expect(session.userAgent).toHaveLength(300);
+    const blank = await createSession(handle.db, user.id, start, "");
+    expect(blank.session.userAgent).toBeNull();
+  });
+
+  it("lists a user's sessions, most recently used first", async () => {
+    const admin = await upsertGitHubUser(handle.db, ADMIN_PROFILE, start);
+    const visitor = await upsertGitHubUser(handle.db, VISITOR_PROFILE, start);
+    const old = await createSession(handle.db, admin.id, start, "Old");
+    const recent = await createSession(
+      handle.db,
+      admin.id,
+      later(DAY_MS),
+      "New",
+    );
+    await createSession(handle.db, visitor.id, start);
+
+    const listed = await listUserSessions(handle.db, admin.id);
+    expect(listed.map((row) => row.id)).toEqual([
+      recent.session.id,
+      old.session.id,
+    ]);
+  });
+
+  it("revokes only the user's own sessions", async () => {
+    const admin = await upsertGitHubUser(handle.db, ADMIN_PROFILE, start);
+    const visitor = await upsertGitHubUser(handle.db, VISITOR_PROFILE, start);
+    const mine = await createSession(handle.db, admin.id, start);
+    const theirs = await createSession(handle.db, visitor.id, start);
+
+    expect(
+      await revokeUserSession(handle.db, admin.id, theirs.session.id),
+    ).toBe(false);
+    expect(
+      await validateSession(handle.db, theirs.token, start),
+    ).not.toBeNull();
+
+    expect(await revokeUserSession(handle.db, admin.id, mine.session.id)).toBe(
+      true,
+    );
+    expect(await validateSession(handle.db, mine.token, start)).toBeNull();
+  });
+
+  it("signs out every other browser", async () => {
+    const admin = await upsertGitHubUser(handle.db, ADMIN_PROFILE, start);
+    const visitor = await upsertGitHubUser(handle.db, VISITOR_PROFILE, start);
+    const here = await createSession(handle.db, admin.id, start);
+    const there = await createSession(handle.db, admin.id, start);
+    const other = await createSession(handle.db, visitor.id, start);
+
+    await invalidateOtherSessions(handle.db, admin.id, here.session.id);
+    expect(await validateSession(handle.db, here.token, start)).not.toBeNull();
+    expect(await validateSession(handle.db, there.token, start)).toBeNull();
+    expect(await validateSession(handle.db, other.token, start)).not.toBeNull();
   });
 });

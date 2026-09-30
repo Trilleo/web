@@ -2,6 +2,7 @@
 import { renderComment } from "../../lib/comments/render";
 import type { CommentView } from "../../lib/comments/store";
 import { formatPostDate } from "../../lib/listings";
+import { profileHref } from "../../lib/profile/profile";
 
 interface Props {
   comment: CommentView;
@@ -33,16 +34,24 @@ const anchor = `comment-${String(comment.id)}`;
       <header class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         {comment.author ? (
           <a
-            href={`https://github.com/${comment.author.login}`}
-            rel="nofollow ugc noopener"
+            href={
+              comment.author.profile
+                ? profileHref(comment.author.login)
+                : `https://github.com/${comment.author.login}`
+            }
+            rel={comment.author.profile ? undefined : "nofollow ugc noopener"}
             class="group font-medium"
           >
-            <span class="link-wipe">
-              {comment.author.name ?? comment.author.login}
-            </span>
-            <span class="type-label ml-1 text-muted">
-              @{comment.author.login}
-            </span>
+            {comment.author.name ? (
+              <>
+                <span class="link-wipe">{comment.author.name}</span>
+                <span class="type-label ml-1 text-muted">
+                  @{comment.author.login}
+                </span>
+              </>
+            ) : (
+              <span class="link-wipe">@{comment.author.login}</span>
+            )}
           </a>
         ) : (
           <span class="font-medium text-muted">Deleted account</span>

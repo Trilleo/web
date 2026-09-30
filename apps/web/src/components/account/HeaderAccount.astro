@@ -1,0 +1,82 @@
+---
+/**
+ * The header's account slot: "Sign in", or the signed-in person's menu. A server
+ * island (`server:defer` in SiteHeader), so every page, pre-built ones included,
+ * shows who's signed in. The menu's behaviour (Escape, clicking elsewhere) lives in
+ * SiteHeader's script, since scripts don't come with islands.
+ */
+import { isAdmin } from "../../lib/auth/guard";
+import { displayName, profileHref } from "../../lib/profile/profile";
+import Monogram from "./Monogram.astro";
+
+interface Props {
+  /** Where "Sign in" comes back to: the page this header is on. */
+  next: string;
+}
+
+const { next } = Astro.props;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const { user } = Astro.locals;
+const name = user ? displayName(user) : "";
+const links = user
+  ? [
+      { label: "Your profile", href: profileHref(user.githubLogin) },
+      { label: "Edit profile", href: "/account/profile/" },
+      { label: "Account", href: "/account/" },
+      { label: "Sessions", href: "/account/sessions/" },
+      ...(isAdmin(user) ? [{ label: "Admin", href: "/admin/" }] : []),
+    ]
+  : [];
+const item =
+  "group type-nav flex min-h-11 w-full items-center px-4 text-left hover:bg-chip focus-visible:bg-chip";
+---
+
+{user ? (
+  <details class="account-menu relative" data-account-menu>
+    <summary
+      class="group press flex min-h-11 cursor-pointer list-none items-center gap-2.5 [&::-webkit-details-marker]:hidden"
+      data-account-button
+    >
+      <Monogram user={user} />
+      <span
+        class="type-nav hidden max-w-36 truncate xl:inline"
+        aria-hidden="true"
+      >
+        <span class="link-wipe">{name}</span>
+      </span>
+      <span class="sr-only">Account menu for {name}</span>
+    </summary>
+    <div class="account-panel absolute top-full right-0 z-50 mt-2 w-64 animate-rise border border-ink bg-paper">
+      <p class="flex flex-col gap-0.5 border-b border-ink px-4 py-3">
+        <span class="truncate font-medium">{name}</span>
+        <span class="type-label truncate text-muted">@{user.githubLogin}</span>
+      </p>
+      <ul class="py-1">
+        {links.map((link) => (
+          <li>
+            <a href={link.href} class={item}>
+              <span class="link-wipe">{link.label}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+      <form
+        method="post"
+        action="/auth/logout"
+        class="border-t border-ink py-1"
+      >
+        <button type="submit" class:list={[item, "cursor-pointer"]}>
+          <span class="link-wipe">Sign out</span>
+        </button>
+      </form>
+    </div>
+  </details>
+) : (
+  <a
+    href={`/sign-in?next=${encodeURIComponent(next)}`}
+    class="group type-nav inline-flex min-h-11 items-center"
+  >
+    <span class="link-wipe">Sign in</span>
+  </a>
+)}

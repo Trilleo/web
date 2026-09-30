@@ -1,0 +1,159 @@
+---
+/**
+ * Your signed-in browsers. POST signs one out (`session=<id>`), or every browser but
+ * this one (`others=1`). Signing out this browser goes through /auth/logout.
+ */
+import { buttonClasses } from "@trilleo/ui";
+import DisplayTitle from "../../components/DisplayTitle.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { describeUserAgent } from "../../lib/auth/devices";
+import { requireUser } from "../../lib/auth/guard";
+import { noStoreRedirect } from "../../lib/auth/redirect";
+import {
+  invalidateOtherSessions,
+  listUserSessions,
+  revokeUserSession,
+} from "../../lib/auth/sessions";
+import { field } from "../../lib/comments/form";
+import { getDb } from "../../lib/db";
+import { formatPostDate } from "../../lib/listings";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+const { session: current } = Astro.locals;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+
+if (Astro.request.method === "POST" && current) {
+  const form = await Astro.request.formData();
+  if (field(form, "others") === "1") {
+    await invalidateOtherSessions(db, user.id, current.id);
+    return noStoreRedirect("/account/sessions/?done=others", 303);
+  }
+  const id = field(form, "session");
+  // This browser signs out through /auth/logout, which also clears the cookie.
+  if (id && id !== current.id) await revokeUserSession(db, user.id, id);
+  return noStoreRedirect("/account/sessions/?done=one", 303);
+}
+
+const all = await listUserSessions(db, user.id);
+const others = all.filter((session) => session.id !== current?.id);
+const here = all.find((session) => session.id === current?.id);
+const done = Astro.url.searchParams.get("done");
+
+const time = (date: Date) =>
+  date.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+  });
+/** "Active now" within the touch window, else the date and time (UTC). */
+const lastUsed = (date: Date) =>
+  Date.now() - date.getTime() < 10 * 60_000
+    ? "Active now"
+    : `Last used ${formatPostDate(date)}, ${time(date)} UTC`;
+---
+
+<BaseLayout title="Sessions" noindex>
+  <section
+    aria-labelledby="sessions-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">
+      (Account){" "}
+      <a href="/account/" class="link-wipe">
+        @{user.githubLogin}
+      </a>
+    </p>
+
+    <DisplayTitle id="sessions-title">Sessions</DisplayTitle>
+
+    {done && (
+      <p role="status" class="type-lead mt-6 border-l-2 border-accent pl-4">
+        {done === "others"
+          ? "Signed out of every other browser."
+          : "Signed out of that browser."}
+      </p>
+    )}
+
+    <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
+        This browser
+      </h2>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-7">
+        {here && (
+          <div class="flex flex-col gap-1">
+            <p class="type-card">{describeUserAgent(here.userAgent)}</p>
+            <p class="type-label text-muted">
+              Signed in {formatPostDate(here.createdAt)} · expires{" "}
+              {formatPostDate(here.expiresAt)}
+            </p>
+          </div>
+        )}
+        <form method="post" action="/auth/logout">
+          <button type="submit" class={buttonClasses({ variant: "secondary" })}>
+            Sign out of this browser
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+      <h2
+        id="other-sessions"
+        class="type-label col-span-4 md:col-span-2 xl:col-span-2"
+      >
+        Other browsers ({others.length})
+      </h2>
+      <div class="col-span-4 flex flex-col gap-6 md:col-span-6 xl:col-span-7">
+        {others.length === 0 ? (
+          <p class="text-muted">You’re not signed in anywhere else.</p>
+        ) : (
+          <>
+            <ul class="flex flex-col" aria-labelledby="other-sessions">
+              {others.map((session) => (
+                <li class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-hair py-4 first:border-t-0 first:pt-0">
+                  <div class="flex flex-col gap-1">
+                    <p class="font-medium">
+                      {describeUserAgent(session.userAgent)}
+                    </p>
+                    <p class="type-label text-muted">
+                      {lastUsed(session.lastUsedAt)} · signed in{" "}
+                      {formatPostDate(session.createdAt)}
+                    </p>
+                  </div>
+                  <form method="post" action="/account/sessions/">
+                    <input type="hidden" name="session" value={session.id} />
+                    <button
+                      type="submit"
+                      class="type-label cursor-pointer border border-ink px-2.5 py-1.5 text-ink hover:bg-ink hover:text-paper"
+                      aria-label={`Sign out ${describeUserAgent(session.userAgent)}, ${lastUsed(session.lastUsedAt).toLowerCase()}`}
+                    >
+                      Sign out
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+            <form method="post" action="/account/sessions/">
+              <input type="hidden" name="others" value="1" />
+              <button type="submit" class={buttonClasses()}>
+                Sign out everywhere else
+              </button>
+            </form>
+          </>
+        )}
+        <p class="text-sm text-muted">
+          Browsers are named from what they report about themselves, so treat
+          them as a hint. Sign-ins last 30 days, and are extended while you use
+          them.
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

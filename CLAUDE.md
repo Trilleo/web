@@ -177,6 +177,18 @@
   e2e/fake-github.ts.
 - New private pages: add their prefix to PRIVATE_PATHS (src/lib/site.ts) to keep
   them out of robots.txt and the sitemap.
+- The header's account slot (components/account/HeaderAccount.astro) is a server
+  island, so pre-built pages show who's signed in too: "Sign in" (back to this
+  page), or a menu (profile, account, sessions, Admin for the admin, sign out). Its
+  Escape/click-away behaviour lives in SiteHeader's script (islands bring none).
+- Profiles (src/lib/profile/): the username is GitHub's login, re-synced at sign-in;
+  people choose a display name (falls back to GitHub's name, then the login),
+  pronouns, location, a "currently" line, a bio (comment Markdown) and up to 5 links,
+  whether the profile is public, and whether comments show their name or just
+  @login. Pages: /account/profile/ (edit), /people/<login>/ (public, noindex; 404
+  when private or blocked, except to its owner), /account/sessions/ (sign other
+  browsers out; sessions keep last_used_at, written at most every 5 minutes, and
+  the User-Agent), /account/export.json (everything we keep, as JSON).
 
 ## Comments
 

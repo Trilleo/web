@@ -1,0 +1,433 @@
+---
+/**
+ * Editing your profile: GET shows the form, POST saves it and comes back here (or
+ * shows the form again, with what was typed and what's wrong). The username is
+ * GitHub's and can't be changed here.
+ */
+import { buttonClasses } from "@trilleo/ui";
+import Monogram from "../../components/account/Monogram.astro";
+import DisplayTitle from "../../components/DisplayTitle.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { requireUser } from "../../lib/auth/guard";
+import { noStoreRedirect } from "../../lib/auth/redirect";
+import { getDb } from "../../lib/db";
+import {
+  PROFILE_LIMITS,
+  displayName,
+  profileDraft,
+  profileHref,
+  readProfileForm,
+  validateProfile,
+  type ProfileDraft,
+  type ProfileField,
+} from "../../lib/profile/profile";
+import { updateProfile } from "../../lib/profile/store";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+let values: ProfileDraft = profileDraft(user);
+let errors: Partial<Record<ProfileField, string>> = {};
+
+if (Astro.request.method === "POST") {
+  const draft = readProfileForm(await Astro.request.formData());
+  const result = validateProfile(draft);
+  if (result.ok) {
+    await updateProfile(await getDb(), user.id, result.profile);
+    return noStoreRedirect("/account/profile/?saved=1", 303);
+  }
+  values = draft;
+  errors = result.errors;
+  Astro.response.status = 422;
+}
+
+const saved =
+  Astro.url.searchParams.has("saved") && Astro.request.method !== "POST";
+const hasErrors = Object.keys(errors).length > 0;
+const githubName = user.name ?? user.githubLogin;
+
+// Field limits are in characters as people count them, checked on the server; the
+// browser counts UTF-16 units (an emoji is two), so its maxlength only stops pastes
+// of far too much.
+const input =
+  "w-full border border-ink bg-paper px-3 py-2.5 text-base text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-invalid:border-accent";
+const row = "grid-swiss gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6";
+const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
+
+const lines = [
+  {
+    name: "displayName",
+    label: "Display name",
+    hint: `Shown on your profile and comments. Leave empty to use ${githubName} from GitHub.`,
+    placeholder: githubName,
+    autocomplete: "nickname",
+  },
+  {
+    name: "pronouns",
+    label: "Pronouns",
+    hint: "Optional, e.g. she/her, they/them.",
+    placeholder: "",
+    autocomplete: "off",
+  },
+  {
+    name: "location",
+    label: "Location",
+    hint: "Optional. As broad as you like.",
+    placeholder: "",
+    autocomplete: "off",
+  },
+  {
+    name: "status",
+    label: "Currently",
+    hint: "A line about what you’re up to, shown at the top of your profile.",
+    placeholder: "Building a redstone computer",
+    autocomplete: "off",
+  },
+] as const;
+---
+
+<BaseLayout title="Edit profile" noindex>
+  <section
+    aria-labelledby="profile-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">
+      (Account){" "}
+      <a href="/account/" class="link-wipe">
+        @{user.githubLogin}
+      </a>
+    </p>
+
+    <DisplayTitle id="profile-title">Profile</DisplayTitle>
+
+    {(saved || hasErrors) && (
+      <p
+        role={hasErrors ? "alert" : "status"}
+        class="type-lead mt-6 border-l-2 border-accent pl-4"
+      >
+        {hasErrors ? (
+          "Not saved: check the fields marked below."
+        ) : (
+          <>
+            Saved.{" "}
+            <a href={profileHref(user.githubLogin)} class="link-wipe">
+              See your profile
+            </a>
+            .
+          </>
+        )}
+      </p>
+    )}
+
+    <form
+      method="post"
+      action="/account/profile/"
+      class="mt-7 flex flex-col gap-12 md:mt-8 xl:mt-12"
+      novalidate
+      data-profile-form
+    >
+      <div class={row}>
+        <h2 class={heading}>Preview</h2>
+        <div class={body}>
+          <div
+            class="flex items-center gap-5 border border-ink p-4 md:p-5"
+            data-preview
+          >
+            <Monogram user={user} size="md" />
+            <div class="flex min-w-0 flex-col gap-1">
+              <p class="type-card truncate" data-preview-name>
+                {displayName({
+                  ...user,
+                  displayName: values.displayName.trim() || null,
+                })}
+              </p>
+              <p class="type-label flex flex-wrap gap-x-3 text-muted">
+                <span>@{user.githubLogin}</span>
+                <span data-preview-pronouns>{values.pronouns}</span>
+              </p>
+              <p class="truncate text-muted" data-preview-status>
+                {values.status}
+              </p>
+            </div>
+          </div>
+          <p class="text-muted">
+            {values.profilePublic ? (
+              <>
+                Your profile is public at{" "}
+                <a
+                  href={profileHref(user.githubLogin)}
+                  class="link-wipe text-ink"
+                >
+                  {profileHref(user.githubLogin)}
+                </a>
+                .
+              </>
+            ) : (
+              "Your profile is private: only you can see it."
+            )}
+          </p>
+        </div>
+      </div>
+
+      <div class={row}>
+        <h2 class={heading}>About you</h2>
+        <div class={body}>
+          <div class="flex flex-col gap-2">
+            <label for="username" class="font-medium">
+              Username
+            </label>
+            <input
+              id="username"
+              value={user.githubLogin}
+              readonly
+              aria-describedby="username-hint"
+              class:list={[input, "bg-chip text-muted"]}
+            />
+            <p id="username-hint" class="text-sm text-muted">
+              Linked to your GitHub account. Change it on GitHub; it updates
+              here the next time you sign in.
+            </p>
+          </div>
+
+          {lines.map((line) => (
+            <div class="flex flex-col gap-2">
+              <label for={line.name} class="font-medium">
+                {line.label}
+              </label>
+              <input
+                id={line.name}
+                name={line.name}
+                value={values[line.name]}
+                placeholder={line.placeholder || undefined}
+                autocomplete={line.autocomplete}
+                maxlength={PROFILE_LIMITS[line.name] * 2}
+                aria-invalid={errors[line.name] ? "true" : undefined}
+                aria-describedby={`${line.name}-hint`}
+                class={input}
+                data-preview-source={line.name}
+              />
+              <p
+                id={`${line.name}-hint`}
+                class:list={[
+                  "text-sm",
+                  errors[line.name] ? "text-ink" : "text-muted",
+                ]}
+              >
+                {errors[line.name] ? (
+                  <strong class="font-medium">{errors[line.name]}</strong>
+                ) : (
+                  line.hint
+                )}
+              </p>
+            </div>
+          ))}
+
+          <div class="flex flex-col gap-2">
+            <label for="bio" class="font-medium">
+              Bio
+            </label>
+            <textarea
+              id="bio"
+              name="bio"
+              rows="6"
+              aria-invalid={errors.bio ? "true" : undefined}
+              aria-describedby="bio-hint"
+              class:list={[input, "font-serif leading-relaxed"]}
+            >{values.bio}</textarea>
+            <p
+              id="bio-hint"
+              class:list={["text-sm", errors.bio ? "text-ink" : "text-muted"]}
+            >
+              {errors.bio ? (
+                <strong class="font-medium">{errors.bio}</strong>
+              ) : (
+                <>
+                  Up to {PROFILE_LIMITS.bio} characters. Formatting as in
+                  comments: *emphasis*, **bold**, `code`, &gt; quotes and links.
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div role="group" aria-labelledby="links-heading" class={row}>
+        <h2 id="links-heading" class={heading}>
+          Links
+        </h2>
+        <div class={body}>
+          <p class="text-muted">
+            Up to {PROFILE_LIMITS.links}: your site, socials, projects. Leave a
+            label empty to use the site’s name.
+          </p>
+          <ol class="flex flex-col gap-4">
+            {values.links.map((link, index) => {
+              const key = `link-${String(index)}` as const;
+              const error = errors[key];
+              return (
+                <li class="grid grid-cols-[1.75rem_1fr] gap-x-3 gap-y-2 md:grid-cols-[1.75rem_minmax(0,1fr)_minmax(0,2fr)]">
+                  <span class="type-label pt-3.5 text-muted">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <div class="flex flex-col gap-1">
+                    <label for={`link-label-${String(index)}`} class="sr-only">
+                      Link {index + 1} label
+                    </label>
+                    <input
+                      id={`link-label-${String(index)}`}
+                      name={`link-label-${String(index)}`}
+                      value={link.label}
+                      placeholder="Label"
+                      maxlength={PROFILE_LIMITS.linkLabel * 2}
+                      aria-invalid={error ? "true" : undefined}
+                      aria-describedby={error ? `${key}-error` : undefined}
+                      class={input}
+                    />
+                  </div>
+                  <div class="col-start-2 flex flex-col gap-1 md:col-start-3">
+                    <label for={`link-url-${String(index)}`} class="sr-only">
+                      Link {index + 1} address
+                    </label>
+                    <input
+                      id={`link-url-${String(index)}`}
+                      name={`link-url-${String(index)}`}
+                      value={link.url}
+                      placeholder="https://"
+                      inputmode="url"
+                      autocomplete="url"
+                      maxlength={PROFILE_LIMITS.linkUrl + 20}
+                      aria-invalid={error ? "true" : undefined}
+                      aria-describedby={error ? `${key}-error` : undefined}
+                      class={input}
+                    />
+                  </div>
+                  {error && (
+                    <p
+                      id={`${key}-error`}
+                      class="col-start-2 text-sm font-medium md:col-span-2"
+                    >
+                      {error}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      </div>
+
+      <div role="group" aria-labelledby="privacy-heading" class={row}>
+        <h2 id="privacy-heading" class={heading}>
+          Privacy
+        </h2>
+        <div class={body}>
+          <div class="flex items-start gap-3">
+            <input
+              id="profilePublic"
+              type="checkbox"
+              name="profilePublic"
+              checked={values.profilePublic}
+              aria-describedby="profilePublic-hint"
+              class="mt-1 size-4 shrink-0 accent-accent"
+            />
+            <div>
+              <label for="profilePublic" class="font-medium">
+                Public profile
+              </label>
+              <p id="profilePublic-hint" class="text-muted">
+                Anyone can see your profile page, and your name on comments
+                links to it. Off: only you can see it, and your name links to
+                GitHub.
+              </p>
+            </div>
+          </div>
+
+          <div
+            role="radiogroup"
+            aria-labelledby="comment-name-label"
+            class="flex flex-col gap-3"
+          >
+            <p id="comment-name-label" class="font-medium">
+              Sign your comments as
+            </p>
+            <label class="flex items-start gap-3">
+              <input
+                type="radio"
+                name="commentName"
+                value="display"
+                checked={values.commentName === "display"}
+                class="mt-1 size-4 shrink-0 accent-accent"
+              />
+              <span>Your display name, with @{user.githubLogin} beside it</span>
+            </label>
+            <label class="flex items-start gap-3">
+              <input
+                type="radio"
+                name="commentName"
+                value="username"
+                checked={values.commentName === "username"}
+                class="mt-1 size-4 shrink-0 accent-accent"
+              />
+              <span>Just @{user.githubLogin}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class={row}>
+        <div class="col-span-4 flex flex-wrap gap-3 md:col-span-6 md:col-start-3 xl:col-start-3">
+          <button type="submit" class={buttonClasses()}>
+            Save profile
+          </button>
+          <a
+            href={profileHref(user.githubLogin)}
+            class={buttonClasses({ variant: "secondary" })}
+          >
+            View profile
+          </a>
+        </div>
+      </div>
+    </form>
+  </section>
+</BaseLayout>
+
+<script>
+  import { displayName, monogram } from "../../lib/profile/profile";
+
+  // The preview card follows the form as it's typed in.
+  const form = document.querySelector<HTMLFormElement>("[data-profile-form]");
+  const preview = form?.querySelector<HTMLElement>("[data-preview]");
+  if (form && preview) {
+    const login =
+      document.querySelector<HTMLInputElement>("#username")?.value ?? "";
+    const githubName =
+      document.querySelector<HTMLInputElement>("#displayName")?.placeholder ??
+      login;
+    const value = (name: string) =>
+      form
+        .querySelector<HTMLInputElement>(`[data-preview-source="${name}"]`)
+        ?.value.trim() ?? "";
+    const set = (selector: string, text: string) => {
+      const element = preview.querySelector(selector);
+      if (element) element.textContent = text;
+    };
+    const update = () => {
+      const person = {
+        githubLogin: login,
+        name: githubName,
+        displayName: value("displayName") || null,
+      };
+      set("[data-preview-name]", displayName(person));
+      set("[data-monogram]", monogram(person));
+      set("[data-preview-pronouns]", value("pronouns"));
+      set("[data-preview-status]", value("status"));
+    };
+    form.addEventListener("input", update);
+  }
+</script>

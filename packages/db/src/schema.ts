@@ -6,6 +6,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   customType,
   index,
   integer,
@@ -22,13 +23,38 @@ import {
 const createdAt = () =>
   timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 
-/** Someone who has signed in with GitHub. Only their public profile is kept. */
+/** A link on someone's profile. */
+export interface ProfileLink {
+  label: string;
+  url: string;
+}
+
+/** How someone's comments are signed: their display name, or just @username. */
+export const commentName = pgEnum("comment_name", ["display", "username"]);
+
+/**
+ * Someone who has signed in with GitHub: their public GitHub profile, plus the
+ * profile they fill in themselves (/account/profile).
+ */
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   // GitHub's numeric user ID never changes; the login (username) can.
   githubId: bigint("github_id", { mode: "number" }).notNull().unique(),
   githubLogin: text("github_login").notNull(),
+  /** GitHub's display name, refreshed on every sign-in; displayName wins over it. */
   name: text("name"),
+  /** Chosen on the site. Null: GitHub's name, then the login. */
+  displayName: text("display_name"),
+  bio: text("bio"),
+  pronouns: text("pronouns"),
+  location: text("location"),
+  /** A short "currently" line, e.g. "Building a redstone computer". */
+  status: text("status"),
+  links: jsonb("links").$type<ProfileLink[]>().notNull().default([]),
+  /** Show /people/<login>. When false, only they can see it. */
+  profilePublic: boolean("profile_public").notNull().default(true),
+  commentName: commentName("comment_name").notNull().default("display"),
+  profileUpdatedAt: timestamp("profile_updated_at", { withTimezone: true }),
   createdAt: createdAt(),
   lastSignInAt: timestamp("last_sign_in_at", { withTimezone: true })
     .notNull()
@@ -49,6 +75,12 @@ export const sessions = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     createdAt: createdAt(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    /** Updated at most every few minutes (see SESSION_TOUCH_MS), not on every request. */
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** The browser's User-Agent at sign-in, trimmed; for the sessions list. */
+    userAgent: text("user_agent"),
   },
   (table) => [
     index("sessions_user_id_idx").on(table.userId),
@@ -217,6 +249,7 @@ export const toolData = pgTable(
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
+export type CommentName = (typeof commentName.enumValues)[number];
 export type CommentStatus = (typeof commentStatus.enumValues)[number];
 export type Post = typeof posts.$inferSelect;
 export type PostStatus = (typeof postStatus.enumValues)[number];

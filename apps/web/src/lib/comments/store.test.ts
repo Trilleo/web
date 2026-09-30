@@ -107,6 +107,27 @@ const bodies = async (viewer: User | null) =>
     ],
   );
 
+describe("authors", () => {
+  it("signs comments as each person chose, and says whose profile is public", async () => {
+    await posted(admin, "From the owner");
+    await posted(bob, "Hi", { isAdmin: true });
+    await handle.db
+      .update(users)
+      .set({ displayName: "The Owner", profilePublic: false })
+      .where(eq(users.id, admin.id));
+    await handle.db
+      .update(users)
+      .set({ commentName: "username", displayName: "Bobby" })
+      .where(eq(users.id, bob.id));
+
+    const { threads } = await listThreads(handle.db, POST, null);
+    expect(threads.map((thread) => thread.comment.author)).toEqual([
+      { login: "owner", name: "The Owner", profile: false },
+      { login: "bob", name: null, profile: true },
+    ]);
+  });
+});
+
 describe("posting", () => {
   it("holds a newcomer's comment for review, visible only to them", async () => {
     const comment = await posted(alice, "First!");
