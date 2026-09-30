@@ -64,7 +64,10 @@ type ActionInput = Action extends infer A
 
 export interface SessionOptions {
   now?: () => number;
+  /** Where the save is kept; null: nowhere here (signed in, the server keeps it). */
   storage?: Storage | null;
+  /** Every action that went through, as the server will replay it. */
+  onAction?: (action: Action) => void;
 }
 
 function defaultStorage(): Storage | null {
@@ -126,15 +129,18 @@ export class GameSession {
   private saveTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly now: () => number;
   private readonly storage: Storage | null;
+  private readonly onAction: ((action: Action) => void) | undefined;
 
   constructor(state: GameState | null, options: SessionOptions = {}) {
     this.now = options.now ?? (() => Date.now());
     this.storage =
       options.storage === undefined ? defaultStorage() : options.storage;
+    this.onAction = options.onAction;
     const now = this.now();
     const loaded = state ?? newGame(Math.floor(Math.random() * 2 ** 31), now);
     this.view = { state: loaded, log: [], floaters: [], busy: null };
-    if (state) this.welcomeBack(state, now);
+    // An island nobody has played yet (e.g. just made by the server) is new.
+    if (state && state.now > state.createdAt) this.welcomeBack(state, now);
     else this.say("You wake up on a small island in the sky.", "big");
   }
 
@@ -190,9 +196,10 @@ export class GameSession {
   /** Tries an action; on a rule it breaks, logs why and returns false. */
   act(input: ActionInput): boolean {
     const t = this.time();
+    const action: Action = { ...input, t };
     let step;
     try {
-      step = applyAction(this.view.state, { ...input, t });
+      step = applyAction(this.view.state, action);
     } catch (error) {
       if (error instanceof GameRuleError) {
         // Walking into things is common; saying "Blocked." each time is noise.
@@ -216,8 +223,15 @@ export class GameSession {
     } else {
       this.report(events);
     }
+    this.onAction?.(action);
     this.scheduleSave();
     return true;
+  }
+
+  /** Takes the server's island instead of this one (it refused something). */
+  replace(state: GameState, message: string): void {
+    this.update({ state, busy: null, floaters: [] });
+    this.say(message, "warn");
   }
 
   private report(events: readonly GameEvent[]): void {
@@ -258,6 +272,7 @@ export class GameSession {
   }
 
   scheduleSave(): void {
+    if (!this.storage) return;
     clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => {
       this.save();
@@ -266,8 +281,9 @@ export class GameSession {
 
   save(): void {
     clearTimeout(this.saveTimer);
+    if (!this.storage) return;
     try {
-      this.storage?.setItem(SAVE_KEY, JSON.stringify(this.view.state));
+      this.storage.setItem(SAVE_KEY, JSON.stringify(this.view.state));
     } catch {
       this.say("This browser won’t let the game save.", "warn");
     }

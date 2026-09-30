@@ -62,13 +62,15 @@ describe("GameSession", () => {
     const slot = ISLAND_MAPS.home.slots[0];
     const saved: GameState = {
       ...newGame(1, T0),
+      // Played for a second before leaving (an unplayed island is simply new).
+      now: T0 + 1000,
       minions: [
         { kind: "wheat", tier: 1, stored: 0, lastAt: T0 },
         ...ISLAND_MAPS.home.slots.slice(1).map(() => null),
       ],
     };
     expect(slot).toBeDefined();
-    clock = T0 + 10 * 60_000;
+    clock = T0 + 10 * 60_000 + 1000;
     const session = new GameSession(saved, { now, storage: null });
     expect(session.getView().log.at(-1)?.text).toBe(
       "While you were away, your minions made 20 Wheat.",

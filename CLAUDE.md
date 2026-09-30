@@ -285,6 +285,15 @@
   server can later replay a player's actions to check them. Content (items, nodes,
   recipes, island maps) lives in src/core/content/; src/ui/ is the browser side
   (GameSession, Controller, WorldView). Pacing guard rails: src/core/balance.test.ts.
+- Skygrid saves: signed out, in localStorage (`trilleo:game:skygrid`); signed in,
+  in `skygrid_saves` (one row per account, deleted with it, in the export). The
+  browser sends its actions in batches (src/ui/sync.ts) to
+  /api/games/skygrid/sync, which replays them on the saved state under a row lock
+  and a version check (src/lib/games/skygrid/): the server never stores a state
+  the client sent. On a broken rule it keeps the valid prefix and the client takes
+  the server's state. /api/games/skygrid/import gives an account its first island,
+  new or moved from the browser (`prepareImport` caps it: nobody checked it).
+  Actions are stamped with server time (the page passes `serverTime`).
 - The grid is set in Geist Mono, which (self-hosted) has ASCII and almost no
   symbols: maps and overlays use only `MONO_GLYPHS` (tested), since fallback
   glyphs are wider and not code-like. Signs are `[TEXT]`: the rules see them as

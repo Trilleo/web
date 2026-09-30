@@ -2,6 +2,7 @@ import {
   comments,
   openDatabase,
   posts,
+  skygridSaves,
   toolData,
   type DatabaseHandle,
   type User,
@@ -163,7 +164,7 @@ describe("findProfile", () => {
 });
 
 describe("exportUserData", () => {
-  it("includes their account, profile, sessions, comments and tool data", async () => {
+  it("includes their account, profile, sessions, comments, tool data and games", async () => {
     await updateProfile(handle.db, ada.id, PROFILE, now);
     const { session } = await createSession(handle.db, ada.id, now, "Firefox");
     await createSession(handle.db, bob.id, now);
@@ -175,6 +176,9 @@ describe("exportUserData", () => {
       { userId: ada.id, tool: "notes", key: "a", value: { text: "hi" } },
       { userId: bob.id, tool: "notes", key: "b", value: { text: "no" } },
     ]);
+    await handle.db
+      .insert(skygridSaves)
+      .values({ userId: ada.id, state: { coins: 5 }, version: 3 });
 
     const data = await exportUserData(handle.db, ada.id, now);
     expect(data).toMatchObject({
@@ -184,11 +188,17 @@ describe("exportUserData", () => {
       sessions: [{ userAgent: "Firefox", createdAt: now }],
       comments: [{ body: "mine", status: "pending", post: "live" }],
       toolData: [{ tool: "notes", key: "a", value: { text: "hi" } }],
+      games: { skygrid: { state: { coins: 5 }, version: 3 } },
     });
     expect(data?.comments).toHaveLength(1);
     expect(data?.toolData).toHaveLength(1);
     // Session ids are what the cookie proves; they stay out of the file.
     expect(JSON.stringify(data)).not.toContain(session.id);
+  });
+
+  it("has no island for someone who never played", async () => {
+    const data = await exportUserData(handle.db, bob.id, now);
+    expect(data?.games).toEqual({ skygrid: null });
   });
 
   it("returns null for an unknown account", async () => {

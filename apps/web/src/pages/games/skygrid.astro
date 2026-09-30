@@ -2,14 +2,19 @@
 import { signInHref } from "@trilleo/tool-kit";
 import { SkygridApp, meta } from "@trilleo/game-skygrid";
 import GameLayout from "../../components/games/GameLayout.astro";
+import { getDb } from "../../lib/db";
 import { gamePath } from "../../lib/games/registry";
+import { loadSkygridSave } from "../../lib/games/skygrid/store";
 
-// Rendered per visit: the game starts from who's signed in.
+// Rendered per visit: signed-in players get their island in the page itself.
 export const prerender = false;
 
 Astro.response.headers.set("Cache-Control", "private, no-store");
 
 const { user } = Astro.locals;
+const account = user
+  ? await loadSkygridSave(await getDb(), user.id)
+  : undefined;
 
 const controls = [
   ["Arrow keys / WASD", "Walk. Hold to keep walking."],
@@ -25,6 +30,8 @@ const controls = [
     client:load
     signedIn={user !== null}
     signInHref={signInHref(gamePath(meta.slug))}
+    account={account}
+    serverTime={Date.now()}
   />
   <Fragment slot="about">
     <p class="text-[15px] leading-normal xl:text-base">
@@ -49,8 +56,10 @@ const controls = [
       ))}
     </dl>
     <p class="text-[15px] leading-normal text-muted">
-      Your island is saved in this browser. Account saves, the player Bazaar and
-      leaderboards are on the way.
+      Signed out, your island is kept in this browser. Sign in with GitHub to
+      keep it in your account instead: the server checks every move, so it’s the
+      same island on every device. The player Bazaar and leaderboards are on the
+      way.
     </p>
   </Fragment>
 </GameLayout>

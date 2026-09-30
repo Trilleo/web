@@ -2,6 +2,7 @@ import {
   comments,
   posts,
   sessions,
+  skygridSaves,
   toolData,
   users,
   type Database,
@@ -101,7 +102,8 @@ export async function findProfile(
 
 /**
  * Everything kept about someone, for /account/export.json: their account and
- * profile, signed-in browsers (without the session ids), comments, and tool data.
+ * profile, signed-in browsers (without the session ids), comments, tool data, and
+ * game saves.
  */
 export async function exportUserData(
   db: Database,
@@ -110,7 +112,7 @@ export async function exportUserData(
 ) {
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) return null;
-  const [browsers, own, tools] = await Promise.all([
+  const [browsers, own, tools, skygrid] = await Promise.all([
     db
       .select({
         createdAt: sessions.createdAt,
@@ -143,6 +145,15 @@ export async function exportUserData(
       .from(toolData)
       .where(eq(toolData.userId, userId))
       .orderBy(asc(toolData.tool), asc(toolData.key)),
+    db
+      .select({
+        state: skygridSaves.state,
+        version: skygridSaves.version,
+        createdAt: skygridSaves.createdAt,
+        updatedAt: skygridSaves.updatedAt,
+      })
+      .from(skygridSaves)
+      .where(eq(skygridSaves.userId, userId)),
   ]);
   return {
     exportedAt: now.toISOString(),
@@ -169,5 +180,6 @@ export async function exportUserData(
     sessions: browsers,
     comments: own,
     toolData: tools,
+    games: { skygrid: skygrid[0] ?? null },
   };
 }

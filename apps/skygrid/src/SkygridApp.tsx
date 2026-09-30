@@ -1,38 +1,28 @@
+import { Button } from "@trilleo/ui";
 import { MotionConfig } from "motion/react";
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
-import { ISLAND_MAPS, type Dir } from "./core";
-import { Controller, type Tab } from "./ui/controller";
-import { PanelBody, TABS } from "./ui/Panels";
-import { GameSession, TICK_MS, loadSave, type View } from "./ui/session";
-import { WorldView } from "./ui/WorldView";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import type { GameState } from "./core";
+import { GameScreen } from "./ui/GameScreen";
+import { GameSession, SAVE_KEY, TICK_MS, loadSave } from "./ui/session";
+import { Syncer, type SyncStatus } from "./ui/sync";
+
+/** The account's island as the server has it. */
+export interface AccountSave {
+  state: GameState;
+  version: number;
+}
 
 export interface SkygridAppProps {
   signedIn: boolean;
   /** Where "Sign in" goes; it comes back here afterwards. */
   signInHref: string;
+  /** Signed in: the account's island, or null if it has none yet. */
+  account?: AccountSave | null;
+  /** The server's clock when the page was made (ms), to keep actions in step with it. */
+  serverTime?: number;
 }
 
-const KEY_DIRS: Readonly<Record<string, Dir>> = {
-  ArrowUp: "U",
-  ArrowDown: "D",
-  ArrowLeft: "L",
-  ArrowRight: "R",
-  w: "U",
-  s: "D",
-  a: "L",
-  d: "R",
-};
-
-function keyDir(key: string): Dir | undefined {
-  return KEY_DIRS[key.length === 1 ? key.toLowerCase() : key];
-}
+export const IMPORT_URL = "/api/games/skygrid/import";
 
 function safeStorage(): Storage | null {
   try {
@@ -57,329 +47,314 @@ function useHydrated(): boolean {
   );
 }
 
-/** Skygrid: loads this browser's island (or starts one), then runs it. */
-export function SkygridApp(props: SkygridAppProps) {
-  const hydrated = useHydrated();
-  // The save lives in this browser, so the game starts once it's running here.
-  const session = useMemo(
-    () => (hydrated ? new GameSession(loadSave(safeStorage())) : null),
-    [hydrated],
-  );
-
+/** Runs the clock and whatever keeps the island, while the game is on screen. */
+function useRunning(
+  session: GameSession,
+  flush: (leaving: boolean) => void,
+): void {
   useEffect(() => {
-    if (!session) return;
     const tick = setInterval(() => {
       session.tick();
     }, TICK_MS);
-    const flush = () => {
-      session.save();
+    const leave = () => {
+      flush(true);
     };
     const onVisibility = () => {
-      if (document.visibilityState === "hidden") flush();
+      if (document.visibilityState === "hidden") leave();
     };
-    window.addEventListener("pagehide", flush);
+    window.addEventListener("pagehide", leave);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       clearInterval(tick);
-      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("pagehide", leave);
       document.removeEventListener("visibilitychange", onVisibility);
-      flush();
+      flush(false);
     };
-  }, [session]);
+  }, [session, flush]);
+}
 
+function Frame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="grid h-[calc(100svh-7.5rem)] min-h-[34rem] place-items-center border-y border-ink bg-fig px-page">
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Skygrid. Signed out, the island lives in this browser; signed in, in the account
+ * (the server checks every action). It starts once it's running in the browser.
+ */
+export function SkygridApp(props: SkygridAppProps) {
+  const hydrated = useHydrated();
   return (
     <MotionConfig reducedMotion="user">
-      {session ? (
-        <Game session={session} {...props} />
-      ) : (
-        <div className="grid h-[calc(100svh-7.5rem)] min-h-[34rem] place-items-center border-y border-ink bg-fig">
+      {!hydrated ? (
+        <Frame>
           <p className="type-label text-muted">Loading your island…</p>
-        </div>
+        </Frame>
+      ) : props.signedIn ? (
+        <AccountGame {...props} />
+      ) : (
+        <GuestGame signInHref={props.signInHref} />
       )}
     </MotionConfig>
   );
 }
 
-function Game({
-  session,
-  signedIn,
-  signInHref,
-}: SkygridAppProps & { session: GameSession }) {
-  const view = useSyncExternalStore(
-    session.subscribe,
-    session.getView,
-    session.getView,
-  );
-  const [tab, setTab] = useState<Tab>("skills");
-  const [slot, setSlot] = useState<number | null>(null);
-  const world = useRef<HTMLDivElement>(null);
-  const [controller] = useState(
-    () =>
-      new Controller(session, {
-        open(next, selected) {
-          setTab(next);
-          setSlot(selected ?? null);
-        },
-      }),
-  );
-
-  useEffect(
+function GuestGame({ signInHref }: { signInHref: string }) {
+  const session = useMemo(() => new GameSession(loadSave(safeStorage())), []);
+  const flush = useMemo(
     () => () => {
-      controller.stop();
+      session.save();
     },
-    [controller],
+    [session],
   );
-  useLayoutEffect(() => {
-    world.current?.focus({ preventScroll: true });
+  useRunning(session, flush);
+  return (
+    <GameScreen
+      session={session}
+      saveNote={
+        <>
+          Saved in this browser ·{" "}
+          <a href={signInHref} className="text-ink underline">
+            Sign in
+          </a>
+        </>
+      }
+    />
+  );
+}
+
+function AccountGame({ account = null, serverTime }: SkygridAppProps) {
+  const [save, setSave] = useState<{
+    save: AccountSave;
+    serverTime: number;
+  } | null>(() =>
+    account ? { save: account, serverTime: serverTime ?? Date.now() } : null,
+  );
+  if (!save) {
+    return (
+      <FirstSignIn
+        onReady={(ready, time) => {
+          setSave({ save: ready, serverTime: time });
+        }}
+      />
+    );
+  }
+  return <AccountRunner save={save.save} serverTime={save.serverTime} />;
+}
+
+/**
+ * A clock in step with the server's: actions are stamped with its time, not this
+ * device's. The offset is taken on first use.
+ */
+function serverClock(serverTime: number): () => number {
+  let offset: number | undefined;
+  return () => {
+    const local = Date.now();
+    offset ??= serverTime - local;
+    return local + offset;
+  };
+}
+
+const STATUS_NOTE: Record<SyncStatus, string> = {
+  saved: "Saved to your account",
+  saving: "Saving…",
+  offline: "Can’t reach the server: retrying",
+  "signed-out": "Signed out: not saving. Reload to sign in again",
+};
+
+function AccountRunner({
+  save,
+  serverTime,
+}: {
+  save: AccountSave;
+  serverTime: number;
+}) {
+  const { session, syncer } = useMemo(() => {
+    const now = serverClock(serverTime);
+    let recorder: Syncer | null = null;
+    const running = new GameSession(save.state, {
+      now,
+      storage: null,
+      onAction: (action) => recorder?.record(action),
+    });
+    recorder = new Syncer(running, save.version);
+    return { session: running, syncer: recorder };
+  }, [save, serverTime]);
+
+  useEffect(() => {
+    syncer.start();
+    return () => {
+      syncer.stop();
+    };
+  }, [syncer]);
+  const flush = useMemo(
+    () => (leaving: boolean) => {
+      void syncer.flush(leaving);
+    },
+    [syncer],
+  );
+  useRunning(session, flush);
+  const status = useSyncExternalStore(
+    syncer.subscribe,
+    syncer.getStatus,
+    syncer.getStatus,
+  );
+  return <GameScreen session={session} saveNote={STATUS_NOTE[status]} />;
+}
+
+interface ImportReply {
+  state?: GameState;
+  version?: number;
+  serverTime?: number;
+  error?: string;
+}
+
+type ImportResult =
+  | { ok: true; save: AccountSave; serverTime: number }
+  | { ok: false; error: string };
+
+/** Asks the server for the account's first island (see IMPORT_URL). */
+async function requestImport(state: GameState | null): Promise<ImportResult> {
+  try {
+    const response = await fetch(IMPORT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ state }),
+      credentials: "same-origin",
+    });
+    const body = (await response.json()) as ImportReply;
+    // 409: the account already has one (another tab got there first). Use it.
+    if (
+      (response.ok || response.status === 409) &&
+      body.state &&
+      body.version
+    ) {
+      return {
+        ok: true,
+        save: { state: body.state, version: body.version },
+        serverTime: body.serverTime ?? Date.now(),
+      };
+    }
+    return {
+      ok: false,
+      error: body.error ?? "Something went wrong. Try again.",
+    };
+  } catch {
+    return {
+      ok: false,
+      error: "Couldn’t reach the server. Check your connection.",
+    };
+  }
+}
+
+/**
+ * Signed in for the first time: the account gets an island, new or the one this
+ * browser has been keeping.
+ */
+function FirstSignIn({
+  onReady,
+}: {
+  onReady: (save: AccountSave, serverTime: number) => void;
+}) {
+  const [guest] = useState(() => loadSave(safeStorage()));
+  const [error, setError] = useState<string | null>(null);
+  // With nothing to bring, a new island is on its way from the start.
+  const [busy, setBusy] = useState(() => guest === null);
+
+  const finish = (result: ImportResult, moved: boolean) => {
+    if (!result.ok) {
+      setError(result.error);
+      setBusy(false);
+      return;
+    }
+    if (moved) {
+      try {
+        safeStorage()?.removeItem(SAVE_KEY);
+      } catch {
+        // Only tidying up: the island is in the account either way.
+      }
+    }
+    onReady(result.save, result.serverTime);
+  };
+
+  const start = (state: GameState | null) => {
+    setBusy(true);
+    setError(null);
+    void requestImport(state).then((result) => {
+      finish(result, state !== null);
+    });
+  };
+
+  useEffect(() => {
+    if (guest) return;
+    void requestImport(null).then((result) => {
+      finish(result, false);
+    });
+    // Once, on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once, on arrival
   }, []);
 
-  const onKeyDown = (event: React.KeyboardEvent) => {
-    const target = event.target as HTMLElement;
-    if (target.closest("input, textarea, select")) return;
-    const d = keyDir(event.key);
-    if (d) {
-      event.preventDefault();
-      if (!event.repeat) controller.press(d);
-      return;
-    }
-    const onWorld = target === world.current;
-    if (
-      event.key === "e" ||
-      event.key === "E" ||
-      (event.key === " " && onWorld)
-    ) {
-      event.preventDefault();
-      if (!event.repeat) controller.use();
-      return;
-    }
-    const tabKey = TABS.find((entry) => entry.key === event.key);
-    if (tabKey && onWorld) setTab(tabKey.id);
-  };
-
-  const onKeyUp = (event: React.KeyboardEvent) => {
-    const d = keyDir(event.key);
-    if (d) controller.release(d);
-  };
-
-  const now = view.state.now;
-
   return (
-    // eslint-disable-next-line jsx-a11y-x/no-static-element-interactions -- keys bubble up from anywhere in the game (the map is the focus target)
-    <div
-      className="grid border-y border-ink md:h-[calc(100svh-7.5rem)] md:min-h-[36rem] md:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_26rem]"
-      onKeyDown={onKeyDown}
-      onKeyUp={onKeyUp}
-    >
-      <div className="flex min-h-0 min-w-0 flex-col">
-        <Hud
-          view={view}
-          now={now}
-          signedIn={signedIn}
-          signInHref={signInHref}
-        />
-        <div
-          ref={world}
-          // eslint-disable-next-line jsx-a11y-x/no-noninteractive-tabindex -- the map takes the keyboard: it's what you play with
-          tabIndex={0}
-          role="application"
-          aria-label={`${ISLAND_MAPS[view.state.pos.island].name}. Arrow keys or WASD to walk; walk into things to use them; E to use what you face or reel in.`}
-          aria-describedby="skygrid-log"
-          className="relative h-[58svh] min-h-80 bg-fig focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent md:h-auto md:min-h-0 md:flex-1"
-        >
-          <WorldView
-            view={view}
-            now={now}
-            onTile={(x, y) => {
-              world.current?.focus({ preventScroll: true });
-              controller.clickTile(x, y);
-            }}
-          />
-          <TouchPad controller={controller} />
-        </div>
-        <Log view={view} />
+    <Frame>
+      <div className="flex max-w-lg flex-col gap-5">
+        {guest ? (
+          <>
+            <h2 className="type-card">Bring your island along?</h2>
+            <p className="text-[15px] leading-normal text-muted">
+              This browser has an island you played signed out. Move it into
+              your account to keep playing it anywhere. It wasn’t checked while
+              you played, so very large amounts are capped (coins at 100,000,
+              skills at level 15). Or start a new island in your account and
+              leave this one here.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                disabled={busy}
+                onClick={() => {
+                  start(guest);
+                }}
+              >
+                Move it to my account
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={busy}
+                onClick={() => {
+                  start(null);
+                }}
+              >
+                Start a new island
+              </Button>
+            </div>
+          </>
+        ) : (
+          !error && (
+            <p className="type-label text-muted">Setting up your island…</p>
+          )
+        )}
+        {error && (
+          <div role="alert" className="flex flex-col gap-3">
+            <p className="font-semibold">{error}</p>
+            {!guest && (
+              <Button
+                variant="secondary"
+                disabled={busy}
+                onClick={() => {
+                  start(null);
+                }}
+              >
+                Try again
+              </Button>
+            )}
+          </div>
+        )}
       </div>
-      <aside
-        aria-label="Your progress"
-        className="flex min-h-0 flex-col border-t border-ink md:border-t-0 md:border-l"
-      >
-        <div
-          role="tablist"
-          aria-label="Panels"
-          className="flex overflow-x-auto border-b border-ink [scrollbar-width:none]"
-        >
-          {TABS.map((entry) => (
-            <button
-              key={entry.id}
-              type="button"
-              role="tab"
-              id={`skygrid-tab-${entry.id}`}
-              aria-selected={tab === entry.id}
-              aria-controls="skygrid-panel"
-              className="min-h-11 shrink-0 grow px-2.5 type-label text-muted hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent aria-selected:bg-ink aria-selected:text-paper"
-              onClick={() => {
-                setTab(entry.id);
-              }}
-            >
-              {entry.label}
-            </button>
-          ))}
-        </div>
-        <div
-          id="skygrid-panel"
-          role="tabpanel"
-          aria-labelledby={`skygrid-tab-${tab}`}
-          tabIndex={0}
-          className="min-h-0 flex-1 overflow-y-auto p-4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent md:p-5"
-        >
-          <PanelBody
-            tab={tab}
-            state={view.state}
-            session={session}
-            selectedSlot={slot}
-            now={now}
-          />
-        </div>
-      </aside>
-    </div>
-  );
-}
-
-function Hud({
-  view,
-  now,
-  signedIn,
-  signInHref,
-}: {
-  view: View;
-  now: number;
-  signedIn: boolean;
-  signInHref: string;
-}) {
-  const { state, busy } = view;
-  let activity: React.ReactNode = null;
-  if (busy) {
-    const done = Math.min(1, (now - busy.start) / (busy.until - busy.start));
-    activity = (
-      <span className="flex items-center gap-2">
-        Working
-        <span className="block h-1.5 w-20 bg-chip" aria-hidden="true">
-          <span
-            className="block h-full bg-accent"
-            style={{ width: `${String(done * 100)}%` }}
-          />
-        </span>
-      </span>
-    );
-  } else if (state.fishing) {
-    activity = now >= state.fishing.biteAt ? "A bite! Press E" : "Fishing…";
-  }
-  return (
-    <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-5 gap-y-1 border-b border-ink px-4 py-2 type-label md:px-5">
-      <span>{ISLAND_MAPS[state.pos.island].name}</span>
-      <span className="text-muted">{activity}</span>
-      <span className="flex items-center gap-4">
-        <span className="hidden text-muted lg:inline">
-          {signedIn ? (
-            "Saved in this browser (account saves soon)"
-          ) : (
-            <>
-              Saved in this browser ·{" "}
-              <a href={signInHref} className="text-ink underline">
-                Sign in
-              </a>
-            </>
-          )}
-        </span>
-        <span>
-          <span className="text-muted">Coins </span>
-          <span className="font-bold">{state.coins.toLocaleString("en")}</span>
-        </span>
-      </span>
-    </div>
-  );
-}
-
-const LOG_TONE = {
-  info: "text-muted",
-  gain: "text-ink",
-  warn: "font-semibold text-ink",
-  big: "font-semibold text-ink",
-} as const;
-
-function Log({ view }: { view: View }) {
-  const list = useRef<HTMLOListElement>(null);
-  const lines = view.log.slice(-12);
-  useEffect(() => {
-    const element = list.current;
-    if (element) element.scrollTop = element.scrollHeight;
-  }, [view.log]);
-  return (
-    <ol
-      ref={list}
-      id="skygrid-log"
-      aria-live="polite"
-      aria-label="What happened"
-      // eslint-disable-next-line jsx-a11y-x/no-noninteractive-tabindex -- a scrolling region has to be reachable from the keyboard
-      tabIndex={0}
-      className="h-24 shrink-0 overflow-y-auto border-t border-ink px-4 py-2 font-mono text-xs leading-relaxed md:h-28 md:px-5"
-    >
-      {lines.map((line) => (
-        <li key={line.id} className={LOG_TONE[line.tone]}>
-          {line.tone === "warn" ? "× " : "> "}
-          {line.text}
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-const PAD: readonly { d: Dir; label: string; glyph: string; area: string }[] = [
-  { d: "U", label: "Walk up", glyph: "▲", area: "col-start-2 row-start-1" },
-  { d: "L", label: "Walk left", glyph: "◀", area: "col-start-1 row-start-2" },
-  { d: "R", label: "Walk right", glyph: "▶", area: "col-start-3 row-start-2" },
-  { d: "D", label: "Walk down", glyph: "▼", area: "col-start-2 row-start-3" },
-];
-
-/** On touch screens: a pad for walking, and a button to use things. */
-function TouchPad({ controller }: { controller: Controller }) {
-  const padButton =
-    "grid size-12 place-items-center border border-ink bg-paper text-lg select-none active:bg-ink active:text-paper";
-  return (
-    <div className="absolute right-3 bottom-3 hidden items-end gap-3 pointer-coarse:flex">
-      <button
-        type="button"
-        className={`${padButton} w-16 font-mono text-xs uppercase`}
-        onClick={() => {
-          controller.use();
-        }}
-      >
-        Use
-      </button>
-      <div className="grid grid-cols-3 grid-rows-3 gap-1">
-        {PAD.map(({ d, label, glyph, area }) => (
-          <button
-            key={d}
-            type="button"
-            aria-label={label}
-            className={`${padButton} ${area}`}
-            onPointerDown={(event) => {
-              event.preventDefault();
-              controller.press(d);
-            }}
-            onPointerUp={() => {
-              controller.release(d);
-            }}
-            onPointerLeave={() => {
-              controller.release(d);
-            }}
-            onPointerCancel={() => {
-              controller.release(d);
-            }}
-          >
-            {glyph}
-          </button>
-        ))}
-      </div>
-    </div>
+    </Frame>
   );
 }

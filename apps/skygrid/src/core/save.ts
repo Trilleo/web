@@ -2,11 +2,19 @@
  * Reading saves back: a save may be old, hand-edited or broken. `parseSave` returns
  * a state the engine can trust, or null. The server will use it on imported saves.
  */
-import { MINION_KINDS, MINION_TIERS, isItem } from "./content/items";
+import {
+  MINION_KINDS,
+  MINION_STORAGE,
+  MINION_TIERS,
+  isItem,
+} from "./content/items";
+import { LEVEL_XP } from "./content/progression";
 import { ISLAND_MAPS, isWalkable, charAt } from "./content/islands";
 import {
   ISLANDS,
   SKILLS,
+  type Action,
+  type Dir,
   type GameState,
   type IslandId,
   type PlacedMinion,
@@ -142,4 +150,129 @@ export function parseSave(value: unknown): GameState | null {
     depleted,
     fishing,
   };
+}
+
+const DIR_VALUES = new Set(["U", "D", "L", "R"]);
+
+function isInt(value: unknown): value is number {
+  return Number.isSafeInteger(value);
+}
+
+/** One action as the client sent it, or null if it isn't one. */
+function parseAction(value: unknown): Action | null {
+  if (!isRecord(value) || !isTime(value.t)) return null;
+  const { t } = value;
+  switch (value.k) {
+    case "move":
+      return typeof value.d === "string" && DIR_VALUES.has(value.d)
+        ? { t, k: "move", d: value.d as Dir }
+        : null;
+    case "gather":
+    case "cast":
+      return isInt(value.x) && isInt(value.y)
+        ? { t, k: value.k, x: value.x, y: value.y }
+        : null;
+    case "reel":
+      return { t, k: "reel" };
+    case "craft":
+      return typeof value.recipe === "string" && isInt(value.times)
+        ? { t, k: "craft", recipe: value.recipe, times: value.times }
+        : null;
+    case "sell":
+    case "buy":
+      return typeof value.item === "string" && isInt(value.n)
+        ? { t, k: value.k, item: value.item, n: value.n }
+        : null;
+    case "place":
+      return isInt(value.slot) && typeof value.item === "string"
+        ? { t, k: "place", slot: value.slot, item: value.item }
+        : null;
+    case "collect":
+    case "pickup":
+      return isInt(value.slot) ? { t, k: value.k, slot: value.slot } : null;
+    default:
+      return null;
+  }
+}
+
+/** A batch of actions from the client, or null if any of them isn't one. */
+export function parseActions(value: unknown, max: number): Action[] | null {
+  if (!Array.isArray(value) || value.length > max) return null;
+  const actions: Action[] = [];
+  for (const item of value) {
+    const action = parseAction(item);
+    if (!action) return null;
+    actions.push(action);
+  }
+  return actions;
+}
+
+/**
+ * Limits for a browser save moving into an account. It was played where nobody
+ * could check it, so it keeps its shape but not unlimited riches.
+ */
+export const IMPORT_LIMITS = {
+  coins: 100_000,
+  /** Per skill: the XP of this level. */
+  level: 15,
+  /** Per item, in the bag and in each collection. */
+  items: 10_000,
+  collection: 50_000,
+} as const;
+
+function capCounts(
+  counts: Record<string, number>,
+  max: number,
+): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(counts).map(([key, n]) => [key, Math.min(n, max)]),
+  );
+}
+
+/**
+ * A browser save made ready for an account: capped, with the server's clock and
+ * seed, and nothing half-done (gathering, fishing, regrowing nodes).
+ */
+export function prepareImport(
+  state: GameState,
+  now: number,
+  seed: number,
+): GameState {
+  const maxXp = LEVEL_XP[IMPORT_LIMITS.level] ?? 0;
+  return {
+    ...state,
+    seed: seed | 0,
+    now,
+    createdAt: Math.min(state.createdAt, now),
+    coins: Math.min(state.coins, IMPORT_LIMITS.coins),
+    busyUntil: 0,
+    lastMoveAt: 0,
+    inventory: capCounts(state.inventory, IMPORT_LIMITS.items),
+    collections: capCounts(state.collections, IMPORT_LIMITS.collection),
+    skills: {
+      farming: Math.min(state.skills.farming, maxXp),
+      mining: Math.min(state.skills.mining, maxXp),
+      foraging: Math.min(state.skills.foraging, maxXp),
+      fishing: Math.min(state.skills.fishing, maxXp),
+    },
+    minions: state.minions.map((minion) =>
+      minion
+        ? {
+            ...minion,
+            stored: Math.min(
+              minion.stored,
+              MINION_STORAGE[minion.tier - 1] ?? 0,
+            ),
+            lastAt: now,
+          }
+        : null,
+    ),
+    depleted: {},
+    fishing: null,
+  };
+}
+
+/** Totals kept beside a save for leaderboards: all skill XP. */
+export function totalSkillXp(state: GameState): number {
+  return SKILLS.reduce((sum, skill) => sum + state.skills[skill], 0);
 }

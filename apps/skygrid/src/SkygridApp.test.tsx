@@ -6,7 +6,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ISLAND_MAPS } from "./core";
+import { ISLAND_MAPS, newGame } from "./core";
 import { SkygridApp } from "./SkygridApp";
 import { SAVE_KEY } from "./ui/session";
 
@@ -53,7 +53,7 @@ describe("SkygridApp", () => {
   });
 
   it("switches panels", async () => {
-    render(<SkygridApp signedIn signInHref="/auth/github" />);
+    render(<SkygridApp signedIn={false} signInHref="/auth/github" />);
     await screen.findByRole("application");
     act(() => {
       screen.getByRole("tab", { name: "Craft" }).click();
@@ -62,5 +62,56 @@ describe("SkygridApp", () => {
       "Wooden Pickaxe",
     );
     expect(localStorage.getItem(SAVE_KEY)).toBeNull();
+  });
+
+  it("plays the account's island when signed in, and keeps nothing here", async () => {
+    const state = { ...newGame(3, Date.now()), coins: 4321 };
+    render(
+      <SkygridApp
+        signedIn
+        signInHref="/auth/github"
+        account={{ state, version: 7 }}
+        serverTime={Date.now()}
+      />,
+    );
+    const world = await screen.findByRole("application");
+    expect(screen.getByText("4,321")).toBeTruthy();
+    expect(screen.getByText("Saved to your account")).toBeTruthy();
+    fireEvent.keyDown(world, { key: "ArrowRight" });
+    fireEvent.keyUp(world, { key: "ArrowRight" });
+    expect(screen.getByText("Saving…")).toBeTruthy();
+    cleanup();
+    expect(localStorage.getItem(SAVE_KEY)).toBeNull();
+  });
+
+  it("offers to move this browser's island into a new account", async () => {
+    const guest = { ...newGame(5, Date.now()), coins: 50 };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(guest));
+    const calls: unknown[] = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = (_url, init) => {
+      calls.push(JSON.parse(init?.body as string));
+      return Promise.resolve(
+        Response.json(
+          { state: { ...guest, seed: 9 }, version: 1, serverTime: Date.now() },
+          { status: 201 },
+        ),
+      );
+    };
+    try {
+      render(<SkygridApp signedIn signInHref="/auth/github" account={null} />);
+      const move = await screen.findByRole("button", {
+        name: "Move it to my account",
+      });
+      act(() => {
+        move.click();
+      });
+      await screen.findByRole("application");
+      expect(calls).toEqual([{ state: guest }]);
+      expect(localStorage.getItem(SAVE_KEY)).toBeNull();
+      expect(screen.getByText("50")).toBeTruthy();
+    } finally {
+      globalThis.fetch = original;
+    }
   });
 });

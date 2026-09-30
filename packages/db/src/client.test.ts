@@ -68,6 +68,7 @@ describe("openDatabase", () => {
       "post_slugs",
       "posts",
       "sessions",
+      "skygrid_saves",
       "tool_data",
       "users",
     ]);

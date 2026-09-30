@@ -255,6 +255,30 @@ export const toolData = pgTable(
   (table) => [primaryKey({ columns: [table.userId, table.tool, table.key] })],
 );
 
+/**
+ * Skygrid (apps/skygrid): one island per account. `state` is the engine's GameState,
+ * changed only by replaying the player's actions on the server (the version goes up
+ * with each sync, so two tabs can't overwrite each other). The totals beside it are
+ * copies for leaderboards. Goes with the account.
+ */
+export const skygridSaves = pgTable(
+  "skygrid_saves",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    state: jsonb("state").notNull(),
+    version: integer("version").notNull().default(1),
+    skillXp: bigint("skill_xp", { mode: "number" }).notNull().default(0),
+    coins: bigint("coins", { mode: "number" }).notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("skygrid_saves_skill_xp_idx").on(table.skillXp)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
@@ -265,3 +289,4 @@ export type PostStatus = (typeof postStatus.enumValues)[number];
 export type CommentMode = (typeof commentMode.enumValues)[number];
 export type Media = typeof media.$inferSelect;
 export type ToolDataRow = typeof toolData.$inferSelect;
+export type SkygridSave = typeof skygridSaves.$inferSelect;
