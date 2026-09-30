@@ -42,7 +42,13 @@ const admin = isAdmin(Astro.locals.user);
 
 const number = numbers.get(post.id) ?? "—";
 const path = postHref(post.id);
-const description = describe(post.data.description, lookup.post.html);
+// The editor's search title and description, when set, are for search engines and
+// link previews; the page itself (and its structured data) keeps the real ones.
+const searchTitle = lookup.post.seoTitle ?? post.data.title;
+const description = describe(
+  lookup.post.seoDescription ?? post.data.description,
+  lookup.post.html,
+);
 const image = ogImagePath(`posts/${post.id}`, postCard(post, number));
 const published = post.data.pubDate ?? lookup.post.publishedAt ?? now;
 const jsonLd = [
@@ -66,8 +72,9 @@ if (admin) Astro.response.headers.set("Cache-Control", "private, no-store");
 ---
 
 <BaseLayout
-  title={post.data.title}
+  title={searchTitle}
   {description}
+  imageAlt={post.data.title}
   {image}
   article={{
     published,

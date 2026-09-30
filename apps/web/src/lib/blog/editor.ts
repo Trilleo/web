@@ -4,6 +4,7 @@
  * these and call handleEditorPost on POST.
  */
 import type { CommentMode, Database, Post } from "@trilleo/db";
+import { announceInBackground } from "../indexnow";
 import { SITE_URL } from "../site";
 import { postHref } from "../posts";
 import {
@@ -35,6 +36,9 @@ export interface EditorValues {
   /** ISO date-time, or "" for none. */
   publishedAt: string;
   commentMode: CommentMode;
+  /** "" uses the title / description. */
+  seoTitle: string;
+  seoDescription: string;
 }
 
 export interface EditorProps {
@@ -61,6 +65,8 @@ export const EMPTY_VALUES: EditorValues = {
   tags: "",
   publishedAt: "",
   commentMode: "open",
+  seoTitle: "",
+  seoDescription: "",
 };
 
 export function editorValues(post: Post | PostInput): EditorValues {
@@ -72,6 +78,8 @@ export function editorValues(post: Post | PostInput): EditorValues {
     tags: post.tags.join(", "),
     publishedAt: post.publishedAt?.toISOString() ?? "",
     commentMode: post.commentMode,
+    seoTitle: post.seoTitle ?? "",
+    seoDescription: post.seoDescription ?? "",
   };
 }
 
@@ -95,6 +103,11 @@ export function editorProps(
     notice: options.notice ?? null,
     savedAt: post.savedAt.toISOString(),
   };
+}
+
+/** Tells IndexNow about the change, in the background (see lib/indexnow.ts). */
+function announce(db: Database, extra: string[]): void {
+  announceInBackground(() => Promise.resolve(db), extra);
 }
 
 export const editHref = (id: number) => `/admin/posts/${String(id)}/`;
@@ -139,9 +152,10 @@ export async function handleEditorPost(
     (intent === "delete" || intent === "link" || intent === "unlink")
   ) {
     if (intent === "delete") {
-      return (await deletePost(db, id))
-        ? { kind: "redirect", location: "/admin/posts/?done=deleted" }
-        : { kind: "not-found" };
+      const before = await getPost(db, id);
+      if (!before || !(await deletePost(db, id))) return { kind: "not-found" };
+      if (isPublic(before, now)) announce(db, [postHref(before.slug)]);
+      return { kind: "redirect", location: "/admin/posts/?done=deleted" };
     }
     const changed = await setPreviewToken(
       db,
@@ -179,6 +193,8 @@ export async function handleEditorPost(
         };
   }
 
+  const before =
+    id === null || options.json ? undefined : await getPost(db, id);
   const result =
     id === null
       ? await createPost(db, parsed.input, action, now)
@@ -212,6 +228,15 @@ export async function handleEditorPost(
       },
     };
   }
+  // Search engines hear about it; an address readers had that's now gone, too.
+  const oldAddress =
+    before &&
+    isPublic(before, now) &&
+    (before.slug !== post.slug || !isPublic(post, now))
+      ? [postHref(before.slug)]
+      : [];
+  announce(db, oldAddress);
+
   const done =
     id === null && action === "save"
       ? "created"

@@ -60,6 +60,8 @@ function input(overrides: Partial<PostInput> = {}): PostInput {
     publishedAt: null,
     commentMode: "open",
     revised: false,
+    seoTitle: "",
+    seoDescription: "",
     ...overrides,
   };
 }

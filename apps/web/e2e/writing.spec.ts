@@ -15,7 +15,8 @@ test("the index lists every post, numbered, linking to its page", async ({
 
   const rows = page.locator("[data-search-hides] ol > li");
   expect(await rows.count()).toBeGreaterThanOrEqual(4);
-  await expect(rows.first()).toContainText(/00\d/);
+  // Specs publish posts in parallel, so the newest may be past No. 009.
+  await expect(rows.first()).toContainText(/^\d{3}/);
 
   await page.getByRole("link", { name: new RegExp(POST_TITLE) }).click();
   await expect(page).toHaveURL(POST);

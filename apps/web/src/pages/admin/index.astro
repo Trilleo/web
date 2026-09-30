@@ -3,11 +3,20 @@ import DisplayTitle from "../../components/DisplayTitle.astro";
 import { buttonClasses } from "@trilleo/ui";
 import AdminNav from "../../components/admin/AdminNav.astro";
 import Moderation from "../../components/admin/Moderation.astro";
+import SeoChecklist from "../../components/admin/SeoChecklist.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { requireAdmin } from "../../lib/auth/guard";
-import { postTitles } from "../../lib/blog/store";
+import {
+  listOldSlugs,
+  listPublicPosts,
+  postTitles,
+} from "../../lib/blog/store";
 import { moderationOverview } from "../../lib/comments/store";
 import { getDb } from "../../lib/db";
+import { indexNowKey } from "../../lib/indexnow";
+import { postHref } from "../../lib/posts";
+import { auditPosts, knownPages, tagPaths } from "../../lib/seo-audit";
+import { toolPath, TOOLS } from "../../lib/tools/registry";
 
 export const prerender = false;
 
@@ -17,8 +26,29 @@ if (admin instanceof Response) return admin;
 Astro.response.headers.set("Cache-Control", "private, no-store");
 Astro.response.headers.set("X-Robots-Tag", "noindex");
 
-const overview = await moderationOverview(await getDb());
-const titles = await postTitles(await getDb());
+const db = await getDb();
+const overview = await moderationOverview(db);
+const titles = await postTitles(db);
+
+const publicPosts = (await listPublicPosts(db)).map((post) => post.row);
+const known = knownPages(
+  [
+    "/",
+    "/writing/",
+    "/tools/",
+    "/about/",
+    "/rss.xml",
+    "/llms.txt",
+    "/sign-in/",
+    ...publicPosts.map((post) => postHref(post.slug)),
+    ...(await listOldSlugs(db)).map((slug) => postHref(slug)),
+    ...tagPaths(publicPosts),
+    ...TOOLS.map((tool) => toolPath(tool.slug)),
+  ],
+  // Served by routes that decide per address (uploads, profiles, accounts, …).
+  ["/media/", "/people/", "/account", "/admin", "/auth/", "/og/"],
+);
+const seoIssues = auditPosts(publicPosts, known);
 
 const dateTime = new Intl.DateTimeFormat("en-GB", {
   dateStyle: "long",
@@ -48,6 +78,14 @@ const facts: Fact[] = [
 
     <div class="mt-7 md:mt-8 xl:mt-12">
       <Moderation {...overview} titles={titles} adminId={admin.id} />
+    </div>
+
+    <div class="mt-12">
+      <SeoChecklist
+        issues={seoIssues}
+        checked={publicPosts.length}
+        indexNow={indexNowKey() !== undefined}
+      />
     </div>
 
     <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">

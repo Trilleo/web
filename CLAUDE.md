@@ -236,7 +236,23 @@
   with fewer than TAG_INDEX_MIN_POSTS posts (also left out of sitemap-posts.xml), and
   the 404 page.
 - GOOGLE_SITE_VERIFICATION / BING_SITE_VERIFICATION (optional, app.env) are read per
-  request, so only server-rendered pages (the home page) carry them.
+  request, so only server-rendered pages (the home page) carry them. Consoles verified
+  by DNS don't need them.
+- Posts have optional `seoTitle` / `seoDescription` (the editor's "Search & sharing"
+  section, with a search-result and share-card preview and length meters). They
+  replace the title and description in `<title>`, og:title and the meta description
+  only; the page, its card and its JSON-LD headline keep the real title. Length rules
+  (`titleVerdict`, `descriptionVerdict`) live in seo.ts, shared with the checklist.
+- IndexNow (src/lib/indexnow.ts): with INDEXNOW_KEY set, /<key>.txt serves the key
+  and saving a post announces it (plus an old address after a slug change, unpublish
+  or delete) in the background. `posts.index_now_at` records the last announcement;
+  public posts saved or gone live since are announced on the next chance, and any
+  server request checks at most every 10 minutes (the middleware), which catches
+  scheduled posts. Failures are only logged and retried later; unset key: no pings.
+- /admin has an SEO checklist (src/lib/seo-audit.ts): long or missing search titles
+  and descriptions, duplicate titles, untagged posts, and internal links to pages
+  that don't exist. /llms.txt (src/lib/llms.ts) lists public posts and tools for AI
+  assistants.
 
 ## Tools
 

@@ -31,6 +31,8 @@ async function post(slug: string, action: "save" | "publish") {
       publishedAt: null,
       commentMode: "open",
       revised: false,
+      seoTitle: "",
+      seoDescription: "",
     },
     action,
     now,

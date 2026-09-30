@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  POST_LIMITS,
   isValidSlug,
   parsePostAction,
   parsePostForm,
@@ -68,6 +69,8 @@ describe("parsePostForm", () => {
         publishedAt: new Date("2026-10-01T08:00:00.000Z"),
         commentMode: "closed",
         revised: true,
+        seoTitle: "",
+        seoDescription: "",
       },
     });
   });
@@ -111,5 +114,36 @@ describe("parsePostAction / publishErrors", () => {
     const result = parsePostForm(form({ title: "T" }));
     if (!result.ok) throw new Error("expected a valid form");
     expect(publishErrors(result.input).description).toBeDefined();
+  });
+});
+
+describe("the search fields", () => {
+  it("are optional, and trimmed to one line", () => {
+    const result = parsePostForm(
+      form({
+        title: "T",
+        seoTitle: "  A search\n title ",
+        seoDescription: "",
+      }),
+    );
+    expect(result.ok && result.input.seoTitle).toBe("A search title");
+    expect(result.ok && result.input.seoDescription).toBe("");
+  });
+
+  it("have length limits", () => {
+    const result = parsePostForm(
+      form({
+        title: "T",
+        seoTitle: "x".repeat(POST_LIMITS.seoTitle + 1),
+        seoDescription: "x".repeat(POST_LIMITS.seoDescription + 1),
+      }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(Object.keys(result.errors).sort()).toEqual([
+        "seoDescription",
+        "seoTitle",
+      ]);
+    }
   });
 });

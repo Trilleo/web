@@ -43,6 +43,13 @@
       "when": 1790737009123,
       "tag": "0005_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790764577270,
+      "tag": "0006_post-seo",
+      "breakpoints": true
     }
   ]
 }

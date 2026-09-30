@@ -155,6 +155,10 @@ export const posts = pgTable(
     slug: text("slug").notNull().unique(),
     title: text("title").notNull(),
     description: text("description").notNull().default(""),
+    /** Search engines' and link previews' title, when it should differ from `title`. */
+    seoTitle: text("seo_title"),
+    /** The same for the description. */
+    seoDescription: text("seo_description"),
     /** Markdown, as typed. */
     body: text("body").notNull().default(""),
     tags: text("tags")
@@ -177,6 +181,11 @@ export const posts = pgTable(
       { onDelete: "set null" },
     ),
     createdAt: createdAt(),
+    /**
+     * When search engines were last told (IndexNow) about this post's address, or
+     * null: public posts saved since then are told on the next chance.
+     */
+    indexNowAt: timestamp("index_now_at", { withTimezone: true }),
     /** Last saved in the editor. */
     savedAt: timestamp("saved_at", { withTimezone: true })
       .notNull()
