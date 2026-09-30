@@ -1,10 +1,11 @@
 ---
 import DisplayTitle from "../../components/DisplayTitle.astro";
 import { buttonClasses } from "@trilleo/ui";
+import AdminNav from "../../components/admin/AdminNav.astro";
 import Moderation from "../../components/admin/Moderation.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { requireAdmin } from "../../lib/auth/guard";
-import { getPosts } from "../../lib/collection";
+import { postTitles } from "../../lib/blog/store";
 import { moderationOverview } from "../../lib/comments/store";
 import { getDb } from "../../lib/db";
 
@@ -17,9 +18,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
 Astro.response.headers.set("X-Robots-Tag", "noindex");
 
 const overview = await moderationOverview(await getDb());
-const titles = new Map(
-  (await getPosts()).map((post) => [post.id, post.data.title]),
-);
+const titles = await postTitles(await getDb());
 
 const dateTime = new Intl.DateTimeFormat("en-GB", {
   dateStyle: "long",
@@ -43,7 +42,7 @@ const facts: Fact[] = [
     aria-labelledby="admin-title"
     class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
   >
-    <p class="type-label text-ink">(Admin) Dashboard</p>
+    <AdminNav current="dashboard" />
 
     <DisplayTitle id="admin-title">Admin</DisplayTitle>
 

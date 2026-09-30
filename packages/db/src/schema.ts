@@ -3,8 +3,10 @@
  * and commit the new migration. Migrations must stay backward-compatible with the
  * previous release (add, don't rename or drop in one step) so a rollback still works.
  */
+import { sql } from "drizzle-orm";
 import {
   bigint,
+  customType,
   index,
   integer,
   jsonb,
@@ -93,6 +95,103 @@ export const comments = pgTable(
   ],
 );
 
+/** draft: only the admin sees it; published: public once `publishedAt` has passed. */
+export const postStatus = pgEnum("post_status", ["draft", "published"]);
+
+/** open: anyone signed in can comment; closed: shown, no new ones; off: none shown. */
+export const commentMode = pgEnum("comment_mode", ["open", "closed", "off"]);
+
+/** A heading in a post's table of contents. */
+export interface PostHeading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+
+/**
+ * A blog post, written in the admin editor. A published post with a future
+ * `publishedAt` is scheduled: it appears on its own once that time passes. `html` and
+ * `toc` are rendered from `body` when it's saved; a post whose `renderVersion` is
+ * behind the renderer's is rendered again when next read.
+ */
+export const posts = pgTable(
+  "posts",
+  {
+    // A short number for admin URLs (/admin/posts/7/).
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    /** Its URL: /writing/<slug>/. Old slugs live on in post_slugs as redirects. */
+    slug: text("slug").notNull().unique(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    /** Markdown, as typed. */
+    body: text("body").notNull().default(""),
+    tags: text("tags")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    status: postStatus("status").notNull().default("draft"),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    /** Shown to readers as "Updated": set when the admin marks an edit as one. */
+    revisedAt: timestamp("revised_at", { withTimezone: true }),
+    html: text("html").notNull().default(""),
+    toc: jsonb("toc").$type<PostHeading[]>().notNull().default([]),
+    renderVersion: integer("render_version").notNull().default(0),
+    commentMode: commentMode("comment_mode").notNull().default("open"),
+    /** The secret in a draft's share link (/writing/preview/<token>/), if one exists. */
+    previewToken: text("preview_token").unique(),
+    /** The one comment shown first, marked as pinned. */
+    pinnedCommentId: integer("pinned_comment_id").references(
+      (): AnyPgColumn => comments.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: createdAt(),
+    /** Last saved in the editor. */
+    savedAt: timestamp("saved_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("posts_published_idx").on(table.status, table.publishedAt)],
+);
+
+/** Slugs a post used to have: their URLs redirect to its current one. */
+export const postSlugs = pgTable(
+  "post_slugs",
+  {
+    slug: text("slug").primaryKey(),
+    postId: integer("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (table) => [index("post_slugs_post_idx").on(table.postId)],
+);
+
+const bytea = customType<{ data: Uint8Array; driverData: Uint8Array }>({
+  dataType: () => "bytea",
+});
+
+/**
+ * An image uploaded in the post editor, served at /media/<id>.<ext>. `id` is the
+ * SHA-256 of the bytes (hex), so the same file uploaded twice is stored once and its
+ * URL never changes meaning. Kept in the database so backups include it.
+ */
+export const media = pgTable(
+  "media",
+  {
+    id: text("id").primaryKey(),
+    contentType: text("content_type").notNull(),
+    data: bytea("data").notNull(),
+    size: integer("size").notNull(),
+    /** The uploaded file's name, for the admin's reference. */
+    name: text("name").notNull(),
+    uploadedBy: uuid("uploaded_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+  },
+  (table) => [index("media_created_idx").on(table.createdAt)],
+);
+
 /**
  * What tools save for signed-in people: one JSON value per (user, tool, key), e.g. a
  * note per key in Notes. The site's tool API checks each tool's own schema and size
@@ -119,4 +218,8 @@ export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
 export type CommentStatus = (typeof commentStatus.enumValues)[number];
+export type Post = typeof posts.$inferSelect;
+export type PostStatus = (typeof postStatus.enumValues)[number];
+export type CommentMode = (typeof commentMode.enumValues)[number];
+export type Media = typeof media.$inferSelect;
 export type ToolDataRow = typeof toolData.$inferSelect;

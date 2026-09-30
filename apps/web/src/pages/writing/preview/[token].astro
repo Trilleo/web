@@ -1,0 +1,59 @@
+---
+/**
+ * A post shared before it's public: /writing/preview/<token>/. Anyone with the link can
+ * read it until the admin revokes the link. Never indexed or cached, and no comments.
+ */
+import PostArticle from "../../../components/PostArticle.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { isAdmin } from "../../../lib/auth/guard";
+import {
+  adminState,
+  findPostByPreviewToken,
+  toBlogPost,
+} from "../../../lib/blog/store";
+import { getDb } from "../../../lib/db";
+import { postHref } from "../../../lib/posts";
+
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const now = new Date();
+const row = await findPostByPreviewToken(
+  await getDb(),
+  Astro.params.token ?? "",
+);
+if (!row) return Astro.rewrite("/404");
+
+const post = toBlogPost(row, now);
+const state = adminState(row, now);
+const admin = isAdmin(Astro.locals.user);
+const statusLabel = {
+  draft: "Preview",
+  scheduled: "Scheduled",
+  published: "Published",
+}[state];
+---
+
+<BaseLayout title={post.data.title} description={post.data.description} noindex>
+  <p role="note" class="type-label bg-accent px-page py-2.5 text-on-accent">
+    {state === "published" ? (
+      <>
+        This post is live:{" "}
+        <a href={postHref(post.id)} class="underline underline-offset-4">
+          read it at its address
+        </a>
+        .
+      </>
+    ) : (
+      "Preview: this post isn’t published yet. Please don’t share the link."
+    )}
+  </p>
+  <PostArticle
+    post={post}
+    number="—"
+    statusLabel={statusLabel}
+    editHref={admin ? `/admin/posts/${String(row.id)}/` : undefined}
+  />
+</BaseLayout>

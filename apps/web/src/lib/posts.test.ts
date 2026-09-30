@@ -3,7 +3,6 @@ import {
   adjacentPosts,
   collectTags,
   hasTag,
-  isVisible,
   numberPosts,
   postHref,
   readingMinutes,
@@ -42,14 +41,6 @@ const newer = post("newer", {
 });
 const draftB = post("draft-b", { title: "B draft", draft: true });
 const draftA = post("draft-a", { title: "A draft", draft: true });
-
-describe("isVisible", () => {
-  it("hides drafts unless they're included", () => {
-    expect(isVisible(draftA, false)).toBe(false);
-    expect(isVisible(draftA, true)).toBe(true);
-    expect(isVisible(newer, false)).toBe(true);
-  });
-});
 
 describe("sortPosts", () => {
   it("puts published posts newest first, then drafts by title", () => {

@@ -1,5 +1,6 @@
 import {
   comments,
+  posts,
   sessions,
   users,
   type Comment,
@@ -46,6 +47,8 @@ export interface CommentView {
   mine: boolean;
   /** Deleted or hidden, kept as a placeholder because it has replies. */
   removed: boolean;
+  /** The post's pinned comment: shown first. */
+  pinned: boolean;
 }
 
 export interface Thread {
@@ -69,11 +72,15 @@ export function normalizeBody(body: string): string {
   return body.replace(/\r\n?/g, "\n").trim();
 }
 
-/** A post's comments for one viewer (null: signed out), oldest first, in threads. */
+/**
+ * A post's comments for one viewer (null: signed out), oldest first, in threads. The
+ * pinned comment's thread (if it's visible) comes first.
+ */
 export async function listThreads(
   db: Database,
   postSlug: string,
   viewerId: string | null,
+  pinnedId: number | null = null,
 ): Promise<{ threads: Thread[]; count: number }> {
   const rows = await db
     .select({ comment: comments, login: users.githubLogin, name: users.name })
@@ -93,6 +100,10 @@ export async function listThreads(
     pending: !removed && row.comment.status === "pending",
     mine: !removed && viewerId !== null && row.comment.authorId === viewerId,
     removed,
+    pinned:
+      !removed &&
+      row.comment.id === pinnedId &&
+      row.comment.status === "published",
   });
 
   const replies = new Map<number, typeof rows>();
@@ -114,6 +125,9 @@ export async function listThreads(
       threads.push({ comment: view(row, true), replies: shownReplies });
     }
   }
+
+  const pinned = threads.findIndex((thread) => thread.comment.pinned);
+  if (pinned > 0) threads.unshift(...threads.splice(pinned, 1));
 
   const all = threads.flatMap((thread) => [thread.comment, ...thread.replies]);
   const count = all.filter(
@@ -244,6 +258,7 @@ async function removeComment(
         .update(comments)
         .set({ deletedAt: now, body: "", authorId: null })
         .where(eq(comments.id, comment.id));
+      await unpinComment(db, comment.id);
     } else {
       await db.delete(comments).where(eq(comments.id, comment.id));
     }
@@ -328,8 +343,11 @@ export async function moderateComment(
       }
       return approved !== undefined;
     }
-    case "hide":
-      return (await setStatus(["pending", "published"], "hidden")).length > 0;
+    case "hide": {
+      const hidden = await setStatus(["pending", "published"], "hidden");
+      if (hidden.length > 0) await unpinComment(db, id);
+      return hidden.length > 0;
+    }
     case "unhide":
       return (await setStatus(["hidden"], "published")).length > 0;
     case "delete": {
@@ -339,6 +357,45 @@ export async function moderateComment(
       return true;
     }
   }
+}
+
+/**
+ * Pins a comment to the top of its post, replacing any other pin there. Only a
+ * published top-level comment can be pinned. Returns its post's slug, or null.
+ */
+export async function pinComment(
+  db: Database,
+  id: number,
+): Promise<string | null> {
+  const [comment] = await db
+    .select()
+    .from(comments)
+    .where(
+      and(
+        eq(comments.id, id),
+        isNull(comments.parentId),
+        isNull(comments.deletedAt),
+        eq(comments.status, "published"),
+      ),
+    )
+    .limit(1);
+  if (!comment) return null;
+  const updated = await db
+    .update(posts)
+    .set({ pinnedCommentId: comment.id })
+    .where(eq(posts.slug, comment.postSlug))
+    .returning({ slug: posts.slug });
+  return updated[0]?.slug ?? null;
+}
+
+/** Unpins a comment, wherever it's pinned. Returns whether it was. */
+export async function unpinComment(db: Database, id: number): Promise<boolean> {
+  const updated = await db
+    .update(posts)
+    .set({ pinnedCommentId: null })
+    .where(eq(posts.pinnedCommentId, id))
+    .returning({ id: posts.id });
+  return updated.length > 0;
 }
 
 /** Stops someone signing in or commenting, and hides everything they wrote. */
@@ -392,6 +449,8 @@ export interface CommentSummary {
   status: CommentStatus;
   createdAt: Date;
   author: (CommentAuthor & { id: string; trusted: boolean }) | null;
+  /** Pinned to the top of its post. */
+  pinned: boolean;
 }
 
 async function summaries(
@@ -401,15 +460,16 @@ async function summaries(
   limit: number,
 ): Promise<CommentSummary[]> {
   const rows = await db
-    .select({ comment: comments, author: users })
+    .select({ comment: comments, author: users, pinnedIn: posts.id })
     .from(comments)
     .leftJoin(users, eq(comments.authorId, users.id))
+    .leftJoin(posts, eq(posts.pinnedCommentId, comments.id))
     .where(where)
     .orderBy(
       order === "oldest" ? asc(comments.createdAt) : desc(comments.createdAt),
     )
     .limit(limit);
-  return rows.map(({ comment, author }) => ({
+  return rows.map(({ comment, author, pinnedIn }) => ({
     id: comment.id,
     postSlug: comment.postSlug,
     parentId: comment.parentId,
@@ -422,6 +482,7 @@ async function summaries(
       name: author.name,
       trusted: author.trustedAt !== null,
     },
+    pinned: pinnedIn !== null,
   }));
 }
 

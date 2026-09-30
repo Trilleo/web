@@ -72,7 +72,6 @@ export function addSidenotes(html: string): string {
       properties: {
         className: ["sidenote"],
         ariaHidden: "true",
-        dataPagefindIgnore: "",
       },
       children: [
         {

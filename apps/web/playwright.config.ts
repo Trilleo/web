@@ -11,12 +11,11 @@ const isCI = Boolean(process.env.CI);
 const prebuilt = process.env.E2E_PREBUILT === "1";
 
 /**
- * Tests run against a production-style build that also includes draft posts (so post
- * pages and search have content to test), written to dist-e2e/ and served by
- * `astro preview`. The real `pnpm build` never includes drafts.
+ * Tests run against a production-style build, written to dist-e2e/ and served by
+ * `astro preview`. Posts live in the database, which starts with the imported drafts;
+ * e2e/posts.setup.ts publishes them through the admin editor before the specs run.
  */
 const e2eEnv = {
-  INCLUDE_DRAFTS: "true",
   ASTRO_OUT_DIR: "./dist-e2e",
   // The server's database: a fresh in-memory PGlite for every run.
   DATABASE_URL: "memory://",
@@ -57,7 +56,20 @@ export default defineConfig({
     // e2e/motion.spec.ts opts back in.
     reducedMotion: "reduce",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    // Publishes the imported posts through the admin editor (the database starts
+    // with them as drafts), so the specs have public posts to read and comment on.
+    {
+      name: "setup",
+      testMatch: /.*\.setup\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+      dependencies: ["setup"],
+    },
+  ],
   webServer: [
     {
       ...serverDefaults,

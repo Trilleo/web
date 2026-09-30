@@ -1,0 +1,118 @@
+---
+/**
+ * The post editor: /admin/posts/new/ for a new post, /admin/posts/<id>/ for one that
+ * exists. GET shows the editor; POST saves (or publishes, schedules, unpublishes,
+ * shares, deletes) and comes back here. The editor's autosave posts here too, asking
+ * for JSON.
+ */
+import AdminNav from "../../../components/admin/AdminNav.astro";
+import { PostEditor } from "../../../components/admin/PostEditor";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireAdmin } from "../../../lib/auth/guard";
+import { noStoreRedirect } from "../../../lib/auth/redirect";
+import {
+  EMPTY_VALUES,
+  NOTICES,
+  editorProps,
+  handleEditorPost,
+  type EditorProps,
+} from "../../../lib/blog/editor";
+import { getPost } from "../../../lib/blog/store";
+import { parseId } from "../../../lib/comments/form";
+import { getDb } from "../../../lib/db";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const isNew = Astro.params.id === "new";
+const id = isNew ? null : parseId(Astro.params.id ?? "");
+if (!isNew && id === null) return Astro.rewrite("/404");
+
+const db = await getDb();
+let props: EditorProps;
+
+if (Astro.request.method === "POST") {
+  const json = Astro.request.headers.get("accept") === "application/json";
+  const outcome = await handleEditorPost(
+    db,
+    id,
+    await Astro.request.formData(),
+    {
+      json,
+    },
+  );
+  if (outcome.kind === "not-found") return Astro.rewrite("/404");
+  if (outcome.kind === "redirect")
+    return noStoreRedirect(outcome.location, 303);
+  if (outcome.kind === "json") {
+    return Response.json(outcome.body, {
+      status: outcome.status,
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  }
+  // Refused: the editor again, with what was typed and why.
+  const existing = id === null ? undefined : await getPost(db, id);
+  if (id !== null && !existing) return Astro.rewrite("/404");
+  const base: EditorProps = existing
+    ? editorProps(existing, { site: Astro.url.origin })
+    : {
+        id: null,
+        values: EMPTY_VALUES,
+        state: "draft",
+        publicUrl: null,
+        previewUrl: null,
+        errors: {},
+        notice: null,
+        savedAt: null,
+      };
+  props = {
+    ...base,
+    values: outcome.values,
+    errors: outcome.errors,
+    notice: "Not saved: check the fields marked below.",
+  };
+  Astro.response.status = 422;
+} else if (id === null) {
+  props = {
+    id: null,
+    values: EMPTY_VALUES,
+    state: "draft",
+    publicUrl: null,
+    previewUrl: null,
+    errors: {},
+    notice: null,
+    savedAt: null,
+  };
+} else {
+  const post = await getPost(db, id);
+  if (!post) return Astro.rewrite("/404");
+  const done = Astro.url.searchParams.get("done") ?? "";
+  props = editorProps(post, {
+    notice: NOTICES[done] ?? null,
+    site: Astro.url.origin,
+  });
+}
+---
+
+<BaseLayout title={`${isNew ? "New post" : "Edit post"} · Admin`} noindex>
+  <section
+    aria-labelledby="editor-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="posts" />
+
+    <h1
+      id="editor-title"
+      class="type-title mt-8 mb-8 md:mt-10 xl:mt-12 xl:mb-10"
+    >
+      {isNew ? "New post" : "Edit post"}
+    </h1>
+
+    <PostEditor client:load {...props} />
+  </section>
+</BaseLayout>

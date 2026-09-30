@@ -9,7 +9,7 @@ import CommentForm from "../../components/comments/CommentForm.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { isAdmin } from "../../lib/auth/guard";
 import { noStoreRedirect } from "../../lib/auth/redirect";
-import { getPosts } from "../../lib/collection";
+import { findPublicPost, toBlogPost } from "../../lib/blog/store";
 import { field, parseId } from "../../lib/comments/form";
 import {
   commentErrorMessage,
@@ -33,14 +33,21 @@ if (Astro.request.method !== "POST") {
 }
 
 const form = await Astro.request.formData();
-const postSlug = field(form, "post");
-const post = (await getPosts()).find((entry) => entry.id === postSlug);
-if (!post) {
-  return new Response("That post doesn’t take comments.", {
-    status: 404,
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
-  });
+const db = await getDb();
+const now = new Date();
+const lookup = await findPublicPost(db, field(form, "post"), now);
+if (lookup.found !== "post" || lookup.post.commentMode !== "open") {
+  return new Response(
+    lookup.found === "post"
+      ? "Comments are closed on this post."
+      : "That post doesn’t take comments.",
+    {
+      status: lookup.found === "post" ? 403 : 404,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    },
+  );
 }
+const post = toBlogPost(lookup.post, now);
 const postPath = postHref(post.id);
 
 const { user } = Astro.locals;
@@ -58,7 +65,7 @@ const parentId = parentField === "" ? null : parseId(parentField);
 const result: CreateResult =
   parentField !== "" && parentId === null
     ? { ok: false, error: "no-parent" }
-    : await createComment(await getDb(), {
+    : await createComment(db, {
         author: user,
         isAdmin: isAdmin(user),
         postSlug: post.id,

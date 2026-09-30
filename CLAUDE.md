@@ -25,7 +25,7 @@
 - packages/ui (@trilleo/ui): shared React components and the Tailwind v4
   theme (`theme.css`, CSS `@theme` tokens). Source-only, no build step.
 - packages/db (@trilleo/db): Drizzle schema, migrations, and client. Source-only.
-- Blog content: Markdown/MDX in Astro content collections.
+- Blog content: Markdown posts in Postgres, written in the admin editor (/admin/posts).
 - Workspace packages use the `@trilleo/*` scope.
 
 ## Decisions
@@ -101,21 +101,39 @@
 
 ## Blog
 
-- Posts: apps/web/src/content/writing/<slug>.md(x) → /writing/<slug>/. Schema in
-  src/content.config.ts; published posts need `pubDate`. `draft: true` posts show
-  in `pnpm dev` and the e2e build only, never in production, RSS, or the sitemap.
-- Markdown is rendered by Sätteri (Astro 7's default), not remark/rehype: unified
-  plugins don't apply. Side notes are a build-time transform of the rendered HTML
-  (src/lib/post-html.ts), so they work for .md posts; .mdx posts keep plain
-  footnotes and get description-only RSS items.
-- SITE_URL (src/lib/site.ts) is https://www.trilleo.net; RSS, sitemap, canonical
+- Posts live in the `posts` table and are written in the admin editor:
+  /admin/posts (list), /admin/posts/new/ and /admin/posts/<id>/ (one page,
+  src/pages/admin/posts/[id].astro; logic in src/lib/blog/editor.ts). The editor
+  (src/components/admin/PostEditor.tsx) is a real POST form plus a live preview,
+  autosave for drafts, a local backup for unsaved edits to live posts, and image
+  uploads. There are no Markdown files or content collections any more.
+- A post is public when `status = published` and `publishedAt` has passed, checked on
+  every read (src/lib/blog/store.ts), so scheduling needs no job. Drafts are only
+  seen by the admin, or through a share link (/writing/preview/<token>/, noindex,
+  revocable). Changing a public post's slug keeps the old one as a 301
+  (post_slugs) and moves its comments.
+- Post pages, /writing, tags, the home page, RSS and /sitemap-posts.xml render on
+  the server from the database. The 404 page is server-rendered too, so pages can
+  `Astro.rewrite("/404")`.
+- Markdown is rendered by markdown-it + Shiki (src/lib/blog/render.ts) when a post
+  is saved, not by Astro's Sätteri: it's a native binary the server bundle can't
+  carry. The renderer writes GFM-style footnotes and slugged heading ids, which the
+  side notes (src/lib/post-html.ts) and .prose depend on. Bump RENDER_VERSION when
+  its output changes; stale posts re-render when next read.
+- Images: /admin/media/ stores uploads in the `media` table (raster formats only,
+  sniffed from the bytes, 5 MB); /media/<sha256>.<ext> serves them immutably. They
+  live in Postgres so the nightly pg_dump covers them.
+- Search is Postgres full-text search (English): /api/search for the search box,
+  /writing/?q= without JavaScript.
+- SITE_URL (src/lib/site.ts) is https://www.trilleo.net; RSS, sitemaps, canonical
   URLs, and robots.txt all derive from it.
-- `pnpm build` also builds the Pagefind search index (skipped while there are no
-  published posts). `pnpm test:e2e` makes its own drafts-included build in
-  apps/web/dist-e2e and serves it on port 4329 with an in-memory database.
+- The database starts with the old file posts as drafts (migration
+  0004_import-posts). `pnpm test:e2e` builds to apps/web/dist-e2e, serves it on port
+  4329 with an in-memory database, and e2e/posts.setup.ts publishes those drafts
+  through the editor before the specs run.
 - Vite wraps every `import()` in bundled Astro scripts with a preload helper that
-  breaks when Astro inlines the script; load runtime-only modules (like Pagefind)
-  from an `is:inline` script instead.
+  breaks when Astro inlines the script; load runtime-only modules from an
+  `is:inline` script instead.
 
 ## Database
 
@@ -162,7 +180,7 @@
 
 ## Comments
 
-- Post pages stay pre-built; their comments are a server island
+- Post pages render on the server, but their comments are still a server island
   (src/components/comments/CommentSection.astro, `server:defer`), fetched per
   visit and never cached, since they depend on who's signed in.
 - Rules live in src/lib/comments/store.ts: people see published comments plus
@@ -174,9 +192,15 @@
 - Formatting (src/lib/comments/render.ts) is markdown-it's "zero" preset with a
   fixed list of rules, HTML off, and only http(s) or site-relative links (rel
   nofollow ugc). Changing what's enabled means updating its XSS tests too.
+- The admin can pin one published top-level comment per post
+  (posts.pinned_comment_id): it shows first, marked "Pinned"; pinning another
+  replaces it, and hiding or deleting it unpins it. Each post also has a comment
+  mode: open, closed (shown, no new ones; /comments refuses with 403) or off (no
+  section).
 - All actions are plain POST forms that work without JavaScript: /comments (a
   refused comment gets a page that keeps the text), /comments/delete,
-  /admin/moderate, /account/delete. Only published posts take comments.
+  /comments/pin, /admin/moderate, /account/delete. Only public posts with open
+  comments take new ones.
 - E2E tests share one database, run in parallel and may be retried: commenters
   are fresh accounts (`freshLogin()` in e2e/support.ts) with unique comment text,
   and no test may sign the shared admin out everywhere.

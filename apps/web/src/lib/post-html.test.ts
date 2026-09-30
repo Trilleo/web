@@ -39,7 +39,6 @@ describe("addSidenotes", () => {
 
     expect(sidenote?.textContent).not.toContain("↩");
     expect(sidenote?.getAttribute("aria-hidden")).toBe("true");
-    expect(sidenote?.hasAttribute("data-pagefind-ignore")).toBe(true);
     expect(sidenote?.querySelector("a")?.getAttribute("tabindex")).toBe("-1");
   });
 

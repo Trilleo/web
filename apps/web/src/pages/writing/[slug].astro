@@ -1,177 +1,74 @@
 ---
-import { ArrowLeftIcon, ArrowRightIcon } from "@trilleo/ui";
-import type { GetStaticPaths } from "astro";
-import { render } from "astro:content";
 import CommentSection from "../../components/comments/CommentSection.astro";
-import TagLinks from "../../components/TagLinks.astro";
-import TableOfContents from "../../components/TableOfContents.astro";
+import PostArticle from "../../components/PostArticle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { getPosts } from "../../lib/collection";
-import { formatPostDate } from "../../lib/listings";
-import { addSidenotes } from "../../lib/post-html";
+import { isAdmin } from "../../lib/auth/guard";
 import {
-  adjacentPosts,
-  numberPosts,
-  postHref,
-  readingMinutes,
-} from "../../lib/posts";
+  findPublicPost,
+  listPublicPosts,
+  toBlogPost,
+} from "../../lib/blog/store";
+import { getDb } from "../../lib/db";
+import { adjacentPosts, numberPosts, postHref } from "../../lib/posts";
 
-export const getStaticPaths = (async () => {
-  const posts = await getPosts();
-  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
-}) satisfies GetStaticPaths;
+// Posts live in the database, so their pages render per request.
+export const prerender = false;
 
-const { post } = Astro.props;
-const posts = await getPosts();
+const db = await getDb();
+const now = new Date();
+const lookup = await findPublicPost(db, Astro.params.slug ?? "", now);
+if (lookup.found === "redirect") {
+  return Astro.redirect(postHref(lookup.slug), 301);
+}
+if (lookup.found === "none") {
+  return Astro.rewrite("/404");
+}
+
+const post = toBlogPost(lookup.post, now);
+const posts = await listPublicPosts(db, now);
 const numbers = numberPosts(posts);
-const number = numbers.get(post.id) ?? "—";
 const { newer, older } = adjacentPosts(posts, post.id);
 const next = newer ?? older;
-const nextLabel = newer ? "Next" : "Previous";
-
-const { Content, headings } = await render(post);
-// Markdown posts come with rendered HTML, which gets margin side notes. MDX renders as-is.
-const html = post.rendered?.html;
-const sections = headings.filter(
-  (heading) => heading.depth === 2 && heading.slug !== "footnote-label",
-);
-const { title, description, pubDate, updatedDate, tags, draft } = post.data;
+const { commentMode, id } = lookup.post;
+const admin = isAdmin(Astro.locals.user);
+if (admin) Astro.response.headers.set("Cache-Control", "private, no-store");
 ---
 
-<BaseLayout title={title} description={description} noindex={draft}>
-  <div class="grid-swiss px-page type-label border-b border-hair py-3 xl:py-4">
-    <span class="col-span-2 md:col-span-4 xl:col-span-2">
-      (01) Writing / {number}
-    </span>
-    <a
-      href="/writing/"
-      class="group col-span-2 inline-flex items-center gap-2 justify-self-end md:col-span-4 xl:col-span-3 xl:col-start-10"
+<BaseLayout title={post.data.title} description={post.data.description}>
+  <PostArticle
+    post={post}
+    number={numbers.get(post.id) ?? "—"}
+    next={
+      next && {
+        post: next,
+        number: numbers.get(next.id) ?? "—",
+        newer: next === newer,
+      }
+    }
+    editHref={admin ? `/admin/posts/${String(id)}/` : undefined}
+  />
+
+  {commentMode !== "off" && (
+    <section
+      id="comments"
+      aria-labelledby="comments-title"
+      class="grid-swiss mx-page scroll-mt-6 gap-y-6 border-t-2 border-ink pt-4 pb-16 md:pb-24"
+      data-reveal
     >
-      <ArrowLeftIcon
-        size={16}
-        className="transition-transform duration-(--tr-dur-base) ease-swiss group-hover:-translate-x-1"
-      />
-      <span class="link-wipe">All posts</span>
-    </a>
-  </div>
-
-  <article data-pagefind-body>
-    <header class="grid-swiss px-page gap-y-8 pt-10 pb-12 md:pt-14 md:pb-14 xl:pt-18 xl:pb-16">
-      <div class="col-span-4 flex flex-col gap-6 md:col-span-6 md:col-start-3 md:row-start-1 xl:col-span-10 xl:col-start-3 xl:gap-8">
-        <h1 class="type-headline">{title}</h1>
-        <p class="type-dek max-w-[47.5rem] animate-rise text-muted [animation-delay:120ms]">
-          {description}
-        </p>
-      </div>
-      <dl
-        class="type-label col-span-4 flex animate-fade flex-col gap-3.5 [animation-delay:200ms] md:col-span-2 md:col-start-1 md:row-start-1 md:pt-2.5 xl:col-span-2"
-        data-pagefind-ignore
+      <h2
+        id="comments-title"
+        class="type-label col-span-4 md:col-span-2 xl:col-span-2"
       >
-        <div class="flex gap-3">
-          <dt class="w-18 text-muted">Status</dt>
-          <dd class="inline-flex items-center gap-2">
-            <span
-              class:list={["size-2", draft ? "bg-accent" : "bg-ink"]}
-              aria-hidden="true"
-            ></span>
-            {draft ? "Draft" : "Published"}
-          </dd>
-        </div>
-        <div class="flex gap-3">
-          <dt class="w-18 text-muted">Date</dt>
-          <dd>
-            {pubDate ? (
-              <time datetime={pubDate.toISOString()}>
-                {formatPostDate(pubDate)}
-              </time>
-            ) : (
-              "—"
-            )}
-          </dd>
-        </div>
-        {updatedDate && (
-          <div class="flex gap-3">
-            <dt class="w-18 text-muted">Updated</dt>
-            <dd>
-              <time datetime={updatedDate.toISOString()}>
-                {formatPostDate(updatedDate)}
-              </time>
-            </dd>
-          </div>
-        )}
-        <div class="flex gap-3">
-          <dt class="w-18 text-muted">Read</dt>
-          <dd>{readingMinutes(post.body)} min</dd>
-        </div>
-      </dl>
-    </header>
-
-    <div class="mx-page h-0.5 origin-left animate-draw bg-ink [animation-delay:150ms]"></div>
-    <div class="grid-swiss mx-page pt-10 md:pt-12">
-      {sections.length > 1 && (
-        <div class="hidden xl:col-span-2 xl:block" data-pagefind-ignore>
-          <TableOfContents headings={sections} />
-        </div>
-      )}
-      <div class="prose col-span-4 md:col-span-8 md:max-w-[40rem] xl:col-span-7 xl:col-start-3 xl:max-w-none">
-        {html ? <Fragment set:html={addSidenotes(html)} /> : <Content />}
+        (Comments)
+      </h2>
+      <div class="col-span-4 md:col-span-6 xl:col-span-6">
+        <CommentSection server:defer slug={post.id}>
+          <p slot="fallback" class="text-muted">
+            Loading comments…
+            <noscript>Comments need JavaScript to load.</noscript>
+          </p>
+        </CommentSection>
       </div>
-    </div>
-  </article>
-
-  <footer class="mx-page mt-16 flex flex-col gap-16 pb-16 md:mt-20 md:gap-20 md:pb-24 xl:mt-24">
-    {tags.length > 0 && (
-      <div class="grid-swiss gap-y-4 border-t border-ink pt-4" data-reveal>
-        <p class="type-label col-span-4 md:col-span-2 xl:col-span-2">Tags</p>
-        <div class="col-span-4 md:col-span-6 xl:col-span-10">
-          <TagLinks tags={tags.map((name) => ({ name }))} label="Post tags" />
-        </div>
-      </div>
-    )}
-    {next && (
-      <a
-        href={postHref(next.id)}
-        class="group grid-swiss items-end gap-y-4 border-t-2 border-b border-ink pt-4 pb-8 xl:pb-10"
-        data-reveal
-      >
-        <span class="type-label col-span-4 self-start md:col-span-2 xl:col-span-2">
-          {nextLabel} — {numbers.get(next.id)}
-        </span>
-        <span class="type-title col-span-4 md:col-span-5 xl:col-span-9">
-          <!-- Looser than the title's own 0.9 so, on a wrapped title, each line's
-               hover underline clears the line below. -->
-          <span class="link-wipe leading-[1.12]">{next.data.title}</span>
-        </span>
-        <span class="hidden justify-self-end transition-transform duration-(--tr-dur-base) ease-swiss group-hover:translate-x-1 md:col-span-1 md:block">
-          {newer ? (
-            <ArrowRightIcon size={48} strokeWidth={1.4} />
-          ) : (
-            <ArrowLeftIcon size={48} strokeWidth={1.4} />
-          )}
-        </span>
-      </a>
-    )}
-  </footer>
-
-  <section
-    id="comments"
-    aria-labelledby="comments-title"
-    class="grid-swiss mx-page scroll-mt-6 gap-y-6 border-t-2 border-ink pt-4 pb-16 md:pb-24"
-    data-reveal
-  >
-    <h2
-      id="comments-title"
-      class="type-label col-span-4 md:col-span-2 xl:col-span-2"
-    >
-      (Comments)
-    </h2>
-    <div class="col-span-4 md:col-span-6 xl:col-span-6">
-      <CommentSection server:defer slug={post.id}>
-        <p slot="fallback" class="text-muted">
-          Loading comments…
-          <noscript>Comments need JavaScript to load.</noscript>
-        </p>
-      </CommentSection>
-    </div>
-  </section>
+    </section>
+  )}
 </BaseLayout>

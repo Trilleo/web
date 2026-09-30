@@ -1,6 +1,6 @@
 /**
- * Post logic that doesn't touch astro:content, so it can be unit-tested directly.
- * collection.ts feeds real collection entries through these functions.
+ * Post logic that doesn't touch the database, so it can be unit-tested directly.
+ * blog/store.ts feeds post rows through these functions (see toBlogPost).
  */
 import { formatListingNumber, type PostListing } from "./listings";
 
@@ -26,10 +26,6 @@ export interface TagSummary {
 }
 
 const WORDS_PER_MINUTE = 230;
-
-export function isVisible(post: PostEntry, includeDrafts: boolean): boolean {
-  return includeDrafts || !post.data.draft;
-}
 
 /** Newest published first, then drafts (undated) by title. */
 export function sortPosts<T extends PostEntry>(posts: readonly T[]): T[] {
@@ -125,4 +121,10 @@ export function toListing(post: PostEntry, number: string): PostListing {
 export function toListings(sorted: readonly PostEntry[]): PostListing[] {
   const numbers = numberPosts(sorted);
   return sorted.map((post) => toListing(post, numbers.get(post.id) ?? "—"));
+}
+
+/** What the search box says about its results. */
+export function searchSummary(count: number, query: string): string {
+  if (count === 0) return `No posts match “${query}”.`;
+  return `${String(count)} ${count === 1 ? "post matches" : "posts match"} “${query}”.`;
 }

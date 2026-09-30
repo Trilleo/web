@@ -52,9 +52,9 @@ www.trilleo.net {
 		Cross-Origin-Opener-Policy "same-origin"
 		# Report-only for now: violations show in the browser console without breaking
 		# anything. Switch to Content-Security-Policy once production shows none.
-		# ('unsafe-inline': theme/menu scripts are inline; 'wasm-unsafe-eval': search;
-		# cloudflareinsights.com: the Web Analytics script Cloudflare adds, and its reports.)
-		Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+		# ('unsafe-inline': theme/menu scripts are inline; cloudflareinsights.com: the Web
+		# Analytics script Cloudflare adds, and its reports.)
+		Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
 		-Server
 		# Pages and other unhashed files: always revalidate (cheap, thanks to ETags).
 		?Cache-Control "public, max-age=0, must-revalidate"

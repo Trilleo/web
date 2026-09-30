@@ -2,6 +2,9 @@
 import DisplayTitle from "../components/DisplayTitle.astro";
 import { ArrowRightIcon, buttonClasses } from "@trilleo/ui";
 import BaseLayout from "../layouts/BaseLayout.astro";
+
+// Rendered by the server: pages that look things up (a post, a tag) rewrite to it.
+export const prerender = false;
 ---
 
 <BaseLayout title="Page not found">

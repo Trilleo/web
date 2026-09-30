@@ -92,6 +92,9 @@ const sections: Section[] = [
                       {comment.status === "hidden" ? "Hidden" : "Published"}
                     </span>
                   )}
+                  {comment.pinned && (
+                    <span class="bg-accent px-1.5 text-on-accent">Pinned</span>
+                  )}
                 </p>
                 <div class="comment-body">
                   <Fragment set:html={renderComment(comment.body)} />
@@ -102,6 +105,7 @@ const sections: Section[] = [
                   class="flex flex-wrap gap-2"
                 >
                   <input type="hidden" name="id" value={String(comment.id)} />
+                  <input type="hidden" name="back" value="/admin/#moderation" />
                   {comment.author && (
                     <input
                       type="hidden"
@@ -129,6 +133,19 @@ const sections: Section[] = [
                       Hide
                     </button>
                   )}
+                  {!section.queue &&
+                    comment.status === "published" &&
+                    comment.parentId === null && (
+                      <button
+                        type="submit"
+                        name="action"
+                        value={comment.pinned ? "unpin" : "pin"}
+                        formaction="/comments/pin"
+                        class={button}
+                      >
+                        {comment.pinned ? "Unpin" : "Pin to top"}
+                      </button>
+                    )}
                   {comment.status === "hidden" && (
                     <button
                       type="submit"

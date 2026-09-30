@@ -1,0 +1,129 @@
+---
+/** Every post, drafts and scheduled first, with a way to write a new one. */
+import { buttonClasses } from "@trilleo/ui";
+import AdminNav from "../../../components/admin/AdminNav.astro";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireAdmin } from "../../../lib/auth/guard";
+import { editHref } from "../../../lib/blog/editor";
+import { listAdminPosts, type AdminPostState } from "../../../lib/blog/store";
+import { getDb } from "../../../lib/db";
+import { formatPostDate } from "../../../lib/listings";
+import { postHref } from "../../../lib/posts";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const posts = await listAdminPosts(await getDb());
+const deleted = Astro.url.searchParams.get("done") === "deleted";
+
+const STATE_LABEL: Record<AdminPostState, string> = {
+  draft: "Draft",
+  scheduled: "Scheduled",
+  published: "Published",
+};
+const counts = (["draft", "scheduled", "published"] as const)
+  .map((state) => {
+    const n = posts.filter((post) => post.state === state).length;
+    return n > 0 ? `${String(n)} ${STATE_LABEL[state].toLowerCase()}` : null;
+  })
+  .filter(Boolean)
+  .join(" · ");
+const MODE_LABEL = {
+  open: null,
+  closed: "Comments closed",
+  off: "Comments off",
+};
+---
+
+<BaseLayout title="Posts · Admin" noindex>
+  <section
+    aria-labelledby="posts-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="posts" />
+
+    <DisplayTitle id="posts-title">Posts</DisplayTitle>
+
+    <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <p class="type-label col-span-4 md:col-span-2 xl:col-span-2">
+        {counts || "No posts"}
+      </p>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
+        {deleted && (
+          <p role="status" class="type-lead border-l-2 border-accent pl-4">
+            Deleted.
+          </p>
+        )}
+        <a
+          href="/admin/posts/new/"
+          class={buttonClasses({ className: "w-fit" })}
+        >
+          New post
+        </a>
+      </div>
+    </div>
+
+    {posts.length > 0 && (
+      <ol aria-labelledby="posts-title" class="mt-10 border-b border-ink">
+        {posts.map((post) => (
+          <li class="grid-swiss items-baseline gap-y-2 border-t border-ink py-4 md:py-5">
+            <p class="type-label col-span-4 inline-flex items-center gap-2 md:col-span-2 xl:col-span-2">
+              <span
+                class:list={[
+                  "size-2",
+                  post.state === "published" ? "bg-ink" : "bg-accent",
+                ]}
+                aria-hidden="true"
+              ></span>
+              {STATE_LABEL[post.state]}
+              {post.publishedAt && post.state !== "draft" && (
+                <time
+                  class="text-muted"
+                  datetime={post.publishedAt.toISOString()}
+                >
+                  {formatPostDate(post.publishedAt)}
+                </time>
+              )}
+            </p>
+            <div class="col-span-4 flex flex-col gap-1.5 md:col-span-6 xl:col-span-7">
+              <a href={editHref(post.id)} class="group type-row">
+                <span class="link-wipe">{post.title || "Untitled"}</span>
+              </a>
+              <p class="type-label flex flex-wrap gap-x-4 gap-y-1 text-muted">
+                <span>/writing/{post.slug}/</span>
+                <span>Saved {formatPostDate(post.savedAt)}</span>
+                {MODE_LABEL[post.commentMode] && (
+                  <span>{MODE_LABEL[post.commentMode]}</span>
+                )}
+              </p>
+            </div>
+            <p class="type-label col-span-4 flex gap-4 text-muted md:col-span-6 md:col-start-3 xl:col-span-3 xl:justify-end">
+              <span>
+                {post.comments} {post.comments === 1 ? "comment" : "comments"}
+              </span>
+              {post.pending > 0 && (
+                <a
+                  href="/admin/#review"
+                  class="bg-accent px-1.5 text-on-accent hover:bg-ink hover:text-paper"
+                >
+                  {post.pending} to review
+                </a>
+              )}
+              {post.state === "published" && (
+                <a href={postHref(post.slug)} class="group">
+                  <span class="link-wipe">View</span>
+                </a>
+              )}
+            </p>
+          </li>
+        ))}
+      </ol>
+    )}
+  </section>
+</BaseLayout>

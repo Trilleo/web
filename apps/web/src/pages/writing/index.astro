@@ -4,10 +4,22 @@ import PostList from "../../components/PostList.astro";
 import PostSearch from "../../components/PostSearch.astro";
 import TagLinks from "../../components/TagLinks.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { getPosts } from "../../lib/collection";
-import { collectTags, toListings } from "../../lib/posts";
+import { listPublicPosts, searchPosts } from "../../lib/blog/store";
+import { getDb } from "../../lib/db";
+import {
+  collectTags,
+  postHref,
+  searchSummary,
+  toListings,
+} from "../../lib/posts";
 
-const posts = await getPosts();
+export const prerender = false;
+
+const db = await getDb();
+const posts = await listPublicPosts(db);
+// Without JavaScript, the search box submits here (?q=…) and the results render below.
+const query = Astro.url.searchParams.get("q")?.trim() ?? "";
+const found = query ? await searchPosts(db, query) : null;
 const listings = toListings(posts);
 const tags = collectTags(posts);
 const count = `${String(posts.length)} ${posts.length === 1 ? "post" : "posts"}`;
@@ -38,7 +50,10 @@ const count = `${String(posts.length)} ${posts.length === 1 ? "post" : "posts"}`
       <p class="type-lead col-span-4 md:col-span-6">All posts, newest first.</p>
       {posts.length > 0 && (
         <div class="col-span-4 md:col-span-6 md:col-start-3 xl:col-span-3 xl:col-start-10 xl:row-start-1">
-          <PostSearch />
+          <PostSearch
+            query={query}
+            status={found ? searchSummary(found.length, query) : ""}
+          />
         </div>
       )}
       {tags.length > 0 && (
@@ -50,8 +65,24 @@ const count = `${String(posts.length)} ${posts.length === 1 ? "post" : "posts"}`
   </section>
 
   <section aria-label="Posts" class="px-page pb-16 md:pb-24">
-    <ol hidden class="border-b border-ink" data-search-results></ol>
-    <div data-search-hides>
+    <ol hidden={found === null} class="border-b border-ink" data-search-results>
+      {found?.map((result) => (
+        <li class="border-t border-ink">
+          <a
+            href={postHref(result.slug)}
+            class="group flex flex-col gap-2 py-5 md:py-6"
+          >
+            <span class="type-row">
+              <span class="link-wipe">{result.title}</span>
+            </span>
+            <span class="text-[15px] leading-normal text-muted">
+              <Fragment set:html={result.excerpt} />
+            </span>
+          </a>
+        </li>
+      ))}
+    </ol>
+    <div hidden={found !== null} data-search-hides>
       <PostList posts={listings} />
     </div>
   </section>

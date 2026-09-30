@@ -14,6 +14,7 @@ export const PRIVATE_PATHS = [
   "/auth/",
   "/comments",
   "/sign-in",
+  "/writing/preview/",
 ] as const;
 
 export function isPrivatePath(pathname: string): boolean {

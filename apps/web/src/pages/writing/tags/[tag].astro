@@ -1,22 +1,17 @@
 ---
-import type { GetStaticPaths } from "astro";
 import PostList from "../../../components/PostList.astro";
 import TagLinks from "../../../components/TagLinks.astro";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
-import { getPosts } from "../../../lib/collection";
+import { listPublicPosts } from "../../../lib/blog/store";
+import { getDb } from "../../../lib/db";
 import { collectTags, hasTag, toListings } from "../../../lib/posts";
 
-export const getStaticPaths = (async () => {
-  const posts = await getPosts();
-  return collectTags(posts).map((tag) => ({
-    params: { tag: tag.slug },
-    props: { name: tag.name },
-  }));
-}) satisfies GetStaticPaths;
+export const prerender = false;
 
-const { tag } = Astro.params;
-const { name } = Astro.props;
-const posts = await getPosts();
+const tag = Astro.params.tag ?? "";
+const posts = await listPublicPosts(await getDb());
+const name = collectTags(posts).find((summary) => summary.slug === tag)?.name;
+if (name === undefined) return Astro.rewrite("/404");
 // Number within the full index so a post keeps the same No. everywhere.
 const listings = toListings(posts).filter((_, index) => {
   const post = posts[index];

@@ -1,5 +1,4 @@
 import { existsSync } from "node:fs";
-import mdx from "@astrojs/mdx";
 import node from "@astrojs/node";
 import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
@@ -50,7 +49,6 @@ export default defineConfig({
   adapter: node({ mode: "standalone" }),
   integrations: [
     react(),
-    mdx(),
     // The sitemap would also list server pages such as /admin/; leave those out.
     sitemap({ filter: (page) => !isPrivatePath(new URL(page).pathname) }),
     bundleServerDependencies,

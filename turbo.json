@@ -5,7 +5,7 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"],
-      "env": ["ASTRO_OUT_DIR", "INCLUDE_DRAFTS"]
+      "env": ["ASTRO_OUT_DIR"]
     },
     "typecheck": {},
     "lint": {},

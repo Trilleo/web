@@ -1,0 +1,32 @@
+---
+/** The admin's sections: the dashboard (comments, account) and posts. */
+interface Props {
+  current: "dashboard" | "posts";
+}
+
+const { current } = Astro.props;
+const items = [
+  { key: "dashboard", label: "Dashboard", href: "/admin/" },
+  { key: "posts", label: "Posts", href: "/admin/posts/" },
+] as const;
+---
+
+<nav aria-label="Admin" class="type-label flex gap-6">
+  <span class="text-muted">(Admin)</span>
+  {items.map((item) => (
+    <a
+      href={item.href}
+      class="group inline-flex items-center gap-2"
+      aria-current={item.key === current ? "page" : undefined}
+    >
+      <span
+        class:list={[
+          "size-2",
+          item.key === current ? "bg-accent" : "bg-transparent",
+        ]}
+        aria-hidden="true"
+      ></span>
+      <span class="link-wipe">{item.label}</span>
+    </a>
+  ))}
+</nav>

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-// The e2e build includes the draft posts (see playwright.config.ts).
+// e2e/posts.setup.ts publishes the imported posts before these run. Other specs
+// publish posts of their own in parallel, so counts here are lower bounds.
 const POST = "/writing/rebuilding-this-site/";
 const POST_TITLE = "Rebuilding this site with Astro and a monorepo";
 
@@ -13,7 +14,7 @@ test("the index lists every post, numbered, linking to its page", async ({
   ).toBeVisible();
 
   const rows = page.locator("[data-search-hides] ol > li");
-  await expect(rows).toHaveCount(4);
+  expect(await rows.count()).toBeGreaterThanOrEqual(4);
   await expect(rows.first()).toContainText(/00\d/);
 
   await page.getByRole("link", { name: new RegExp(POST_TITLE) }).click();
@@ -30,7 +31,7 @@ test("home shows the latest posts and links to the full index", async ({
   await expect(page.locator("#writing ol > li")).toHaveCount(4);
   await page
     .locator("#writing")
-    .getByRole("link", { name: /All 4 posts/ })
+    .getByRole("link", { name: /All \d+ posts/ })
     .click();
   await expect(page).toHaveURL("/writing/");
 });
@@ -43,12 +44,9 @@ test.describe("post page on desktop", () => {
   }) => {
     await page.goto(POST);
 
-    await expect(page.locator("dl")).toContainText("Draft");
+    await expect(page.locator("dl")).toContainText("Published");
     await expect(page.locator("dl")).toContainText(/\d+ min/);
-    await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
-      "content",
-      "noindex",
-    );
+    await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
 
     const contents = page.getByRole("navigation", { name: "Contents" });
     await expect(contents.getByRole("link")).toHaveText([
@@ -132,6 +130,11 @@ test.describe("post page on desktop", () => {
   });
 });
 
+test("unknown posts and tags are 404s", async ({ request }) => {
+  expect((await request.get("/writing/no-such-post/")).status()).toBe(404);
+  expect((await request.get("/writing/tags/no-such-tag/")).status()).toBe(404);
+});
+
 test.describe("post page on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
@@ -160,9 +163,25 @@ test.describe("search", () => {
     ).toBeVisible();
     await expect(page.locator("[data-search-hides]")).toBeHidden();
     await expect(page.getByText(/1 post matches “Turborepo”/)).toBeVisible();
+    await expect(page).toHaveURL("/writing/?q=Turborepo");
 
     await page.getByRole("searchbox", { name: "Search posts" }).fill("");
     await expect(page.locator("[data-search-hides]")).toBeVisible();
+  });
+
+  test("works without JavaScript, from the address", async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto("/writing/?q=Turborepo");
+    await expect(
+      page
+        .locator("[data-search-results]")
+        .getByRole("link", { name: new RegExp(POST_TITLE) }),
+    ).toBeVisible();
+    await expect(page.locator("[data-search-results] mark").first()).toHaveText(
+      /Turborepo/i,
+    );
+    await context.close();
   });
 
   test("says so when nothing matches", async ({ page }) => {
@@ -175,20 +194,27 @@ test.describe("search", () => {
 });
 
 test.describe("feeds", () => {
-  test("RSS is valid XML and never includes drafts", async ({ request }) => {
+  test("RSS carries published posts in full", async ({ request }) => {
     const response = await request.get("/rss.xml");
     expect(response.ok()).toBe(true);
     const xml = await response.text();
     expect(xml).toContain("<channel>");
     expect(xml).toContain("<title>Trilleo Network · Writing</title>");
-    expect(xml).not.toContain("<item>");
+    expect(xml).toContain(`<title>${POST_TITLE}</title>`);
+    expect(xml).toContain("content:encoded");
   });
 
-  test("sitemap and robots.txt point at the site URL", async ({ request }) => {
+  test("sitemaps and robots.txt point at the site URL", async ({ request }) => {
     expect((await request.get("/sitemap-index.xml")).ok()).toBe(true);
+    const posts = await (await request.get("/sitemap-posts.xml")).text();
+    expect(posts).toContain(`https://www.trilleo.net${POST}`);
+    expect(posts).toContain("https://www.trilleo.net/writing/tags/astro/");
     const robots = await (await request.get("/robots.txt")).text();
     expect(robots).toContain(
       "Sitemap: https://www.trilleo.net/sitemap-index.xml",
+    );
+    expect(robots).toContain(
+      "Sitemap: https://www.trilleo.net/sitemap-posts.xml",
     );
   });
 

@@ -7,6 +7,7 @@
 import { GitHubIcon, buttonClasses } from "@trilleo/ui";
 import { authConfig } from "../../lib/auth/config";
 import { isAdmin } from "../../lib/auth/guard";
+import { findPostBySlug } from "../../lib/blog/store";
 import { listThreads, type Thread } from "../../lib/comments/store";
 import { getDb } from "../../lib/db";
 import { postHref } from "../../lib/posts";
@@ -26,13 +27,29 @@ const reviewed = user !== null && !admin && user.trustedAt === null;
 const back = `${postHref(slug)}#comments`;
 
 let loaded: { threads: Thread[]; count: number } | null = null;
+let open = false;
 try {
-  loaded = await listThreads(await getDb(), slug, user?.id ?? null);
+  const db = await getDb();
+  const post = await findPostBySlug(db, slug);
+  open = post?.commentMode === "open";
+  loaded = await listThreads(
+    db,
+    slug,
+    user?.id ?? null,
+    post?.pinnedCommentId ?? null,
+  );
 } catch (error) {
   console.error("Loading comments failed:", error);
 }
 
 const canDelete = (comment: Thread["comment"]) => admin || comment.mine;
+/** The admin can pin a published top-level comment, or unpin the pinned one. */
+const pinAction = (comment: Thread["comment"]) =>
+  !admin || comment.removed || comment.pending
+    ? undefined
+    : comment.pinned
+      ? "unpin"
+      : "pin";
 /** A reply goes to the thread; if its first comment was removed, via a reply. */
 const replyTarget = (thread: Thread) =>
   thread.comment.removed ? thread.replies.at(-1)?.id : thread.comment.id;
@@ -51,10 +68,18 @@ const countLabel = (count: number) =>
       {loaded.threads.length > 0 && (
         <ol class="flex flex-col">
           {loaded.threads.map((thread) => (
-            <li class="flex flex-col gap-6 border-t border-hair py-6">
+            <li
+              class:list={[
+                "flex flex-col gap-6 py-6",
+                thread.comment.pinned
+                  ? "border-t-2 border-accent"
+                  : "border-t border-hair",
+              ]}
+            >
               <CommentItem
                 comment={thread.comment}
                 canDelete={canDelete(thread.comment)}
+                pin={pinAction(thread.comment)}
                 back={back}
               />
               {thread.replies.length > 0 && (
@@ -73,7 +98,7 @@ const countLabel = (count: number) =>
                   ))}
                 </ol>
               )}
-              {user && replyTarget(thread) !== undefined && (
+              {user && open && replyTarget(thread) !== undefined && (
                 <details class="md:pl-8">
                   <summary class="type-label link-wipe w-fit cursor-pointer">
                     Reply
@@ -95,7 +120,11 @@ const countLabel = (count: number) =>
     </>
   )}
 
-  {user ? (
+  {!open ? (
+    <p class="type-label border-t border-ink pt-6 text-muted">
+      Comments are closed on this post.
+    </p>
+  ) : user ? (
     <div class="flex flex-col gap-4 border-t border-ink pt-6">
       <CommentForm postSlug={slug} reviewed={reviewed} />
       <p class="text-sm text-muted">

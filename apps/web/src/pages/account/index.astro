@@ -3,7 +3,7 @@ import DisplayTitle from "../../components/DisplayTitle.astro";
 import { buttonClasses } from "@trilleo/ui";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { isAdmin, requireUser } from "../../lib/auth/guard";
-import { getPosts } from "../../lib/collection";
+import { postTitles } from "../../lib/blog/store";
 import { renderComment } from "../../lib/comments/render";
 import { userComments } from "../../lib/comments/store";
 import { getDb } from "../../lib/db";
@@ -20,9 +20,7 @@ Astro.response.headers.set("X-Robots-Tag", "noindex");
 
 const admin = isAdmin(user);
 const own = await userComments(await getDb(), user.id);
-const titles = new Map(
-  (await getPosts()).map((post) => [post.id, post.data.title]),
-);
+const titles = await postTitles(await getDb());
 const STATUS = {
   pending: "Awaiting approval",
   published: "Published",

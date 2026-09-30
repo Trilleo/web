@@ -1,16 +1,27 @@
 ---
 /**
- * Full-text search over posts, powered by the Pagefind index that `pnpm build` writes to
- * dist/pagefind/. While a query is active, results replace the element marked
- * [data-search-hides] (the full post list).
- *
- * The index is loaded by the tiny is:inline script (window.loadPagefind), not the bundled
- * one: Vite wraps every import() in a preload helper whose placeholder is never filled in
- * scripts Astro inlines, which fails at runtime with "__VITE_PRELOAD__ is not defined".
+ * Full-text search over posts (Postgres, see searchPosts). Without JavaScript the form
+ * submits to /writing/?q=…, which renders the results. With it, results come from
+ * /api/search as you type and replace the element marked [data-search-hides] (the full
+ * post list) while a query is active.
  */
+interface Props {
+  /** The query the page was loaded with. */
+  query?: string;
+  /** What the server said about that query's results. */
+  status?: string;
+}
+
+const { query = "", status = "" } = Astro.props;
 ---
 
-<form role="search" class="flex flex-col gap-2" data-post-search>
+<form
+  role="search"
+  method="get"
+  action="/writing/"
+  class="flex flex-col gap-2"
+  data-post-search
+>
   <label for="post-search-input" class="type-label text-muted">
     Search posts
   </label>
@@ -18,6 +29,7 @@
     id="post-search-input"
     type="search"
     name="q"
+    value={query}
     autocomplete="off"
     spellcheck="false"
     placeholder="Type to search"
@@ -27,7 +39,9 @@
     class="type-label min-h-4 text-muted"
     aria-live="polite"
     data-search-status
-  ></p>
+  >
+    {status}
+  </p>
 </form>
 
 <template id="post-search-result">
@@ -42,23 +56,14 @@
   </li>
 </template>
 
-<script is:inline>
-  window.loadPagefind = () => import("/pagefind/pagefind.js");
-</script>
-
 <script>
-  interface PagefindResultData {
+  import { searchSummary } from "../lib/posts";
+
+  interface SearchResult {
     url: string;
+    title: string;
+    /** Escaped text with the matches in <mark>. */
     excerpt: string;
-    meta: { title?: string };
-  }
-  interface Pagefind {
-    search(
-      query: string,
-    ): Promise<{ results: { data(): Promise<PagefindResultData> }[] }>;
-  }
-  interface WindowWithPagefind extends Window {
-    loadPagefind?: () => Promise<Pagefind>;
   }
 
   const form = document.querySelector<HTMLFormElement>("[data-post-search]");
@@ -72,16 +77,17 @@
   );
   const hides = document.querySelector<HTMLElement>("[data-search-hides]");
 
-  let pagefind: Promise<Pagefind | null> | undefined;
-  // Loaded lazily on first search; resolves to null when there's no index (e.g. in dev).
-  const loadPagefind = () => {
-    const load = (window as WindowWithPagefind).loadPagefind;
-    pagefind ??= load ? load().catch(() => null) : Promise.resolve(null);
-    return pagefind;
-  };
-
-  const plainText = (html: string) =>
-    new DOMParser().parseFromString(html, "text/html").body.textContent;
+  /** Just the text and <mark>s of the excerpt, never other markup. */
+  const excerptNodes = (html: string): Node[] =>
+    [...new DOMParser().parseFromString(html, "text/html").body.childNodes].map(
+      (node) => {
+        const text = node.textContent ?? "";
+        if (node.nodeName !== "MARK") return document.createTextNode(text);
+        const mark = document.createElement("mark");
+        mark.textContent = text;
+        return mark;
+      },
+    );
 
   if (form && input && status && template && results && hides) {
     let latest = 0;
@@ -95,24 +101,30 @@
       const query = input.value.trim();
       // Ignore results that arrive after a newer query started.
       const ticket = ++latest;
+      const url = new URL(location.href);
+      if (query) url.searchParams.set("q", query);
+      else url.searchParams.delete("q");
+      history.replaceState(history.state, "", url);
+
       if (!query) {
         show(false);
         status.textContent = "";
         return;
       }
 
-      const engine = await loadPagefind();
-      if (ticket !== latest) return;
-      if (!engine) {
-        status.textContent =
-          "Search works in the built site: pnpm build, then pnpm preview.";
+      let found: SearchResult[];
+      try {
+        const response = await fetch(
+          `/api/search?q=${encodeURIComponent(query)}`,
+        );
+        if (!response.ok) throw new Error(String(response.status));
+        found = ((await response.json()) as { results: SearchResult[] })
+          .results;
+      } catch {
+        if (ticket === latest)
+          status.textContent = "Search isn’t working right now.";
         return;
       }
-
-      const search = await engine.search(query);
-      const found = await Promise.all(
-        search.results.slice(0, 10).map((result) => result.data()),
-      );
       if (ticket !== latest) return;
 
       results.replaceChildren(
@@ -122,15 +134,12 @@
           const title = fragment.querySelector("[data-title]");
           const excerpt = fragment.querySelector("[data-excerpt]");
           if (link) link.href = item.url;
-          if (title) title.textContent = item.meta.title ?? item.url;
-          if (excerpt) excerpt.textContent = plainText(item.excerpt);
+          if (title) title.textContent = item.title;
+          excerpt?.replaceChildren(...excerptNodes(item.excerpt));
           return fragment;
         }),
       );
-      status.textContent =
-        found.length === 0
-          ? `No posts match “${query}”.`
-          : `${String(found.length)} ${found.length === 1 ? "post matches" : "posts match"} “${query}”.`;
+      status.textContent = searchSummary(found.length, query);
       show(true);
     };
 

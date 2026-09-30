@@ -64,6 +64,9 @@ describe("openDatabase", () => {
     );
     expect(tables.map((row) => row.table_name)).toEqual([
       "comments",
+      "media",
+      "post_slugs",
+      "posts",
       "sessions",
       "tool_data",
       "users",

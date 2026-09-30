@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && node scripts/build-search-index.ts dist/client",
-    "build:e2e": "astro build && node scripts/build-search-index.ts dist-e2e/client",
+    "build": "astro build",
+    "build:e2e": "astro build",
     "check:server": "node scripts/check-server-bundle.ts dist",
     "preview": "astro preview",
     "typecheck": "astro check",
@@ -15,7 +15,6 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@astrojs/mdx": "^8.0.2",
     "@astrojs/node": "^11.1.6",
     "@astrojs/react": "^7.0.0",
     "@astrojs/rss": "^4.0.19",
@@ -27,12 +26,15 @@
     "@trilleo/ui": "workspace:*",
     "astro": "^7.3.5",
     "drizzle-orm": "^0.45.3",
+    "github-slugger": "^2.0.0",
     "hast-util-from-html": "^2.0.3",
     "hast-util-to-html": "^9.0.5",
     "hast-util-to-string": "^3.0.1",
     "markdown-it": "^15.0.2",
+    "markdown-it-footnote": "^4.0.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "shiki": "^4.4.3",
     "tailwindcss": "^4.3.3",
     "unist-util-visit": "^5.1.0"
   },
@@ -46,7 +48,6 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "jsdom": "^30.1.1",
-    "pagefind": "^1.5.2",
     "typescript": "~6.0.3",
     "vitest": "^5.0.2"
   }

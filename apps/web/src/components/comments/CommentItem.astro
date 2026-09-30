@@ -7,11 +7,13 @@ interface Props {
   comment: CommentView;
   /** Show a delete button (the viewer wrote it, or is the admin). */
   canDelete: boolean;
-  /** Where to come back to after deleting. */
+  /** The admin's pin button: pin it, or unpin it (it's the pinned one). */
+  pin?: "pin" | "unpin" | undefined;
+  /** Where to come back to after deleting or pinning. */
   back: string;
 }
 
-const { comment, canDelete, back } = Astro.props;
+const { comment, canDelete, pin, back } = Astro.props;
 const anchor = `comment-${String(comment.id)}`;
 ---
 
@@ -50,6 +52,12 @@ const anchor = `comment-${String(comment.id)}`;
             {formatPostDate(comment.createdAt)}
           </time>
         </a>
+        {comment.pinned && (
+          <span class="type-label inline-flex items-center gap-1.5 text-ink">
+            <span class="size-2 bg-accent" aria-hidden="true"></span>
+            Pinned
+          </span>
+        )}
         {comment.pending && (
           <span class="type-label bg-accent px-1.5 py-0.5 text-on-accent">
             Awaiting approval
@@ -59,22 +67,41 @@ const anchor = `comment-${String(comment.id)}`;
       <div class="comment-body">
         <Fragment set:html={renderComment(comment.body)} />
       </div>
-      {canDelete && (
-        <details class="type-label text-muted">
-          <summary class="link-wipe w-fit cursor-pointer hover:text-ink">
-            Delete
-          </summary>
-          <form method="post" action="/comments/delete" class="mt-2">
-            <input type="hidden" name="id" value={String(comment.id)} />
-            <input type="hidden" name="back" value={back} />
-            <button
-              type="submit"
-              class="type-label border border-ink px-2.5 py-1.5 text-ink hover:bg-ink hover:text-paper"
-            >
-              Yes, delete this comment
-            </button>
-          </form>
-        </details>
+      {(canDelete || pin) && (
+        <div class="flex flex-wrap items-baseline gap-x-5 gap-y-2">
+          {pin && (
+            <form method="post" action="/comments/pin">
+              <input type="hidden" name="id" value={String(comment.id)} />
+              <input type="hidden" name="action" value={pin} />
+              <input type="hidden" name="back" value={back} />
+              <button
+                type="submit"
+                class="group type-label cursor-pointer text-muted hover:text-ink"
+              >
+                <span class="link-wipe">
+                  {pin === "pin" ? "Pin to top" : "Unpin"}
+                </span>
+              </button>
+            </form>
+          )}
+          {canDelete && (
+            <details class="type-label text-muted">
+              <summary class="link-wipe w-fit cursor-pointer hover:text-ink">
+                Delete
+              </summary>
+              <form method="post" action="/comments/delete" class="mt-2">
+                <input type="hidden" name="id" value={String(comment.id)} />
+                <input type="hidden" name="back" value={back} />
+                <button
+                  type="submit"
+                  class="type-label border border-ink px-2.5 py-1.5 text-ink hover:bg-ink hover:text-paper"
+                >
+                  Yes, delete this comment
+                </button>
+              </form>
+            </details>
+          )}
+        </div>
       )}
     </>
   )}
