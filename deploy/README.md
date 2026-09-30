@@ -304,6 +304,35 @@ Push to `main`, or run **Actions → Deploy → Run workflow**. Watch it at
 <https://github.com/Trilleo/web/actions>, then open <https://www.trilleo.net> and sign in
 at <https://www.trilleo.net/admin>.
 
+### 9. Search engines (optional, any time after the first deploy)
+
+Search consoles show what Google and Bing have indexed, which searches find the site,
+and any problems they hit. Each asks you to prove you own the site with a `<meta>` tag,
+which the home page adds from `app.env`.
+
+1. **Google:** <https://search.google.com/search-console> → **Add property** → **URL
+   prefix** `https://www.trilleo.net/` → **HTML tag**. Copy only the `content="…"` value.
+2. **Bing:** <https://www.bing.com/webmasters> → add `https://www.trilleo.net/` →
+   **HTML Meta Tag** (the `msvalidate.01` one). Copy only its `content` value. (Bing can
+   also import the site from Google Search Console, with no tag.)
+3. Add the values to `/srv/trilleo/app.env` and recreate the app:
+
+   ```bash
+   cd /srv/trilleo
+   printf 'GOOGLE_SITE_VERIFICATION=%s\nBING_SITE_VERIFICATION=%s\n' '<google value>' '<bing value>' >> app.env
+   docker compose up -d --force-recreate app
+   curl -s https://www.trilleo.net/ | grep -E 'google-site-verification|msvalidate'
+   ```
+
+4. Press **Verify** in each console. Keep the values in `app.env` afterwards: both
+   engines re-check from time to time.
+5. In each console, submit both sitemaps: `https://www.trilleo.net/sitemap-index.xml`
+   (pages built with the site) and `https://www.trilleo.net/sitemap-posts.xml` (posts
+   and tags, from the database).
+
+Link previews (Open Graph images, drawn by the app at `/og/…`) need no setup. Check
+one by pasting a post's URL into a chat app, or at <https://www.opengraph.xyz>.
+
 ## Day to day
 
 - **Deploy:** push to `main`. CI runs, then Deploy. Nothing else to do.

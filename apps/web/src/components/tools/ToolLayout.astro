@@ -3,16 +3,37 @@
 import type { ToolMeta } from "@trilleo/tool-kit";
 import { ArrowLeftIcon } from "@trilleo/ui";
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import {
+  breadcrumbJsonLd,
+  ogImagePath,
+  toolCard,
+  toolJsonLd,
+} from "../../lib/seo";
 import { transitionName } from "../../lib/site";
+import { toolPath } from "../../lib/tools/registry";
 
 interface Props {
   meta: ToolMeta;
 }
 
 const { meta } = Astro.props;
+const path = toolPath(meta.slug);
+const image = ogImagePath(`tools/${meta.slug}`, toolCard(meta));
 ---
 
-<BaseLayout title={meta.name} description={meta.description}>
+<BaseLayout
+  title={meta.name}
+  description={meta.description}
+  {image}
+  jsonLd={[
+    toolJsonLd(meta, path, image),
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Tools", path: "/tools/" },
+      { name: meta.name, path },
+    ]),
+  ]}
+>
   <div class="grid-swiss px-page type-label border-b border-hair py-3 xl:py-4">
     <span class="col-span-2 md:col-span-4 xl:col-span-2">
       (02) Tools / {meta.name}

@@ -2,6 +2,7 @@
 import DisplayTitle from "../../components/DisplayTitle.astro";
 import ToolList from "../../components/ToolList.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import { breadcrumbJsonLd } from "../../lib/seo";
 import { toolListings } from "../../lib/tools/registry";
 
 const tools = toolListings();
@@ -11,6 +12,12 @@ const count = `${String(tools.length)} ${tools.length === 1 ? "tool" : "tools"}`
 <BaseLayout
   title="Tools"
   description="Small web tools that work in your browser; sign in to keep what you make."
+  jsonLd={[
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Tools", path: "/tools/" },
+    ]),
+  ]}
 >
   <section
     aria-labelledby="tools-title"

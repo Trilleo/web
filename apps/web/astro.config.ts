@@ -58,6 +58,9 @@ export default defineConfig({
   },
   vite: {
     plugins: [tailwindcss()],
+    // Lets `?inline` embed WebAssembly as a data URL: resvg's, for share images
+    // (src/lib/og/render.ts), so the server bundle doesn't need the file beside it.
+    assetsInclude: ["**/*.wasm"],
     ssr: {
       // The one exception to bundling (this list wins over `noExternal: true`):
       // PGlite loads its WebAssembly files from next to its own code. Only dev and

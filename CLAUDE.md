@@ -217,6 +217,27 @@
   are fresh accounts (`freshLogin()` in e2e/support.ts) with unique comment text,
   and no test may sign the shared admin out everywhere.
 
+## SEO
+
+- src/lib/seo.ts holds the pure parts: descriptions (`describe` falls back to the
+  post's text), share cards (`OgCard`, `ogImagePath`), and JSON-LD builders
+  (`serializeJsonLd` escapes `<` so titles can't close the script). BaseLayout turns its
+  props (`image`, `article`, `jsonLd`, `noindex`) into Open Graph, X card, canonical
+  and verification tags; `noindex` pages get no canonical.
+- Share images: /og/site.png, /og/posts/<slug>.png, /og/tools/<slug>.png, 1200×630,
+  drawn per request by satori + resvg-wasm (src/lib/og/) and kept in memory. Pages
+  link them with `?v=<hash of the card>`, cached immutably; bump OG_CARD_VERSION
+  when the card's design changes. Fonts and resvg's WebAssembly are inlined with
+  `?inline` (astro.config's `assetsInclude`), so the bundle carries them. satori is
+  pinned to 0.32: newer versions load harfbuzzjs, which the bundle can't carry.
+- Structured data: WebSite + Person (the author, "Trilleo") on the home page,
+  BlogPosting on posts, WebApplication on tools, BreadcrumbList on inner pages.
+- Kept out of the index (noindex): private pages, search results (`?q=`), tag pages
+  with fewer than TAG_INDEX_MIN_POSTS posts (also left out of sitemap-posts.xml), and
+  the 404 page.
+- GOOGLE_SITE_VERIFICATION / BING_SITE_VERIFICATION (optional, app.env) are read per
+  request, so only server-rendered pages (the home page) carry them.
+
 ## Tools
 
 - apps/web/src/lib/tools/registry.ts lists every tool; /tools, the home page's

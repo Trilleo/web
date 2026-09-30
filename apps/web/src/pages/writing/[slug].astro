@@ -10,6 +10,14 @@ import {
 } from "../../lib/blog/store";
 import { getDb } from "../../lib/db";
 import { adjacentPosts, numberPosts, postHref } from "../../lib/posts";
+import {
+  blogPostingJsonLd,
+  breadcrumbJsonLd,
+  describe,
+  htmlToText,
+  ogImagePath,
+  postCard,
+} from "../../lib/seo";
 
 // Posts live in the database, so their pages render per request.
 export const prerender = false;
@@ -31,13 +39,46 @@ const { newer, older } = adjacentPosts(posts, post.id);
 const next = newer ?? older;
 const { commentMode, id } = lookup.post;
 const admin = isAdmin(Astro.locals.user);
+
+const number = numbers.get(post.id) ?? "—";
+const path = postHref(post.id);
+const description = describe(post.data.description, lookup.post.html);
+const image = ogImagePath(`posts/${post.id}`, postCard(post, number));
+const published = post.data.pubDate ?? lookup.post.publishedAt ?? now;
+const jsonLd = [
+  blogPostingJsonLd({
+    title: post.data.title,
+    description,
+    path,
+    image,
+    published,
+    modified: post.data.updatedDate,
+    tags: post.data.tags,
+    words: htmlToText(lookup.post.html).split(" ").filter(Boolean).length,
+  }),
+  breadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: "Writing", path: "/writing/" },
+    { name: post.data.title, path },
+  ]),
+];
 if (admin) Astro.response.headers.set("Cache-Control", "private, no-store");
 ---
 
-<BaseLayout title={post.data.title} description={post.data.description}>
+<BaseLayout
+  title={post.data.title}
+  {description}
+  {image}
+  article={{
+    published,
+    modified: post.data.updatedDate,
+    tags: post.data.tags,
+  }}
+  {jsonLd}
+>
   <PostArticle
-    post={post}
-    number={numbers.get(post.id) ?? "—"}
+    {post}
+    {number}
     next={
       next && {
         post: next,

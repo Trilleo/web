@@ -2,6 +2,7 @@
 import DisplayTitle from "../components/DisplayTitle.astro";
 import { ArrowRightIcon, ArrowUpRightIcon } from "@trilleo/ui";
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { authorJsonLd, breadcrumbJsonLd } from "../lib/seo";
 import { GITHUB_URL, SITE_NAME } from "../lib/site";
 
 const links = [
@@ -26,6 +27,13 @@ const links = [
 <BaseLayout
   title="About"
   description={`What ${SITE_NAME} is, what you'll find here, and how to join in.`}
+  jsonLd={[
+    authorJsonLd(),
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "About", path: "/about/" },
+    ]),
+  ]}
 >
   <section
     aria-labelledby="about-title"

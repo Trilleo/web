@@ -208,7 +208,8 @@ test.describe("feeds", () => {
     expect((await request.get("/sitemap-index.xml")).ok()).toBe(true);
     const posts = await (await request.get("/sitemap-posts.xml")).text();
     expect(posts).toContain(`https://www.trilleo.net${POST}`);
-    expect(posts).toContain("https://www.trilleo.net/writing/tags/astro/");
+    // Tags with one post are noindex, so they stay out (e2e/seo.spec.ts).
+    expect(posts).not.toContain("https://www.trilleo.net/writing/tags/astro/");
     const robots = await (await request.get("/robots.txt")).text();
     expect(robots).toContain(
       "Sitemap: https://www.trilleo.net/sitemap-index.xml",

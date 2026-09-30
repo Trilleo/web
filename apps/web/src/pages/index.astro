@@ -8,6 +8,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import { listPublicPosts } from "../lib/blog/store";
 import { getDb } from "../lib/db";
 import { toListings } from "../lib/posts";
+import { authorJsonLd, websiteJsonLd } from "../lib/seo";
 import { SITE_BIO, SITE_DESCRIPTION } from "../lib/site";
 import { toolListings } from "../lib/tools/registry";
 
@@ -28,7 +29,7 @@ const pageArrowClass =
   "transition-transform duration-(--tr-dur-base) ease-swiss group-hover:translate-x-1";
 ---
 
-<BaseLayout>
+<BaseLayout jsonLd={[websiteJsonLd(), authorJsonLd()]}>
   <section aria-labelledby="site-title" class="px-page pt-4 xl:pt-5">
     <div class="grid-swiss type-label animate-fade text-muted">
       <span class="col-span-2 text-ink md:col-span-4 xl:col-span-2">
