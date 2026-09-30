@@ -1,0 +1,67 @@
+---
+/**
+ * The admin's SEO checklist (lib/seo-audit.ts): public posts with something search
+ * engines would trip over, and whether IndexNow is set up.
+ */
+import type { PostIssues } from "../../lib/seo-audit";
+
+interface Props {
+  issues: PostIssues[];
+  /** How many public posts were checked. */
+  checked: number;
+  indexNow: boolean;
+}
+
+const { issues, checked, indexNow } = Astro.props;
+---
+
+<div
+  id="seo"
+  class="grid-swiss scroll-mt-6 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6"
+>
+  <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
+    SEO ({issues.length})
+  </h2>
+  <div class="col-span-4 flex flex-col gap-6 md:col-span-6 xl:col-span-10">
+    {issues.length === 0 ? (
+      <p class="text-muted">
+        {checked === 0
+          ? "No public posts to check yet."
+          : `All ${String(checked)} public posts look fine to search engines.`}
+      </p>
+    ) : (
+      <ul class="border-b border-hair">
+        {issues.map((post) => (
+          <li class="flex flex-col gap-2 border-t border-hair py-4 first:border-t-0 first:pt-0">
+            <a
+              href={`/admin/posts/${String(post.id)}/#search`}
+              class="group w-fit font-semibold"
+            >
+              <span class="link-wipe">{post.title}</span>
+            </a>
+            <ul class="flex flex-col gap-1">
+              {post.problems.map((problem) => (
+                <li class="flex items-start gap-2 text-muted">
+                  <span
+                    class="mt-2 size-1.5 shrink-0 bg-accent"
+                    aria-hidden="true"
+                  />
+                  {problem}
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+    )}
+    <p class="flex items-center gap-2 text-sm text-muted">
+      <span
+        class={`size-2 ${indexNow ? "bg-ink" : "bg-accent"}`}
+        aria-hidden="true"
+      />
+      {indexNow
+        ? "IndexNow is on: Bing and others hear about changes as you save."
+        : "IndexNow is off: set INDEXNOW_KEY (deploy/README.md §9)."}
+    </p>
+  </div>
+</div>

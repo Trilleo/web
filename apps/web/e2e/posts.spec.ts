@@ -29,9 +29,9 @@ async function editorReady(page: Page) {
 async function fillNewPost(admin: Page, post: NewPost): Promise<string> {
   await admin.goto("/admin/posts/new/");
   await editorReady(admin);
-  await admin.getByLabel("Title").fill(post.title);
+  await admin.getByLabel("Title", { exact: true }).fill(post.title);
   await admin
-    .getByLabel("Description")
+    .getByLabel("Description", { exact: true })
     .fill(post.description ?? "A post written by the e2e tests.");
   if (post.tags) await admin.getByLabel("Tags").fill(post.tags);
   await admin
@@ -119,7 +119,7 @@ test("the admin writes, previews and publishes a post; readers find it", async (
   // The admin gets a way back to the editor from the post.
   await admin.goto(`/writing/${slug}/`);
   await admin.getByRole("link", { name: "Edit post" }).click();
-  await expect(admin.getByLabel("Title")).toHaveValue(title);
+  await expect(admin.getByLabel("Title", { exact: true })).toHaveValue(title);
 });
 
 test("a new slug keeps the old address as a redirect", async ({

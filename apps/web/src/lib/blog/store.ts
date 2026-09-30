@@ -295,6 +295,8 @@ export async function createPost(
         slug: input.slug,
         title: input.title,
         description: input.description,
+        seoTitle: input.seoTitle || null,
+        seoDescription: input.seoDescription || null,
         body: input.body,
         tags: input.tags,
         commentMode: input.commentMode,
@@ -361,6 +363,8 @@ export async function updatePost(
         slug: input.slug,
         title: input.title,
         description: input.description,
+        seoTitle: input.seoTitle || null,
+        seoDescription: input.seoDescription || null,
         body: input.body,
         tags: input.tags,
         commentMode: input.commentMode,
@@ -477,6 +481,12 @@ export async function searchPosts(
       .replaceAll(START, "<mark>")
       .replaceAll(STOP, "</mark>"),
   }));
+}
+
+/** Slugs posts used to have (they redirect to the posts' current addresses). */
+export async function listOldSlugs(db: Database): Promise<string[]> {
+  const rows = await db.select({ slug: postSlugs.slug }).from(postSlugs);
+  return rows.map((row) => row.slug);
 }
 
 /** Every post's title by slug (for comment lists that link to their post). */

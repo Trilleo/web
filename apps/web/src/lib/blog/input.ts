@@ -8,6 +8,8 @@ import { tagSlug } from "../posts";
 export const POST_LIMITS = {
   title: 200,
   description: 500,
+  seoTitle: 120,
+  seoDescription: 300,
   body: 200_000,
   slug: 100,
   tags: 12,
@@ -33,10 +35,21 @@ export interface PostInput {
   commentMode: CommentMode;
   /** Show readers this edit as an update ("Updated <date>"). */
   revised: boolean;
+  /** For search engines and link previews; "" uses the title. */
+  seoTitle: string;
+  /** For search engines and link previews; "" uses the description. */
+  seoDescription: string;
 }
 
 export type PostField =
-  "title" | "slug" | "description" | "body" | "tags" | "publishedAt";
+  | "title"
+  | "slug"
+  | "description"
+  | "body"
+  | "tags"
+  | "publishedAt"
+  | "seoTitle"
+  | "seoDescription";
 export type PostErrors = Partial<Record<PostField, string>>;
 
 /** "Why I moved off WordPress!" → "why-i-moved-off-wordpress". */
@@ -105,6 +118,8 @@ export function parsePostForm(
     publishedAt: date && !Number.isNaN(date.getTime()) ? date : null,
     commentMode,
     revised: text(form, "revised") === "on",
+    seoTitle: text(form, "seoTitle").trim().replace(/\s+/g, " "),
+    seoDescription: text(form, "seoDescription").trim().replace(/\s+/g, " "),
   };
 
   const errors: PostErrors = {};
@@ -117,6 +132,10 @@ export function parsePostForm(
       : "Use lowercase letters, numbers and single hyphens.";
   if (description.length > POST_LIMITS.description)
     errors.description = `Keep the description under ${String(POST_LIMITS.description)} characters.`;
+  if (input.seoTitle.length > POST_LIMITS.seoTitle)
+    errors.seoTitle = `Keep the search title under ${String(POST_LIMITS.seoTitle)} characters.`;
+  if (input.seoDescription.length > POST_LIMITS.seoDescription)
+    errors.seoDescription = `Keep the search description under ${String(POST_LIMITS.seoDescription)} characters.`;
   if (body.length > POST_LIMITS.body)
     errors.body = "The post is too long to save.";
   if (tags.length > POST_LIMITS.tags)

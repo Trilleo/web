@@ -24,6 +24,13 @@ import type { EditorProps, EditorValues } from "../../lib/blog/editor";
 import type { PostErrors, PostField } from "../../lib/blog/input";
 import { POST_LIMITS, slugify } from "../../lib/blog/input";
 import { readingMinutes } from "../../lib/posts";
+import {
+  DESCRIPTION_LENGTH,
+  SEARCH_TITLE_LENGTH,
+  descriptionVerdict,
+  titleVerdict,
+} from "../../lib/seo";
+import { LengthMeter, SearchPreview, effectiveSeo } from "./SearchPreview";
 
 /** Drafts save this long after typing stops. */
 export const AUTOSAVE_DELAY_MS = 1500;
@@ -460,6 +467,7 @@ export function PostEditor(props: EditorProps) {
   }[props.state];
 
   const words = values.body.split(/\s+/).filter(Boolean).length;
+  const seo = effectiveSeo(values);
 
   return (
     <div className="flex flex-col gap-12">
@@ -705,6 +713,88 @@ export function PostEditor(props: EditorProps) {
               )}
             </div>
           </div>
+        </Row>
+
+        <Row label="Search & sharing" id="search">
+          <p className="max-w-[40rem]">
+            Search engines and link previews use the title and description
+            above. Fill these in only to say it differently there.
+          </p>
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2 xl:gap-6">
+            <div className="flex flex-col gap-2">
+              <label htmlFor={`${uid}-seoTitle`} className="type-label">
+                Search title
+              </label>
+              <input
+                id={`${uid}-seoTitle`}
+                name="seoTitle"
+                value={values.seoTitle}
+                onChange={(event) => {
+                  set("seoTitle", event.target.value);
+                }}
+                maxLength={POST_LIMITS.seoTitle}
+                placeholder={values.title || "Same as the title"}
+                aria-invalid={errors.seoTitle ? true : undefined}
+                aria-describedby={described(
+                  "seoTitle",
+                  `${uid}-seoTitle-meter`,
+                )}
+                className={`${fieldClass} h-11 px-3`}
+              />
+              <LengthMeter
+                id={`${uid}-seoTitle-meter`}
+                length={seo.fullTitle.length}
+                limit={SEARCH_TITLE_LENGTH}
+                verdict={titleVerdict(seo.pageTitle && seo.fullTitle)}
+              />
+              <FieldError
+                id={`${uid}-seoTitle-error`}
+                error={errors.seoTitle}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label htmlFor={`${uid}-seoDescription`} className="type-label">
+                Search description
+              </label>
+              <textarea
+                id={`${uid}-seoDescription`}
+                name="seoDescription"
+                value={values.seoDescription}
+                onChange={(event) => {
+                  set("seoDescription", event.target.value);
+                }}
+                maxLength={POST_LIMITS.seoDescription}
+                rows={2}
+                placeholder={values.description || "Same as the description"}
+                aria-invalid={errors.seoDescription ? true : undefined}
+                aria-describedby={described(
+                  "seoDescription",
+                  `${uid}-seoDescription-meter`,
+                )}
+                className={`${fieldClass} px-3 py-2`}
+              />
+              <LengthMeter
+                id={`${uid}-seoDescription-meter`}
+                length={seo.description.length}
+                limit={DESCRIPTION_LENGTH}
+                verdict={descriptionVerdict(seo.description)}
+              />
+              <FieldError
+                id={`${uid}-seoDescription-error`}
+                error={errors.seoDescription}
+              />
+            </div>
+          </div>
+          <SearchPreview
+            title={values.title}
+            seoTitle={values.seoTitle}
+            description={values.description}
+            seoDescription={values.seoDescription}
+            slug={values.slug}
+            publishedAt={values.publishedAt}
+            minutes={readingMinutes(values.body)}
+            tags={values.tags}
+          />
         </Row>
 
         <Row label="Publishing" id={`${uid}-publishing`}>

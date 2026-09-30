@@ -21,6 +21,28 @@ export const TAG_INDEX_MIN_POSTS = 2;
 /** Search results show about this many characters of a description. */
 export const DESCRIPTION_LENGTH = 155;
 
+/** Search results cut titles at about this many characters. */
+export const SEARCH_TITLE_LENGTH = 60;
+
+/** Shorter descriptions leave room that search engines fill from the page. */
+export const DESCRIPTION_MIN_LENGTH = 70;
+
+/** How a title or description will fare in search results. */
+export type LengthVerdict = "missing" | "short" | "good" | "long";
+
+/** A page title as search results show it (with the site's name), judged. */
+export function titleVerdict(fullTitle: string): LengthVerdict {
+  if (!fullTitle.trim()) return "missing";
+  return fullTitle.length > SEARCH_TITLE_LENGTH ? "long" : "good";
+}
+
+export function descriptionVerdict(description: string): LengthVerdict {
+  const length = description.trim().length;
+  if (length === 0) return "missing";
+  if (length < DESCRIPTION_MIN_LENGTH) return "short";
+  return length > DESCRIPTION_LENGTH ? "long" : "good";
+}
+
 /** Plain text of some HTML: tags dropped, common entities decoded, spaces collapsed. */
 export function htmlToText(html: string): string {
   return (

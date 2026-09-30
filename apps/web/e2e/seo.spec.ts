@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { adminPage, freshLogin } from "./support";
 
 // A post e2e/posts.setup.ts publishes before the specs run.
 const POST = "/writing/rebuilding-this-site/";
@@ -101,4 +102,76 @@ test("the posts sitemap lists posts, not thin tag pages", async ({
   for (const entry of xml.match(/<url>.*?<\/url>/g) ?? []) {
     if (entry.includes("/writing/tags/")) expect(entry).toContain("<lastmod>");
   }
+});
+
+test("the editor's search fields set the title and description search engines see", async ({
+  browser,
+  baseURL,
+}) => {
+  const admin = await adminPage(browser, baseURL);
+  const title = freshLogin("Search fields test");
+  await admin.goto("/admin/posts/new/");
+  await expect(admin.locator("astro-island[ssr]")).toHaveCount(0);
+  await admin.getByLabel("Title", { exact: true }).fill(title);
+  await admin
+    .getByLabel("Description", { exact: true })
+    .fill("The description readers see under the title.");
+  await admin
+    .getByRole("textbox", { name: "Markdown" })
+    .fill("Some words for the tests.");
+
+  // The previews follow the fields as they're typed.
+  const search = admin.locator("#search-row");
+  await expect(search.getByText("In search results")).toBeVisible();
+  await admin.getByLabel("Search title").fill("A shorter search title");
+  await admin
+    .getByLabel("Search description")
+    .fill("What search results say about this post, in a sentence or two.");
+  await expect(
+    search.getByText("A shorter search title · Trilleo Network"),
+  ).toBeVisible();
+  await expect(search.getByText(/^\d+ \/ 60 · Good$/)).toBeVisible();
+
+  const slug = await admin.getByLabel("Address").inputValue();
+  await admin.getByRole("button", { name: "Publish now" }).click();
+  await expect(admin.getByText(/^Published\.$/)).toBeVisible();
+
+  await admin.goto(`/writing/${slug}/`);
+  await expect(admin).toHaveTitle("A shorter search title · Trilleo Network");
+  expect(await meta(admin, "og:title")).toBe("A shorter search title");
+  expect(await meta(admin, "description")).toBe(
+    "What search results say about this post, in a sentence or two.",
+  );
+  // The page itself keeps the real title.
+  await expect(
+    admin.getByRole("heading", { level: 1, name: title }),
+  ).toBeVisible();
+  await admin.context().close();
+});
+
+test("the admin's SEO checklist lists problems in public posts", async ({
+  browser,
+  baseURL,
+}) => {
+  const admin = await adminPage(browser, baseURL);
+  const checklist = admin.locator("#seo");
+  await expect(
+    admin.getByRole("heading", { name: /^SEO \(\d+\)$/ }),
+  ).toBeVisible();
+  // IndexNow isn't set up in e2e.
+  await expect(checklist.getByText(/^IndexNow is off/)).toBeVisible();
+  await admin.context().close();
+});
+
+test("llms.txt maps the site for AI assistants", async ({ request }) => {
+  const response = await request.get("/llms.txt");
+  expect(response.headers()["content-type"]).toContain("text/markdown");
+  const text = await response.text();
+  expect(text).toMatch(/^# Trilleo Network\n/);
+  expect(text).toContain(`(https://www.trilleo.net${POST})`);
+  expect(text).toContain("(https://www.trilleo.net/tools/notes/)");
+});
+
+test("without an IndexNow key there's no key file", async ({ request }) => {
+  expect((await request.get("/0123456789abcdef.txt")).status()).toBe(404);
 });

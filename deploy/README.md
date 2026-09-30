@@ -307,8 +307,10 @@ at <https://www.trilleo.net/admin>.
 ### 9. Search engines (optional, any time after the first deploy)
 
 Search consoles show what Google and Bing have indexed, which searches find the site,
-and any problems they hit. Each asks you to prove you own the site with a `<meta>` tag,
-which the home page adds from `app.env`.
+and any problems they hit. Each asks you to prove you own the site. A **Domain**
+property verified by a DNS TXT record (Google), or Bing's import from Google Search
+Console, needs nothing here: skip steps 1–4 for that console and keep the TXT record.
+Otherwise use the HTML tag, which the home page adds from `app.env`.
 
 1. **Google:** <https://search.google.com/search-console> → **Add property** → **URL
    prefix** `https://www.trilleo.net/` → **HTML tag**. Copy only the `content="…"` value.
@@ -329,6 +331,22 @@ which the home page adds from `app.env`.
 5. In each console, submit both sitemaps: `https://www.trilleo.net/sitemap-index.xml`
    (pages built with the site) and `https://www.trilleo.net/sitemap-posts.xml` (posts
    and tags, from the database).
+
+6. **IndexNow** (Bing, Yandex and others hear about new and changed posts within
+   minutes; Google doesn't take part). Make a key, add it to `app.env`, recreate the
+   app, and check that the key file answers:
+
+   ```bash
+   cd /srv/trilleo
+   key=$(openssl rand -hex 16)
+   printf 'INDEXNOW_KEY=%s\n' "$key" >> app.env
+   docker compose up -d --force-recreate app
+   curl -s "https://www.trilleo.net/$key.txt"   # prints the key
+   ```
+
+   /admin's SEO section then says IndexNow is on. Posts are announced when you save
+   them, and scheduled ones within ~10 minutes of going live. The key isn't secret (it's
+   served publicly) but keep it stable: changing it just means a new key file.
 
 Link previews (Open Graph images, drawn by the app at `/og/…`) need no setup. Check
 one by pasting a post's URL into a chat app, or at <https://www.opengraph.xyz>.
