@@ -6,6 +6,6 @@ export const meta: ToolMeta = {
   name: "Converter",
   description:
     "Convert images and audio between formats, resize, compress and trim, in batches. Files stay in your browser.",
-  status: "in-progress",
+  status: "live",
   icon: "convert",
 };

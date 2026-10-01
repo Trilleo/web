@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { hydrated } from "./support";
 
 const INSPECT = "/tools/inspect/";
 
@@ -6,6 +7,7 @@ test("File info hashes a file and reads its type from the bytes", async ({
   page,
 }) => {
   await page.goto(INSPECT);
+  await hydrated(page);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("File info");
 
   await page.getByTestId("file-input").setInputFiles({
@@ -30,6 +32,7 @@ test("File info flags a file whose name lies about its type", async ({
   page,
 }) => {
   await page.goto(INSPECT);
+  await hydrated(page);
   // A PNG signature and IHDR chunk, named .jpg.
   const png = Buffer.from(
     "89504e470d0a1a0a0000000d4948445200000001000000010806000000",

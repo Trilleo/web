@@ -6,6 +6,6 @@ export const meta: ToolMeta = {
   name: "Color",
   description:
     "Convert colors between HEX, RGB, HSL and OKLCH, check contrast against WCAG, and build a palette of tints and shades.",
-  status: "in-progress",
+  status: "live",
   icon: "color",
 };

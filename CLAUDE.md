@@ -275,7 +275,9 @@
   keep no account data (convert, inspect, qr, color) are prerendered.
 - Cards (components/ToolList.astro, shared with games) show the meta's `icon`, a
   flat pictogram from components/ToolIcon.astro (120×120 grid, ink plus one
-  accent part, even-odd holes; keep them simple and on-grid). A live card is one
+  accent part, even-odd holes; keep them simple and on-grid). Icons rest in ink;
+  hovering or focusing a live card fills the accent part in (a `fill` transition,
+  `.icon-accent`). A live card is one
   link: the title's `<a>` stretches over it (`::after`), so tests click the card
   itself, not text inside it. On desktop the icon has a fixed band, so every
   title starts at the same height.

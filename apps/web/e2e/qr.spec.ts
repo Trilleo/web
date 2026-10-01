@@ -1,9 +1,11 @@
 import { expect, test } from "@playwright/test";
+import { hydrated } from "./support";
 
 test("QR code draws a Wi-Fi code and saves it as SVG and PNG", async ({
   page,
 }) => {
   await page.goto("/tools/qr/");
+  await hydrated(page);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("QR code");
 
   await page.getByText("Wi-Fi", { exact: true }).click();

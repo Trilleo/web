@@ -8,7 +8,7 @@ interface Props {
   class?: string;
 }
 
-/** One flat piece of a pictogram: ink, or the single accent part. */
+/** One flat piece of a pictogram: ink, or the part that turns accent on hover. */
 interface Part {
   d: string;
   accent?: boolean;
@@ -73,11 +73,10 @@ const parts = ICONS[icon];
   {parts.map((part) => (
     <path
       d={part.d}
-      fill={
-        outline ? "none" : part.accent ? "var(--tr-accent)" : "currentColor"
-      }
+      fill={outline ? "none" : "currentColor"}
       stroke={outline ? "currentColor" : "none"}
       vector-effect="non-scaling-stroke"
+      class={part.accent && !outline ? "icon-accent" : undefined}
     />
   ))}
 </svg>

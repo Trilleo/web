@@ -6,6 +6,6 @@ export const meta: ToolMeta = {
   name: "QR code",
   description:
     "Make QR codes for links, text, Wi-Fi, email, phone or SMS, and save them as PNG or SVG.",
-  status: "in-progress",
+  status: "live",
   icon: "qr",
 };

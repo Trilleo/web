@@ -116,6 +116,13 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
   .tool-linked:focus-within {
     background-color: var(--tr-fig);
   }
+  /* The icon rests in ink; on hover or focus its accent part fills in orange. */
+  .tool-icon :global(.icon-accent) {
+    transition: fill var(--tr-dur-base) var(--tr-ease);
+  }
+  .tool-linked:is(:hover, :focus-within) .tool-icon :global(.icon-accent) {
+    fill: var(--tr-accent);
+  }
   .tool-link::after {
     content: "";
     position: absolute;

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { hydrated } from "./support";
 
 const CONVERT = "/tools/convert/";
 
@@ -34,6 +35,7 @@ test("Converter turns a PNG into a JPEG and a WAV into a shorter WAV", async ({
   page,
 }) => {
   await page.goto(CONVERT);
+  await hydrated(page);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Converter");
 
   await page.getByTestId("file-input").setInputFiles([

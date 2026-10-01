@@ -6,6 +6,6 @@ export const meta: ToolMeta = {
   name: "File info",
   description:
     "What a file really is: its type from the bytes, hashes (MD5 to BLAKE3), and technical details. Nothing leaves your browser.",
-  status: "in-progress",
+  status: "live",
   icon: "inspect",
 };

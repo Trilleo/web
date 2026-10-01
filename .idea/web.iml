@@ -7,6 +7,17 @@
       <excludeFolder url="file://$MODULE_DIR$/apps/web/.turbo" />
       <excludeFolder url="file://$MODULE_DIR$/apps/web/test-results" />
       <excludeFolder url="file://$MODULE_DIR$/packages/ui/.turbo" />
+      <excludeFolder url="file://$MODULE_DIR$/apps/color/.turbo" />
+      <excludeFolder url="file://$MODULE_DIR$/apps/convert/.turbo" />
+      <excludeFolder url="file://$MODULE_DIR$/apps/inspect/.turbo" />
+      <excludeFolder url="file://$MODULE_DIR$/apps/notes/.turbo" />
+      <excludeFolder url="file://$MODULE_DIR$/apps/qr/.turbo" />
+      <excludeFolder url="file://$MODULE_DIR$/apps/skygrid/.turbo" />
+      <excludeFolder url="file://$MODULE_DIR$/apps/web/.data" />
+      <excludeFolder url="file://$MODULE_DIR$/apps/web/dist-e2e" />
+      <excludeFolder url="file://$MODULE_DIR$/apps/web/playwright-report" />
+      <excludeFolder url="file://$MODULE_DIR$/packages/db/.turbo" />
+      <excludeFolder url="file://$MODULE_DIR$/packages/tool-kit/.turbo" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

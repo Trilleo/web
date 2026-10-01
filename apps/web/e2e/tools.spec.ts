@@ -57,6 +57,23 @@ test("clicking anywhere on a tool or game card opens it", async ({ page }) => {
   await expect(page).toHaveURL("/games/skygrid/");
 });
 
+test("a card's icon fills in its accent on hover and on focus", async ({
+  page,
+}) => {
+  await page.goto("/tools/");
+  const accent = page.locator("[data-icon=notes] .icon-accent");
+  const orange = "rgb(229, 71, 15)";
+  await expect(accent).not.toHaveCSS("fill", orange);
+
+  await page.getByRole("listitem").filter({ hasText: "Notes" }).hover();
+  await expect(accent).toHaveCSS("fill", orange);
+
+  await page.mouse.move(0, 0);
+  await expect(accent).not.toHaveCSS("fill", orange);
+  await page.getByRole("link", { name: "Notes", exact: true }).focus();
+  await expect(accent).toHaveCSS("fill", orange);
+});
+
 test("signed out, notes stay in this browser", async ({ page }) => {
   await page.goto(NOTES);
   await expect(

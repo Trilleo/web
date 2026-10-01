@@ -39,3 +39,11 @@ export async function adminPage(browser: Browser, baseURL: string | undefined) {
   await expect(page).toHaveURL("/admin");
   return page;
 }
+
+/**
+ * Waits for the page's islands to hydrate: clicks, typing and file uploads before
+ * that are lost when React takes over.
+ */
+export async function hydrated(page: Page) {
+  await expect(page.locator("astro-island[ssr]")).toHaveCount(0);
+}
