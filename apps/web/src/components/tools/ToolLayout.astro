@@ -11,6 +11,7 @@ import {
 } from "../../lib/seo";
 import { transitionName } from "../../lib/site";
 import { toolPath } from "../../lib/tools/registry";
+import Breadcrumb from "../Breadcrumb.astro";
 
 interface Props {
   meta: ToolMeta;
@@ -35,9 +36,10 @@ const image = ogImagePath(`tools/${meta.slug}`, toolCard(meta));
   ]}
 >
   <div class="grid-swiss px-page type-label border-b border-hair py-3 xl:py-4">
-    <span class="col-span-2 md:col-span-4 xl:col-span-2">
-      (02) Tools / {meta.name}
-    </span>
+    <Breadcrumb
+      class="col-span-2 md:col-span-4 xl:col-span-2"
+      items={[{ label: "(02) Tools", href: "/tools/" }, { label: meta.name }]}
+    />
     <a
       href="/tools/"
       class="group col-span-2 inline-flex items-center gap-2 justify-self-end md:col-span-4 xl:col-span-3 xl:col-start-10"

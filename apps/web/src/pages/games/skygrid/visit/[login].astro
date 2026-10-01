@@ -18,6 +18,7 @@ import {
 import { drawWorld } from "@trilleo/game-skygrid/draw";
 import { meta } from "@trilleo/game-skygrid/meta";
 import { ArrowLeftIcon } from "@trilleo/ui";
+import Breadcrumb from "../../../../components/Breadcrumb.astro";
 import IslandPicture from "../../../../components/games/IslandPicture.astro";
 import BaseLayout from "../../../../layouts/BaseLayout.astro";
 import { getDb } from "../../../../lib/db";
@@ -77,9 +78,13 @@ const body = "col-span-4 md:col-span-6 xl:col-span-7";
     class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
   >
     <div class="grid-swiss type-label">
-      <span class="col-span-2 md:col-span-4 xl:col-span-2">
-        (03) Games / {meta.name}
-      </span>
+      <Breadcrumb
+        class="col-span-2 md:col-span-4 xl:col-span-2"
+        items={[
+          { label: "(03) Games", href: "/games/" },
+          { label: meta.name, href: gamePath(meta.slug) },
+        ]}
+      />
       <a
         href={`${gamePath(meta.slug)}leaderboard/`}
         class="group col-span-2 inline-flex items-center gap-2 justify-self-end md:col-span-4 xl:col-span-3 xl:col-start-10"

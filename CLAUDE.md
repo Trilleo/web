@@ -72,6 +72,8 @@
 - Typefaces by role: the grotesk (`font-sans`) for headings, UI and quotes; the
   serif (`font-serif`, Source Serif 4 with optical sizes) for reading text: .prose
   (posts, rendered notes), .comment-body, and `type-dek`; mono for labels and code.
+- Inner pages start with a breadcrumb (components/Breadcrumb.astro, `(02) Tools / Notes`):
+  ancestors are links, the current page is plain text with aria-current.
 - Astro scoped styles don't reach child components: wrap a child in an element
   you own if the parent's CSS must place it.
 

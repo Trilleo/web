@@ -6,6 +6,7 @@
 import { SKILL_NAMES, levelOf, type SkillId } from "@trilleo/game-skygrid/core";
 import { meta } from "@trilleo/game-skygrid/meta";
 import { ArrowLeftIcon } from "@trilleo/ui";
+import Breadcrumb from "../../../components/Breadcrumb.astro";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { getDb } from "../../../lib/db";
 import { gamePath } from "../../../lib/games/registry";
@@ -62,9 +63,13 @@ const isSkill = (value: Board): value is SkillId =>
     class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
   >
     <div class="grid-swiss type-label">
-      <span class="col-span-2 md:col-span-4 xl:col-span-2">
-        (03) Games / {meta.name}
-      </span>
+      <Breadcrumb
+        class="col-span-2 md:col-span-4 xl:col-span-2"
+        items={[
+          { label: "(03) Games", href: "/games/" },
+          { label: meta.name, href: gamePath(meta.slug) },
+        ]}
+      />
       <a
         href={gamePath(meta.slug)}
         class="group col-span-2 inline-flex items-center gap-2 justify-self-end md:col-span-4 xl:col-span-3 xl:col-start-10"

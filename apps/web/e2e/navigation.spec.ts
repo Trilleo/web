@@ -69,3 +69,19 @@ test("unknown pages get the styled 404 with a way home", async ({ page }) => {
   await page.getByRole("link", { name: "Back to home" }).click();
   await expect(page).toHaveURL(/\/$/);
 });
+
+test("breadcrumbs link back up, and mark the current page", async ({
+  page,
+}) => {
+  await page.goto("/tools/qr/");
+  const trail = page.getByRole("navigation", { name: "Breadcrumb" });
+  await expect(trail.locator("[aria-current=page]")).toHaveText("QR code");
+  await trail.getByRole("link", { name: "(02) Tools" }).click();
+  await expect(page).toHaveURL("/tools/");
+
+  await page.goto("/games/skygrid/leaderboard/");
+  await trail.getByRole("link", { name: "Skygrid" }).click();
+  await expect(page).toHaveURL("/games/skygrid/");
+  await trail.getByRole("link", { name: "(03) Games" }).click();
+  await expect(page).toHaveURL("/games/");
+});

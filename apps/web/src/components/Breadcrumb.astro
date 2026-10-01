@@ -1,0 +1,42 @@
+---
+/**
+ * The small "(02) Tools / Notes" trail at the top of inner pages. Items with an
+ * href link back up; one without is the current page. A default slot, if given,
+ * is the last item (GameLayout puts its morphing h1 there).
+ */
+export interface Crumb {
+  label: string;
+  href?: string;
+}
+
+interface Props {
+  items: readonly Crumb[];
+  class?: string;
+}
+
+const { items, class: className } = Astro.props;
+const hasSlot = Astro.slots.has("default");
+---
+
+<nav aria-label="Breadcrumb" class={className}>
+  <ol class="flex flex-wrap items-baseline gap-x-2">
+    {items.map((item, index) => (
+      <li class="flex items-baseline gap-2">
+        {index > 0 && <span aria-hidden="true">/</span>}
+        {item.href ? (
+          <a href={item.href} class="group">
+            <span class="link-wipe">{item.label}</span>
+          </a>
+        ) : (
+          <span aria-current="page">{item.label}</span>
+        )}
+      </li>
+    ))}
+    {hasSlot && (
+      <li class="flex items-baseline gap-2">
+        <span aria-hidden="true">/</span>
+        <slot />
+      </li>
+    )}
+  </ol>
+</nav>

@@ -8,6 +8,7 @@ import type { BlogPost } from "../lib/blog/store";
 import { formatPostDate } from "../lib/listings";
 import { addSidenotes } from "../lib/post-html";
 import { postHref, readingMinutes } from "../lib/posts";
+import Breadcrumb from "./Breadcrumb.astro";
 import TableOfContents from "./TableOfContents.astro";
 import TagLinks from "./TagLinks.astro";
 
@@ -29,9 +30,10 @@ const status = statusLabel ?? (draft ? "Draft" : "Published");
 ---
 
 <div class="grid-swiss px-page type-label border-b border-hair py-3 xl:py-4">
-  <span class="col-span-2 md:col-span-4 xl:col-span-2">
-    (01) Writing / {number}
-  </span>
+  <Breadcrumb
+    class="col-span-2 md:col-span-4 xl:col-span-2"
+    items={[{ label: "(01) Writing", href: "/writing/" }, { label: number }]}
+  />
   <span class="col-span-2 flex justify-end gap-6 md:col-span-4 xl:col-span-3 xl:col-start-10">
     {editHref && (
       <a href={editHref} class="group">
