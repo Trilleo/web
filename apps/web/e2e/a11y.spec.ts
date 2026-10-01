@@ -12,6 +12,10 @@ const PAGES = [
   "/sign-in?error=state",
   "/tools/",
   "/tools/notes/",
+  "/tools/color/",
+  "/tools/convert/",
+  "/tools/inspect/",
+  "/tools/qr/",
   "/games/",
   "/games/skygrid/",
   "/games/skygrid/leaderboard/",
@@ -43,6 +47,9 @@ for (const colorScheme of ["light", "dark"] as const) {
               "wcag22aa",
               "best-practice",
             ])
+            // Samples of colors people pick (the Color tool's contrast preview)
+            // may fail contrast on purpose.
+            .exclude("[data-contrast-sample]")
             .analyze();
 
           expect(

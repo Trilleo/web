@@ -1,0 +1,83 @@
+---
+import type { ToolIcon } from "../lib/listings";
+
+interface Props {
+  icon: ToolIcon;
+  /** Outline instead of fill, e.g. for planned tools. */
+  outline?: boolean;
+  class?: string;
+}
+
+/** One flat piece of a pictogram: ink, or the single accent part. */
+interface Part {
+  d: string;
+  accent?: boolean;
+}
+
+/* Pictograms on a 120×120 grid, built from flat geometric pieces like the rest of
+   the Swiss grid. Holes are even-odd cut-outs, so the card's hover fill shows
+   through them. */
+const ICONS: Readonly<Record<ToolIcon, readonly Part[]>> = {
+  // A lined page with its corner folded over.
+  notes: [
+    {
+      d: "M14 4H80L106 30V116H14Z M30 50V58H90V50Z M30 70V78H90V70Z M30 90V98H70V90Z",
+    },
+    { d: "M80 4V30H106Z", accent: true },
+  ],
+  // Two arrows passing each other: one format out, another in.
+  convert: [
+    { d: "M8 26H78V8L112 36L78 64V46H8Z" },
+    { d: "M112 74H42V56L8 84L42 112V94H112Z", accent: true },
+  ],
+  // A magnifier: an ink ring and handle around an accent lens.
+  inspect: [
+    { d: "M50 6A44 44 0 1 1 49.99 6Z M50 18A32 32 0 1 0 50.01 18Z" },
+    { d: "M50 25A25 25 0 1 1 49.99 25Z", accent: true },
+    { d: "M74 86L86 74L116 104L104 116Z" },
+  ],
+  // Three finder squares on a strict grid, and the accent in the fourth corner,
+  // centered on the same axes as the finders' centers.
+  qr: [
+    { d: "M4 4H50V50H4Z M14 14V40H40V14Z M21 21H33V33H21Z" },
+    { d: "M70 4H116V50H70Z M80 14V40H106V14Z M87 21H99V33H87Z" },
+    { d: "M4 70H50V116H4Z M14 80V106H40V80Z M21 87H33V99H21Z" },
+    { d: "M81 81H105V105H81Z", accent: true },
+  ],
+  // One circle, half ink and half accent: two colors side by side.
+  color: [
+    { d: "M60 6A54 54 0 0 0 60 114Z" },
+    { d: "M60 6A54 54 0 0 1 60 114Z", accent: true },
+  ],
+  // A floating island with one tree.
+  island: [
+    { d: "M6 62H114L60 116Z" },
+    { d: "M57 36H63V62H57Z" },
+    { d: "M60 6A20 20 0 1 1 59.99 6Z", accent: true },
+  ],
+};
+
+const { icon, outline = false, class: className } = Astro.props;
+const parts = ICONS[icon];
+---
+
+<svg
+  viewBox="0 0 120 120"
+  class={className}
+  fill-rule="evenodd"
+  stroke-width="2"
+  aria-hidden="true"
+  focusable="false"
+  data-icon={icon}
+>
+  {parts.map((part) => (
+    <path
+      d={part.d}
+      fill={
+        outline ? "none" : part.accent ? "var(--tr-accent)" : "currentColor"
+      }
+      stroke={outline ? "currentColor" : "none"}
+      vector-effect="non-scaling-stroke"
+    />
+  ))}
+</svg>

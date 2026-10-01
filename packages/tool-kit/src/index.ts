@@ -5,7 +5,7 @@ export {
   signInHref,
 } from "./meta";
 export type { GameMeta } from "./games";
-export type { StoredItem, ToolMeta, ToolShape, ToolStatus } from "./meta";
+export type { StoredItem, ToolIcon, ToolMeta, ToolStatus } from "./meta";
 export {
   ToolStorageError,
   accountStorage,
@@ -16,3 +16,12 @@ export {
 export type { ToolStorage } from "./storage";
 export { useToolItems, useToolStorage } from "./useToolItems";
 export type { SaveState, ToolItems } from "./useToolItems";
+export {
+  SNIFF_BYTES,
+  detectFileType,
+  downloadBlob,
+  formatBytes,
+  looksLikeText,
+  replaceExtension,
+} from "./files";
+export type { FileKind, FileType } from "./files";

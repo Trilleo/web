@@ -19,14 +19,20 @@
   prove it (CI does too); run it after adding server-side dependencies.
 - apps/<tool-name> (@trilleo/tool-<name>): each tool in its own source-only
   package, exporting its details (`./meta`) and a React app that apps/web mounts
-  at /tools/<name>/. First tool: apps/notes.
+  at /tools/<name>/. Tools: apps/notes, apps/convert, apps/inspect (File info),
+  apps/qr, apps/color.
 - apps/<game-name> (@trilleo/game-<name>): each game in its own source-only
   package, like tools (`.` the React app, `./meta` its `GameMeta`), mounted at
   /games/<name>/. First game: apps/skygrid.
 - packages/tool-kit (@trilleo/tool-kit): what tools share: `ToolMeta`, storage
-  (this browser, or the account via the data API), and the `useToolItems` hook.
+  (this browser, or the account via the data API), the `useToolItems` hook, and
+  file helpers (src/files.ts: `detectFileType` from the first bytes,
+  `formatBytes`, `downloadBlob`).
 - packages/ui (@trilleo/ui): shared React components and the Tailwind v4
-  theme (`theme.css`, CSS `@theme` tokens). Source-only, no build step.
+  theme (`theme.css`, CSS `@theme` tokens). Source-only, no build step. Tool
+  building blocks: `ToolSection` (a section with its label in the left column),
+  `FileDrop`, `Choice` (radio row), `Field` (label + hint as description),
+  `CopyButton`, `fieldClasses`.
 - packages/db (@trilleo/db): Drizzle schema, migrations, and client. Source-only.
 - Blog content: Markdown posts in Postgres, written in the admin editor (/admin/posts).
 - Workspace packages use the `@trilleo/*` scope.
@@ -265,7 +271,20 @@
 - Each tool has a page, src/pages/tools/<name>.astro: `ToolLayout` plus the app
   with `client:load` (Astro can only hydrate components it sees imported, so
   there's no shared dynamic route). Pages render on the server, so the app gets
-  the signed-in state and, for signed-in people, their data up front.
+  the signed-in state and, for signed-in people, their data up front. Tools that
+  keep no account data (convert, inspect, qr, color) are prerendered.
+- Cards (components/ToolList.astro, shared with games) show the meta's `icon`, a
+  flat pictogram from components/ToolIcon.astro (120×120 grid, ink plus one
+  accent part, even-odd holes; keep them simple and on-grid). A live card is one
+  link: the title's `<a>` stretches over it (`::after`), so tests click the card
+  itself, not text inside it. On desktop the icon has a fixed band, so every
+  title starts at the same height.
+- File tools work entirely in the browser: nothing is uploaded. Heavy codecs load
+  with `import()` only when a file needs them: Mediabunny (+ its MP3/FLAC encoder
+  add-ons) for audio and media details, @jsquash/avif's single-threaded encoder
+  (the threaded one needs cross-origin isolation), libheif-js for HEIC, gifenc,
+  utif2, hash-wasm, exifr, fflate. AAC and Opus use the browser's own WebCodecs
+  encoders, so formats a browser can't write are shown disabled.
 - Tools work signed out, keeping data in this browser; signed in, it goes to the
   account. Notes offers to move browser data into a newly signed-in account.
 - Account data: the tool_data table (user, tool, key → JSON value) behind
@@ -342,7 +361,8 @@
 - deploy/Caddyfile accepts only Cloudflare's ranges (deploy/cloudflare-ips.txt;
   CI checks it against Cloudflare's live list). It serves files that exist and
   proxies everything else to the app, so new server routes need no Caddy change;
-  /api/health stays internal. CSP is report-only for now.
+  /api/health stays internal. CSP is report-only for now; it allows
+  'wasm-unsafe-eval' and blob: (images, media, workers) for the file tools.
 - Server config (deploy/compose.yaml) ships inside the web image; changing it only
   needs a deploy. deploy/server/* changes (trilleo-deploy, trilleo-backup) need a
   manual reinstall. Server-only secrets live in /srv/trilleo/*.env, never in git
@@ -371,7 +391,9 @@
 Copy apps/notes as the template, then:
 
 1. Package: apps/<name>, named `@trilleo/tool-<name>`, with exports `.` (the React
-   app) and `./meta` (its `ToolMeta`: slug, name, description, status, shape).
+   app) and `./meta` (its `ToolMeta`: slug, name, description, status, icon).
+   A new kind of tool needs a pictogram: add it to `ToolIcon` (tool-kit) and
+   components/ToolIcon.astro.
    Keep meta free of React imports: the server reads it.
 2. Saving data? Use `useToolStorage` + `useToolItems` from @trilleo/tool-kit, and
    give the meta an `isValidValue` (the server's only check on what's saved).
@@ -381,7 +403,8 @@ Copy apps/notes as the template, then:
    package.json in the Dockerfile's build stage, next to the others (otherwise
    the image build can't install it).
 4. Page: apps/web/src/pages/tools/<name>.astro, as notes.astro does
-   (`prerender = false`, no-store, `ToolLayout`, the app with `client:load`).
+   (`prerender = false`, no-store, `ToolLayout`, the app with `client:load`); a
+   tool without account data can stay prerendered (see inspect.astro).
 5. Styles: add `@source "../../../<name>/src";` to apps/web/src/styles/global.css
    so Tailwind sees the tool's classes. Use the design system's classes, and
    animate with Motion + `MOTION` (see Motion above).

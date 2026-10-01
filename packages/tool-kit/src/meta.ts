@@ -1,7 +1,8 @@
 export type ToolStatus = "planned" | "in-progress" | "live";
 
-/** The mark on a tool's card (see apps/web/src/components/ToolShape.astro). */
-export type ToolShape = "circle" | "quarter" | "triangle";
+/** The pictogram on a tool or game card (see apps/web/src/components/ToolIcon.astro). */
+export type ToolIcon =
+  "notes" | "convert" | "inspect" | "qr" | "color" | "island";
 
 /** What the site needs to know about a tool: how to list it, and its data rules. */
 export interface ToolMeta {
@@ -11,7 +12,7 @@ export interface ToolMeta {
   /** One line: what it does and who it's for. */
   description: string;
   status: ToolStatus;
-  shape: ToolShape;
+  icon: ToolIcon;
   /**
    * For tools that save to accounts: whether a value may be saved. The server runs
    * it on every save, so it's the real check (the browser can't be trusted).

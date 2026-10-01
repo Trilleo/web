@@ -22,7 +22,11 @@ WORKDIR /repo
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 # Every workspace package's manifest (a new tool or game package needs a line here too).
 COPY apps/web/package.json apps/web/
+COPY apps/color/package.json apps/color/
+COPY apps/convert/package.json apps/convert/
+COPY apps/inspect/package.json apps/inspect/
 COPY apps/notes/package.json apps/notes/
+COPY apps/qr/package.json apps/qr/
 COPY apps/skygrid/package.json apps/skygrid/
 COPY packages/db/package.json packages/db/
 COPY packages/tool-kit/package.json packages/tool-kit/

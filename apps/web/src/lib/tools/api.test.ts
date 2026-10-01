@@ -17,7 +17,7 @@ const memo: ToolMeta = {
   name: "Memo",
   description: "Test tool.",
   status: "live",
-  shape: "circle",
+  icon: "notes",
   isValidValue: (value) =>
     typeof value === "object" &&
     value !== null &&

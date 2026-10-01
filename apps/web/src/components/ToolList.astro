@@ -6,7 +6,7 @@ import {
   type ToolListing,
 } from "../lib/listings";
 import { transitionName } from "../lib/site";
-import ToolShape from "./ToolShape.astro";
+import ToolIcon from "./ToolIcon.astro";
 
 interface Props {
   tools: readonly ToolListing[];
@@ -26,7 +26,13 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
   {tools.map((tool, index) => {
     const planned = tool.status === "planned";
     return (
-      <li class="tool group border-r border-b border-ink" data-reveal>
+      <li
+        class:list={[
+          "tool group border-r border-b border-ink",
+          { "tool-linked": tool.href },
+        ]}
+        data-reveal
+      >
         <p class="tool-meta type-label">
           <span>
             {code}—{formatListingNumber(index, 2)}
@@ -40,9 +46,9 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
           </span>
         </p>
         {/* Wrapped so this component's scoped styles can place it (they don't reach child components). */}
-        <div class="tool-shape">
-          <ToolShape
-            shape={tool.shape}
+        <div class="tool-icon">
+          <ToolIcon
+            icon={tool.icon}
             outline={planned}
             class="block size-16 md:size-24 xl:size-30"
           />
@@ -55,8 +61,9 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
             style={`view-transition-name: ${transitionName(morph, tool.name)}; view-transition-class: tr-morph`}
           >
             {tool.href ? (
-              <a href={tool.href} class="link-wipe">
-                {tool.name}
+              <a href={tool.href} class="tool-link">
+                {/* The link covers the whole card (::after); the underline sits on the text. */}
+                <span class="link-wipe">{tool.name}</span>
               </a>
             ) : (
               tool.name
@@ -95,38 +102,31 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
   .tool-dot {
     display: none;
   }
-  .tool-shape {
+  .tool-icon {
     grid-area: shape;
   }
 
-  /* Hovering a card wakes its mark: the circle breathes in, the quarter turns a
-     quarter, the triangle flips. */
+  /* A live card is one link: the title's link stretches over the whole card, so
+     a click anywhere opens it, while the heading stays the only link to read. */
   .tool {
+    position: relative;
     transition: background-color var(--tr-dur-base) var(--tr-ease);
   }
-  .tool:hover,
-  .tool:focus-within {
+  .tool-linked:hover,
+  .tool-linked:focus-within {
     background-color: var(--tr-fig);
   }
-  /* Turning marks swing past the square's corners mid-turn. */
-  .tool-shape :global(svg) {
-    overflow: visible;
+  .tool-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
   }
-  .tool-shape :global(svg > *) {
-    transform-box: fill-box;
-    transform-origin: center;
-    transition:
-      scale var(--tr-dur-slow) var(--tr-ease),
-      rotate var(--tr-dur-slow) var(--tr-ease);
+  .tool-link:focus-visible {
+    outline: none;
   }
-  .tool:is(:hover, :focus-within) .tool-shape :global([data-shape="circle"]) {
-    scale: 0.86;
-  }
-  .tool:is(:hover, :focus-within) .tool-shape :global([data-shape="quarter"]) {
-    rotate: 90deg;
-  }
-  .tool:is(:hover, :focus-within) .tool-shape :global([data-shape="triangle"]) {
-    rotate: 180deg;
+  .tool-linked:has(.tool-link:focus-visible) {
+    outline: 2px solid var(--tr-accent);
+    outline-offset: -2px;
   }
   .tool-body {
     grid-area: body;
@@ -179,13 +179,19 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
     .tools {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
+    /* The icon gets a fixed band and the text takes what's left, so every card's
+       title starts at the same height whatever its description's length. Cards
+       in a row share the tallest card's height (grid rows stretch). */
     .tool {
       grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: auto 1fr auto auto;
+      grid-template-rows: auto 13.5rem 1fr auto;
       grid-template-areas: "meta" "shape" "body" "path";
       gap: 0.75rem;
-      height: 26.25rem;
+      min-height: 26.25rem;
       padding: 1.5rem;
+    }
+    .tool-body {
+      align-self: start;
     }
     .tool-meta {
       justify-content: space-between;
@@ -216,7 +222,7 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
         animation: tool-breathe 2.4s var(--tr-ease) infinite alternate;
       }
     }
-    .tool-shape {
+    .tool-icon {
       align-self: center;
     }
     .tool-path {

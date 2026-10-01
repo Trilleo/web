@@ -7,7 +7,7 @@ const planned: ToolMeta = {
   name: "Someday",
   description: "Not built yet.",
   status: "planned",
-  shape: "triangle",
+  icon: "notes",
 };
 
 describe("the registry", () => {
@@ -27,7 +27,9 @@ describe("the registry", () => {
 
 describe("toolListings", () => {
   it("links tools that exist, and not planned ones", () => {
-    const [notes, someday] = toolListings([...TOOLS, planned]);
+    const listings = toolListings([...TOOLS, planned]);
+    const notes = listings[0];
+    const someday = listings.at(-1);
     expect(notes).toMatchObject({
       name: "Notes",
       href: "/tools/notes/",

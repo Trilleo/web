@@ -1,7 +1,7 @@
 /** Shapes of the post and tool lists. */
-import type { ToolShape, ToolStatus } from "@trilleo/tool-kit";
+import type { ToolIcon, ToolStatus } from "@trilleo/tool-kit";
 
-export type { ToolShape, ToolStatus };
+export type { ToolIcon, ToolStatus };
 
 export interface PostListing {
   /** Stable post number, e.g. "002" (see numberPosts). */
@@ -20,7 +20,7 @@ export interface ToolListing {
   /** Where the tool is served, e.g. "/tools/<name>". */
   path: string;
   status: ToolStatus;
-  shape: ToolShape;
+  icon: ToolIcon;
   /** Null until the tool is live. */
   href: string | null;
 }

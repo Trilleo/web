@@ -26,6 +26,6 @@ export const meta: ToolMeta = {
   description:
     "A Markdown scratchpad. Works in your browser; sign in to keep notes in your account.",
   status: "live",
-  shape: "quarter",
+  icon: "notes",
   isValidValue: isNote,
 };

@@ -25,7 +25,7 @@ export function gameListings(
     description: game.description,
     path: `/games/${game.slug}`,
     status: game.status,
-    shape: game.shape,
+    icon: game.icon,
     href: game.status === "planned" ? null : gamePath(game.slug),
   }));
 }

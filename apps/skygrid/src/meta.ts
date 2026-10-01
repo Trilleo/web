@@ -7,5 +7,5 @@ export const meta: GameMeta = {
   description:
     "A sky-island MMO drawn in text: gather, craft, level skills, run minions and trade with other players.",
   status: "in-progress",
-  shape: "triangle",
+  icon: "island",
 };

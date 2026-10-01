@@ -1,4 +1,4 @@
-import type { ToolShape, ToolStatus } from "./meta";
+import type { ToolIcon, ToolStatus } from "./meta";
 
 /** What the site needs to know about a game: how to list it (/games, the home page). */
 export interface GameMeta {
@@ -8,5 +8,5 @@ export interface GameMeta {
   /** One line: what it is and why you'd play it. */
   description: string;
   status: ToolStatus;
-  shape: ToolShape;
+  icon: ToolIcon;
 }

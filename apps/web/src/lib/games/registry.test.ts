@@ -7,7 +7,7 @@ const planned: GameMeta = {
   name: "Someday",
   description: "Not built yet.",
   status: "planned",
-  shape: "circle",
+  icon: "island",
 };
 
 describe("the games registry", () => {

@@ -39,6 +39,24 @@ test("/tools lists Notes, and it's in the sitemap", async ({
   expect(sitemap).toContain("https://www.trilleo.net/tools/notes/</loc>");
 });
 
+test("clicking anywhere on a tool or game card opens it", async ({ page }) => {
+  // The title's link covers the card, so a click near a corner (on the number,
+  // the icon or the description) lands on it.
+  await page.goto("/tools/");
+  const notes = page.getByRole("listitem").filter({ hasText: "Notes" });
+  const box = await notes.boundingBox();
+  if (!box) throw new Error("no Notes card");
+  await notes.click({ position: { x: box.width - 12, y: box.height - 12 } });
+  await expect(page).toHaveURL(NOTES);
+
+  await page.goto("/games/");
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: "Skygrid" })
+    .click({ position: { x: 12, y: 12 } });
+  await expect(page).toHaveURL("/games/skygrid/");
+});
+
 test("signed out, notes stay in this browser", async ({ page }) => {
   await page.goto(NOTES);
   await expect(
