@@ -481,7 +481,8 @@ function TradeForm({
       className="flex flex-col gap-2 border-t border-hair py-3"
       onSubmit={(event) => {
         event.preventDefault();
-        if (valid)
+        // Enter submits too, so the button being disabled isn't enough.
+        if (valid && !busy && !disabled)
           onSubmit(
             p === undefined ? { quantity: q } : { quantity: q, price: p },
           );

@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ISLAND_MAPS, newGame, type GameState } from "../core";
 import { bazaarTrader, type BazaarReader, type OrderView } from "./bazaar";
@@ -93,11 +93,20 @@ describe("bazaarTrader", () => {
   });
 });
 
+/** Answers after a moment, like a real server (and a slow CI machine). */
+function later<T>(value: T): Promise<T> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve(value);
+    }, 30);
+  });
+}
+
 function fakeReader(orders: OrderView[] = []): BazaarReader {
   return {
-    summary: () => Promise.resolve({ wheat: { buy: 3, sell: 5, volume: 40 } }),
+    summary: () => later({ wheat: { buy: 3, sell: 5, volume: 40 } }),
     product: (item) =>
-      Promise.resolve({
+      later({
         item,
         bids: [{ price: 3, quantity: 100, orders: 2 }],
         asks: [{ price: 5, quantity: 20, orders: 1 }],
@@ -106,7 +115,7 @@ function fakeReader(orders: OrderView[] = []): BazaarReader {
           { t: T0 + 3_600_000, price: 5, volume: 3 },
         ],
       }),
-    orders: () => Promise.resolve(orders),
+    orders: () => later(orders),
   };
 }
 
@@ -125,7 +134,10 @@ describe("BazaarPanel", () => {
     const row = (await screen.findByRole("button", { name: "Wheat" })).closest(
       "tr",
     );
-    expect(row?.textContent).toBe("Wheat53");
+    // The list shows at once; prices fill in when they arrive.
+    await waitFor(() => {
+      expect(row?.textContent).toBe("Wheat53");
+    });
     expect(
       screen.getByRole("link", { name: "sign in" }).getAttribute("href"),
     ).toBe("/in");
@@ -173,6 +185,8 @@ describe("BazaarPanel", () => {
       screen.getByRole("button", { name: "Wheat" }).click();
     });
     await screen.findByRole("heading", { name: "Sell now" });
+    // Selling now needs a buyer: wait for the book to arrive.
+    await screen.findByText("×100");
     const sellNow = screen
       .getByRole("heading", { name: "Sell now" })
       .closest("form");
