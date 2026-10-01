@@ -1,5 +1,8 @@
 import {
   COLLECTION_TIERS,
+  currentStreak,
+  dailyReward,
+  describeTask,
   COMBAT_DAMAGE_PER_LEVEL,
   GEAR_SLOTS,
   SET_BONUSES,
@@ -39,6 +42,9 @@ import type { BazaarReader, BazaarTrader } from "./bazaar";
 import { BazaarPanel } from "./BazaarPanel";
 import type { Tab } from "./controller";
 import type { GameSession } from "./session";
+
+/** Where the game's leaderboards are (apps/web). */
+export const LEADERBOARD_PATH = "/games/skygrid/leaderboard/";
 
 export const TABS: readonly { id: Tab; label: string; key: string }[] = [
   { id: "skills", label: "Skills", key: "1" },
@@ -232,37 +238,114 @@ function GearPanel({
   );
 }
 
-function SkillsPanel({ state }: { state: GameState }) {
+function DailyTasks({
+  state,
+  session,
+}: {
+  state: GameState;
+  session: GameSession;
+}) {
+  const { daily } = state;
+  if (daily.tasks.length === 0) return null;
+  const done = daily.tasks.every((task) => task.progress >= task.target);
+  const streak = currentStreak(daily, daily.day);
   return (
-    <ul className="flex flex-col gap-4">
-      {SKILLS.map((skill) => {
-        const xp = state.skills[skill];
-        const level = levelOf(xp);
-        const next = LEVEL_XP[level + 1];
-        return (
-          <li key={skill} className="flex flex-col gap-1.5">
-            <p className="flex items-baseline justify-between gap-2">
-              <span className="font-semibold">{SKILL_NAMES[skill]}</span>
-              <span className="font-mono text-sm">
-                {level >= MAX_LEVEL ? "MAX" : `Lv ${String(level)}`}
+    <section className="mb-6 border-b border-ink pb-5">
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <h3 className="type-label text-muted">Today</h3>
+        <span className="font-mono text-xs text-muted">
+          {streak > 0
+            ? `${String(streak)}-day streak`
+            : "Claim days in a row for a streak"}
+        </span>
+      </div>
+      <ul className="flex flex-col gap-3">
+        {daily.tasks.map((task) => (
+          <li
+            key={`${task.kind}-${task.key}`}
+            className="flex flex-col gap-1.5"
+          >
+            <p className="flex justify-between gap-2 text-sm">
+              <span>{describeTask(task)}</span>
+              <span className="font-mono text-xs text-muted">
+                {task.progress >= task.target
+                  ? "Done"
+                  : `${task.progress.toLocaleString("en")}/${task.target.toLocaleString("en")}`}
               </span>
             </p>
             <Bar
-              value={levelProgress(xp)}
-              label={`${SKILL_NAMES[skill]} progress`}
+              value={task.progress / task.target}
+              label={`${describeTask(task)}: progress`}
             />
-            <p className="flex justify-between font-mono text-xs text-muted">
-              <span>
-                {next === undefined
-                  ? `${xp.toLocaleString("en")} XP`
-                  : `${xp.toLocaleString("en")} / ${next.toLocaleString("en")} XP`}
-              </span>
-              <span>{skillPerks(skill, level)}</span>
-            </p>
           </li>
-        );
-      })}
-    </ul>
+        ))}
+      </ul>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <span className="font-mono text-xs text-muted">
+          {daily.claimed
+            ? "Reward claimed. New tasks tomorrow (UTC)."
+            : `Reward: ${dailyReward(streak + 1).toLocaleString("en")} coins`}
+        </span>
+        {!daily.claimed && (
+          <button
+            type="button"
+            className={smallButton}
+            disabled={!done}
+            onClick={() => session.act({ k: "daily" })}
+          >
+            Claim
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function SkillsPanel({
+  state,
+  session,
+}: {
+  state: GameState;
+  session: GameSession;
+}) {
+  return (
+    <>
+      <DailyTasks state={state} session={session} />
+      <ul className="flex flex-col gap-4">
+        {SKILLS.map((skill) => {
+          const xp = state.skills[skill];
+          const level = levelOf(xp);
+          const next = LEVEL_XP[level + 1];
+          return (
+            <li key={skill} className="flex flex-col gap-1.5">
+              <p className="flex items-baseline justify-between gap-2">
+                <span className="font-semibold">{SKILL_NAMES[skill]}</span>
+                <span className="font-mono text-sm">
+                  {level >= MAX_LEVEL ? "MAX" : `Lv ${String(level)}`}
+                </span>
+              </p>
+              <Bar
+                value={levelProgress(xp)}
+                label={`${SKILL_NAMES[skill]} progress`}
+              />
+              <p className="flex justify-between font-mono text-xs text-muted">
+                <span>
+                  {next === undefined
+                    ? `${xp.toLocaleString("en")} XP`
+                    : `${xp.toLocaleString("en")} / ${next.toLocaleString("en")} XP`}
+                </span>
+                <span>{skillPerks(skill, level)}</span>
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-5 text-sm">
+        <a href={LEADERBOARD_PATH} className="underline">
+          Leaderboards
+        </a>
+      </p>
+    </>
   );
 }
 
@@ -631,7 +714,7 @@ export function PanelBody({
 }) {
   switch (tab) {
     case "skills":
-      return <SkillsPanel state={state} />;
+      return <SkillsPanel state={state} session={session} />;
     case "gear":
       return <GearPanel state={state} session={session} />;
     case "bag":

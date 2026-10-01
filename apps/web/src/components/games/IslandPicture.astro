@@ -1,0 +1,45 @@
+---
+/**
+ * A Skygrid island drawn on the server (no JavaScript): the game's own drawing,
+ * one 1ch cell per character, in the same tones as the game.
+ */
+import type { Drawing, Tone } from "@trilleo/game-skygrid/draw";
+
+interface Props {
+  drawing: Drawing;
+  /** Says what's on it, for screen readers (the characters are hidden). */
+  label: string;
+}
+
+const { drawing, label } = Astro.props;
+
+const TONE_CLASS: Record<Tone, string> = {
+  dim: "text-muted",
+  ink: "text-ink",
+  strong: "font-bold text-ink",
+  mark: "bg-accent font-bold text-on-accent",
+};
+---
+
+<div
+  role="img"
+  aria-label={label}
+  class="overflow-x-auto bg-fig px-4 py-6 font-mono text-[13px] leading-[1.2] md:text-base"
+>
+  <div class="mx-auto w-fit" aria-hidden="true">
+    {drawing.chars.map((row, y) => (
+      <div class="flex">
+        {row.map((char, x) => (
+          <span
+            class:list={[
+              "inline-block w-[1ch] shrink-0 text-center whitespace-pre",
+              TONE_CLASS[drawing.tones[y]?.[x] ?? "ink"],
+            ]}
+          >
+            {char}
+          </span>
+        ))}
+      </div>
+    ))}
+  </div>
+</div>

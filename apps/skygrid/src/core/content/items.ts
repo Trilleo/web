@@ -95,7 +95,7 @@ export const MINION_SPEED = [1, 0.9, 0.8, 0.7, 0.6] as const;
 /** …and a minion holds this many before it stops. */
 export const MINION_STORAGE = [384, 512, 640, 768, 960] as const;
 
-const ROMAN = ["I", "II", "III", "IV", "V"] as const;
+const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"] as const;
 
 export function romanTier(tier: number): string {
   return ROMAN[tier - 1] ?? String(tier);

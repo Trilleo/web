@@ -1,7 +1,10 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import {
   BAZAAR_ITEMS,
   ISLAND_MAPS,
+  dailyReward,
+  dayOf,
   itemName,
   newGame,
 } from "@trilleo/game-skygrid/core";
@@ -258,6 +261,86 @@ test("two players trade on the Bazaar", async ({ page, browser, baseURL }) => {
   await expect(page.getByText(/4 to claim/)).toBeVisible();
   await page.getByRole("button", { name: "Claim all" }).click();
   await expect(log(page)).toContainText("Claimed 1 order (3 coins).");
+});
+
+test("finishing the day's tasks pays a reward", async ({ page }) => {
+  const day = dayOf(Date.now());
+  const save = {
+    ...newGame(1, Date.now() - 60_000),
+    now: Date.now() - 30_000,
+    daily: {
+      day,
+      tasks: [
+        { kind: "gather", key: "wheat", target: 80, progress: 80 },
+        { kind: "xp", key: "any", target: 100, progress: 100 },
+        { kind: "gather", key: "oak_log", target: 30, progress: 30 },
+      ],
+      claimed: false,
+      streak: 2,
+      lastClaimed: day - 1,
+    },
+  };
+  await page.goto("/about/");
+  await page.evaluate(
+    ([key, value]) => {
+      localStorage.setItem(key, value);
+    },
+    ["trilleo:game:skygrid", JSON.stringify(save)] as const,
+  );
+  await page.goto(GAME);
+  await ready(page, /Welcome back/);
+  const panel = page.getByRole("tabpanel");
+  await expect(panel).toContainText("Gather 80 Wheat");
+  await expect(panel).toContainText("2-day streak");
+  await page.getByRole("button", { name: "Claim" }).click();
+  await expect(log(page)).toContainText(
+    `Daily reward: ${String(dailyReward(3))} coins (3-day streak).`,
+  );
+  await expect(panel).toContainText("Reward claimed");
+});
+
+test("the leaderboard lists account islands, and links to them", async ({
+  page,
+}) => {
+  const me = freshLogin("champion");
+  await islander(page, me, {
+    ...newGame(1, Date.now() - 60_000),
+    now: Date.now() - 30_000,
+    skills: { farming: 0, mining: 0, foraging: 0, fishing: 0, combat: 20_000 },
+  });
+
+  await page.goto("/games/skygrid/leaderboard/?board=combat");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Leaderboard",
+  );
+  const mine = page.getByRole("link", { name: me });
+  await expect(mine).toBeVisible();
+  await mine.click();
+  await expect(page).toHaveURL(`/games/skygrid/visit/${me}/`);
+  await expect(
+    page.getByRole("heading", { level: 1, name: `${me}’s island` }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: new RegExp(`^${me}’s island`) }),
+  ).toBeVisible();
+  await expect(page.getByText("Lv 13")).toBeVisible();
+
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze();
+  expect(violations.map((v) => v.id)).toEqual([]);
+
+  // Their profile links to the island too.
+  await page.goto(`/people/${me}/`);
+  await expect(
+    page.getByRole("link", { name: "Skygrid island" }),
+  ).toHaveAttribute("href", `/games/skygrid/visit/${me}/`);
+});
+
+test("islands without a public profile have no page", async ({ request }) => {
+  expect(
+    (await request.get("/games/skygrid/visit/nobody-at-all/")).status(),
+  ).toBe(404);
 });
 
 test("the game's API is only for signed-in players on this site", async ({

@@ -1,4 +1,5 @@
 /** Everything the engine keeps and exchanges. Plain JSON, so saves and syncs are easy. */
+import type { Daily } from "./content/daily";
 
 export type Dir = "U" | "D" | "L" | "R";
 
@@ -91,6 +92,8 @@ export interface GameState {
   equipment: Partial<Record<GearSlot, ItemId>>;
   /** Wounded mobs, per island: "x,y" → how they are. Dead ones are in `depleted`. */
   mobs: Partial<Record<IslandId, Record<string, WoundedMob>>>;
+  /** Today's tasks and the streak (see content/daily.ts). */
+  daily: Daily;
 }
 
 /** One thing the player did. `t` is when it started (ms since the epoch). */
@@ -107,7 +110,9 @@ export type Action =
   | { t: number; k: "buy"; item: ItemId; n: number }
   | { t: number; k: "place"; slot: number; item: ItemId }
   | { t: number; k: "collect"; slot: number }
-  | { t: number; k: "pickup"; slot: number };
+  | { t: number; k: "pickup"; slot: number }
+  /** Claim the reward for finishing today's tasks. */
+  | { t: number; k: "daily" };
 
 /** What happened, for the log and the floating "+3 Wheat". */
 export type GameEvent =

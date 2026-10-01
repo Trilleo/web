@@ -125,9 +125,13 @@ export function GameScreen({ session, saveNote, bazaar }: GameScreenProps) {
         <Log view={view} />
       </div>
       <aside
-        aria-label="Your progress"
+        aria-labelledby="skygrid-progress"
         className="flex min-h-0 flex-col border-t border-ink md:border-t-0 md:border-l"
       >
+        {/* Heads the panels' own headings (h3), wherever the aside lands. */}
+        <h2 id="skygrid-progress" className="sr-only">
+          Your progress
+        </h2>
         <div
           role="tablist"
           aria-label="Panels"

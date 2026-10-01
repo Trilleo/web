@@ -2,6 +2,12 @@
  * Reading saves back: a save may be old, hand-edited or broken. `parseSave` returns
  * a state the engine can trust, or null. The server will use it on imported saves.
  */
+import {
+  NO_DAILY,
+  type Daily,
+  type DailyTask,
+  type TaskKind,
+} from "./content/daily";
 import { playerStats } from "./engine";
 import {
   ITEMS,
@@ -85,6 +91,53 @@ function parseEquipment(value: unknown): GameState["equipment"] | null {
   return equipment;
 }
 
+const TASK_KINDS = new Set(["gather", "kill", "fish", "minion", "xp"]);
+
+function parseDaily(value: unknown): Daily | null {
+  // Saves from before daily tasks get theirs on the next tick.
+  if (value === undefined) return { ...NO_DAILY, tasks: [] };
+  if (!isRecord(value)) return null;
+  const { day, tasks, claimed, streak, lastClaimed } = value;
+  if (
+    !Number.isSafeInteger(day) ||
+    (day as number) < -1 ||
+    !Array.isArray(tasks) ||
+    tasks.length > 10 ||
+    typeof claimed !== "boolean" ||
+    !isCount(streak) ||
+    !Number.isSafeInteger(lastClaimed) ||
+    (lastClaimed as number) < -1
+  ) {
+    return null;
+  }
+  const parsed: DailyTask[] = [];
+  for (const task of tasks) {
+    if (
+      !isRecord(task) ||
+      typeof task.kind !== "string" ||
+      !TASK_KINDS.has(task.kind) ||
+      typeof task.key !== "string" ||
+      !isCount(task.target) ||
+      !isCount(task.progress)
+    ) {
+      return null;
+    }
+    parsed.push({
+      kind: task.kind as TaskKind,
+      key: task.key,
+      target: task.target,
+      progress: Math.min(task.progress, task.target),
+    });
+  }
+  return {
+    day: day as number,
+    tasks: parsed,
+    claimed,
+    streak,
+    lastClaimed: lastClaimed as number,
+  };
+}
+
 function parseMobs(value: unknown): GameState["mobs"] | null {
   if (value === undefined) return {};
   if (!isRecord(value)) return null;
@@ -166,7 +219,8 @@ export function parseSave(value: unknown): GameState | null {
 
   const equipment = parseEquipment(value.equipment);
   const mobs = parseMobs(value.mobs);
-  if (!equipment || !mobs) return null;
+  const daily = parseDaily(value.daily);
+  if (!equipment || !mobs || !daily) return null;
 
   const state: GameState = {
     v: 1,
@@ -192,6 +246,7 @@ export function parseSave(value: unknown): GameState | null {
     health: 0,
     equipment,
     mobs,
+    daily,
   };
   // Saves from before combat have no health: they start at full.
   const max = playerStats(state).health;
@@ -225,6 +280,8 @@ function parseAction(value: unknown): Action | null {
         : null;
     case "reel":
       return { t, k: "reel" };
+    case "daily":
+      return { t, k: "daily" };
     case "equip":
       return typeof value.item === "string"
         ? { t, k: "equip", item: value.item }

@@ -14,6 +14,7 @@ const PAGES = [
   "/tools/notes/",
   "/games/",
   "/games/skygrid/",
+  "/games/skygrid/leaderboard/",
 ];
 const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 900 },

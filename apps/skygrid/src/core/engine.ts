@@ -44,6 +44,18 @@ import {
   type NodeDef,
 } from "./content/nodes";
 import {
+  NO_DAILY,
+  TASKS_PER_DAY,
+  currentStreak,
+  dailyReward,
+  dayOf,
+  describeTask,
+  gatherCandidates,
+  gatherTarget,
+  type DailyTask,
+  type TaskKind,
+} from "./content/daily";
+import {
   FORTUNE_PER_LEVEL,
   SKILL_NAMES,
   collectionReward,
@@ -103,6 +115,7 @@ export function newGame(seed: number, now: number): GameState {
     health: BASE_STATS.health,
     equipment: {},
     mobs: {},
+    daily: { ...NO_DAILY, tasks: [] },
   };
 }
 
@@ -315,6 +328,7 @@ function addXp(
   const before = levelOf(state.skills[skill]);
   state.skills[skill] += n;
   events.push({ type: "xp", skill, n });
+  track(state, events, "xp", skill, n);
   const after = levelOf(state.skills[skill]);
   for (let level = before + 1; level <= after; level++) {
     const coins = levelReward(level);
@@ -343,9 +357,89 @@ function addCollection(
   }
 }
 
+/** Moves today's tasks along; says so when one is done. */
+function track(
+  state: GameState,
+  events: GameEvent[],
+  kind: TaskKind,
+  key: string,
+  n: number,
+): void {
+  for (const task of state.daily.tasks) {
+    if (task.kind !== kind || (task.key !== key && task.key !== "any"))
+      continue;
+    if (task.progress >= task.target) continue;
+    task.progress = Math.min(task.target, task.progress + n);
+    if (task.progress >= task.target) {
+      events.push({ type: "note", text: `Task done: ${describeTask(task)}.` });
+      if (state.daily.tasks.every((t) => t.progress >= t.target)) {
+        events.push({
+          type: "note",
+          text: "All of today's tasks are done: claim your reward (Skills).",
+        });
+      }
+    }
+  }
+}
+
+/** A day's tasks, picked from what this island has unlocked (the same everywhere). */
+export function dailyTasks(state: GameState, day: number): DailyTask[] {
+  const options: DailyTask[] = gatherCandidates(state.collections).map(
+    (node) => ({
+      kind: "gather",
+      key: node.item,
+      target: gatherTarget(node.ms),
+      progress: 0,
+    }),
+  );
+  if ((state.collections.rotten_flesh ?? 0) > 0) {
+    options.push({ kind: "kill", key: "Zombie", target: 15, progress: 0 });
+  }
+  if ((state.collections.string ?? 0) > 0) {
+    options.push({ kind: "kill", key: "Spider", target: 8, progress: 0 });
+  }
+  if (bestTool(state, "rod")) {
+    options.push({ kind: "fish", key: "any", target: 10, progress: 0 });
+  }
+  if (state.minions.some((minion) => minion !== null)) {
+    options.push({ kind: "minion", key: "any", target: 200, progress: 0 });
+  }
+  options.push({ kind: "xp", key: "any", target: 100, progress: 0 });
+  for (const skill of SKILLS) {
+    const level = skillLevel(state, skill);
+    if (level >= 3) {
+      options.push({
+        kind: "xp",
+        key: skill,
+        target: Math.max(50, Math.round((level * level * 10) / 50) * 50),
+        progress: 0,
+      });
+    }
+  }
+  // Seeded by the day and the island, not the game's own generator: picking
+  // tasks mustn't change what drops next.
+  const picker = { seed: (Math.imul(day, 2654435761) ^ state.createdAt) | 0 };
+  const picked: DailyTask[] = [];
+  while (picked.length < TASKS_PER_DAY && options.length > 0) {
+    const index = Math.floor(random(picker) * options.length);
+    const [task] = options.splice(index, 1);
+    if (task) picked.push(task);
+  }
+  return picked;
+}
+
 /** Brings the world up to `now`: minions work, nodes grow back. */
 function advanceInPlace(state: GameState, now: number): void {
   if (now <= state.now) return;
+  const day = dayOf(now);
+  if (state.daily.day !== day) {
+    state.daily = {
+      ...state.daily,
+      day,
+      tasks: dailyTasks(state, day),
+      claimed: false,
+    };
+  }
   for (const minion of state.minions) {
     if (!minion) continue;
     const interval = minionInterval(minion);
@@ -448,6 +542,7 @@ function gather(
   const n = roll(state, 1 + fortune / 100);
   give(state, events, node.item, n);
   addCollection(state, events, node.item, n);
+  track(state, events, "gather", node.item, n);
   addXp(state, events, node.skill, node.xp);
 }
 
@@ -492,6 +587,7 @@ function reel(state: GameState, events: GameEvent[], t: number): void {
   const n = roll(state, 1 + (rod?.fortune ?? 0) / 100);
   give(state, events, caught.item, n);
   addCollection(state, events, caught.item, n);
+  track(state, events, "fish", "any", 1);
   addXp(state, events, "fishing", caught.xp);
 }
 
@@ -581,6 +677,7 @@ function collect(state: GameState, events: GameEvent[], slot: number): void {
   if (wasFull) minion.lastAt = state.now;
   give(state, events, minion.kind, n);
   addCollection(state, events, minion.kind, n);
+  track(state, events, "minion", "any", n);
 }
 
 function pickup(state: GameState, events: GameEvent[], slot: number): void {
@@ -666,6 +763,7 @@ function attack(
     );
     (state.depleted[island] ??= {})[key] = t + mob.respawn;
     events.push({ type: "kill", mob: mob.name, x, y });
+    track(state, events, "kill", mob.name, 1);
     addCoins(state, events, randomInt(state, mob.coins[0], mob.coins[1]));
     for (const drop of mob.drops) {
       if (random(state) >= drop.chance) continue;
@@ -685,6 +783,25 @@ function attack(
   state.health -= taken;
   events.push({ type: "hurt", mob: mob.name, damage: taken });
   if (state.health <= 0) die(state, events);
+}
+
+function claimDaily(state: GameState, events: GameEvent[]): void {
+  const { daily } = state;
+  if (
+    daily.tasks.length === 0 ||
+    daily.tasks.some((t) => t.progress < t.target)
+  ) {
+    throw new GameRuleError("Finish today's tasks first.");
+  }
+  if (daily.claimed) throw new GameRuleError("You've had today's reward.");
+  const streak = currentStreak(daily, daily.day) + 1;
+  state.daily = { ...daily, claimed: true, streak, lastClaimed: daily.day };
+  const coins = dailyReward(streak);
+  events.push({
+    type: "note",
+    text: `Daily reward: ${String(coins)} coins (${String(streak)}-day streak).`,
+  });
+  addCoins(state, events, coins);
 }
 
 function equip(state: GameState, events: GameEvent[], item: ItemId): void {
@@ -737,6 +854,9 @@ export function applyAction(state: GameState, action: Action): Step {
       break;
     case "unequip":
       unequip(next, events, action.slot);
+      break;
+    case "daily":
+      claimDaily(next, events);
       break;
     case "cast":
       cast(next, t, action.x, action.y);

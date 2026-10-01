@@ -1,0 +1,148 @@
+---
+/**
+ * Skygrid's leaderboards: total skill XP, each skill, and coins (top 50). Names
+ * follow the profile rules (lib/games/skygrid/leaderboard.ts).
+ */
+import { SKILL_NAMES, levelOf, type SkillId } from "@trilleo/game-skygrid/core";
+import { meta } from "@trilleo/game-skygrid/meta";
+import { ArrowLeftIcon } from "@trilleo/ui";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { getDb } from "../../../lib/db";
+import { gamePath } from "../../../lib/games/registry";
+import {
+  BOARDS,
+  LEADERBOARD_SIZE,
+  isBoard,
+  islandHref,
+  leaderboard,
+  type Board,
+} from "../../../lib/games/skygrid/leaderboard";
+import { breadcrumbJsonLd } from "../../../lib/seo";
+
+export const prerender = false;
+
+const requested = Astro.url.searchParams.get("board");
+const board: Board = isBoard(requested) ? requested : "total";
+const rows = await leaderboard(await getDb(), board);
+
+// The same for everyone, and fine a minute old.
+Astro.response.headers.set("Cache-Control", "public, max-age=60");
+
+const path = `${gamePath(meta.slug)}leaderboard/`;
+const BOARD_NAMES: Record<Board, string> = {
+  total: "All skills",
+  ...SKILL_NAMES,
+  coins: "Coins",
+};
+const valueOf = (value: number) =>
+  board === "coins"
+    ? `${value.toLocaleString("en")} coins`
+    : board === "total"
+      ? `${value.toLocaleString("en")} XP`
+      : `Lv ${String(levelOf(value))} · ${value.toLocaleString("en")} XP`;
+const isSkill = (value: Board): value is SkillId =>
+  value !== "total" && value !== "coins";
+---
+
+<BaseLayout
+  title={`${BOARD_NAMES[board]} leaderboard · ${meta.name}`}
+  description={`The top ${String(LEADERBOARD_SIZE)} ${meta.name} players by ${BOARD_NAMES[board].toLowerCase()}.`}
+  noindex={board !== "total"}
+  jsonLd={[
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Games", path: "/games/" },
+      { name: meta.name, path: gamePath(meta.slug) },
+      { name: "Leaderboard", path },
+    ]),
+  ]}
+>
+  <section
+    aria-labelledby="leaderboard-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <div class="grid-swiss type-label">
+      <span class="col-span-2 md:col-span-4 xl:col-span-2">
+        (03) Games / {meta.name}
+      </span>
+      <a
+        href={gamePath(meta.slug)}
+        class="group col-span-2 inline-flex items-center gap-2 justify-self-end md:col-span-4 xl:col-span-3 xl:col-start-10"
+      >
+        <ArrowLeftIcon
+          size={16}
+          className="transition-transform duration-(--tr-dur-base) ease-swiss group-hover:-translate-x-1"
+        />
+        <span class="link-wipe">Back to the game</span>
+      </a>
+    </div>
+
+    <h1
+      id="leaderboard-title"
+      class="type-headline mt-6 break-words md:mt-8 xl:mt-10"
+    >
+      Leaderboard
+    </h1>
+
+    <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <nav
+        aria-label="Leaderboards"
+        class="col-span-4 md:col-span-2 xl:col-span-2"
+      >
+        <ul class="flex flex-wrap gap-x-4 gap-y-1 md:flex-col">
+          {BOARDS.map((option) => (
+            <li>
+              <a
+                href={option === "total" ? path : `${path}?board=${option}`}
+                aria-current={option === board ? "page" : undefined}
+                class="group type-label inline-flex min-h-8 items-center text-muted aria-[current=page]:text-ink"
+              >
+                <span class="link-wipe">{BOARD_NAMES[option]}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      <div class="col-span-4 md:col-span-6 xl:col-span-7">
+        <h2 class="type-card mb-4">{BOARD_NAMES[board]}</h2>
+        {rows.length === 0 ? (
+          <p class="text-muted">
+            Nobody yet.{" "}
+            <a href={gamePath(meta.slug)} class="text-ink underline">
+              Play
+            </a>{" "}
+            and sign in to be first.
+          </p>
+        ) : (
+          <ol class="border-t border-ink">
+            {rows.map((row) => (
+              <li class="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-baseline gap-3 border-b border-hair py-2.5">
+                <span class="font-mono text-sm text-muted">
+                  {String(row.rank).padStart(2, "0")}
+                </span>
+                <span class="min-w-0 truncate">
+                  {row.login ? (
+                    <a
+                      href={islandHref(row.login)}
+                      class="underline decoration-hair underline-offset-2 hover:decoration-ink"
+                    >
+                      {row.name}
+                    </a>
+                  ) : (
+                    <span class="text-muted">A private islander</span>
+                  )}
+                </span>
+                <span class="font-mono text-sm">{valueOf(row.value)}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+        <p class="mt-4 text-sm text-muted">
+          Only islands kept in an account count: sign in while you play.
+          {isSkill(board) ? " Levels go up to 25." : ""}
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

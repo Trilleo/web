@@ -307,6 +307,15 @@
   what they cost (coins or items) out of the save; makers collect fills later
   (claim), so no request writes another player's save. The client pauses input and
   flushes its sync first (`Syncer.exclusive`), then adopts the returned island.
+- Skygrid's daily tasks (src/core/content/daily.ts) are part of the engine: three
+  per UTC day, picked when `advance` crosses into a new day from what the island
+  has unlocked, with their own generator (seeded by day and island) so drops stay
+  the same; finishing all three and claiming builds a streak. Leaderboards
+  (/games/skygrid/leaderboard/, `?board=`) and island pages
+  (/games/skygrid/visit/<login>/, noindex) follow the profile rules: private
+  profiles show no name and have no island page, blocked accounts don't appear
+  (src/lib/games/skygrid/leaderboard.ts). Islands are drawn on the server with the
+  game's own `drawWorld` (`@trilleo/game-skygrid/draw`) in IslandPicture.astro.
 - The grid is set in Geist Mono, which (self-hosted) has ASCII and almost no
   symbols: maps and overlays use only `MONO_GLYPHS` (tested), since fallback
   glyphs are wider and not code-like. Signs are `[TEXT]`: the rules see them as

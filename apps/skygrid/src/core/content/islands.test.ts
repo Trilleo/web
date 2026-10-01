@@ -56,6 +56,7 @@ describe.each(ISLANDS)("the %s island", (id) => {
             "mob",
             "slot",
             "merchant",
+            "bazaar",
             "guide",
             "portal",
             "water",
