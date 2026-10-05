@@ -21,7 +21,7 @@
   "dependencies": {
     "@trilleo/tool-kit": "workspace:*",
     "@trilleo/ui": "workspace:*",
-    "motion": "^13.4.4"
+    "motion": "^13.5.0"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.2",
@@ -32,6 +32,6 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "typescript": "~6.0.3",
-    "vitest": "^5.0.2"
+    "vitest": "^5.0.3"
   }
 }
