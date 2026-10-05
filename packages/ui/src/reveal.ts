@@ -9,6 +9,7 @@
  */
 
 import { MOTION, REDUCED_MOTION_QUERY } from "./motion";
+import { scriptLiteral } from "./script";
 
 export const MOTION_ATTR = "data-motion";
 
@@ -23,9 +24,9 @@ function noop(): void {
  * Inline `<head>` script: opts the page into reveals. Dependency-free, like
  * themeInitScript; reveal.test.ts runs it.
  */
-export const motionInitScript = `(function(){try{if("IntersectionObserver"in window&&!matchMedia(${JSON.stringify(
+export const motionInitScript = `(function(){try{if("IntersectionObserver"in window&&!matchMedia(${scriptLiteral(
   REDUCED_MOTION_QUERY,
-)}).matches)document.documentElement.setAttribute(${JSON.stringify(
+)}).matches)document.documentElement.setAttribute(${scriptLiteral(
   MOTION_ATTR,
 )},"")}catch(e){}})();`;
 

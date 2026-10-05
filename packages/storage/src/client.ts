@@ -12,6 +12,7 @@ import {
   type UploadRequest,
   type UploadStarted,
 } from "./api-types";
+import { trimTrailingSlashes } from "./files";
 import { partRange } from "./limits";
 import { makeThumbnail } from "./thumbnail";
 import type { FileVisibility } from "./moderation";
@@ -113,7 +114,7 @@ export async function uploadFile(
   file: File,
   options: UploadOptions,
 ): Promise<StoredFileSummary> {
-  const endpoint = (options.endpoint ?? "/api/storage").replace(/\/+$/, "");
+  const endpoint = trimTrailingSlashes(options.endpoint ?? "/api/storage");
   const send = options.fetch ?? fetch;
   const put = options.putPart ?? xhrPut;
   const sleep =
@@ -293,7 +294,7 @@ export async function fetchFile(
     signal?: AbortSignal;
   } = {},
 ): Promise<StoredFileSummary> {
-  const endpoint = (options.endpoint ?? "/api/storage").replace(/\/+$/, "");
+  const endpoint = trimTrailingSlashes(options.endpoint ?? "/api/storage");
   const response = await (options.fetch ?? fetch)(`${endpoint}/files/${id}`, {
     signal: options.signal,
   });

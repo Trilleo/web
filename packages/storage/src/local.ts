@@ -13,7 +13,11 @@ import {
 } from "node:crypto";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
-import { contentDisposition, type ServeHeaders } from "./files";
+import {
+  contentDisposition,
+  trimTrailingSlashes,
+  type ServeHeaders,
+} from "./files";
 import {
   StorageError,
   type ObjectInfo,
@@ -126,7 +130,7 @@ export class LocalDriver implements StorageDriver {
   constructor(options: LocalDriverOptions) {
     this.blobs =
       options.root === null ? memoryBlobs() : folderBlobs(options.root);
-    this.baseUrl = options.baseUrl.replace(/\/+$/, "");
+    this.baseUrl = trimTrailingSlashes(options.baseUrl);
     this.secret = options.secret ?? randomBytes(32);
     this.now = options.now ?? Date.now;
   }

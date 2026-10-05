@@ -7,6 +7,7 @@
  */
 
 import { prefersReducedMotion } from "./motion";
+import { scriptLiteral } from "./script";
 
 export type Theme = "light" | "dark";
 
@@ -78,13 +79,13 @@ export function applyTheme(doc: Document, theme: Theme): void {
  * never see a light flash. Mirrors resolveTheme() + applyTheme(); theme.test.ts keeps
  * them in step. It must stay dependency-free: it runs before any bundle loads.
  */
-export const themeInitScript = `(function(){var s=null;try{s=localStorage.getItem(${JSON.stringify(
+export const themeInitScript = `(function(){var s=null;try{s=localStorage.getItem(${scriptLiteral(
   THEME_STORAGE_KEY,
-)})}catch(e){}var t=s==="light"||s==="dark"?s:matchMedia(${JSON.stringify(
+)})}catch(e){}var t=s==="light"||s==="dark"?s:matchMedia(${scriptLiteral(
   DARK_QUERY,
-)}).matches?"dark":"light";var d=document;d.documentElement.dataset.theme=t;var c=t==="dark"?${JSON.stringify(
+)}).matches?"dark":"light";var d=document;d.documentElement.dataset.theme=t;var c=t==="dark"?${scriptLiteral(
   THEME_COLORS.dark,
-)}:${JSON.stringify(THEME_COLORS.light)};d.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.content=c})})();`;
+)}:${scriptLiteral(THEME_COLORS.light)};d.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.content=c})})();`;
 
 /**
  * Runs `update` (which applies a theme) so the new theme sweeps across the page behind

@@ -191,7 +191,8 @@ status="$(site --output /dev/null --write-out '%{http_code}' "https://www.trille
 status="$(site --output /dev/null --write-out '%{http_code}' "https://www.trilleo.net/does-not-exist")"
 [[ "$status" == "502" ]] || fail "non-file request was $status while the app was down (expected 502 from the proxy)"
 docker compose start app >/dev/null
-docker compose up --detach --wait --wait-timeout 60 || fail "the app didn't recover"
+# Named services, as at the start: a bare `up` would also start (and pull) clamav.
+docker compose up --detach --wait --wait-timeout 60 web app db || fail "the app didn't recover"
 
 # "Strict": the real Cloudflare list, so a local connection must be dropped.
 echo "==> non-Cloudflare connections are refused"

@@ -395,3 +395,10 @@ export function verifyContent(
       : { ...byName, kind: detected.kind, label: detected.label };
   return { ok: true, description, detected };
 }
+
+/** `url` without trailing slashes. A loop, not /\/+$/, which is quadratic on long runs of "/". */
+export function trimTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === "/") end--;
+  return url.slice(0, end);
+}

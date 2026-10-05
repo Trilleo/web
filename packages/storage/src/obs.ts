@@ -9,7 +9,11 @@
  * reads (hashing, checks) cost no traffic.
  */
 import { AwsClient } from "aws4fetch";
-import { contentDisposition, type ServeHeaders } from "./files";
+import {
+  contentDisposition,
+  trimTrailingSlashes,
+  type ServeHeaders,
+} from "./files";
 import {
   StorageError,
   type ObjectInfo,
@@ -92,10 +96,10 @@ export class ObsDriver implements StorageDriver {
       service: "s3",
       region: config.region,
     });
-    this.base = (
-      config.endpoint ?? obsEndpoint(config.bucket, config.region)
-    ).replace(/\/+$/, "");
-    this.filesUrl = config.publicUrl.replace(/\/+$/, "");
+    this.base = trimTrailingSlashes(
+      config.endpoint ?? obsEndpoint(config.bucket, config.region),
+    );
+    this.filesUrl = trimTrailingSlashes(config.publicUrl);
   }
 
   private url(key: string, query = ""): string {

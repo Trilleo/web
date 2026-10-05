@@ -60,8 +60,9 @@ export function drawWorld(
     const row = chars[y];
     const toneRow = tones[y];
     if (!row || !toneRow || x < 0 || x >= row.length) return;
-    row[x] = char;
-    toneRow[x] = tone;
+    // splice, not row[x] = …: CodeQL can't tell x is a number (prototype pollution).
+    row.splice(x, 1, char);
+    toneRow.splice(x, 1, tone);
   };
 
   island.tiles.forEach((row, y) => {

@@ -8,6 +8,7 @@ import {
   newFileId,
   objectKey,
   serveHeaders,
+  trimTrailingSlashes,
   urlName,
   verifyContent,
 } from "./files";
@@ -163,5 +164,23 @@ describe("verifyContent", () => {
       ...bytes("META-INF/"),
     ]);
     expect(verifyContent("mod.jar", jar, user)).toMatchObject({ ok: true });
+  });
+});
+
+describe("trimTrailingSlashes", () => {
+  it("drops every trailing slash and nothing else", () => {
+    expect(trimTrailingSlashes("https://files.trilleo.net///")).toBe(
+      "https://files.trilleo.net",
+    );
+    expect(trimTrailingSlashes("/api/storage")).toBe("/api/storage");
+    expect(trimTrailingSlashes("///")).toBe("");
+    expect(trimTrailingSlashes("")).toBe("");
+  });
+
+  it("stays fast on long runs of slashes", () => {
+    const input = "a" + "/".repeat(100_000) + "b";
+    const started = performance.now();
+    expect(trimTrailingSlashes(input)).toBe(input);
+    expect(performance.now() - started).toBeLessThan(100);
   });
 });
