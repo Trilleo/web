@@ -13,6 +13,7 @@ import {
   type UploadStarted,
 } from "./api-types";
 import { partRange } from "./limits";
+import { makeThumbnail } from "./thumbnail";
 import type { FileVisibility } from "./moderation";
 
 /** Sends one part's bytes to a signed URL, reporting bytes sent so far. */
@@ -40,6 +41,11 @@ export interface UploadOptions {
   fetch?: typeof fetch;
   putPart?: PartTransport;
   sleep?: (ms: number) => Promise<void>;
+  /**
+   * Makes the file's thumbnail (images and videos), sent once the upload is done.
+   * False: none. Failing to make or send one never fails the upload.
+   */
+  thumbnail?: false | ((file: File) => Promise<Blob | null>);
 }
 
 /** The upload failed; `message` is meant for people. */
@@ -148,6 +154,11 @@ export async function uploadFile(
     await call("/uploads", { method: "POST", body: JSON.stringify(request) })
   ).json()) as UploadStarted;
   const id = started.file.id;
+  // Made while the parts go up; it's small and only needed at the end.
+  const thumbnail =
+    options.thumbnail === false
+      ? Promise.resolve(null)
+      : (options.thumbnail ?? makeThumbnail)(file).catch(() => null);
   const plan = { partSize: started.partSize, partCount: started.partCount };
 
   try {
@@ -247,7 +258,20 @@ export async function uploadFile(
     const done = (await (
       await call(`/uploads/${id}/complete`, { method: "POST" })
     ).json()) as { file: StoredFileSummary };
-    return done.file;
+    const image = await thumbnail;
+    if (!image) return done.file;
+    try {
+      const response = await send(`${endpoint}/uploads/${id}/thumbnail`, {
+        method: "POST",
+        headers: { "Content-Type": "image/webp" },
+        body: image,
+        signal,
+      });
+      if (!response.ok) return done.file;
+      return ((await response.json()) as { file: StoredFileSummary }).file;
+    } catch {
+      return done.file;
+    }
   } catch (error) {
     // Stop the other parts, and let the site throw away what arrived.
     controller.abort();

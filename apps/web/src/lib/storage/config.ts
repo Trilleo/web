@@ -7,8 +7,11 @@
  *   neither, otherwise  → no storage: uploads say it isn't set up (the site still runs)
  */
 import {
+  ClamdScanner,
   LocalDriver,
   ObsDriver,
+  parseClamdAddress,
+  type Scanner,
   type StorageDriver,
 } from "@trilleo/storage/server";
 
@@ -105,4 +108,34 @@ export function getStorage(): StorageDriver | null {
 /** For tests: use this driver (or go back to the environment's with undefined). */
 export function setStorageForTests(next: StorageDriver | null | undefined) {
   driver = next;
+}
+
+/**
+ * Malware scanning: `scanner` is clamd when CLAMAV_ADDRESS is set. `required`: a
+ * file that couldn't be scanned waits for review. Production (OBS) requires scanning
+ * even while ClamAV isn't set up or is down; local storage (dev, e2e) only scans when
+ * a scanner is configured.
+ */
+export interface Scanning {
+  scanner: Scanner | null;
+  required: boolean;
+}
+
+export function resolveScanning(
+  env: Record<string, string | undefined>,
+  storage: StorageConfig,
+): Scanning {
+  const address = parseClamdAddress(env.CLAMAV_ADDRESS ?? "");
+  if (address) return { scanner: new ClamdScanner(address), required: true };
+  return { scanner: null, required: storage.kind === "obs" };
+}
+
+let scanning: Scanning | undefined;
+
+export function getScanning(): Scanning {
+  scanning ??= resolveScanning(
+    process.env,
+    resolveStorageConfig(process.env, import.meta.env.DEV),
+  );
+  return scanning;
 }

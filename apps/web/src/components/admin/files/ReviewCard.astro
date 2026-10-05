@@ -9,6 +9,7 @@ import { formatPostDate } from "../../../lib/listings";
 import { STATUS_LABELS } from "../../../lib/storage/labels";
 import type { ReviewItem, ReviewTab } from "../../../lib/storage/review";
 import { filePagePath } from "../../../lib/storage/service";
+import ScanBadge from "../../files/ScanBadge.astro";
 import ReasonForm from "./ReasonForm.astro";
 import UploaderPanel from "./UploaderPanel.astro";
 import { primaryButton, secondaryButton } from "./styles";
@@ -20,7 +21,15 @@ interface Props {
 }
 
 const { item, tab, back } = Astro.props;
-const { file, reports, appeal, uploader, previewUrl, textPreview } = item;
+const {
+  file,
+  reports,
+  appeal,
+  uploader,
+  previewUrl,
+  textPreview,
+  thumbnailUrl,
+} = item;
 const archive = file.details?.archive;
 const SHOWN_ENTRIES = 60;
 const name = file.name;
@@ -51,10 +60,27 @@ const hidden = (fields: Record<string, string>) => Object.entries(fields);
         {file.sha256 && (
           <span title={file.sha256}>sha256 {file.sha256.slice(0, 12)}…</span>
         )}
+        <ScanBadge status={file.scanStatus} detail={file.scanDetail} />
       </p>
+      {file.scanStatus === "unscanned" && file.scanDetail && (
+        <p class="text-muted">Not scanned for malware: {file.scanDetail}</p>
+      )}
       {file.statusReason && <p class="text-muted">{file.statusReason}</p>}
     </header>
 
+    {thumbnailUrl && (
+      <figure class="flex items-center gap-3">
+        <img
+          src={thumbnailUrl}
+          alt={`Thumbnail of ${name}`}
+          loading="lazy"
+          class="size-20 border border-hair bg-chip object-cover"
+        />
+        <figcaption class="type-label text-muted">
+          Thumbnail (made by the uploader’s browser: check it matches)
+        </figcaption>
+      </figure>
+    )}
     {previewUrl && file.kind === "image" && (
       <img
         src={previewUrl}

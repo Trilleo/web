@@ -29,8 +29,16 @@ import { formatPostDate } from "../../../lib/listings";
 import { getStorage } from "../../../lib/storage/config";
 import { storageDeps } from "../../../lib/storage/deps";
 import { STATUS_LABELS } from "../../../lib/storage/labels";
-import { filePagePath } from "../../../lib/storage/service";
+import { filePagePath, thumbnailUrlFor } from "../../../lib/storage/service";
 import { reviewCounts, uploaderSummaries } from "../../../lib/storage/review";
+import {
+  dailyDownloads,
+  recentDownloads,
+  topDownloads,
+} from "../../../lib/storage/downloads-stats";
+import DownloadChart from "../../../components/files/DownloadChart.astro";
+import ScanBadge from "../../../components/files/ScanBadge.astro";
+import Thumb from "../../../components/files/Thumb.astro";
 import { listFiles, statusTotals } from "../../../lib/storage/store";
 import { users } from "@trilleo/db";
 import { eq } from "drizzle-orm";
@@ -89,6 +97,24 @@ const { items, total } = deps
     )
   : { items: [], total: 0 };
 const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+const thumbs = new Map(
+  deps
+    ? await Promise.all(
+        items.map(
+          async (file) =>
+            [file.id, await thumbnailUrlFor(deps.storage, file)] as const,
+        ),
+      )
+    : [],
+);
+const recent = deps
+  ? await recentDownloads(
+      deps.db,
+      items.map((file) => file.id),
+    )
+  : new Map<string, number>();
+const siteDays = deps ? await dailyDownloads(deps.db, null, 30) : [];
+const top = deps ? await topDownloads(deps.db, 30, 5) : [];
 const here = Astro.url.pathname + Astro.url.search;
 
 const stored = Object.values(totals).reduce(
@@ -108,6 +134,7 @@ const ACTION_LABELS: Record<FileAction, string> = {
   processed: "Processed",
   fail: "Fail",
   abandon: "Abandon",
+  clear: "Clear",
   flag: "Hide",
   approve: "Approve",
   reject: "Reject",
@@ -205,6 +232,35 @@ const dot = (s: FileStatus) =>
       </div>
     </div>
 
+    {top.length > 0 && (
+      <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+        <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
+          Downloads
+        </h2>
+        <div class="col-span-4 flex flex-col gap-6 md:col-span-6 xl:col-span-7">
+          <DownloadChart days={siteDays} label="Downloads of every file" />
+          <ol
+            class="flex flex-col"
+            aria-label="Most downloaded in the last 30 days"
+          >
+            {top.map((entry) => (
+              <li class="flex justify-between gap-4 border-t border-hair py-2 first:border-t-0">
+                <a
+                  href={filePagePath(entry.id)}
+                  class="group min-w-0 break-all"
+                >
+                  <span class="link-wipe">{entry.name}</span>
+                </a>
+                <span class="type-label shrink-0 text-muted">
+                  {entry.count} {entry.count === 1 ? "download" : "downloads"}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+    )}
+
     {ownerLogin && (
       <div class="grid-swiss mt-12 gap-y-4 border-t border-ink pt-4 md:pt-5 xl:pt-6">
         <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
@@ -294,34 +350,43 @@ const dot = (s: FileStatus) =>
                 ></span>
                 {STATUS_LABELS[fileStatus]}
               </p>
-              <div class="col-span-4 flex min-w-0 flex-col gap-1.5 md:col-span-6 xl:col-span-10">
-                <a
-                  href={filePagePath(file.id)}
-                  class="group type-row break-all"
-                >
-                  <span class="link-wipe">{file.name}</span>
-                </a>
-                <p class="type-label flex flex-wrap gap-x-4 gap-y-1 text-muted">
-                  <span>{file.label}</span>
-                  <span>{formatBytes(file.size)}</span>
-                  <span>{formatPostDate(file.createdAt)}</span>
-                  {file.ownerLogin && (
-                    <a
-                      href={`?owner=${encodeURIComponent(file.ownerLogin)}`}
-                      class="hover:text-ink"
-                    >
-                      @{file.ownerLogin}
-                    </a>
+              <div class="col-span-4 flex min-w-0 gap-4 md:col-span-6 xl:col-span-10">
+                <Thumb url={thumbs.get(file.id) ?? null} kind={file.kind} />
+                <div class="flex min-w-0 flex-col gap-1.5">
+                  <a
+                    href={filePagePath(file.id)}
+                    class="group type-row break-all"
+                  >
+                    <span class="link-wipe">{file.name}</span>
+                  </a>
+                  <p class="type-label flex flex-wrap gap-x-4 gap-y-1 text-muted">
+                    <span>{file.label}</span>
+                    <span>{formatBytes(file.size)}</span>
+                    <span>{formatPostDate(file.createdAt)}</span>
+                    {file.ownerLogin && (
+                      <a
+                        href={`?owner=${encodeURIComponent(file.ownerLogin)}`}
+                        class="hover:text-ink"
+                      >
+                        @{file.ownerLogin}
+                      </a>
+                    )}
+                    <span>
+                      {file.downloads}{" "}
+                      {file.downloads === 1 ? "download" : "downloads"}
+                      {(recent.get(file.id) ?? 0) > 0 &&
+                        ` (${String(recent.get(file.id))} in 30 days)`}
+                    </span>
+                    <span>{file.id}</span>
+                    <ScanBadge
+                      status={file.scanStatus}
+                      detail={file.scanDetail}
+                    />
+                  </p>
+                  {file.statusReason && (
+                    <p class="text-muted">{file.statusReason}</p>
                   )}
-                  <span>
-                    {file.downloads}{" "}
-                    {file.downloads === 1 ? "download" : "downloads"}
-                  </span>
-                  <span>{file.id}</span>
-                </p>
-                {file.statusReason && (
-                  <p class="text-muted">{file.statusReason}</p>
-                )}
+                </div>
               </div>
               {(visibilityEditable || actions.length > 0) && (
                 <div class="col-span-4 flex flex-wrap items-center gap-x-8 gap-y-3 md:col-span-6 md:col-start-3 xl:col-span-10 xl:col-start-3">

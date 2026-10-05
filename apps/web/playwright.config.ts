@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
+import { FAKE_CLAMD_PORT } from "./e2e/fake-clamd";
 import { FAKE_CLIENT, FAKE_GITHUB_PORT, FAKE_USERS } from "./e2e/fake-github";
 
 // Its own port, so a dev server on 4321 is never mistaken for the build under test.
@@ -23,6 +24,8 @@ const e2eEnv = {
   STORAGE_URL: "memory://",
   // People's uploads aren't live yet; e2e switches them on to test moderation.
   STORAGE_ENABLE_PURPOSES: "shared",
+  // Malware scanning goes to e2e/fake-clamd.ts.
+  CLAMAV_ADDRESS: `127.0.0.1:${String(FAKE_CLAMD_PORT)}`,
   MIGRATIONS_DIR: fileURLToPath(
     new URL("../../packages/db/migrations", import.meta.url),
   ),
@@ -79,6 +82,11 @@ export default defineConfig({
       ...serverDefaults,
       command: "node e2e/fake-github.ts",
       url: `${FAKE_GITHUB}/health`,
+    },
+    {
+      ...serverDefaults,
+      command: "node e2e/fake-clamd.ts",
+      port: FAKE_CLAMD_PORT,
     },
     {
       ...serverDefaults,

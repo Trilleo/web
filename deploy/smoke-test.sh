@@ -65,7 +65,9 @@ echo "==> caddy validate"
 docker run --rm -v "$stack/certs:/certs:ro" "$web_image" start-caddy validate >/dev/null
 
 echo "==> starting web, app and db"
-docker compose up --detach --wait --wait-timeout 180 || fail "the stack didn't become healthy"
+# Not clamav: it downloads virus signatures for minutes on first start. The app treats
+# a missing scanner as "couldn't scan", as production does while clamd is down.
+docker compose up --detach --wait --wait-timeout 180 web app db || fail "the stack didn't become healthy"
 
 site() {
 	curl --silent --show-error --insecure --max-time 10 \

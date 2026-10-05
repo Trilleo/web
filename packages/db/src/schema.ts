@@ -8,6 +8,7 @@ import {
   bigint,
   boolean,
   customType,
+  date,
   index,
   integer,
   jsonb,
@@ -348,6 +349,20 @@ export const files = pgTable(
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     /** What processing found out, e.g. an archive's contents (for reviewers). */
     details: jsonb("details").$type<FileDetails>(),
+    /** The small WebP preview's key (t/<id>.webp), if the browser made one. */
+    thumbnailKey: text("thumbnail_key"),
+    /**
+     * The malware scan: clean, infected (ClamAV found something), or unscanned (the
+     * scanner couldn't run); null when scanning is off. `scanDetail` says what was
+     * found or why it couldn't scan.
+     */
+    scanStatus: text("scan_status", {
+      enum: ["clean", "infected", "unscanned"],
+    }),
+    scanDetail: text("scan_detail"),
+    scannedAt: timestamp("scanned_at", { withTimezone: true }),
+    /** Waiting for review only because it couldn't be scanned (a clean rescan publishes it). */
+    heldForScan: boolean("held_for_scan").notNull().default(false),
   },
   (table) => [
     index("files_owner_idx").on(table.ownerId, table.createdAt),
@@ -480,6 +495,22 @@ export const blockedHashes = pgTable("blocked_hashes", {
   reason: text("reason").notNull(),
   createdAt: createdAt(),
 });
+
+/** Downloads per file per UTC day (counted by /d/<id>, once per visitor per day). */
+export const fileDownloads = pgTable(
+  "file_downloads",
+  {
+    fileId: text("file_id")
+      .notNull()
+      .references(() => files.id, { onDelete: "cascade" }),
+    day: date("day", { mode: "string" }).notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.fileId, table.day] }),
+    index("file_downloads_day_idx").on(table.day),
+  ],
+);
 
 /**
  * Skygrid (apps/skygrid): one island per account. `state` is the engine's GameState,

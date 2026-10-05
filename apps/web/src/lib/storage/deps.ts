@@ -2,7 +2,7 @@ import { users, type User } from "@trilleo/db";
 import { eq } from "drizzle-orm";
 import { isAdmin } from "../auth/guard";
 import { getDb } from "../db";
-import { getStorage } from "./config";
+import { getScanning, getStorage } from "./config";
 import type { Requester, StorageDeps } from "./service";
 
 /** The database and storage, or null when the server has no storage set up. */
@@ -13,6 +13,7 @@ export async function storageDeps(): Promise<StorageDeps | null> {
   return {
     db,
     storage,
+    scanning: getScanning(),
     isAdminId: async (userId) => {
       const [user] = await db
         .select()

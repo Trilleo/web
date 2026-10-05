@@ -5,6 +5,7 @@
  *   POST   /api/storage/uploads                 UploadRequest → UploadStarted (201)
  *   POST   /api/storage/uploads/<id>/parts      { parts: number[] } → PartUrls
  *   POST   /api/storage/uploads/<id>/complete   → { file: StoredFileSummary }
+ *   POST   /api/storage/uploads/<id>/thumbnail  (image/webp body) → { file }
  *   DELETE /api/storage/uploads/<id>            → 204 (cancels an unfinished upload)
  *   GET    /api/storage/files/<id>              → { file: StoredFileSummary }
  *
@@ -49,4 +50,6 @@ export interface StoredFileSummary {
   pageUrl: string;
   /** Where anyone can download it; null until it's served publicly. */
   publicUrl: string | null;
+  /** Its thumbnail, when it has one that's served publicly. */
+  thumbnailUrl: string | null;
 }

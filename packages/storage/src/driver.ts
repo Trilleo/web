@@ -39,6 +39,9 @@ export interface StorageDriver {
   /** Throws the parts away (fine to call on an upload that's already gone). */
   abortUpload(key: string, uploadId: string): Promise<void>;
 
+  /** Stores a small private object in one request (thumbnails). */
+  put(key: string, bytes: Uint8Array, headers: ServeHeaders): Promise<void>;
+
   head(key: string): Promise<ObjectInfo | null>;
   /** The object's bytes, or the range [start, end) of them. */
   read(

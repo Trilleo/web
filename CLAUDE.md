@@ -391,6 +391,23 @@
 - Processing lists archives' contents (packages/storage/src/zip.ts, two ranged reads)
   into `files.details` for reviewers; the review queue previews non-public files
   through signed URLs on the bucket's own domain (in the CSP's img-src/media-src).
+- Malware scanning (ClamAV, the `clamav` service in compose.yaml, `_base` image +
+  freshclam into a volume; CLAMAV_ADDRESS): processing reads each object once for
+  both the SHA-256 and clamd's INSTREAM (packages/storage/src/clamd.ts, no dependency).
+  Malware from non-admins is refused (system `fail`, strike, hash blocked); the
+  admin's files only show it. A file that couldn't be scanned (clamd down, over its
+  limits, or OBS without ClamAV configured) waits for review; `heldForScan` marks
+  files held only for that, and maintenance rescans a few per run, publishing clean
+  ones (system `clear`). Local storage without CLAMAV_ADDRESS doesn't scan. E2E runs
+  e2e/fake-clamd.ts, which "finds" a marker string (never write the real EICAR string
+  into the repo: antivirus quarantines the file).
+- Thumbnails: the browser makes a ≤480px WebP after an upload
+  (packages/storage/src/thumbnail.ts) and posts it to /api/storage/uploads/<id>/thumbnail
+  (≤200 KB, sniffed, once, within an hour); stored at t/<id>.webp with the file's ACL
+  (`setAccess`) and purged with it (`removeObjects`). Lists show them (Thumb.astro).
+- Download stats: /d/<id> also counts into file_downloads (per file per UTC day);
+  downloads-stats.ts feeds the file page's chart (DownloadChart.astro, owner/admin),
+  30-day counts in lists, and the admin's site-wide chart and top files.
 - Pages: /admin/files (all files, ?owner=<login> shows the uploader panel),
   /admin/files/review (?tab=waiting|reports|appeals|spot), /files/<id>/ (with the
   report form), /account/files (usage, strikes, appeals). The account export lists

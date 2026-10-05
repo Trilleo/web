@@ -21,6 +21,7 @@ import { authConfig } from "../auth/config";
 import { openAppeals, type AppealView } from "./appeals";
 import { openReports, reportedFileIds, type ReportView } from "./reports";
 import { standingOf, type Standing } from "./standing";
+import { thumbnailUrlFor } from "./service";
 import type { FileListItem } from "./store";
 
 export const REVIEW_TABS = ["waiting", "reports", "appeals", "spot"] as const;
@@ -43,6 +44,8 @@ export interface ReviewItem {
   previewUrl: string | null;
   /** The start of a text file, shown as text. */
   textPreview: string | null;
+  /** The thumbnail the uploader's browser made (compare it with the file). */
+  thumbnailUrl: string | null;
 }
 
 const PAGE = 30;
@@ -219,6 +222,7 @@ export async function reviewItems(
       appeal: appeals.get(file.id) ?? null,
       uploader: file.ownerId ? (uploaders.get(file.ownerId) ?? null) : null,
       ...(await previews(storage, file)),
+      thumbnailUrl: await thumbnailUrlFor(storage, file),
     })),
   );
 }

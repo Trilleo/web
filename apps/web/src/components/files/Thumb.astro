@@ -1,0 +1,46 @@
+---
+/**
+ * A stored file's thumbnail in a list, or, without one, a square naming its kind.
+ * Decorative: the file's name is always next to it.
+ */
+interface Props {
+  url: string | null;
+  kind: string;
+  class?: string;
+}
+
+const { url, kind, class: className } = Astro.props;
+const KIND_LABELS: Record<string, string> = {
+  image: "IMG",
+  audio: "AUD",
+  video: "VID",
+  archive: "ZIP",
+  document: "DOC",
+  font: "FNT",
+  executable: "EXE",
+  text: "TXT",
+  data: "BIN",
+};
+---
+
+{url ? (
+  <img
+    src={url}
+    alt=""
+    loading="lazy"
+    class:list={[
+      "size-14 shrink-0 border border-hair bg-chip object-cover",
+      className,
+    ]}
+  />
+) : (
+  <span
+    aria-hidden="true"
+    class:list={[
+      "type-label inline-flex size-14 shrink-0 items-center justify-center border border-hair text-muted",
+      className,
+    ]}
+  >
+    {KIND_LABELS[kind] ?? "BIN"}
+  </span>
+)}

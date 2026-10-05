@@ -15,6 +15,11 @@ import {
   extensionOf,
   isProgramName,
   isServedPublicly,
+  isWebp,
+  thumbnailKey,
+  THUMBNAIL_HEADERS,
+  THUMBNAIL_MAX_BYTES,
+  THUMBNAIL_WINDOW_MS,
   listZip,
   needsReview,
   newFileId,
@@ -32,7 +37,12 @@ import {
   type UploadRequest,
   type UploaderRole,
 } from "@trilleo/storage";
-import { readBytes, type StorageDriver } from "@trilleo/storage/server";
+import {
+  readBytes,
+  type ScanResult,
+  type StorageDriver,
+} from "@trilleo/storage/server";
+import type { Scanning } from "./config";
 import { SNIFF_BYTES, formatBytes } from "@trilleo/tool-kit/files";
 import { findPurpose } from "./purposes";
 import {
@@ -82,6 +92,8 @@ export interface StorageDeps {
   isAdminId?: (userId: string) => Promise<boolean>;
   /** The purpose registry (tests pass their own). */
   purposes?: readonly StoragePurpose[];
+  /** Malware scanning; none when left out. */
+  scanning?: Scanning;
   now?: () => Date;
 }
 
@@ -105,7 +117,41 @@ export function toSummary(
     publicUrl: isServedPublicly(status, visibility)
       ? storage.publicUrl(row.key)
       : null,
+    thumbnailUrl:
+      row.thumbnailKey && isServedPublicly(status, visibility)
+        ? storage.publicUrl(row.thumbnailKey)
+        : null,
   };
+}
+
+/** Makes a file (and its thumbnail) readable by anyone, or private again. */
+export async function setAccess(
+  storage: StorageDriver,
+  row: Pick<StoredFile, "key" | "thumbnailKey">,
+  isPublic: boolean,
+): Promise<void> {
+  await storage.setPublic(row.key, isPublic);
+  if (row.thumbnailKey) await storage.setPublic(row.thumbnailKey, isPublic);
+}
+
+/** Deletes a file's bytes and its thumbnail from storage. */
+export async function removeObjects(
+  storage: StorageDriver,
+  row: Pick<StoredFile, "key" | "thumbnailKey">,
+): Promise<void> {
+  await storage.remove(row.key);
+  if (row.thumbnailKey) await storage.remove(row.thumbnailKey);
+}
+
+/** A URL for the file's thumbnail in a page: public, or a short signed link. */
+export async function thumbnailUrlFor(
+  storage: StorageDriver,
+  row: StoredFile,
+): Promise<string | null> {
+  if (!row.thumbnailKey || row.purgedAt) return null;
+  return isServedPublicly(row.status, row.visibility)
+    ? storage.publicUrl(row.thumbnailKey)
+    : storage.signedUrl(row.thumbnailKey, 15 * 60);
 }
 
 function describeKind(kind: string): StoredFileSummary["kind"] {
@@ -446,15 +492,9 @@ async function runProcessing(
   const row = await getFile(db, id);
   if (row?.status !== "processing") return row;
 
-  const hash = createHash("sha256");
-  const reader = (await storage.read(row.key)).getReader();
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    hash.update(value);
-  }
-  const sha256 = hash.digest("hex");
+  const { sha256, scan } = await hashAndScan(deps, row);
   const now = deps.now?.() ?? new Date();
+  const scanned = scanColumns(scan, now);
 
   const ownerIsAdmin =
     row.ownerId !== null && (await deps.isAdminId?.(row.ownerId)) === true;
@@ -469,9 +509,22 @@ async function runProcessing(
         action: "fail",
         actorId: null,
         reason: "This file was taken down from the site before.",
-        set: { sha256, purgedAt: now },
+        set: { sha256, ...scanned, purgedAt: now },
         now,
       })) ?? (await getFile(db, id))
+    );
+  }
+
+  if (scan?.status === "infected" && !ownerIsAdmin) {
+    return refuseInfected(
+      deps,
+      { ...row, sha256 },
+      scan.signature,
+      "processing",
+      {
+        sha256,
+        ...scanned,
+      },
     );
   }
 
@@ -483,25 +536,31 @@ async function runProcessing(
       ? await uploaderRole(db, row.ownerId, false, now)
       : "user";
   const visibility = row.visibility;
-  const review = purpose
+  const byRules = purpose
     ? needsReview(purpose, role, visibility)
     : !ownerIsAdmin;
+  // A file nobody could scan waits for review (the admin's own files never wait).
+  const unscanned = scan?.status === "unscanned" && !ownerIsAdmin;
+  const heldForScan = unscanned && !byRules && visibility !== "private";
   const step = transition("processing", "processed", "system", {
-    needsReview: review,
+    needsReview: byRules || heldForScan,
   });
   if (!step.ok) return row;
 
   const goesPublic = isServedPublicly(step.to, visibility);
-  if (goesPublic) await storage.setPublic(row.key, true);
+  if (goesPublic) await setAccess(storage, row, true);
   const moved = await changeStatus(db, {
     id,
     from: "processing",
     to: step.to,
     action: "processed",
     actorId: null,
+    reason: heldForScan ? HELD_FOR_SCAN : null,
     set: {
       sha256,
       details,
+      ...scanned,
+      heldForScan,
       // The admin's own files need no second look.
       ...(ownerIsAdmin ? { reviewedAt: now } : {}),
       ...(step.to === "published"
@@ -510,8 +569,182 @@ async function runProcessing(
     },
     now,
   });
-  if (!moved && goesPublic) await storage.setPublic(row.key, false);
+  if (!moved && goesPublic) await setAccess(storage, row, false);
   return moved ?? (await getFile(db, id));
+}
+
+export const HELD_FOR_SCAN =
+  "It couldn’t be checked for malware yet. It will be checked again soon.";
+
+/** Reads the object once, feeding both the hash and the malware scanner. */
+async function hashAndScan(
+  deps: StorageDeps,
+  row: StoredFile,
+): Promise<{ sha256: string; scan: ScanResult | null }> {
+  const scanning = deps.scanning;
+  const session = scanning?.scanner ? await scanning.scanner.start() : null;
+  const hash = createHash("sha256");
+  const reader = (await deps.storage.read(row.key)).getReader();
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      hash.update(value);
+      if (session) await session.write(value);
+    }
+  } catch (error) {
+    session?.abort();
+    throw error;
+  }
+  const sha256 = hash.digest("hex");
+  if (session) return { sha256, scan: await session.finish() };
+  if (!scanning?.required) return { sha256, scan: null };
+  return {
+    sha256,
+    scan: {
+      status: "unscanned",
+      reason: scanning.scanner
+        ? "The malware scanner isn’t answering."
+        : "Malware scanning isn’t set up.",
+    },
+  };
+}
+
+function scanColumns(scan: ScanResult | null, now: Date) {
+  if (!scan) return {};
+  return {
+    scanStatus: scan.status,
+    scanDetail:
+      scan.status === "infected"
+        ? scan.signature
+        : scan.status === "unscanned"
+          ? scan.reason
+          : null,
+    scannedAt: now,
+  };
+}
+
+/** Refuses a file malware was found in: a strike, and the bytes blocked. */
+async function refuseInfected(
+  deps: StorageDeps,
+  row: StoredFile,
+  signature: string,
+  from: "processing" | "pending_review",
+  set: Partial<StoredFile>,
+): Promise<StoredFile | undefined> {
+  const { db } = deps;
+  const now = deps.now?.() ?? new Date();
+  const reason = `Malware was found in it (${signature}).`;
+  const moved = await changeStatus(db, {
+    id: row.id,
+    from,
+    to: "rejected",
+    action: "fail",
+    actorId: null,
+    reason,
+    set: { ...set, heldForScan: false },
+    now,
+  });
+  if (moved && row.ownerId) {
+    await addStrike(db, {
+      userId: row.ownerId,
+      fileId: row.id,
+      reason,
+      actorId: null,
+      now,
+    });
+    if (row.sha256) await blockHash(db, row.sha256, row.id, reason, now);
+  }
+  return moved ?? (await getFile(db, row.id));
+}
+
+/**
+ * Scans a file again that couldn't be scanned before. Clean: a file held only for
+ * the scan is published. Malware: a waiting file is refused (the admin's files only
+ * get the warning). Still no scan: tried again later.
+ */
+export async function rescanFile(
+  deps: StorageDeps,
+  id: string,
+): Promise<StoredFile | undefined> {
+  const { db, storage } = deps;
+  const row = await getFile(db, id);
+  if (
+    row?.scanStatus !== "unscanned" ||
+    row.purgedAt ||
+    !deps.scanning?.scanner
+  )
+    return row;
+  const { scan } = await hashAndScan(deps, row);
+  const now = deps.now?.() ?? new Date();
+  const scanned = scanColumns(scan, now);
+  const ownerIsAdmin =
+    row.ownerId !== null && (await deps.isAdminId?.(row.ownerId)) === true;
+
+  if (
+    scan?.status === "infected" &&
+    !ownerIsAdmin &&
+    row.status === "pending_review"
+  )
+    return refuseInfected(deps, row, scan.signature, "pending_review", scanned);
+
+  if (
+    scan?.status === "clean" &&
+    row.heldForScan &&
+    row.status === "pending_review"
+  ) {
+    const goesPublic = isServedPublicly("published", row.visibility);
+    if (goesPublic) await setAccess(storage, row, true);
+    const moved = await changeStatus(db, {
+      id,
+      from: "pending_review",
+      to: "published",
+      action: "clear",
+      actorId: null,
+      set: {
+        ...scanned,
+        heldForScan: false,
+        publishedAt: row.publishedAt ?? now,
+      },
+      now,
+    });
+    if (moved) return moved;
+    if (goesPublic) await setAccess(storage, row, false);
+  }
+  return updateFile(db, id, scanned);
+}
+
+/** Stores the thumbnail the browser made, once, soon after the upload. */
+export async function storeThumbnail(
+  deps: StorageDeps,
+  requester: Requester,
+  id: string,
+  bytes: Uint8Array,
+): Promise<Result<StoredFile>> {
+  const found = await ownFile(deps, requester, id);
+  if (!found.ok) return found;
+  const row = found.value;
+  const now = deps.now?.() ?? new Date();
+  if (
+    row.thumbnailKey ||
+    !["processing", "pending_review", "published"].includes(row.status) ||
+    now.getTime() - row.createdAt.getTime() > THUMBNAIL_WINDOW_MS
+  )
+    return fail(409, "This file can’t take a thumbnail now.");
+  if (
+    bytes.length === 0 ||
+    bytes.length > THUMBNAIL_MAX_BYTES ||
+    !isWebp(bytes)
+  )
+    return fail(415, "Thumbnails must be small WebP images.");
+  const key = thumbnailKey(row.id);
+  await deps.storage.put(key, bytes, THUMBNAIL_HEADERS);
+  const updated = await updateFile(deps.db, id, { thumbnailKey: key });
+  // Whatever happened meanwhile, the thumbnail follows the file.
+  const current = updated ?? row;
+  if (isServedPublicly(current.status, current.visibility))
+    await deps.storage.setPublic(key, true);
+  return ok(current);
 }
 
 /** Archives get their contents listed for reviewers (two small ranged reads). */
@@ -622,8 +855,8 @@ export async function actOnFile(
   const visibility = row.visibility;
   const wasPublic = isServedPublicly(status, visibility);
   const willBePublic = isServedPublicly(step.to, visibility);
-  if (willBePublic && !wasPublic) await deps.storage.setPublic(row.key, true);
-  if (wasPublic && !willBePublic) await deps.storage.setPublic(row.key, false);
+  if (willBePublic && !wasPublic) await setAccess(deps.storage, row, true);
+  if (wasPublic && !willBePublic) await setAccess(deps.storage, row, false);
 
   const now = deps.now?.() ?? new Date();
   const moved = await changeStatus(deps.db, {
@@ -644,7 +877,7 @@ export async function actOnFile(
   if (!moved) {
     // Someone else got there first: put access back as it was.
     if (willBePublic !== wasPublic)
-      await deps.storage.setPublic(row.key, wasPublic);
+      await setAccess(deps.storage, row, wasPublic);
     return fail(409, "The file changed meanwhile. Reload and try again.");
   }
   await afterAction(deps, requester, moved, action, reason ?? "", options, now);
@@ -743,7 +976,7 @@ export async function changeVisibility(
   const wasPublic = isServedPublicly(status, before);
   const willBePublic = isServedPublicly(status, visibility);
   if (willBePublic !== wasPublic)
-    await deps.storage.setPublic(row.key, willBePublic);
+    await setAccess(deps.storage, row, willBePublic);
   const updated = await updateFile(deps.db, id, { visibility });
   await logEvent(deps.db, {
     fileId: id,

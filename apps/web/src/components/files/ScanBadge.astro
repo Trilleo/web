@@ -1,0 +1,21 @@
+---
+/** What the malware scan said about a file, for its owner and the admin. */
+interface Props {
+  status: "clean" | "infected" | "unscanned" | null;
+  detail: string | null;
+}
+
+const { status, detail } = Astro.props;
+---
+
+{status === "infected" && (
+  <span class="type-label bg-accent px-1.5 text-on-accent">
+    Malware: {detail}
+  </span>
+)}
+{status === "unscanned" && (
+  <span class="type-label border border-ink px-1.5" title={detail ?? undefined}>
+    Not scanned
+  </span>
+)}
+{status === "clean" && <span class="type-label text-muted">Scanned</span>}

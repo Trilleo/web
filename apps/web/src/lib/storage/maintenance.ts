@@ -4,28 +4,39 @@
  *   - uploads never finished within a day are aborted (OBS also drops their parts
  *     after a day by itself, through a lifecycle rule);
  *   - files stuck in processing (the server restarted mid-way) are processed again;
+ *   - files that couldn't be scanned for malware are scanned again (a few per run);
  *   - bytes of deleted, rejected and removed files are purged after their retention.
  */
 import type { Database, StoredFile } from "@trilleo/db";
 import { purgeAfter } from "@trilleo/storage";
 import type { StorageDriver } from "@trilleo/storage/server";
-import { processFile, type StorageDeps } from "./service";
+import {
+  processFile,
+  removeObjects,
+  rescanFile,
+  type StorageDeps,
+} from "./service";
 import {
   changeStatus,
   logEvent,
   purgeCandidates,
   staleUploads,
   stuckProcessing,
+  unscannedFiles,
   updateFile,
 } from "./store";
 
 export const MAINTENANCE_INTERVAL_MS = 10 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STUCK_MS = 15 * 60 * 1000;
+/** Scans are retried after this long, a few files per run (scanning is heavy). */
+const RESCAN_AFTER_MS = 30 * 60 * 1000;
+const RESCANS_PER_RUN = 5;
 
 export interface MaintenanceReport {
   abandoned: number;
   reprocessed: number;
+  rescanned: number;
   purged: number;
 }
 
@@ -74,11 +85,23 @@ export async function runMaintenance(
     async (row) => (await processFile(deps, row.id))?.status !== "processing",
   );
 
+  const rescanned = deps.scanning?.scanner
+    ? await eachSafely(
+        await unscannedFiles(
+          db,
+          new Date(now.getTime() - RESCAN_AFTER_MS),
+          RESCANS_PER_RUN,
+        ),
+        async (row) =>
+          (await rescanFile(deps, row.id))?.scanStatus !== "unscanned",
+      )
+    : 0;
+
   const purged = await eachSafely(await purgeCandidates(db), (row) =>
     purge(db, storage, row, now),
   );
 
-  return { abandoned, reprocessed, purged };
+  return { abandoned, reprocessed, rescanned, purged };
 }
 
 async function purge(
@@ -89,7 +112,7 @@ async function purge(
 ): Promise<boolean> {
   const after = purgeAfter(row.status, row.statusChangedAt);
   if (!after || after > now) return false;
-  await storage.remove(row.key);
+  await removeObjects(storage, row);
   await updateFile(db, row.id, { purgedAt: now });
   await logEvent(db, {
     fileId: row.id,

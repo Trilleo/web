@@ -80,7 +80,7 @@ jobs:
           sbom: false
 
   postgres:
-    name: Copy Postgres to SWR
+    name: Copy Postgres and ClamAV to SWR
     # Same condition as `images`.
     if: >-
       vars.SWR_REGISTRY != '' && (
@@ -90,7 +90,7 @@ jobs:
         )
       )
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v7
         with:
@@ -103,20 +103,26 @@ jobs:
           username: ${{ secrets.SWR_USERNAME }}
           password: ${{ secrets.SWR_PASSWORD }}
 
-      # The server can't pull from Docker Hub, so the exact tag compose.yaml names is
-      # copied to SWR once; later deploys find it there and skip this.
-      - name: Copy the image compose.yaml uses, unless SWR has it
+      # The server can't pull from Docker Hub, so the exact tags compose.yaml names are
+      # copied to SWR once; later deploys find them there and skip this.
+      - name: Copy the images compose.yaml uses, unless SWR has them
         run: |
-          tag="$(sed -n 's|.*/postgres:\([^[:space:]"]*\).*|\1|p' deploy/compose.yaml)"
-          test -n "$tag"
-          if docker buildx imagetools inspect "$REGISTRY/postgres:$tag" >/dev/null 2>&1; then
-            echo "SWR already has postgres:$tag."
-            exit 0
-          fi
-          echo "::notice::Uploading postgres:$tag to SWR for the first time; this can take 30 minutes."
-          docker pull --quiet --platform linux/amd64 "postgres:$tag"
-          docker tag "postgres:$tag" "$REGISTRY/postgres:$tag"
-          docker push --quiet "$REGISTRY/postgres:$tag"
+          # <name in SWR> <Docker Hub repository>
+          while read -r name source; do
+            tag="$(sed -n "s|.*/$name:\([^[:space:]\"]*\).*|\1|p" deploy/compose.yaml)"
+            test -n "$tag"
+            if docker buildx imagetools inspect "$REGISTRY/$name:$tag" >/dev/null 2>&1; then
+              echo "SWR already has $name:$tag."
+              continue
+            fi
+            echo "::notice::Uploading $name:$tag to SWR for the first time; this can take 30 minutes or more."
+            docker pull --quiet --platform linux/amd64 "$source:$tag"
+            docker tag "$source:$tag" "$REGISTRY/$name:$tag"
+            docker push --quiet "$REGISTRY/$name:$tag"
+          done <<'IMAGES'
+          postgres postgres
+          clamav clamav/clamav
+          IMAGES
 
   deploy:
     name: Deploy to www.trilleo.net

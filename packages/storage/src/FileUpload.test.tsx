@@ -27,6 +27,7 @@ const summary = (
   statusReason: null,
   pageUrl: "/files/abc123def456/",
   publicUrl: null,
+  thumbnailUrl: null,
 });
 
 function site(finalStatus: StoredFileSummary["status"]) {

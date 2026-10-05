@@ -14,7 +14,12 @@ import {
   type ReportReason,
 } from "@trilleo/storage";
 import { and, asc, count, desc, eq, gt, inArray } from "drizzle-orm";
-import type { Requester, Result, StorageDeps } from "./service";
+import {
+  setAccess,
+  type Requester,
+  type Result,
+  type StorageDeps,
+} from "./service";
 import { changeStatus, getFile } from "./store";
 
 export const HIDDEN_BY_REPORTS =
@@ -107,7 +112,7 @@ async function hideIfReported(
   if (!reportsHide(counting)) return;
 
   const wasPublic = isServedPublicly(row.status, row.visibility);
-  if (wasPublic) await storage.setPublic(row.key, false);
+  if (wasPublic) await setAccess(storage, row, false);
   const moved = await changeStatus(db, {
     id: fileId,
     from: "published",
@@ -117,7 +122,7 @@ async function hideIfReported(
     reason: HIDDEN_BY_REPORTS,
     now,
   });
-  if (!moved && wasPublic) await storage.setPublic(row.key, true);
+  if (!moved && wasPublic) await setAccess(storage, row, true);
 }
 
 export interface ReportView {

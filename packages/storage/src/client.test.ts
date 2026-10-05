@@ -18,6 +18,7 @@ const summary = (status: StoredFileSummary["status"]): StoredFileSummary => ({
   statusReason: null,
   pageUrl: "/files/abc123def456/",
   publicUrl: null,
+  thumbnailUrl: null,
 });
 
 const urlOf = (input: RequestInfo | URL) =>
@@ -58,6 +59,10 @@ function fakeSite(
         expiresIn: options.expiresIn ?? 3600,
       });
     }
+    if (path.endsWith("/thumbnail"))
+      return Response.json({
+        file: { ...summary("published"), thumbnailUrl: "/t.webp" },
+      });
     if (path.endsWith("/complete"))
       return Response.json({ file: summary("published") });
     if (method === "DELETE") return new Response(null, { status: 204 });
@@ -149,6 +154,36 @@ describe("uploadFile", () => {
       method: "DELETE",
       path: "/api/storage/uploads/abc123def456",
     });
+  });
+
+  it("sends a thumbnail once the upload is done", async () => {
+    const site = fakeSite(1, 10);
+    const result = await uploadFile(new File(["0123456789"], "a.png"), {
+      purpose: "site",
+      fetch: site.fetch,
+      putPart: () => Promise.resolve(),
+      thumbnail: () =>
+        Promise.resolve(new Blob(["webp"], { type: "image/webp" })),
+    });
+    expect(result.thumbnailUrl).toBe("/t.webp");
+    expect(site.calls.at(-1)).toMatchObject({
+      method: "POST",
+      path: "/api/storage/uploads/abc123def456/thumbnail",
+    });
+  });
+
+  it("still succeeds when the thumbnail can't be made", async () => {
+    const site = fakeSite(1, 10);
+    const result = await uploadFile(new File(["0123456789"], "a.png"), {
+      purpose: "site",
+      fetch: site.fetch,
+      putPart: () => Promise.resolve(),
+      thumbnail: () => Promise.reject(new Error("no canvas")),
+    });
+    expect(result.status).toBe("published");
+    expect(site.calls.some((call) => call.path.endsWith("/thumbnail"))).toBe(
+      false,
+    );
   });
 
   it("passes the site's refusal on", async () => {

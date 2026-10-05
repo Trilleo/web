@@ -429,6 +429,7 @@ describe("maintenance", () => {
     expect(await runMaintenance(deps)).toEqual({
       abandoned: 1,
       reprocessed: 0,
+      rescanned: 0,
       purged: 0,
     });
     expect((await getFile(handle.db, stale.value.file.id))?.status).toBe(

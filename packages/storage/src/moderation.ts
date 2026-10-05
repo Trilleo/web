@@ -7,6 +7,8 @@
  *       │                       └──fail──▶ rejected        └──reject──▶ rejected
  *       └──abandon──▶ deleted
  *   published ──flag──▶ pending_review   (hidden after several reports, until reviewed)
+ *   pending_review ──clear──▶ published   (held only for a malware scan, now clean)
+ *   pending_review ──fail──▶ rejected   (a later scan found malware)
  *   published / pending_review ──remove──▶ removed   (a takedown, by the admin)
  *   removed / rejected / deleted ──restore──▶ published   (the admin changed their mind)
  *   most states ──delete──▶ deleted   (the owner or the admin)
@@ -41,6 +43,7 @@ export type FileAction =
   | "fail"
   | "abandon"
   | "flag"
+  | "clear"
   | "approve"
   | "reject"
   | "remove"
@@ -60,9 +63,14 @@ interface Rule {
 const RULES: Readonly<Record<FileAction, Rule>> = {
   complete: { from: ["uploading"], by: ["owner", "admin"] },
   processed: { from: ["processing"], by: ["system"] },
-  fail: { from: ["uploading", "processing"], by: ["system"], reason: true },
+  fail: {
+    from: ["uploading", "processing", "pending_review"],
+    by: ["system"],
+    reason: true,
+  },
   abandon: { from: ["uploading"], by: ["owner", "admin", "system"] },
   flag: { from: ["published"], by: ["system"], reason: true },
+  clear: { from: ["pending_review"], by: ["system"] },
   approve: { from: ["pending_review"], by: ["admin"] },
   reject: { from: ["pending_review"], by: ["admin"], reason: true },
   remove: {
@@ -115,6 +123,7 @@ function target(action: FileAction, needsReview: boolean): FileStatus {
     case "delete":
       return "deleted";
     case "approve":
+    case "clear":
     case "restore":
       return "published";
     case "remove":

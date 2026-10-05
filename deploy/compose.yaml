@@ -61,6 +61,8 @@ services:
     environment:
       # No password here: postgres.js reads PGPASSWORD from db.env.
       DATABASE_URL: postgres://trilleo@db:5432/trilleo
+      # Malware scanning of uploads (the clamav service below).
+      CLAMAV_ADDRESS: clamav:3310
     env_file:
       - db.env
       - app.env
@@ -126,7 +128,37 @@ services:
       start_interval: 2s
     logging: *logging
 
+  # ClamAV scans uploads (deploy/storage.md). The app streams each new file to clamd
+  # over TCP; when clamd isn't answering, uploads wait for review instead. The image is
+  # the "_base" one (no signatures inside, so a small upload to SWR); freshclam fetches
+  # the signatures into the volume on first start and updates them twice a day.
+  clamav:
+    image: ${REGISTRY:?REGISTRY must be set (see /srv/trilleo/.env)}/clamav:1.5.4_base
+    restart: unless-stopped
+    environment:
+      CLAMAV_NO_MILTERD: "true"
+      FRESHCLAM_CHECKS: "2"
+      # Files up to 1 GiB (our largest upload) are scanned whole; anything over the
+      # limits is reported as such, so the app knows it wasn't scanned.
+      CLAMD_CONF_StreamMaxLength: 1100M
+      CLAMD_CONF_MaxScanSize: 1100M
+      CLAMD_CONF_MaxFileSize: 1100M
+      CLAMD_CONF_MaxScanTime: "300000"
+      CLAMD_CONF_AlertExceedsMax: "yes"
+      # Reloading signatures beside the old ones doubles memory; pause scans instead.
+      CLAMD_CONF_ConcurrentDatabaseReload: "no"
+    volumes:
+      - clamav-db:/var/lib/clamav
+    # The image's own check needs minutes on first start (downloading signatures), and
+    # deploys wait for every check; the app copes with clamd being unavailable.
+    healthcheck:
+      disable: true
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
+
 volumes:
   caddy-data:
   caddy-config:
   pgdata:
+  clamav-db:

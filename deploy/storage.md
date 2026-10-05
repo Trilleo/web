@@ -232,6 +232,24 @@ After the next deploy (or now, if the release with storage is already live):
 - **Caching**: public files are cached by browsers for a day, so a takedown reaches
   everyone within a day.
 
+## Malware scanning (ClamAV)
+
+The `clamav` service in compose.yaml scans every upload. Nothing to set up: the
+Deploy workflow copies its image to SWR (once, slowly), and on first start it
+downloads its virus signatures (a few hundred MB) into the `clamav-db` volume,
+which takes several minutes. Until then, and whenever clamd is down, new uploads
+from other people wait for review marked **Not scanned**, and are scanned again
+every half hour or so: clean ones held only for the scan publish by themselves.
+It needs about 1.5 GB of RAM (the server has 4 GB).
+
+- Malware in someone's upload: refused automatically, a strike, and the bytes are
+  blocked. In your own uploads it's only shown (file page, /admin/files).
+- Check it's running: `docker compose logs --tail 30 clamav` should end with clamd
+  listening, and `docker compose exec clamav clamdcheck.sh` prints "Clamd is up".
+- If signature downloads fail from China (freshclam errors in those logs), the
+  fallback is a GitHub Action that mirrors the signatures into the bucket and a
+  `FRESHCLAM_CONF_PrivateMirror` setting pointing at it; ask for it then.
+
 ## Backups
 
 The nightly `pg_dump` covers the `files` table (what exists), not the bytes in OBS.

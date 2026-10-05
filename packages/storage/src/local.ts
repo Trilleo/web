@@ -257,6 +257,16 @@ export class LocalDriver implements StorageDriver {
     }
   }
 
+  async put(
+    key: string,
+    bytes: Uint8Array,
+    headers: ServeHeaders,
+  ): Promise<void> {
+    await this.blobs.put(`objects/${key}`, new Uint8Array(bytes));
+    const meta: ObjectMeta = { headers, public: false };
+    await this.blobs.put(`meta/${key}`, encoder.encode(JSON.stringify(meta)));
+  }
+
   async head(key: string): Promise<ObjectInfo | null> {
     const [bytes, meta] = await Promise.all([
       this.blobs.get(`objects/${key}`),

@@ -16,6 +16,7 @@ import {
 import type { FileStatus, FileVisibility } from "@trilleo/storage";
 import {
   and,
+  asc,
   count,
   desc,
   eq,
@@ -51,6 +52,7 @@ export async function insertFile(
     actorId,
     action: "upload",
     toStatus: inserted.status,
+    createdAt: inserted.createdAt,
   });
   return inserted;
 }
@@ -283,6 +285,27 @@ export async function staleUploads(db: Database, before: Date) {
     .select()
     .from(files)
     .where(and(eq(files.status, "uploading"), lt(files.createdAt, before)));
+}
+
+/** Files that couldn't be scanned, last tried before `before`, oldest first. */
+export async function unscannedFiles(
+  db: Database,
+  before: Date,
+  limit: number,
+) {
+  return db
+    .select()
+    .from(files)
+    .where(
+      and(
+        eq(files.scanStatus, "unscanned"),
+        isNull(files.purgedAt),
+        inArray(files.status, ["pending_review", "published"]),
+        lt(files.scannedAt, before),
+      ),
+    )
+    .orderBy(asc(files.scannedAt))
+    .limit(limit);
 }
 
 /** Files stuck in processing since before `before` (e.g. the server restarted). */

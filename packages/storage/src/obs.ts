@@ -227,6 +227,23 @@ export class ObsDriver implements StorageDriver {
     });
   }
 
+  async put(
+    key: string,
+    bytes: Uint8Array,
+    headers: ServeHeaders,
+  ): Promise<void> {
+    await this.request(this.url(key), {
+      method: "PUT",
+      headers: {
+        "Content-Type": headers.contentType,
+        "Content-Disposition": headers.contentDisposition,
+        "Cache-Control": headers.cacheControl,
+        "x-amz-acl": "private",
+      },
+      body: new Uint8Array(bytes),
+    });
+  }
+
   async head(key: string): Promise<ObjectInfo | null> {
     const response = await this.request(this.url(key), {
       method: "HEAD",

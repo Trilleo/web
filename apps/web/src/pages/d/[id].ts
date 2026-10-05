@@ -3,7 +3,8 @@ import { FILE_ID_PATTERN } from "@trilleo/storage";
 import { firstDownloadToday, looksLikeBot } from "../../lib/storage/downloads";
 import { requesterOf, storageDeps } from "../../lib/storage/deps";
 import { downloadUrl } from "../../lib/storage/service";
-import { addDownload, getFile } from "../../lib/storage/store";
+import { recordDownload } from "../../lib/storage/downloads-stats";
+import { getFile } from "../../lib/storage/store";
 
 export const prerender = false;
 
@@ -33,7 +34,7 @@ export const GET: APIRoute = async (context) => {
       // Not available (e.g. some test setups): count by browser alone.
     }
     if (!looksLikeBot(userAgent) && firstDownloadToday(id, { ip, userAgent }))
-      await addDownload(deps.db, id);
+      await recordDownload(deps.db, id);
   }
   return new Response(null, {
     status: 302,

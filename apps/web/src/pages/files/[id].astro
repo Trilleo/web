@@ -18,8 +18,15 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import { formatPostDate } from "../../lib/listings";
 import { CONTACT_EMAIL } from "../../lib/site";
 import { requesterOf, storageDeps } from "../../lib/storage/deps";
-import { canManage, downloadPath } from "../../lib/storage/service";
+import {
+  canManage,
+  downloadPath,
+  thumbnailUrlFor,
+} from "../../lib/storage/service";
 import { STATUS_LABELS, VISIBILITY_LABELS } from "../../lib/storage/labels";
+import DownloadChart from "../../components/files/DownloadChart.astro";
+import ScanBadge from "../../components/files/ScanBadge.astro";
+import { dailyDownloads } from "../../lib/storage/downloads-stats";
 import { hasOpenReport } from "../../lib/storage/reports";
 import { fileEvents, fileOwner, getFile } from "../../lib/storage/store";
 
@@ -47,6 +54,10 @@ const publicUrl = isPublic
   ? new URL(deps.storage.publicUrl(file.key), Astro.url).href
   : null;
 const preview = publicUrl && isInlineType(file.contentType) ? file.kind : null;
+const poster =
+  file.kind === "video" ? await thumbnailUrlFor(deps.storage, file) : null;
+const downloadDays =
+  manager && isPublic ? await dailyDownloads(deps.db, file.id, 30) : null;
 const history =
   requester?.isAdmin === true ? await fileEvents(deps.db, file.id) : [];
 const gone = file.purgedAt !== null;
@@ -168,7 +179,13 @@ const body = "col-span-4 md:col-span-6 xl:col-span-7";
           {/* Uploads come without captions, so no <track>. */}
           {/* eslint-disable astro/jsx-a11y/media-has-caption -- see above */}
           {preview === "video" && (
-            <video src={publicUrl} controls preload="metadata" class="w-full">
+            <video
+              src={publicUrl}
+              poster={poster ?? undefined}
+              controls
+              preload="metadata"
+              class="w-full"
+            >
               <a href={downloadPath(file.id)}>Download the video</a>
             </video>
           )}
@@ -229,10 +246,36 @@ const body = "col-span-4 md:col-span-6 xl:col-span-7";
             <dd>{VISIBILITY_LABELS[visibility]}</dd>
             <dt class="type-label text-muted">Status</dt>
             <dd>{STATUS_LABELS[status]}</dd>
+            {file.scanStatus && (
+              <>
+                <dt class="type-label text-muted">Malware scan</dt>
+                <dd class="flex flex-wrap items-baseline gap-2">
+                  <ScanBadge
+                    status={file.scanStatus}
+                    detail={file.scanDetail}
+                  />
+                  {file.scanStatus === "unscanned" && file.scanDetail && (
+                    <span class="text-muted">{file.scanDetail}</span>
+                  )}
+                </dd>
+              </>
+            )}
           </>
         )}
       </dl>
     </div>
+
+    {downloadDays && (
+      <div class={row}>
+        <h2 class={heading}>Downloads</h2>
+        <div class={body}>
+          <DownloadChart
+            days={downloadDays}
+            label={`Downloads of ${file.name}`}
+          />
+        </div>
+      </div>
+    )}
 
     {history.length > 0 && (
       <div class={row}>

@@ -5,6 +5,7 @@
  *   POST   uploads                 start an upload
  *   POST   uploads/<id>/parts      signed URLs for some parts
  *   POST   uploads/<id>/complete   finish it
+ *   POST   uploads/<id>/thumbnail  its thumbnail (an image/webp body)
  *   DELETE uploads/<id>            cancel it
  *   GET    files/<id>              how a file is doing (owner or admin)
  *
@@ -13,6 +14,7 @@
 import {
   FILE_ID_PATTERN,
   FILE_VISIBILITIES,
+  THUMBNAIL_MAX_BYTES,
   type FileVisibility,
   type PartUrls,
   type UploadRequest,
@@ -26,6 +28,7 @@ import {
   completeUpload,
   partUrls,
   startUpload,
+  storeThumbnail,
   toSummary,
   type Requester,
   type Result,
@@ -167,6 +170,17 @@ async function route(input: StorageApiRequest): Promise<Response> {
       const answer: PartUrls = { urls, expiresIn: PART_URL_SECONDS };
       return json(answer);
     });
+  }
+  if (sub === "thumbnail") {
+    if (!request.headers.get("content-type")?.startsWith("image/webp"))
+      return problem(415, "Send a WebP image.");
+    const length = Number(request.headers.get("content-length") ?? "0");
+    if (length > THUMBNAIL_MAX_BYTES)
+      return problem(413, "That thumbnail is too big.");
+    const bytes = new Uint8Array(await request.arrayBuffer());
+    return fromResult(await storeThumbnail(deps, requester, id, bytes), (row) =>
+      json({ file: toSummary(row, deps.storage) }),
+    );
   }
   if (sub === "complete") {
     return fromResult(await completeUpload(deps, requester, id), (row) =>

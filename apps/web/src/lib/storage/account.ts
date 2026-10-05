@@ -16,6 +16,7 @@ import { ROLE_LIMITS, type UploaderRole } from "@trilleo/storage";
 import type { StorageDriver } from "@trilleo/storage/server";
 import { and, desc, eq, isNull, ne, or } from "drizzle-orm";
 import { appealsOf } from "./appeals";
+import { removeObjects } from "./service";
 import { standingOf, strikesOf, uploaderRole, type Standing } from "./standing";
 import { quotaOverride, usageOf, type Usage } from "./store";
 
@@ -129,7 +130,7 @@ export async function deleteAccountFiles(
   for (const row of rows) {
     if (!storage || row.purgedAt) continue;
     if (row.uploadId) await storage.abortUpload(row.key, row.uploadId);
-    else await storage.remove(row.key);
+    else await removeObjects(storage, row);
   }
   await db.delete(files).where(eq(files.ownerId, userId));
 }

@@ -66,6 +66,7 @@ describe("openDatabase", () => {
       "blocked_hashes",
       "comments",
       "file_appeals",
+      "file_downloads",
       "file_reports",
       "files",
       "media",
