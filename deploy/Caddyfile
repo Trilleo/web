@@ -56,8 +56,9 @@ www.trilleo.net {
 		# Analytics script Cloudflare adds, and its reports; 'wasm-unsafe-eval' and blob:
 		# for the file tools, which run WebAssembly codecs and preview results in-page;
 		# files.trilleo.net: stored files' previews; the OBS bucket: browsers upload to it
-		# directly, see deploy/storage.md.)
-		Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://files.trilleo.net; media-src 'self' blob: https://files.trilleo.net; worker-src 'self' blob:; font-src 'self'; connect-src 'self' data: blob: https://cloudflareinsights.com https://trilleo-web-storage.obs.cn-southwest-2.myhuaweicloud.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+		# directly, and the review queue previews files that aren't public through it;
+		# see deploy/storage.md.)
+		Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://files.trilleo.net https://trilleo-web-storage.obs.cn-southwest-2.myhuaweicloud.com; media-src 'self' blob: https://files.trilleo.net https://trilleo-web-storage.obs.cn-southwest-2.myhuaweicloud.com; worker-src 'self' blob:; font-src 'self'; connect-src 'self' data: blob: https://cloudflareinsights.com https://trilleo-web-storage.obs.cn-southwest-2.myhuaweicloud.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
 		-Server
 		# Pages and other unhashed files: always revalidate (cheap, thanks to ETags).
 		?Cache-Control "public, max-age=0, must-revalidate"

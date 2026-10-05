@@ -1,0 +1,265 @@
+---
+/**
+ * Your files: everything you've stored through the site's features, how much room
+ * is left, where you stand (strikes, bans), and for refused or taken-down files the
+ * reason and an appeal.
+ */
+import { STRIKE_LIMIT, isTrustedUploader, purgeAfter } from "@trilleo/storage";
+import { formatBytes } from "@trilleo/tool-kit/files";
+import { buttonClasses, fieldClasses } from "@trilleo/ui";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { isAdmin, requireUser } from "../../../lib/auth/guard";
+import { getDb } from "../../../lib/db";
+import { formatPostDate } from "../../../lib/listings";
+import { accountStorage } from "../../../lib/storage/account";
+import { STATUS_LABELS } from "../../../lib/storage/labels";
+import { filePagePath } from "../../../lib/storage/service";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const now = new Date();
+const mine = await accountStorage(await getDb(), user.id, isAdmin(user), now);
+const { files, usage, quotaBytes, standing, strikes, appeals } = mine;
+const activeStrikes = strikes.filter(
+  (strike) => !strike.clearedAt && strike.expiresAt > now,
+);
+const done = Astro.url.searchParams.get("done");
+const error = Astro.url.searchParams.get("error");
+const DONE_LABELS: Record<string, string> = {
+  delete: "Deleted. The site owner can still bring it back for a week.",
+  appeal: "Appeal sent. You’ll see the answer here.",
+};
+const percent =
+  quotaBytes === null
+    ? null
+    : Math.min(100, Math.round((usage.bytes / quotaBytes) * 100));
+const appealable = (status: string, purgedAt: Date | null) =>
+  (status === "rejected" || status === "removed") && purgedAt === null;
+const row = "grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6";
+const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body = "col-span-4 md:col-span-6 xl:col-span-7";
+---
+
+<BaseLayout title="Your files" noindex>
+  <section
+    aria-labelledby="files-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">
+      (Account){" "}
+      <a href="/account/" class="link-wipe">
+        @{user.githubLogin}
+      </a>
+    </p>
+
+    <DisplayTitle id="files-title">Files</DisplayTitle>
+
+    {done && DONE_LABELS[done] && (
+      <p role="status" class="type-lead mt-6 border-l-2 border-accent pl-4">
+        {DONE_LABELS[done]}
+      </p>
+    )}
+    {error && (
+      <p role="alert" class="type-lead mt-6 border-l-2 border-accent pl-4">
+        {error}
+      </p>
+    )}
+
+    <div class={row}>
+      <h2 class={heading}>Storage</h2>
+      <div class:list={[body, "flex flex-col gap-3"]}>
+        <p>
+          {formatBytes(usage.bytes)} used
+          {quotaBytes !== null && <> of {formatBytes(quotaBytes)}</>}
+        </p>
+        {percent !== null && (
+          <div
+            role="meter"
+            aria-label="Storage used"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={percent}
+            class="h-1.5 w-full bg-chip"
+          >
+            <div
+              class="h-full bg-accent"
+              style={`width: ${String(percent)}%`}
+            />
+          </div>
+        )}
+        <p class="text-muted">
+          Files you upload through the site’s features are kept here. Deleted,
+          refused and taken-down files still count until their copies are gone.
+        </p>
+      </div>
+    </div>
+
+    <div class={row}>
+      <h2 class={heading}>Standing</h2>
+      <div class:list={[body, "flex flex-col gap-3"]}>
+        {standing.bannedAt ? (
+          <p class="type-lead border-l-2 border-accent pl-4">
+            You can’t upload files at the moment
+            {standing.banReason === "strikes"
+              ? `: you have ${String(standing.activeStrikes)} strikes. The ban lifts when your strikes expire or an appeal is accepted.`
+              : `: ${standing.banReason ?? ""}`}
+          </p>
+        ) : (
+          <p>
+            {isTrustedUploader(standing)
+              ? "Your public uploads go up straight away."
+              : "Your public uploads are checked by the site owner before others can see them. After a few approved uploads, they go up straight away."}
+          </p>
+        )}
+        <p class="text-muted">
+          {activeStrikes.length} of {STRIKE_LIMIT} strikes. A strike comes with
+          a file that’s refused or taken down for breaking the rules, and lasts
+          90 days. {STRIKE_LIMIT} strikes stop you uploading for a while.
+        </p>
+        {activeStrikes.length > 0 && (
+          <ul class="flex flex-col gap-2">
+            {activeStrikes.map((strike) => (
+              <li class="border-l-2 border-accent pl-3">
+                <p>{strike.reason}</p>
+                <p class="type-label text-muted">
+                  {formatPostDate(strike.createdAt)} · until{" "}
+                  {formatPostDate(strike.expiresAt)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <h2 class={heading}>Your files ({files.length})</h2>
+      <div class="col-span-4 md:col-span-6 xl:col-span-10">
+        {files.length === 0 ? (
+          <p class="text-muted">You haven’t uploaded anything.</p>
+        ) : (
+          <ol class="border-b border-ink">
+            {files.map((file) => {
+              const appeal = appeals.get(file.id);
+              const purgeAt = purgeAfter(file.status, file.statusChangedAt);
+              return (
+                <li
+                  id={`file-${file.id}`}
+                  class="flex scroll-mt-6 flex-col gap-3 border-t border-ink py-4"
+                >
+                  <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                    {file.purgedAt ? (
+                      <p class="type-row break-all">{file.name}</p>
+                    ) : (
+                      <a
+                        href={filePagePath(file.id)}
+                        class="group type-row break-all"
+                      >
+                        <span class="link-wipe">{file.name}</span>
+                      </a>
+                    )}
+                    <p class="type-label">{STATUS_LABELS[file.status]}</p>
+                  </div>
+                  <p class="type-label flex flex-wrap gap-x-4 gap-y-1 text-muted">
+                    <span>{file.label}</span>
+                    <span>{formatBytes(file.size)}</span>
+                    <span>{file.visibility}</span>
+                    <span>{formatPostDate(file.createdAt)}</span>
+                    {file.status === "published" && (
+                      <span>{file.downloads} downloads</span>
+                    )}
+                    {purgeAt && !file.purgedAt && !appeal && (
+                      <span>Kept until {formatPostDate(purgeAt)}</span>
+                    )}
+                  </p>
+                  {file.statusReason && (
+                    <p class="border-l-2 border-accent pl-3">
+                      {file.statusReason}
+                    </p>
+                  )}
+                  {appeal && (
+                    <p class="text-muted">
+                      {appeal.status === "open"
+                        ? "You appealed. The site owner will answer here."
+                        : appeal.status === "accepted"
+                          ? "Your appeal was accepted."
+                          : "Your appeal was denied."}
+                      {appeal.response && <> “{appeal.response}”</>}
+                    </p>
+                  )}
+                  <div class="flex flex-wrap items-start gap-3">
+                    {!appeal && appealable(file.status, file.purgedAt) && (
+                      <details class="w-full max-w-xl">
+                        <summary
+                          class={buttonClasses({
+                            variant: "secondary",
+                            className:
+                              "list-none [&::-webkit-details-marker]:hidden",
+                          })}
+                        >
+                          Appeal
+                        </summary>
+                        <form
+                          method="post"
+                          action="/account/files/action"
+                          class="mt-4 flex flex-col gap-3"
+                        >
+                          <input type="hidden" name="id" value={file.id} />
+                          <input type="hidden" name="action" value="appeal" />
+                          <label class="flex flex-col gap-1.5">
+                            <span class="type-label">
+                              Why should it be allowed?
+                            </span>
+                            <textarea
+                              name="message"
+                              required
+                              maxlength={2000}
+                              rows={4}
+                              aria-label={`Why ${file.name} should be allowed`}
+                              class:list={[fieldClasses, "px-3 py-2"]}
+                            />
+                          </label>
+                          <button
+                            type="submit"
+                            class={buttonClasses({ className: "self-start" })}
+                          >
+                            Send appeal
+                          </button>
+                        </form>
+                      </details>
+                    )}
+                    {[
+                      "processing",
+                      "pending_review",
+                      "published",
+                      "rejected",
+                    ].includes(file.status) && (
+                      <form method="post" action="/account/files/action">
+                        <input type="hidden" name="id" value={file.id} />
+                        <input type="hidden" name="action" value="delete" />
+                        <button
+                          type="submit"
+                          class={buttonClasses({ variant: "secondary" })}
+                          aria-label={`Delete ${file.name}`}
+                        >
+                          Delete
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

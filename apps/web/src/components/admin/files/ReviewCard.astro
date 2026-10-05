@@ -1,0 +1,286 @@
+---
+/**
+ * One file in the admin's review queue: what it is, a preview, its contents (for
+ * archives), reports, the appeal, the uploader, and the decisions this tab offers.
+ */
+import { REPORT_REASON_LABELS, type ReportReason } from "@trilleo/storage";
+import { formatBytes } from "@trilleo/tool-kit/files";
+import { formatPostDate } from "../../../lib/listings";
+import { STATUS_LABELS } from "../../../lib/storage/labels";
+import type { ReviewItem, ReviewTab } from "../../../lib/storage/review";
+import { filePagePath } from "../../../lib/storage/service";
+import ReasonForm from "./ReasonForm.astro";
+import UploaderPanel from "./UploaderPanel.astro";
+import { primaryButton, secondaryButton } from "./styles";
+
+interface Props {
+  item: ReviewItem;
+  tab: ReviewTab;
+  back: string;
+}
+
+const { item, tab, back } = Astro.props;
+const { file, reports, appeal, uploader, previewUrl, textPreview } = item;
+const archive = file.details?.archive;
+const SHOWN_ENTRIES = 60;
+const name = file.name;
+const hidden = (fields: Record<string, string>) => Object.entries(fields);
+---
+
+<article
+  class="grid-swiss gap-y-5 border-t border-ink py-6"
+  aria-labelledby={`review-${file.id}`}
+  data-file={file.id}
+>
+  <p class="type-label col-span-4 text-muted md:col-span-2 xl:col-span-2">
+    {STATUS_LABELS[file.status]}
+  </p>
+  <div class="col-span-4 flex min-w-0 flex-col gap-5 md:col-span-6 xl:col-span-10">
+    <header class="flex flex-col gap-1.5">
+      <h2 id={`review-${file.id}`} class="type-row break-all">
+        <a href={filePagePath(file.id)} class="group">
+          <span class="link-wipe">{name}</span>
+        </a>
+      </h2>
+      <p class="type-label flex flex-wrap gap-x-4 gap-y-1 text-muted">
+        <span>{file.label}</span>
+        <span>{formatBytes(file.size)}</span>
+        <span>{file.visibility}</span>
+        <span>{formatPostDate(file.createdAt)}</span>
+        <span>{file.purpose}</span>
+        {file.sha256 && (
+          <span title={file.sha256}>sha256 {file.sha256.slice(0, 12)}…</span>
+        )}
+      </p>
+      {file.statusReason && <p class="text-muted">{file.statusReason}</p>}
+    </header>
+
+    {previewUrl && file.kind === "image" && (
+      <img
+        src={previewUrl}
+        alt={`Preview of ${name}`}
+        loading="lazy"
+        class="max-h-80 w-auto max-w-full self-start border border-hair"
+      />
+    )}
+    {/* Uploads come without captions, so no <track>. */}
+    {/* eslint-disable astro/jsx-a11y/media-has-caption -- see above */}
+    {previewUrl && file.kind === "video" && (
+      <video
+        src={previewUrl}
+        controls
+        preload="metadata"
+        class="max-h-80 w-full"
+      />
+    )}
+    {previewUrl && file.kind === "audio" && (
+      <audio src={previewUrl} controls preload="metadata" class="w-full" />
+    )}
+    {/* eslint-enable astro/jsx-a11y/media-has-caption -- see above */}
+    {textPreview !== null && (
+      <pre
+        class="max-h-64 overflow-auto border border-hair bg-code-bg p-3 font-mono text-sm whitespace-pre-wrap text-code-fg"
+        set:text={textPreview}
+      />
+    )}
+    {archive && (
+      <details class="border border-hair" open={archive.total <= 20}>
+        <summary class="type-label cursor-pointer px-3 py-2">
+          Contents: {archive.total} {archive.total === 1 ? "entry" : "entries"},{" "}
+          {formatBytes(archive.uncompressed)} unpacked
+        </summary>
+        <ul class="max-h-64 overflow-auto px-3 pb-3 font-mono text-sm">
+          {archive.entries.slice(0, SHOWN_ENTRIES).map((entry) => (
+            <li class="flex justify-between gap-4">
+              <span class="break-all">{entry.name}</span>
+              {!entry.directory && (
+                <span class="shrink-0 text-muted">
+                  {formatBytes(entry.size)}
+                </span>
+              )}
+            </li>
+          ))}
+          {archive.total > SHOWN_ENTRIES && (
+            <li class="text-muted">
+              …and {archive.total - SHOWN_ENTRIES} more
+            </li>
+          )}
+        </ul>
+      </details>
+    )}
+
+    {reports.length > 0 && (
+      <section aria-label={`Reports about ${name}`} class="flex flex-col gap-2">
+        <h3 class="type-label">
+          {reports.length} {reports.length === 1 ? "report" : "reports"}
+        </h3>
+        <ul class="flex flex-col gap-2">
+          {reports.map((report) => (
+            <li class="border-l-2 border-accent pl-3">
+              <p class="font-medium">
+                {REPORT_REASON_LABELS[report.reason as ReportReason] ??
+                  report.reason}
+              </p>
+              {report.details && <p class="text-muted">{report.details}</p>}
+              <p class="type-label text-muted">
+                {report.reporterLogin
+                  ? `@${report.reporterLogin}`
+                  : "Deleted account"}{" "}
+                · {formatPostDate(report.createdAt)}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    {appeal && (
+      <section aria-label={`Appeal for ${name}`} class="flex flex-col gap-2">
+        <h3 class="type-label">Appeal from @{appeal.userLogin ?? "?"}</h3>
+        <p class="border-l-2 border-accent pl-3 whitespace-pre-wrap">
+          {appeal.message}
+        </p>
+      </section>
+    )}
+
+    {uploader && <UploaderPanel uploader={uploader} back={back} compact />}
+
+    <div class="flex flex-wrap items-center gap-2 border-t border-hair pt-4">
+      {tab === "waiting" && file.status === "pending_review" && (
+        <>
+          <form method="post" action="/admin/files/action">
+            {hidden({ id: file.id, action: "approve", back }).map(([k, v]) => (
+              <input type="hidden" name={k} value={v} />
+            ))}
+            <button
+              type="submit"
+              class={primaryButton}
+              aria-label={`Approve ${name}`}
+            >
+              Approve
+            </button>
+          </form>
+          {uploader && !uploader.standing.bannedAt && (
+            <form method="post" action="/admin/files/action">
+              {hidden({
+                id: file.id,
+                action: "approve",
+                trust: "yes",
+                back,
+              }).map(([k, v]) => (
+                <input type="hidden" name={k} value={v} />
+              ))}
+              <button
+                type="submit"
+                class={secondaryButton}
+                aria-label={`Approve ${name} and trust @${uploader.login}`}
+              >
+                Approve &amp; trust
+              </button>
+            </form>
+          )}
+          <ReasonForm
+            label="Reject"
+            subject={name}
+            action="reject"
+            back={back}
+            fields={{ id: file.id }}
+            strikeChoice
+          />
+        </>
+      )}
+      {(tab === "reports" || tab === "spot") && file.status === "published" && (
+        <>
+          {tab === "reports" ? (
+            <form method="post" action="/admin/files/action">
+              {hidden({ id: file.id, action: "dismiss-reports", back }).map(
+                ([k, v]) => (
+                  <input type="hidden" name={k} value={v} />
+                ),
+              )}
+              <button
+                type="submit"
+                class={primaryButton}
+                aria-label={`Dismiss reports about ${name}`}
+              >
+                Dismiss reports
+              </button>
+            </form>
+          ) : (
+            <form method="post" action="/admin/files/action">
+              {hidden({ id: file.id, action: "reviewed", back }).map(
+                ([k, v]) => (
+                  <input type="hidden" name={k} value={v} />
+                ),
+              )}
+              <button
+                type="submit"
+                class={primaryButton}
+                aria-label={`${name} looks fine`}
+              >
+                Looks fine
+              </button>
+            </form>
+          )}
+          <ReasonForm
+            label="Take down"
+            subject={name}
+            action="remove"
+            back={back}
+            fields={{ id: file.id }}
+            strikeChoice
+          />
+        </>
+      )}
+      {tab === "reports" && file.status === "pending_review" && (
+        <>
+          <form method="post" action="/admin/files/action">
+            {hidden({ id: file.id, action: "approve", back }).map(([k, v]) => (
+              <input type="hidden" name={k} value={v} />
+            ))}
+            <button
+              type="submit"
+              class={primaryButton}
+              aria-label={`Put ${name} back up`}
+            >
+              Put back up
+            </button>
+          </form>
+          <ReasonForm
+            label="Take down"
+            subject={name}
+            action="remove"
+            back={back}
+            fields={{ id: file.id }}
+            strikeChoice
+          />
+        </>
+      )}
+      {tab === "appeals" && appeal && (
+        <>
+          <ReasonForm
+            label="Accept appeal"
+            subject={name}
+            action="appeal-accept"
+            back={back}
+            fields={{ appeal: String(appeal.id) }}
+            name="response"
+            prompt="Answer (optional, shown to them)"
+            fieldLabel={`Answer to the appeal for ${name}`}
+            required={false}
+          />
+          <ReasonForm
+            label="Deny appeal"
+            subject={name}
+            action="appeal-deny"
+            back={back}
+            fields={{ appeal: String(appeal.id) }}
+            name="response"
+            prompt="Answer (shown to them)"
+            fieldLabel={`Why the appeal for ${name} is denied`}
+          />
+        </>
+      )}
+    </div>
+  </div>
+</article>

@@ -4,6 +4,9 @@
  * service.ts pairs these with the bucket.
  */
 import {
+  blockedHashes,
+  fileAppeals,
+  fileReports,
   files,
   storageEvents,
   users,
@@ -84,7 +87,10 @@ export async function changeStatus(
       ...input.set,
       status: input.to,
       statusChangedAt: now,
-      ...(input.to === "rejected" || input.to === "removed"
+      // The reason the owner sees: why it was refused, taken down or hidden.
+      ...(input.to === "rejected" ||
+      input.to === "removed" ||
+      input.to === "pending_review"
         ? { statusReason: input.reason ?? null }
         : input.to === "published"
           ? { statusReason: null }
@@ -289,15 +295,69 @@ export async function stuckProcessing(db: Database, before: Date) {
     );
 }
 
-/** Files out of circulation whose bytes are still stored. */
+/**
+ * Files out of circulation whose bytes are still stored. Files with an open appeal
+ * are kept until it's decided.
+ */
 export async function purgeCandidates(db: Database) {
-  return db
-    .select()
+  const rows = await db
+    .select({ file: files })
     .from(files)
+    .leftJoin(
+      fileAppeals,
+      and(eq(fileAppeals.fileId, files.id), eq(fileAppeals.status, "open")),
+    )
     .where(
       and(
         inArray(files.status, ["deleted", "rejected", "removed"]),
         isNull(files.purgedAt),
+        isNull(fileAppeals.id),
       ),
     );
+  return rows.map((row) => row.file);
+}
+
+/** Closes a file's open reports (dismissed: nothing wrong; actioned: taken down). */
+export async function resolveReports(
+  db: Database,
+  fileId: string,
+  status: "dismissed" | "actioned",
+  now = new Date(),
+): Promise<number> {
+  const closed = await db
+    .update(fileReports)
+    .set({ status, resolvedAt: now })
+    .where(and(eq(fileReports.fileId, fileId), eq(fileReports.status, "open")))
+    .returning({ id: fileReports.id });
+  return closed.length;
+}
+
+export async function isBlockedHash(
+  db: Database,
+  sha256: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ sha256: blockedHashes.sha256 })
+    .from(blockedHashes)
+    .where(eq(blockedHashes.sha256, sha256))
+    .limit(1);
+  return row !== undefined;
+}
+
+export async function blockHash(
+  db: Database,
+  sha256: string,
+  fileId: string,
+  reason: string,
+  now = new Date(),
+): Promise<void> {
+  await db
+    .insert(blockedHashes)
+    .values({ sha256, fileId, reason, createdAt: now })
+    .onConflictDoNothing({ target: blockedHashes.sha256 });
+}
+
+/** Lets a file's bytes be uploaded again (its takedown was reversed). */
+export async function unblockFile(db: Database, fileId: string): Promise<void> {
+  await db.delete(blockedHashes).where(eq(blockedHashes.fileId, fileId));
 }

@@ -5,7 +5,7 @@
  * pages are thin wrappers around these.
  */
 import { createHash } from "node:crypto";
-import type { Database, StoredFile, User } from "@trilleo/db";
+import type { Database, FileDetails, StoredFile, User } from "@trilleo/db";
 import {
   MAX_PART_URLS,
   ROLE_LIMITS,
@@ -15,6 +15,7 @@ import {
   extensionOf,
   isProgramName,
   isServedPublicly,
+  listZip,
   needsReview,
   newFileId,
   objectKey,
@@ -35,11 +36,21 @@ import { readBytes, type StorageDriver } from "@trilleo/storage/server";
 import { SNIFF_BYTES, formatBytes } from "@trilleo/tool-kit/files";
 import { findPurpose } from "./purposes";
 import {
+  addStrike,
+  grantTrustIfEarned,
+  setTrust,
+  standingOf,
+  uploaderRole,
+} from "./standing";
+import {
+  blockHash,
   changeStatus,
   getFile,
   insertFile,
+  isBlockedHash,
   logEvent,
   quotaOverride,
+  resolveReports,
   updateFile,
   usageOf,
 } from "./store";
@@ -72,10 +83,6 @@ export interface StorageDeps {
   /** The purpose registry (tests pass their own). */
   purposes?: readonly StoragePurpose[];
   now?: () => Date;
-}
-
-export function roleOf(requester: Requester): UploaderRole {
-  return requester.isAdmin ? "admin" : "user";
 }
 
 /** The file as the API shows it. */
@@ -169,9 +176,24 @@ export async function startUpload(
   if (!purpose) return fail(404, "There’s nowhere to upload that to.");
   if (purpose.uploaders === "admin" && !requester.isAdmin)
     return fail(403, "Only the site owner can upload here.");
+  if (purpose.enabled === false)
+    return fail(404, "There’s nowhere to upload that to.");
   if (user.blockedAt) return fail(403, "This account can’t upload files.");
+  if (!requester.isAdmin) {
+    const standing = await standingOf(db, user.id, deps.now?.());
+    if (standing.bannedAt)
+      return fail(
+        403,
+        "You can’t upload files at the moment (see Your files in your account).",
+      );
+  }
 
-  const role = roleOf(requester);
+  const role: UploaderRole = await uploaderRole(
+    db,
+    user.id,
+    requester.isAdmin,
+    deps.now?.(),
+  );
   const limits = ROLE_LIMITS[role];
   const name = cleanName(input.name);
   const size = input.size;
@@ -432,13 +454,37 @@ async function runProcessing(
     hash.update(value);
   }
   const sha256 = hash.digest("hex");
+  const now = deps.now?.() ?? new Date();
 
-  const purpose = findPurpose(row.purpose, deps.purposes);
   const ownerIsAdmin =
     row.ownerId !== null && (await deps.isAdminId?.(row.ownerId)) === true;
+  // Bytes taken down before stay down (the admin may upload anything).
+  if (!ownerIsAdmin && (await isBlockedHash(db, sha256))) {
+    await storage.remove(row.key);
+    return (
+      (await changeStatus(db, {
+        id,
+        from: "processing",
+        to: "rejected",
+        action: "fail",
+        actorId: null,
+        reason: "This file was taken down from the site before.",
+        set: { sha256, purgedAt: now },
+        now,
+      })) ?? (await getFile(db, id))
+    );
+  }
+
+  const details = await describeContents(storage, row);
+  const purpose = findPurpose(row.purpose, deps.purposes);
+  const role: UploaderRole = ownerIsAdmin
+    ? "admin"
+    : row.ownerId
+      ? await uploaderRole(db, row.ownerId, false, now)
+      : "user";
   const visibility = row.visibility;
   const review = purpose
-    ? needsReview(purpose, ownerIsAdmin ? "admin" : "user", visibility)
+    ? needsReview(purpose, role, visibility)
     : !ownerIsAdmin;
   const step = transition("processing", "processed", "system", {
     needsReview: review,
@@ -447,7 +493,6 @@ async function runProcessing(
 
   const goesPublic = isServedPublicly(step.to, visibility);
   if (goesPublic) await storage.setPublic(row.key, true);
-  const now = deps.now?.() ?? new Date();
   const moved = await changeStatus(db, {
     id,
     from: "processing",
@@ -456,6 +501,9 @@ async function runProcessing(
     actorId: null,
     set: {
       sha256,
+      details,
+      // The admin's own files need no second look.
+      ...(ownerIsAdmin ? { reviewedAt: now } : {}),
       ...(step.to === "published"
         ? { publishedAt: row.publishedAt ?? now }
         : {}),
@@ -464,6 +512,36 @@ async function runProcessing(
   });
   if (!moved && goesPublic) await storage.setPublic(row.key, false);
   return moved ?? (await getFile(db, id));
+}
+
+/** Archives get their contents listed for reviewers (two small ranged reads). */
+async function describeContents(
+  storage: StorageDriver,
+  row: StoredFile,
+): Promise<FileDetails | null> {
+  if (row.kind !== "archive" && row.contentType !== "application/zip")
+    return null;
+  try {
+    const listing = await listZip(row.size, async (start, end) =>
+      readBytes(await storage.read(row.key, { start, end })),
+    );
+    if (!listing) return null;
+    return {
+      archive: {
+        entries: listing.entries.map(({ name, size, directory }) => ({
+          name,
+          size,
+          directory,
+        })),
+        total: listing.total,
+        uncompressed: listing.uncompressed,
+        truncated: listing.truncated,
+      },
+    };
+  } catch {
+    // A damaged archive is still a file; reviewers just see no listing.
+    return null;
+  }
 }
 
 /** Cancels an unfinished upload: its parts are thrown away and the row closed. */
@@ -500,12 +578,23 @@ const ACTION_ERRORS = {
  * A moderation or owner action (approve, reject, remove, restore, delete). The
  * object's public access follows the new status.
  */
+export interface ActOptions {
+  /**
+   * reject / remove: count a strike against the uploader and block the bytes from
+   * coming back (default). False for honest mistakes.
+   */
+  strike?: boolean;
+  /** approve: also trust the uploader from now on. */
+  trust?: boolean;
+}
+
 export async function actOnFile(
   deps: StorageDeps,
   requester: Requester,
   id: string,
   action: FileAction,
   reason?: string | null,
+  options: ActOptions = {},
 ): Promise<Result<StoredFile>> {
   const found = await ownFile(deps, requester, id);
   if (!found.ok) return found;
@@ -544,7 +633,12 @@ export async function actOnFile(
     action,
     actorId: requester.user.id,
     reason: reason?.trim() ? reason.trim() : null,
-    set: step.to === "published" ? { publishedAt: row.publishedAt ?? now } : {},
+    set:
+      action === "approve"
+        ? { publishedAt: row.publishedAt ?? now, reviewedAt: now }
+        : step.to === "published"
+          ? { publishedAt: row.publishedAt ?? now }
+          : {},
     now,
   });
   if (!moved) {
@@ -553,7 +647,75 @@ export async function actOnFile(
       await deps.storage.setPublic(row.key, wasPublic);
     return fail(409, "The file changed meanwhile. Reload and try again.");
   }
+  await afterAction(deps, requester, moved, action, reason ?? "", options, now);
   return ok(moved);
+}
+
+/** What a moderation decision means beyond the file: reports, strikes, trust. */
+async function afterAction(
+  deps: StorageDeps,
+  requester: Requester,
+  row: StoredFile,
+  action: FileAction,
+  reason: string,
+  options: ActOptions,
+  now: Date,
+): Promise<void> {
+  const { db } = deps;
+  if (!requester.isAdmin) return;
+  const ownerId = row.ownerId;
+  const ownerIsAdmin =
+    ownerId !== null && (await deps.isAdminId?.(ownerId)) === true;
+
+  if (action === "approve") {
+    await resolveReports(db, row.id, "dismissed", now);
+    if (ownerId && !ownerIsAdmin) {
+      if (options.trust)
+        await setTrust(db, {
+          userId: ownerId,
+          mode: "trusted",
+          actorId: requester.user.id,
+          now,
+        });
+      else await grantTrustIfEarned(db, ownerId, now);
+    }
+  }
+  if (action === "remove") await resolveReports(db, row.id, "actioned", now);
+  if (
+    (action === "reject" || action === "remove") &&
+    options.strike !== false &&
+    ownerId &&
+    !ownerIsAdmin
+  ) {
+    await addStrike(db, {
+      userId: ownerId,
+      fileId: row.id,
+      reason: reason.trim(),
+      actorId: requester.user.id,
+      now,
+    });
+    if (row.sha256) await blockHash(db, row.sha256, row.id, reason.trim(), now);
+  }
+}
+
+/** Marks a published file as looked at (a spot check of a trusted upload). */
+export async function markReviewed(
+  deps: StorageDeps,
+  requester: Requester,
+  id: string,
+): Promise<Result<StoredFile>> {
+  if (!requester.isAdmin) return fail(403, "Only the site owner can do that.");
+  const row = await getFile(deps.db, id);
+  if (!row) return fail(404, "There’s no such file.");
+  const now = deps.now?.() ?? new Date();
+  const updated = await updateFile(deps.db, id, { reviewedAt: now });
+  await logEvent(deps.db, {
+    fileId: id,
+    actorId: requester.user.id,
+    action: "reviewed",
+    createdAt: now,
+  });
+  return ok(updated ?? row);
 }
 
 /** Changes who can see a file (within what its purpose allows). */

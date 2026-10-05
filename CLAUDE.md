@@ -366,7 +366,9 @@
   (`pnpm dev`: apps/web/.data/storage), served by /api/storage/local/. Neither in
   production: storage is off and the site still runs (apps/web/src/lib/storage/config.ts).
 - Features declare a purpose in apps/web/src/lib/storage/purposes.ts (who uploads,
-  types, size, visibilities, review); uploads name one. Only `site` (admin) exists yet.
+  types, size, visibilities, review); uploads name one. `site` is the admin's;
+  `shared` (people's uploads, review until trusted) is defined but `enabled: false`
+  until the creator platform; STORAGE_ENABLE_PURPOSES=shared switches it on (e2e).
 - Every status change goes through `transition` (packages/storage/src/moderation.ts)
   and `changeStatus` (guarded by the expected status, logged in storage_events); the
   object's ACL follows `isServedPublicly(status, visibility)`. Operations live in
@@ -377,7 +379,23 @@
   Objects cache for a day (`PUBLIC_CACHE`) so takedowns reach browsers.
 - Background maintenance (middleware, every 10 minutes): abandon day-old uploads,
   reprocess stuck files, purge bytes after RETENTION_DAYS (rows stay).
-- The admin's page is /admin/files; each file has a page at /files/<id>/.
+- Moderation policy (numbers and decisions) is packages/storage/src/policy.ts;
+  apps/web/src/lib/storage/ keeps the facts: standing.ts (trust: auto after 3
+  approvals with no strikes, or the admin's "always"/"never"; strikes for 90 days, 3
+  ban uploading; manual bans), reports.ts (signed-in reports; 3 from accounts ≥7 days
+  old hide a non-admin file via the `flag` transition), appeals.ts (one per refused or
+  removed file; an open appeal stops the purge; accepting restores, clears the strike
+  and unblocks the hash). Rejecting or removing strikes and blocks the SHA-256
+  (blocked_hashes) unless "no strike"; approving dismisses reports and may grant trust.
+  User-level actions are logged in storage_events with `subjectId`.
+- Processing lists archives' contents (packages/storage/src/zip.ts, two ranged reads)
+  into `files.details` for reviewers; the review queue previews non-public files
+  through signed URLs on the bucket's own domain (in the CSP's img-src/media-src).
+- Pages: /admin/files (all files, ?owner=<login> shows the uploader panel),
+  /admin/files/review (?tab=waiting|reports|appeals|spot), /files/<id>/ (with the
+  report form), /account/files (usage, strikes, appeals). The account export lists
+  files, reports, appeals and strikes; deleting an account deletes its files' bytes
+  and rows first.
 
 ## Deploy
 

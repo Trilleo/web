@@ -21,6 +21,8 @@ const e2eEnv = {
   DATABASE_URL: "memory://",
   // Uploads: the local storage driver, in memory (no OBS in tests).
   STORAGE_URL: "memory://",
+  // People's uploads aren't live yet; e2e switches them on to test moderation.
+  STORAGE_ENABLE_PURPOSES: "shared",
   MIGRATIONS_DIR: fileURLToPath(
     new URL("../../packages/db/migrations", import.meta.url),
   ),

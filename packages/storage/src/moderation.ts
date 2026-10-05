@@ -6,6 +6,7 @@
  *       │                       │                 └─▶ pending_review ─approve─▶ published
  *       │                       └──fail──▶ rejected        └──reject──▶ rejected
  *       └──abandon──▶ deleted
+ *   published ──flag──▶ pending_review   (hidden after several reports, until reviewed)
  *   published / pending_review ──remove──▶ removed   (a takedown, by the admin)
  *   removed / rejected / deleted ──restore──▶ published   (the admin changed their mind)
  *   most states ──delete──▶ deleted   (the owner or the admin)
@@ -39,6 +40,7 @@ export type FileAction =
   | "processed"
   | "fail"
   | "abandon"
+  | "flag"
   | "approve"
   | "reject"
   | "remove"
@@ -60,6 +62,7 @@ const RULES: Readonly<Record<FileAction, Rule>> = {
   processed: { from: ["processing"], by: ["system"] },
   fail: { from: ["uploading", "processing"], by: ["system"], reason: true },
   abandon: { from: ["uploading"], by: ["owner", "admin", "system"] },
+  flag: { from: ["published"], by: ["system"], reason: true },
   approve: { from: ["pending_review"], by: ["admin"] },
   reject: { from: ["pending_review"], by: ["admin"], reason: true },
   remove: {
@@ -103,6 +106,8 @@ function target(action: FileAction, needsReview: boolean): FileStatus {
       return "processing";
     case "processed":
       return needsReview ? "pending_review" : "published";
+    case "flag":
+      return "pending_review";
     case "fail":
     case "reject":
       return "rejected";

@@ -57,6 +57,11 @@ export interface StoragePurpose {
   slug: string;
   /** For the admin's lists ("Site files"). */
   label: string;
+  /**
+   * False keeps the purpose's rules in place but refuses uploads (a feature that
+   * isn't live yet). Defaults to true.
+   */
+  enabled?: boolean;
   /** Who may upload: only the admin, or anyone signed in. */
   uploaders: "admin" | "users";
   /** A lower size cap than the uploader's role allows. */

@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { requireUser } from "../../lib/auth/guard";
 import { getDb } from "../../lib/db";
 import { exportUserData } from "../../lib/profile/store";
+import { storageExport } from "../../lib/storage/account";
 
 export const prerender = false;
 
@@ -10,7 +11,13 @@ export const GET: APIRoute = async (context) => {
   const user = requireUser(context);
   if (user instanceof Response) return user;
 
-  const data = await exportUserData(await getDb(), user.id);
+  const db = await getDb();
+  const profile = await exportUserData(db, user.id);
+  // Stored files (their details; the files themselves download from their pages).
+  const data = profile && {
+    ...profile,
+    storage: await storageExport(db, user.id),
+  };
   const day = new Date().toISOString().slice(0, 10);
   return new Response(JSON.stringify(data, null, 2), {
     headers: {

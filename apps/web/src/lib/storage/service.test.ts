@@ -59,7 +59,10 @@ beforeEach(async () => {
     db: handle.db,
     storage,
     isAdminId: (id) => Promise.resolve(id === adminUser.id),
-    purposes: [...STORAGE_PURPOSES, SHARED],
+    purposes: [
+      ...STORAGE_PURPOSES.filter((p) => p.slug !== SHARED.slug),
+      SHARED,
+    ],
     now: () => clock,
   };
 });

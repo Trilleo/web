@@ -1,0 +1,120 @@
+---
+/**
+ * An uploader at a glance, for the admin: trust, strikes, ban, and their files by
+ * status, with the controls to change trust and bans.
+ */
+import { STRIKE_LIMIT, isTrustedUploader } from "@trilleo/storage";
+import type { UploadTrustMode } from "@trilleo/storage";
+import { STATUS_LABELS } from "../../../lib/storage/labels";
+import type { UploaderSummary } from "../../../lib/storage/review";
+import ReasonForm from "./ReasonForm.astro";
+import { segment, secondaryButton } from "./styles";
+
+interface Props {
+  uploader: UploaderSummary;
+  back: string;
+  /** Compact: one line of facts and the controls (inside a review card). */
+  compact?: boolean;
+}
+
+const { uploader, back, compact = false } = Astro.props;
+const { standing } = uploader;
+const trusted = isTrustedUploader(standing);
+const TRUST_LABELS: Record<UploadTrustMode, string> = {
+  auto: "By history",
+  trusted: "Always",
+  untrusted: "Never",
+};
+const facts = [
+  standing.bannedAt
+    ? `Banned${standing.banReason === "strikes" ? " (strikes)" : `: ${standing.banReason ?? ""}`}`
+    : trusted
+      ? "Trusted"
+      : "Not trusted yet",
+  `${String(standing.activeStrikes)} of ${String(STRIKE_LIMIT)} strikes`,
+  ...Object.entries(uploader.counts).map(
+    ([status, n]) =>
+      `${STATUS_LABELS[status as keyof typeof STATUS_LABELS]} ${String(n)}`,
+  ),
+];
+---
+
+<div class:list={["flex flex-col gap-3", !compact && "border border-ink p-4"]}>
+  <p class="type-label flex flex-wrap gap-x-4 gap-y-1">
+    <a
+      href={`/admin/files/?owner=${encodeURIComponent(uploader.login)}`}
+      class="group text-ink"
+    >
+      <span class="link-wipe">@{uploader.login}</span>
+    </a>
+    {facts.map((fact) => (
+      <span class="text-muted">{fact}</span>
+    ))}
+  </p>
+  <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+    <form
+      method="post"
+      action="/admin/files/action"
+      class="flex items-center gap-3"
+    >
+      <input type="hidden" name="action" value="trust" />
+      <input type="hidden" name="user" value={uploader.id} />
+      <input type="hidden" name="back" value={back} />
+      <span class="type-label text-muted" id={`trust-${uploader.id}`}>
+        Trust
+      </span>
+      <div role="group" aria-labelledby={`trust-${uploader.id}`} class="flex">
+        {(Object.keys(TRUST_LABELS) as UploadTrustMode[]).map((mode) =>
+          mode === standing.trust ? (
+            <span
+              class:list={[segment, "bg-ink text-paper"]}
+              aria-current="true"
+            >
+              {TRUST_LABELS[mode]}
+            </span>
+          ) : (
+            <button
+              type="submit"
+              name="mode"
+              value={mode}
+              class:list={[segment, "press cursor-pointer hover:bg-chip"]}
+              aria-label={`Trust @${uploader.login}: ${TRUST_LABELS[mode].toLowerCase()}`}
+            >
+              {TRUST_LABELS[mode]}
+            </button>
+          ),
+        )}
+      </div>
+    </form>
+    {standing.bannedAt ? (
+      <ReasonForm
+        label="Lift ban"
+        subject={`@${uploader.login}`}
+        action="unban"
+        back={back}
+        fields={{ user: uploader.id }}
+        name="note"
+        prompt="Note (optional)"
+        required={false}
+        checkbox={{ name: "clear-strikes", label: "Also clear their strikes" }}
+      />
+    ) : (
+      <ReasonForm
+        label="Ban uploads"
+        subject={`@${uploader.login}`}
+        action="ban"
+        back={back}
+        fields={{ user: uploader.id }}
+        prompt="Why? (shown to them)"
+      />
+    )}
+    {!compact && (
+      <a
+        href={`/admin/files/?owner=${encodeURIComponent(uploader.login)}`}
+        class={secondaryButton}
+      >
+        Their files
+      </a>
+    )}
+  </div>
+</div>

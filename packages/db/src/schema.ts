@@ -65,6 +65,19 @@ export const users = pgTable("users", {
   blockedAt: timestamp("blocked_at", { withTimezone: true }),
   /** File storage allowance in bytes, set by the admin. Null: their role's default. */
   storageQuotaBytes: bigint("storage_quota_bytes", { mode: "number" }),
+  /**
+   * Upload trust: auto (earned by approved uploads, see @trilleo/storage's policy.ts),
+   * or trusted / untrusted as the admin set it.
+   */
+  uploadTrust: text("upload_trust", { enum: ["auto", "trusted", "untrusted"] })
+    .notNull()
+    .default("auto"),
+  /** When automatic upload trust was earned; a strike clears it. */
+  uploadTrustedAt: timestamp("upload_trusted_at", { withTimezone: true }),
+  /** Can't upload files (too many strikes, or the admin said so). */
+  uploadBannedAt: timestamp("upload_banned_at", { withTimezone: true }),
+  /** "strikes" for an automatic ban, else the admin's reason. */
+  uploadBanReason: text("upload_ban_reason"),
 });
 
 /** A signed-in browser. `id` is the SHA-256 of the cookie's token, never the token. */
@@ -257,6 +270,16 @@ export const toolData = pgTable(
   (table) => [primaryKey({ columns: [table.userId, table.tool, table.key] })],
 );
 
+/** What processing found out about a file. */
+export interface FileDetails {
+  archive?: {
+    entries: { name: string; size: number; directory: boolean }[];
+    total: number;
+    uncompressed: number;
+    truncated: boolean;
+  };
+}
+
 /** A stored file's place in its life; see @trilleo/storage's moderation.ts. */
 export const fileStatus = pgEnum("file_status", [
   "uploading",
@@ -321,6 +344,10 @@ export const files = pgTable(
       .defaultNow(),
     /** When its bytes were deleted from storage for good. */
     purgedAt: timestamp("purged_at", { withTimezone: true }),
+    /** When the admin last looked at it (approved, or spot-checked). */
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    /** What processing found out, e.g. an archive's contents (for reviewers). */
+    details: jsonb("details").$type<FileDetails>(),
   },
   (table) => [
     index("files_owner_idx").on(table.ownerId, table.createdAt),
@@ -341,6 +368,10 @@ export const storageEvents = pgTable(
     fileId: text("file_id").references(() => files.id, {
       onDelete: "cascade",
     }),
+    /** The uploader an action was about (trust, strikes, bans). */
+    subjectId: uuid("subject_id").references(() => users.id, {
+      onDelete: "cascade",
+    }),
     /** Who acted; null for the server itself (or a deleted account). */
     actorId: uuid("actor_id").references(() => users.id, {
       onDelete: "set null",
@@ -357,6 +388,98 @@ export const storageEvents = pgTable(
     index("storage_events_created_idx").on(table.createdAt),
   ],
 );
+
+/**
+ * A strike against an uploader: a file refused or taken down for cause. Strikes
+ * count for 90 days (`expiresAt`); STRIKE_LIMIT active ones ban uploading. An
+ * accepted appeal clears its strike.
+ */
+export const uploadStrikes = pgTable(
+  "upload_strikes",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    fileId: text("file_id").references(() => files.id, {
+      onDelete: "set null",
+    }),
+    reason: text("reason").notNull(),
+    createdAt: createdAt(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    clearedAt: timestamp("cleared_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("upload_strikes_user_idx").on(table.userId, table.expiresAt),
+  ],
+);
+
+/**
+ * Someone's report about a public file. One open report per person per file.
+ * open: waiting; dismissed: the admin found nothing wrong; actioned: the file
+ * was taken down.
+ */
+export const fileReports = pgTable(
+  "file_reports",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    fileId: text("file_id")
+      .notNull()
+      .references(() => files.id, { onDelete: "cascade" }),
+    reporterId: uuid("reporter_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reason: text("reason").notNull(),
+    details: text("details").notNull().default(""),
+    status: text("status", { enum: ["open", "dismissed", "actioned"] })
+      .notNull()
+      .default("open"),
+    createdAt: createdAt(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("file_reports_file_idx").on(table.fileId, table.status),
+    index("file_reports_reporter_idx").on(table.reporterId, table.createdAt),
+  ],
+);
+
+/**
+ * An uploader asking the admin to reconsider a refused or removed file. One per
+ * file. Accepting restores the file and clears its strike.
+ */
+export const fileAppeals = pgTable(
+  "file_appeals",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    fileId: text("file_id")
+      .notNull()
+      .unique()
+      .references(() => files.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    message: text("message").notNull(),
+    status: text("status", { enum: ["open", "accepted", "denied"] })
+      .notNull()
+      .default("open"),
+    /** The admin's answer, shown to the uploader. */
+    response: text("response"),
+    createdAt: createdAt(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("file_appeals_status_idx").on(table.status, table.createdAt),
+  ],
+);
+
+/** Bytes that were taken down for cause: uploading them again is refused. */
+export const blockedHashes = pgTable("blocked_hashes", {
+  sha256: text("sha256").primaryKey(),
+  /** The file that got them blocked. */
+  fileId: text("file_id").references(() => files.id, { onDelete: "set null" }),
+  reason: text("reason").notNull(),
+  createdAt: createdAt(),
+});
 
 /**
  * Skygrid (apps/skygrid): one island per account. `state` is the engine's GameState,
@@ -444,5 +567,8 @@ export type Media = typeof media.$inferSelect;
 export type ToolDataRow = typeof toolData.$inferSelect;
 export type StoredFile = typeof files.$inferSelect;
 export type StorageEvent = typeof storageEvents.$inferSelect;
+export type UploadStrike = typeof uploadStrikes.$inferSelect;
+export type FileReport = typeof fileReports.$inferSelect;
+export type FileAppeal = typeof fileAppeals.$inferSelect;
 export type SkygridSave = typeof skygridSaves.$inferSelect;
 export type SkygridOrder = typeof skygridOrders.$inferSelect;

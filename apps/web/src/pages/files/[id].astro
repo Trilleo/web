@@ -12,13 +12,15 @@ import {
 } from "@trilleo/storage";
 import type { FileStatus, FileVisibility } from "@trilleo/storage";
 import { formatBytes } from "@trilleo/tool-kit/files";
-import { buttonClasses } from "@trilleo/ui";
+import { buttonClasses, fieldClasses } from "@trilleo/ui";
+import { REPORT_REASONS, REPORT_REASON_LABELS } from "@trilleo/storage";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { formatPostDate } from "../../lib/listings";
 import { CONTACT_EMAIL } from "../../lib/site";
 import { requesterOf, storageDeps } from "../../lib/storage/deps";
 import { canManage, downloadPath } from "../../lib/storage/service";
 import { STATUS_LABELS, VISIBILITY_LABELS } from "../../lib/storage/labels";
+import { hasOpenReport } from "../../lib/storage/reports";
 import { fileEvents, fileOwner, getFile } from "../../lib/storage/store";
 
 export const prerender = false;
@@ -48,6 +50,14 @@ const preview = publicUrl && isInlineType(file.contentType) ? file.kind : null;
 const history =
   requester?.isAdmin === true ? await fileEvents(deps.db, file.id) : [];
 const gone = file.purgedAt !== null;
+const viewer = Astro.locals.user;
+const canReport = isPublic && viewer !== null && viewer.id !== file.ownerId;
+const reported =
+  canReport &&
+  (Astro.url.searchParams.get("reported") === "1" ||
+    (await hasOpenReport(deps.db, file.id, viewer.id)));
+const reportError = Astro.url.searchParams.get("report-error");
+const signInToReport = `/sign-in?next=${encodeURIComponent(Astro.url.pathname)}`;
 
 const notice: Partial<Record<FileStatus, string>> = {
   processing: "This file is still being checked. It will be ready in a moment.",
@@ -92,6 +102,17 @@ const body = "col-span-4 md:col-span-6 xl:col-span-7";
           status === "removed" ||
           status === "deleted") &&
           "."}
+        {viewer?.id === file.ownerId &&
+          (status === "rejected" || status === "removed") &&
+          !gone && (
+            <>
+              {" "}
+              <a href={`/account/files/#file-${file.id}`} class="link-wipe">
+                Appeal from your files
+              </a>
+              .
+            </>
+          )}
       </p>
     )}
     {manager && isPublic === false && status === "published" && (
@@ -243,19 +264,88 @@ const body = "col-span-4 md:col-span-6 xl:col-span-7";
       </div>
     )}
 
-    <div class={row}>
+    <div class={row} id="report">
       <h2 class={heading}>Report</h2>
-      <p class:list={[body, "text-muted"]}>
-        Something wrong with this file (it’s harmful, or it’s yours and was
-        shared without permission)? Email{" "}
-        <a
-          href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`File ${file.id}`)}`}
-          class="text-ink underline"
-        >
-          {CONTACT_EMAIL}
-        </a>{" "}
-        with this page’s address.
-      </p>
+      <div class:list={[body, "flex flex-col gap-5"]}>
+        {reported && (
+          <p role="status" class="type-lead border-l-2 border-accent pl-4">
+            Thanks: you’ve reported this file. The site owner will look at it.
+          </p>
+        )}
+        {reportError && (
+          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+            {reportError}
+          </p>
+        )}
+        {canReport && !reported && (
+          <details class="group/report">
+            <summary
+              class={buttonClasses({
+                variant: "secondary",
+                className: "list-none [&::-webkit-details-marker]:hidden",
+              })}
+            >
+              Report this file
+            </summary>
+            <form
+              method="post"
+              action="/files/report"
+              class="mt-5 flex flex-col gap-5"
+            >
+              <input type="hidden" name="id" value={file.id} />
+              <fieldset class="flex flex-col gap-2">
+                <legend class="type-label mb-2">What’s wrong with it?</legend>
+                {REPORT_REASONS.map((reason, index) => (
+                  <label class="flex items-start gap-2">
+                    <input
+                      type="radio"
+                      name="reason"
+                      value={reason}
+                      required={index === 0}
+                      class="mt-1"
+                    />
+                    <span>{REPORT_REASON_LABELS[reason]}</span>
+                  </label>
+                ))}
+              </fieldset>
+              <label class="flex flex-col gap-1.5">
+                <span class="type-label">Details (optional)</span>
+                <textarea
+                  name="details"
+                  rows={4}
+                  maxlength={2000}
+                  class:list={[fieldClasses, "px-3 py-2"]}
+                ></textarea>
+              </label>
+              <button
+                type="submit"
+                class={buttonClasses({ className: "self-start" })}
+              >
+                Send report
+              </button>
+            </form>
+          </details>
+        )}
+        {isPublic && viewer === null && (
+          <p>
+            <a href={signInToReport} class="text-ink underline">
+              Sign in
+            </a>{" "}
+            to report this file.
+          </p>
+        )}
+        <p class="text-muted">
+          Something wrong with this file (it’s harmful, or it’s yours and was
+          shared without permission)? You can also email{" "}
+          <a
+            href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`File ${file.id}`)}`}
+            class="text-ink underline"
+          >
+            {CONTACT_EMAIL}
+          </a>{" "}
+          with this page’s address.
+        </p>
+      </div>
     </div>
 
     {requester?.isAdmin && (

@@ -1,0 +1,145 @@
+---
+/**
+ * The admin's review queue: files waiting for review (oldest first), reported
+ * files, appeals, and spot checks of trusted uploaders' files. ?tab= picks one.
+ */
+import AdminNav from "../../../components/admin/AdminNav.astro";
+import ReviewCard from "../../../components/admin/files/ReviewCard.astro";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireAdmin } from "../../../lib/auth/guard";
+import { storageDeps } from "../../../lib/storage/deps";
+import {
+  REVIEW_TABS,
+  reviewCounts,
+  reviewItems,
+  type ReviewTab,
+} from "../../../lib/storage/review";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const tabParam = Astro.url.searchParams.get("tab") ?? "waiting";
+const tab: ReviewTab = REVIEW_TABS.includes(tabParam as ReviewTab)
+  ? (tabParam as ReviewTab)
+  : "waiting";
+const done = Astro.url.searchParams.get("done");
+const error = Astro.url.searchParams.get("error");
+
+const deps = await storageDeps();
+const counts = deps ? await reviewCounts(deps.db) : null;
+const items = deps ? await reviewItems(deps.db, deps.storage, tab) : [];
+const back = `/admin/files/review?tab=${tab}`;
+
+const TAB_LABELS: Record<ReviewTab, string> = {
+  waiting: "Waiting",
+  reports: "Reports",
+  appeals: "Appeals",
+  spot: "Spot checks",
+};
+const TAB_HINTS: Record<ReviewTab, string> = {
+  waiting:
+    "Files that wait for you before anyone else sees them, oldest first.",
+  reports:
+    "Files people reported. Hidden ones were reported by several people.",
+  appeals: "Uploaders asking you to reconsider a refused or taken-down file.",
+  spot: "Files trusted uploaders published without review. Have a look now and then.",
+};
+const EMPTY: Record<ReviewTab, string> = {
+  waiting: "Nothing waits for review.",
+  reports: "No open reports.",
+  appeals: "No open appeals.",
+  spot: "Nothing to spot-check.",
+};
+const DONE_LABELS: Record<string, string> = {
+  approve: "Approved.",
+  "approve-trust": "Approved, and the uploader is trusted now.",
+  reject: "Refused.",
+  remove: "Taken down.",
+  reviewed: "Marked as checked.",
+  "dismiss-reports": "Reports dismissed.",
+  "appeal-accept": "Appeal accepted: the file is back.",
+  "appeal-deny": "Appeal denied.",
+  trust: "Trust changed.",
+  ban: "Uploads banned.",
+  unban: "Ban lifted.",
+};
+---
+
+<BaseLayout title="Review · Files · Admin" noindex>
+  <section
+    aria-labelledby="review-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="files" />
+
+    <DisplayTitle id="review-title">Review</DisplayTitle>
+
+    <div class="grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <p class="type-label col-span-4 md:col-span-2 xl:col-span-2">
+        <a href="/admin/files/" class="group">
+          <span class="link-wipe">All files</span>
+        </a>
+      </p>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
+        <nav
+          aria-label="Review queues"
+          class="type-label flex flex-wrap gap-x-6 gap-y-2"
+        >
+          {REVIEW_TABS.map((key) => (
+            <a
+              href={`/admin/files/review?tab=${key}`}
+              class="group inline-flex items-center gap-2"
+              aria-current={key === tab ? "page" : undefined}
+            >
+              <span
+                class:list={[
+                  "size-2",
+                  key === tab ? "bg-accent" : "bg-transparent",
+                ]}
+                aria-hidden="true"
+              />
+              <span class="link-wipe">{TAB_LABELS[key]}</span>
+              {counts && counts[key] > 0 && (
+                <span class="bg-accent px-1.5 text-on-accent">
+                  {counts[key]}
+                </span>
+              )}
+            </a>
+          ))}
+        </nav>
+        <p class="text-muted">{TAB_HINTS[tab]}</p>
+        {done && DONE_LABELS[done] && (
+          <p role="status" class="type-lead border-l-2 border-accent pl-4">
+            {DONE_LABELS[done]}
+          </p>
+        )}
+        {error && (
+          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+            {error}
+          </p>
+        )}
+        {!deps && (
+          <p class="type-lead border-l-2 border-accent pl-4">
+            File storage isn’t set up on this server yet (deploy/storage.md).
+          </p>
+        )}
+      </div>
+    </div>
+
+    {items.length === 0 ? (
+      <p class="mt-10 text-muted">{EMPTY[tab]}</p>
+    ) : (
+      <div class="mt-10 border-b border-ink">
+        {items.map((item) => (
+          <ReviewCard item={item} tab={tab} back={back} />
+        ))}
+      </div>
+    )}
+  </section>
+</BaseLayout>

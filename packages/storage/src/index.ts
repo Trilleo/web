@@ -9,3 +9,5 @@ export * from "./api-types";
 export * from "./files";
 export * from "./limits";
 export * from "./moderation";
+export * from "./policy";
+export * from "./zip";

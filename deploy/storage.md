@@ -195,10 +195,12 @@ After the next deploy (or now, if the release with storage is already live):
 
 ## How it behaves
 
-- **Limits** (packages/storage/src/limits.ts): 1 GiB per file. Signed-in users would get
+- **Limits** (packages/storage/src/limits.ts): 1 GiB per file. Signed-in users get
   2 GiB in total and 200 MiB per file; trusted uploaders 10 GiB and 1 GiB; the admin has
-  no total limit. For now only the admin can upload (the `site` purpose). Features
-  that let people upload add a purpose in `apps/web/src/lib/storage/purposes.ts`.
+  no total limit. For now only the admin can upload (the `site` purpose). People's
+  uploads use the `shared` purpose, which stays off until a feature (the creator
+  platform) turns it on in `apps/web/src/lib/storage/purposes.ts`. To switch it on
+  early without a code change, add `STORAGE_ENABLE_PURPOSES=shared` to `app.env`.
 - **Types**: almost anything. Images, audio, video and PDF open in the browser; every
   other type downloads. HTML, SVG and scripts are stored as plain bytes and always
   download, so nothing on `files.trilleo.net` can run as a web page. Programs (`.exe`,
@@ -208,6 +210,22 @@ After the next deploy (or now, if the release with storage is already live):
   published, or waiting for review for uploads that need it. The admin can approve,
   refuse, take down (with a reason the uploader sees), restore and delete. Every
   change is logged in `storage_events`, shown as the file's history on its page.
+- **Moderation** (packages/storage/src/policy.ts):
+  - A newcomer's public uploads wait in the review queue (/admin/files/review). After
+    3 approved uploads with no strikes they publish straight away; you can also trust
+    someone by hand (**Approve & trust**, or the Trust switch), or never.
+  - Refusing or taking down a file gives the uploader a **strike** (90 days) and blocks
+    those exact bytes from being uploaded again. Tick **No strike** for honest
+    mistakes. **3 active strikes ban uploading**; you can also ban by hand, and lift a
+    ban (optionally clearing the strikes).
+  - Anyone signed in can **report** a public file from its page. Reports land in the
+    queue's Reports tab; 3 reports from accounts at least a week old hide the file
+    until you decide (the site owner's own files are never hidden this way).
+  - Uploaders see reasons, strikes and bans on /account/files and can **appeal** each
+    refused or taken-down file once. Accepting restores the file, clears its strike
+    (lifting a strike ban) and unblocks its bytes. Files with an open appeal aren't
+    purged.
+  - **Spot checks**: trusted uploaders' files that nobody has looked at yet.
 - **Clean-up** (every ~10 minutes, in the background): uploads unfinished after a day
   are cancelled; bytes of deleted and refused files are purged after 7 days, taken-down
   files after 30. The row stays as a record.

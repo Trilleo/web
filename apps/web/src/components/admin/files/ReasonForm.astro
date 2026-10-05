@@ -1,0 +1,96 @@
+---
+/**
+ * A button that opens a small form asking why (for take down, reject, ban, deny…),
+ * then posts it to /admin/files/action. A <details>, so it works without JavaScript.
+ */
+import { buttonClasses, fieldClasses } from "@trilleo/ui";
+import { secondaryButton } from "./styles";
+
+interface Props {
+  /** The button's text, e.g. "Take down". */
+  label: string;
+  /** What it acts on, for screen readers ("Take down castle.zip"). */
+  subject: string;
+  action: string;
+  back: string;
+  /** Hidden fields: id, user, appeal… */
+  fields: Record<string, string>;
+  /** The textarea's name; "reason" by default. */
+  name?: string;
+  prompt?: string;
+  /** A reason is required (otherwise optional). */
+  required?: boolean;
+  /** Offer "No strike (an honest mistake)". */
+  strikeChoice?: boolean;
+  /** The text box's accessible name; "Reason to <label> <subject>" by default. */
+  fieldLabel?: string;
+  /** Another checkbox, e.g. clearing strikes. */
+  checkbox?: { name: string; label: string };
+}
+
+const {
+  label,
+  subject,
+  action,
+  back,
+  fields,
+  name = "reason",
+  prompt = "Why? (shown to the uploader)",
+  required = true,
+  strikeChoice = false,
+  checkbox,
+  fieldLabel = `Reason to ${label.toLowerCase()} ${subject}`,
+} = Astro.props;
+---
+
+<details class="group/reason relative">
+  <summary
+    class:list={[
+      secondaryButton,
+      "list-none group-open/reason:bg-ink group-open/reason:text-paper [&::-webkit-details-marker]:hidden",
+    ]}
+  >
+    {label}…
+  </summary>
+  <form
+    method="post"
+    action="/admin/files/action"
+    class="absolute left-0 z-10 mt-2 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-3 border border-ink bg-paper p-4 md:right-0 md:left-auto"
+  >
+    <input type="hidden" name="action" value={action} />
+    <input type="hidden" name="back" value={back} />
+    {Object.entries(fields).map(([key, value]) => (
+      <input type="hidden" name={key} value={value} />
+    ))}
+    <label class="flex flex-col gap-1.5">
+      <span class="type-label">{prompt}</span>
+      <textarea
+        name={name}
+        required={required}
+        maxlength={2000}
+        rows={3}
+        aria-label={fieldLabel}
+        class:list={[fieldClasses, "px-2 py-1.5 text-sm"]}
+      ></textarea>
+    </label>
+    {strikeChoice && (
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="no-strike" value="yes" />
+        No strike (an honest mistake)
+      </label>
+    )}
+    {checkbox && (
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name={checkbox.name} value="yes" />
+        {checkbox.label}
+      </label>
+    )}
+    <button
+      type="submit"
+      class={buttonClasses({ className: "h-9 self-end" })}
+      aria-label={`${label} ${subject}`}
+    >
+      {label}
+    </button>
+  </form>
+</details>

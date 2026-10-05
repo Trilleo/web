@@ -15,6 +15,13 @@ import { formatBytes } from "@trilleo/tool-kit/files";
 import { buttonClasses, fieldClasses } from "@trilleo/ui";
 import AdminNav from "../../../components/admin/AdminNav.astro";
 import FileUploader from "../../../components/admin/FileUploader";
+import ReasonForm from "../../../components/admin/files/ReasonForm.astro";
+import UploaderPanel from "../../../components/admin/files/UploaderPanel.astro";
+import {
+  primaryButton,
+  secondaryButton,
+  segment,
+} from "../../../components/admin/files/styles";
 import DisplayTitle from "../../../components/DisplayTitle.astro";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { requireAdmin } from "../../../lib/auth/guard";
@@ -23,7 +30,10 @@ import { getStorage } from "../../../lib/storage/config";
 import { storageDeps } from "../../../lib/storage/deps";
 import { STATUS_LABELS } from "../../../lib/storage/labels";
 import { filePagePath } from "../../../lib/storage/service";
+import { reviewCounts, uploaderSummaries } from "../../../lib/storage/review";
 import { listFiles, statusTotals } from "../../../lib/storage/store";
+import { users } from "@trilleo/db";
+import { eq } from "drizzle-orm";
 
 export const prerender = false;
 
@@ -40,6 +50,7 @@ const status = FILE_STATUSES.includes(statusParam as FileStatus)
   ? (statusParam as FileStatus)
   : undefined;
 const query = params.get("q")?.trim().slice(0, 200) ?? "";
+const ownerLogin = params.get("owner")?.trim().slice(0, 100) ?? "";
 const page = Math.max(1, Math.floor(Number(params.get("page")) || 1));
 const done = params.get("done");
 const error = params.get("error");
@@ -47,10 +58,33 @@ const error = params.get("error");
 const deps = await storageDeps();
 const storageKind = getStorage()?.kind ?? null;
 const totals = deps ? await statusTotals(deps.db) : {};
+const toReview = deps ? await reviewCounts(deps.db) : null;
+const waitingTotal = toReview
+  ? toReview.waiting + toReview.reports + toReview.appeals
+  : 0;
+const [owner] =
+  deps && ownerLogin
+    ? await deps.db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.githubLogin, ownerLogin))
+        .limit(1)
+    : [];
+const uploader =
+  deps && owner
+    ? (await uploaderSummaries(deps.db, [owner.id])).get(owner.id)
+    : undefined;
 const { items, total } = deps
   ? await listFiles(
       deps.db,
-      { status, ...(query ? { query } : {}) },
+      {
+        status,
+        ...(query ? { query } : {}),
+        // An unknown login matches nobody.
+        ...(ownerLogin
+          ? { ownerId: owner?.id ?? "00000000-0000-0000-0000-000000000000" }
+          : {}),
+      },
       { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE },
     )
   : { items: [], total: 0 };
@@ -74,6 +108,7 @@ const ACTION_LABELS: Record<FileAction, string> = {
   processed: "Processed",
   fail: "Fail",
   abandon: "Abandon",
+  flag: "Hide",
   approve: "Approve",
   reject: "Reject",
   remove: "Take down",
@@ -88,11 +123,6 @@ const VISIBILITY_SHORT: Record<FileVisibility, string> = {
   unlisted: "Unlisted",
   private: "Private",
 };
-const smallButton =
-  "type-label inline-flex h-8 cursor-pointer items-center border border-ink px-3 press";
-// Joined toggles: neighbours share a border.
-const segment =
-  "type-label -ml-px inline-flex h-8 items-center border border-ink px-3 first:ml-0";
 const DONE_LABELS: Record<string, string> = {
   approve: "Approved.",
   reject: "Refused.",
@@ -100,6 +130,9 @@ const DONE_LABELS: Record<string, string> = {
   restore: "Restored.",
   delete: "Deleted.",
   visibility: "Visibility changed.",
+  trust: "Trust changed.",
+  ban: "Uploads banned.",
+  unban: "Ban lifted.",
 };
 const pageHref = (n: number) => {
   const url = new URL(Astro.url);
@@ -141,6 +174,19 @@ const dot = (s: FileStatus) =>
             {error}
           </p>
         )}
+        {waitingTotal > 0 && (
+          <a
+            href={`/admin/files/review?tab=${toReview && toReview.waiting === 0 ? (toReview.reports > 0 ? "reports" : "appeals") : "waiting"}`}
+            class={primaryButton + " self-start"}
+          >
+            {waitingTotal} to review
+          </a>
+        )}
+        {waitingTotal === 0 && (
+          <a href="/admin/files/review" class={secondaryButton + " self-start"}>
+            Review queue
+          </a>
+        )}
         {storageKind === null ? (
           <p class="type-lead border-l-2 border-accent pl-4">
             File storage isn’t set up on this server yet (deploy/storage.md).
@@ -158,6 +204,21 @@ const dot = (s: FileStatus) =>
         )}
       </div>
     </div>
+
+    {ownerLogin && (
+      <div class="grid-swiss mt-12 gap-y-4 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+        <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
+          Uploader
+        </h2>
+        <div class="col-span-4 md:col-span-6 xl:col-span-10">
+          {uploader ? (
+            <UploaderPanel uploader={uploader} back={here} />
+          ) : (
+            <p class="text-muted">There’s no account called @{ownerLogin}.</p>
+          )}
+        </div>
+      </div>
+    )}
 
     <form
       method="get"
@@ -177,6 +238,7 @@ const dot = (s: FileStatus) =>
       </label>
       <label class="col-span-4 flex flex-col gap-1.5 md:col-span-2 xl:col-span-3">
         <span class="type-label">Status</span>
+        {ownerLogin && <input type="hidden" name="owner" value={ownerLogin} />}
         <select name="status" class:list={[fieldClasses, "h-11 px-3"]}>
           <option value="">Any</option>
           {FILE_STATUSES.map((s) => (
@@ -243,7 +305,14 @@ const dot = (s: FileStatus) =>
                   <span>{file.label}</span>
                   <span>{formatBytes(file.size)}</span>
                   <span>{formatPostDate(file.createdAt)}</span>
-                  {file.ownerLogin && <span>@{file.ownerLogin}</span>}
+                  {file.ownerLogin && (
+                    <a
+                      href={`?owner=${encodeURIComponent(file.ownerLogin)}`}
+                      class="hover:text-ink"
+                    >
+                      @{file.ownerLogin}
+                    </a>
+                  )}
                   <span>
                     {file.downloads}{" "}
                     {file.downloads === 1 ? "download" : "downloads"}
@@ -303,54 +372,14 @@ const dot = (s: FileStatus) =>
                     <div class="flex flex-wrap items-center gap-2 md:ml-auto">
                       {actions.map((action) =>
                         NEEDS_REASON.includes(action) ? (
-                          <details class="group/reason relative">
-                            <summary
-                              class:list={[
-                                smallButton,
-                                "list-none hover:bg-chip group-open/reason:bg-ink group-open/reason:text-paper [&::-webkit-details-marker]:hidden",
-                              ]}
-                            >
-                              {ACTION_LABELS[action]}…
-                            </summary>
-                            <form
-                              method="post"
-                              action="/admin/files/action"
-                              class="absolute left-0 z-10 mt-2 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-3 border border-ink bg-paper p-4 md:right-0 md:left-auto"
-                            >
-                              <input type="hidden" name="id" value={file.id} />
-                              <input
-                                type="hidden"
-                                name="action"
-                                value={action}
-                              />
-                              <input type="hidden" name="back" value={here} />
-                              <label class="flex flex-col gap-1.5">
-                                <span class="type-label">
-                                  Why? (shown to the uploader)
-                                </span>
-                                <textarea
-                                  name="reason"
-                                  required
-                                  maxlength={500}
-                                  rows={3}
-                                  aria-label={`Reason to ${ACTION_LABELS[action].toLowerCase()} ${file.name}`}
-                                  class:list={[
-                                    fieldClasses,
-                                    "px-2 py-1.5 text-sm",
-                                  ]}
-                                ></textarea>
-                              </label>
-                              <button
-                                type="submit"
-                                class={buttonClasses({
-                                  className: "h-9 self-end",
-                                })}
-                                aria-label={`${ACTION_LABELS[action]} ${file.name}`}
-                              >
-                                {ACTION_LABELS[action]}
-                              </button>
-                            </form>
-                          </details>
+                          <ReasonForm
+                            label={ACTION_LABELS[action]}
+                            subject={file.name}
+                            action={action}
+                            back={here}
+                            fields={{ id: file.id }}
+                            strikeChoice
+                          />
                         ) : (
                           <form method="post" action="/admin/files/action">
                             <input type="hidden" name="id" value={file.id} />
@@ -358,12 +387,11 @@ const dot = (s: FileStatus) =>
                             <input type="hidden" name="back" value={here} />
                             <button
                               type="submit"
-                              class:list={[
-                                smallButton,
+                              class={
                                 PRIMARY_ACTIONS.includes(action)
-                                  ? "bg-ink text-paper hover:bg-accent hover:text-on-accent"
-                                  : "hover:bg-chip",
-                              ]}
+                                  ? primaryButton
+                                  : secondaryButton
+                              }
                               aria-label={`${ACTION_LABELS[action]} ${file.name}`}
                             >
                               {ACTION_LABELS[action]}

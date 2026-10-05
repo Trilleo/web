@@ -63,7 +63,10 @@ describe("openDatabase", () => {
           where table_schema = 'public' order by table_name`,
     );
     expect(tables.map((row) => row.table_name)).toEqual([
+      "blocked_hashes",
       "comments",
+      "file_appeals",
+      "file_reports",
       "files",
       "media",
       "post_slugs",
@@ -74,6 +77,7 @@ describe("openDatabase", () => {
       "skygrid_trades",
       "storage_events",
       "tool_data",
+      "upload_strikes",
       "users",
     ]);
   });

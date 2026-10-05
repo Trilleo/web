@@ -24,6 +24,10 @@ function user(githubId: number): User {
     trustedAt: null,
     blockedAt: null,
     storageQuotaBytes: null,
+    uploadTrust: "auto",
+    uploadTrustedAt: null,
+    uploadBannedAt: null,
+    uploadBanReason: null,
   };
 }
 
