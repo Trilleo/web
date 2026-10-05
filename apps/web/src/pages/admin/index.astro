@@ -46,7 +46,16 @@ const known = knownPages(
     ...TOOLS.map((tool) => toolPath(tool.slug)),
   ],
   // Served by routes that decide per address (uploads, profiles, accounts, …).
-  ["/media/", "/people/", "/account", "/admin", "/auth/", "/og/"],
+  [
+    "/media/",
+    "/people/",
+    "/account",
+    "/admin",
+    "/auth/",
+    "/og/",
+    "/files/",
+    "/d/",
+  ],
 );
 const seoIssues = auditPosts(publicPosts, known);
 

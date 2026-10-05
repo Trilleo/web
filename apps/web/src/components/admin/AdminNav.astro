@@ -1,13 +1,14 @@
 ---
-/** The admin's sections: the dashboard (comments, account) and posts. */
+/** The admin's sections: the dashboard (comments, account), posts and files. */
 interface Props {
-  current: "dashboard" | "posts";
+  current: "dashboard" | "posts" | "files";
 }
 
 const { current } = Astro.props;
 const items = [
   { key: "dashboard", label: "Dashboard", href: "/admin/" },
   { key: "posts", label: "Posts", href: "/admin/posts/" },
+  { key: "files", label: "Files", href: "/admin/files/" },
 ] as const;
 ---
 

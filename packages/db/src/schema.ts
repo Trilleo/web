@@ -63,6 +63,8 @@ export const users = pgTable("users", {
   trustedAt: timestamp("trusted_at", { withTimezone: true }),
   /** Set by the admin: can't sign in or comment, and their comments are hidden. */
   blockedAt: timestamp("blocked_at", { withTimezone: true }),
+  /** File storage allowance in bytes, set by the admin. Null: their role's default. */
+  storageQuotaBytes: bigint("storage_quota_bytes", { mode: "number" }),
 });
 
 /** A signed-in browser. `id` is the SHA-256 of the cookie's token, never the token. */
@@ -255,6 +257,107 @@ export const toolData = pgTable(
   (table) => [primaryKey({ columns: [table.userId, table.tool, table.key] })],
 );
 
+/** A stored file's place in its life; see @trilleo/storage's moderation.ts. */
+export const fileStatus = pgEnum("file_status", [
+  "uploading",
+  "processing",
+  "pending_review",
+  "published",
+  "rejected",
+  "removed",
+  "deleted",
+]);
+
+/** public: listed; unlisted: anyone with the link; private: owner and admin only. */
+export const fileVisibility = pgEnum("file_visibility", [
+  "public",
+  "unlisted",
+  "private",
+]);
+
+/**
+ * Files in object storage (Huawei OBS in production). The row is the truth about a
+ * file; the bucket only holds its bytes, at `key`. Files never change: a new version
+ * is a new file. Rows stay after the bytes are purged (`purgedAt`), as a record.
+ */
+export const files = pgTable(
+  "files",
+  {
+    /** 12 random lowercase letters and digits; also in its URLs. */
+    id: text("id").primaryKey(),
+    ownerId: uuid("owner_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    /** The feature it's for (the site's storage purpose registry), e.g. "site". */
+    purpose: text("purpose").notNull(),
+    /** As uploaded, cleaned (shown, and the name it downloads as). */
+    name: text("name").notNull(),
+    /** The object's key in the bucket: f/<id>/<url name>. */
+    key: text("key").notNull().unique(),
+    size: bigint("size", { mode: "number" }).notNull(),
+    /** The type it's served with. */
+    contentType: text("content_type").notNull(),
+    /** image, audio, video, archive, document, font, executable, text or data. */
+    kind: text("kind").notNull(),
+    /** For people: "PNG image", "Minecraft world". */
+    label: text("label").notNull(),
+    /** Hex SHA-256 of the bytes, once processed. */
+    sha256: text("sha256"),
+    visibility: fileVisibility("visibility").notNull().default("public"),
+    status: fileStatus("status").notNull().default("uploading"),
+    /** Why it was rejected or removed; shown to its owner. */
+    statusReason: text("status_reason"),
+    /** The storage's multipart upload id, while uploading. */
+    uploadId: text("upload_id"),
+    /** Counted by the /d/<id> redirect (roughly once per visitor per day). */
+    downloads: integer("downloads").notNull().default(0),
+    createdAt: createdAt(),
+    /** When the bytes were all in. */
+    uploadedAt: timestamp("uploaded_at", { withTimezone: true }),
+    /** When it first went public. */
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    statusChangedAt: timestamp("status_changed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** When its bytes were deleted from storage for good. */
+    purgedAt: timestamp("purged_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("files_owner_idx").on(table.ownerId, table.createdAt),
+    index("files_status_idx").on(table.status, table.statusChangedAt),
+    index("files_purpose_idx").on(table.purpose, table.createdAt),
+    index("files_sha256_idx").on(table.sha256),
+  ],
+);
+
+/**
+ * Everything that happens to stored files (and, later, to uploaders): who did what,
+ * when and why. Append-only; kept for the record (and China's six-month log rule).
+ */
+export const storageEvents = pgTable(
+  "storage_events",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    fileId: text("file_id").references(() => files.id, {
+      onDelete: "cascade",
+    }),
+    /** Who acted; null for the server itself (or a deleted account). */
+    actorId: uuid("actor_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    /** "upload", "complete", "publish", "remove", "visibility", "purge", … */
+    action: text("action").notNull(),
+    fromStatus: fileStatus("from_status"),
+    toStatus: fileStatus("to_status"),
+    reason: text("reason"),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index("storage_events_file_idx").on(table.fileId, table.createdAt),
+    index("storage_events_created_idx").on(table.createdAt),
+  ],
+);
+
 /**
  * Skygrid (apps/skygrid): one island per account. `state` is the engine's GameState,
  * changed only by replaying the player's actions on the server (the version goes up
@@ -339,5 +442,7 @@ export type PostStatus = (typeof postStatus.enumValues)[number];
 export type CommentMode = (typeof commentMode.enumValues)[number];
 export type Media = typeof media.$inferSelect;
 export type ToolDataRow = typeof toolData.$inferSelect;
+export type StoredFile = typeof files.$inferSelect;
+export type StorageEvent = typeof storageEvents.$inferSelect;
 export type SkygridSave = typeof skygridSaves.$inferSelect;
 export type SkygridOrder = typeof skygridOrders.$inferSelect;

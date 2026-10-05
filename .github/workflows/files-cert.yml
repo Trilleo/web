@@ -1,0 +1,59 @@
+# Keeps files.trilleo.net's TLS certificate fresh. The OBS bucket serves that domain
+# itself (DNS only in Cloudflare, so visitors in China reach OBS directly), which needs
+# a publicly trusted certificate: a Let's Encrypt one (DNS challenge through
+# Cloudflare), installed on the bucket through OBS's API. Runs monthly; certificates
+# last 90 days. Setup: deploy/storage.md.
+name: Files certificate
+
+on:
+  schedule:
+    - cron: "17 3 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: files-cert
+  cancel-in-progress: false
+
+env:
+  FILES_DOMAIN: files.trilleo.net
+  OBS_BUCKET: trilleo-web-storage
+  OBS_REGION: cn-southwest-2
+
+jobs:
+  renew:
+    name: Issue and install
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install certbot and the OBS SDK
+        run: |
+          python3 -m venv /tmp/venv
+          /tmp/venv/bin/pip install --quiet certbot==5.8.0 certbot-dns-cloudflare==5.8.0 esdk-obs-python==3.26.6
+
+      - name: Issue a certificate (Let's Encrypt, DNS challenge)
+        env:
+          CLOUDFLARE_DNS_API_TOKEN: ${{ secrets.CLOUDFLARE_DNS_API_TOKEN }}
+        run: |
+          umask 077
+          printf 'dns_cloudflare_api_token = %s\n' "$CLOUDFLARE_DNS_API_TOKEN" > /tmp/cloudflare.ini
+          /tmp/venv/bin/certbot certonly --non-interactive --agree-tos \
+            --email contact@trilleo.net --no-eff-email \
+            --dns-cloudflare --dns-cloudflare-credentials /tmp/cloudflare.ini \
+            --dns-cloudflare-propagation-seconds 30 \
+            --key-type rsa --rsa-key-size 2048 \
+            --config-dir /tmp/le --work-dir /tmp/le/work --logs-dir /tmp/le/logs \
+            -d "$FILES_DOMAIN"
+          # OBS takes the traditional "RSA PRIVATE KEY" form.
+          openssl rsa -in "/tmp/le/live/$FILES_DOMAIN/privkey.pem" -out /tmp/key.pem -traditional
+          rm /tmp/cloudflare.ini
+
+      - name: Install it on the bucket
+        env:
+          OBS_CERT_ACCESS_KEY_ID: ${{ secrets.OBS_CERT_ACCESS_KEY_ID }}
+          OBS_CERT_SECRET_ACCESS_KEY: ${{ secrets.OBS_CERT_SECRET_ACCESS_KEY }}
+        run: /tmp/venv/bin/python deploy/files-cert.py "/tmp/le/live/$FILES_DOMAIN/fullchain.pem" /tmp/key.pem

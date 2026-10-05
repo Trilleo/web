@@ -23,6 +23,7 @@ function user(githubId: number): User {
     lastSignInAt: date,
     trustedAt: null,
     blockedAt: null,
+    storageQuotaBytes: null,
   };
 }
 

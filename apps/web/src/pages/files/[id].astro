@@ -1,0 +1,274 @@
+---
+/**
+ * A stored file's page: /files/<id>/. What it is, a preview for images, audio and
+ * video, and the download. Anyone can see a published public or unlisted file; its
+ * owner and the admin can also see it before then (and its history). Everyone else
+ * gets a 404.
+ */
+import {
+  FILE_ID_PATTERN,
+  isInlineType,
+  isServedPublicly,
+} from "@trilleo/storage";
+import type { FileStatus, FileVisibility } from "@trilleo/storage";
+import { formatBytes } from "@trilleo/tool-kit/files";
+import { buttonClasses } from "@trilleo/ui";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { formatPostDate } from "../../lib/listings";
+import { CONTACT_EMAIL } from "../../lib/site";
+import { requesterOf, storageDeps } from "../../lib/storage/deps";
+import { canManage, downloadPath } from "../../lib/storage/service";
+import { STATUS_LABELS, VISIBILITY_LABELS } from "../../lib/storage/labels";
+import { fileEvents, fileOwner, getFile } from "../../lib/storage/store";
+
+export const prerender = false;
+
+const id = Astro.params.id ?? "";
+const deps = FILE_ID_PATTERN.test(id) ? await storageDeps() : null;
+const file = deps ? await getFile(deps.db, id) : undefined;
+const requester = requesterOf(Astro.locals.user);
+if (!deps || !file) return Astro.rewrite("/404");
+
+const status = file.status as FileStatus;
+const visibility = file.visibility as FileVisibility;
+const isPublic = isServedPublicly(status, visibility);
+const manager = canManage(file, requester);
+if ((!isPublic && !manager) || status === "uploading")
+  return Astro.rewrite("/404");
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+const indexable = isPublic && visibility === "public";
+if (!indexable) Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const owner = file.ownerId ? await fileOwner(deps.db, file.ownerId) : undefined;
+const publicUrl = isPublic
+  ? new URL(deps.storage.publicUrl(file.key), Astro.url).href
+  : null;
+const preview = publicUrl && isInlineType(file.contentType) ? file.kind : null;
+const history =
+  requester?.isAdmin === true ? await fileEvents(deps.db, file.id) : [];
+const gone = file.purgedAt !== null;
+
+const notice: Partial<Record<FileStatus, string>> = {
+  processing: "This file is still being checked. It will be ready in a moment.",
+  pending_review:
+    "This file is waiting for review. Until it’s approved, only you and the site owner can see it.",
+  rejected: "This file was refused",
+  removed: "This file was taken down",
+  deleted: "This file was deleted",
+};
+const statusNotice = notice[status];
+
+const dateTime = new Intl.DateTimeFormat("en-GB", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "UTC",
+});
+const facts = [
+  formatBytes(file.size),
+  `Uploaded ${formatPostDate(file.uploadedAt ?? file.createdAt)}`,
+];
+const row = "grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6";
+const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body = "col-span-4 md:col-span-6 xl:col-span-7";
+---
+
+<BaseLayout
+  title={file.name}
+  description={`${file.label}, ${formatBytes(file.size)}.`}
+  noindex={!indexable}
+>
+  <section
+    aria-labelledby="file-name"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">(File) {file.label}</p>
+
+    {statusNotice && (
+      <p role="status" class="type-lead mt-6 border-l-2 border-accent pl-4">
+        {statusNotice}
+        {file.statusReason && <>: {file.statusReason}</>}
+        {(status === "rejected" ||
+          status === "removed" ||
+          status === "deleted") &&
+          "."}
+      </p>
+    )}
+    {manager && isPublic === false && status === "published" && (
+      <p role="status" class="type-lead mt-6 border-l-2 border-accent pl-4">
+        This file is private: only you and the site owner can see it.
+      </p>
+    )}
+
+    <div class="mt-7 flex flex-col gap-3 md:mt-8 xl:mt-12">
+      <h1 id="file-name" class="type-title animate-rise break-all">
+        {file.name}
+      </h1>
+      <p class="type-label flex flex-wrap gap-x-4 gap-y-1 text-muted">
+        {facts.map((fact) => (
+          <span>{fact}</span>
+        ))}
+        {owner &&
+          (owner.profilePublic ? (
+            <a href={`/people/${owner.login}/`} class="text-ink underline">
+              @{owner.login}
+            </a>
+          ) : (
+            <span>@{owner.login}</span>
+          ))}
+      </p>
+    </div>
+
+    {!gone && (status === "published" || manager) && status !== "deleted" && (
+      <div class="mt-8 flex flex-wrap gap-3">
+        <a
+          href={downloadPath(file.id)}
+          class={buttonClasses()}
+          rel="nofollow"
+          data-testid="download"
+        >
+          Download ({formatBytes(file.size)})
+        </a>
+      </div>
+    )}
+
+    {preview && publicUrl && (
+      <div class={row}>
+        <h2 class={heading}>Preview</h2>
+        <div class={body}>
+          {preview === "image" && (
+            <img
+              src={publicUrl}
+              alt={file.name}
+              loading="lazy"
+              class="max-h-[70vh] w-auto max-w-full border border-hair"
+            />
+          )}
+          {/* Uploads come without captions, so no <track>. */}
+          {/* eslint-disable astro/jsx-a11y/media-has-caption -- see above */}
+          {preview === "video" && (
+            <video src={publicUrl} controls preload="metadata" class="w-full">
+              <a href={downloadPath(file.id)}>Download the video</a>
+            </video>
+          )}
+          {preview === "audio" && (
+            <audio src={publicUrl} controls preload="metadata" class="w-full">
+              <a href={downloadPath(file.id)}>Download the audio</a>
+            </audio>
+          )}
+          {/* eslint-enable astro/jsx-a11y/media-has-caption -- see above */}
+        </div>
+      </div>
+    )}
+
+    <div class={row}>
+      <h2 id="file-details" class={heading}>
+        Details
+      </h2>
+      <dl
+        class:list={[
+          body,
+          "grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-[max-content_1fr]",
+        ]}
+      >
+        <dt class="type-label text-muted">Type</dt>
+        <dd>
+          {file.label} <span class="text-muted">({file.contentType})</span>
+        </dd>
+        <dt class="type-label text-muted">Size</dt>
+        <dd>
+          {formatBytes(file.size)}{" "}
+          <span class="text-muted">
+            ({file.size.toLocaleString("en-US")} bytes)
+          </span>
+        </dd>
+        {file.sha256 && (
+          <>
+            <dt class="type-label text-muted">SHA-256</dt>
+            <dd class="font-mono text-sm break-all" data-testid="sha256">
+              {file.sha256}
+            </dd>
+          </>
+        )}
+        {isPublic && (
+          <>
+            <dt class="type-label text-muted">Downloads</dt>
+            <dd>{file.downloads.toLocaleString("en-US")}</dd>
+          </>
+        )}
+        {publicUrl && (
+          <>
+            <dt class="type-label text-muted">Direct link</dt>
+            <dd class="font-mono text-sm break-all">{publicUrl}</dd>
+          </>
+        )}
+        {manager && (
+          <>
+            <dt class="type-label text-muted">Visibility</dt>
+            <dd>{VISIBILITY_LABELS[visibility]}</dd>
+            <dt class="type-label text-muted">Status</dt>
+            <dd>{STATUS_LABELS[status]}</dd>
+          </>
+        )}
+      </dl>
+    </div>
+
+    {history.length > 0 && (
+      <div class={row}>
+        <h2 id="file-history" class={heading}>
+          History
+        </h2>
+        <ol class:list={[body, "flex flex-col"]} aria-labelledby="file-history">
+          {history.map((event) => (
+            <li class="flex flex-wrap gap-x-4 gap-y-1 border-t border-hair py-3 first:border-t-0 first:pt-0">
+              <time
+                class="type-label text-muted"
+                datetime={event.createdAt.toISOString()}
+              >
+                {dateTime.format(event.createdAt)} UTC
+              </time>
+              <span class="font-medium">{event.action}</span>
+              {event.toStatus && event.fromStatus !== event.toStatus && (
+                <span class="text-muted">
+                  → {STATUS_LABELS[event.toStatus]}
+                </span>
+              )}
+              <span class="text-muted">
+                {event.actorLogin ? `@${event.actorLogin}` : "the server"}
+              </span>
+              {event.reason && <span class="w-full">{event.reason}</span>}
+            </li>
+          ))}
+        </ol>
+      </div>
+    )}
+
+    <div class={row}>
+      <h2 class={heading}>Report</h2>
+      <p class:list={[body, "text-muted"]}>
+        Something wrong with this file (it’s harmful, or it’s yours and was
+        shared without permission)? Email{" "}
+        <a
+          href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`File ${file.id}`)}`}
+          class="text-ink underline"
+        >
+          {CONTACT_EMAIL}
+        </a>{" "}
+        with this page’s address.
+      </p>
+    </div>
+
+    {requester?.isAdmin && (
+      <div class={row}>
+        <div class="col-span-4 flex flex-wrap gap-3 md:col-span-6 md:col-start-3 xl:col-start-3">
+          <a
+            href={`/admin/files/?q=${encodeURIComponent(file.id)}`}
+            class={buttonClasses({ variant: "secondary" })}
+          >
+            Manage in admin
+          </a>
+        </div>
+      </div>
+    )}
+  </section>
+</BaseLayout>

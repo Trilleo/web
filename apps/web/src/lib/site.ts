@@ -5,6 +5,8 @@ export const SITE_DESCRIPTION = "Writing, tools, and experiments on the web.";
 export const SITE_BIO =
   "Trilleo's corner of the web: Minecraft creations, code, and learning resources, plus small tools you can use in the browser. Sign in with GitHub to join the conversation in the comments.";
 export const GITHUB_URL = "https://github.com/Trilleo";
+/** Where people send takedown requests and other legal or safety reports. */
+export const CONTACT_EMAIL = "contact@trilleo.net";
 
 /** Account pages: kept out of search (robots.txt) and the sitemap. Prefixes. */
 export const PRIVATE_PATHS = [
@@ -13,6 +15,7 @@ export const PRIVATE_PATHS = [
   "/api/",
   "/auth/",
   "/comments",
+  "/d/",
   "/sign-in",
   "/writing/preview/",
 ] as const;

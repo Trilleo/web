@@ -19,6 +19,8 @@ const e2eEnv = {
   ASTRO_OUT_DIR: "./dist-e2e",
   // The server's database: a fresh in-memory PGlite for every run.
   DATABASE_URL: "memory://",
+  // Uploads: the local storage driver, in memory (no OBS in tests).
+  STORAGE_URL: "memory://",
   MIGRATIONS_DIR: fileURLToPath(
     new URL("../../packages/db/migrations", import.meta.url),
   ),

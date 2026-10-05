@@ -64,6 +64,7 @@ describe("openDatabase", () => {
     );
     expect(tables.map((row) => row.table_name)).toEqual([
       "comments",
+      "files",
       "media",
       "post_slugs",
       "posts",
@@ -71,6 +72,7 @@ describe("openDatabase", () => {
       "skygrid_orders",
       "skygrid_saves",
       "skygrid_trades",
+      "storage_events",
       "tool_data",
       "users",
     ]);

@@ -351,6 +351,11 @@ Otherwise use the HTML tag, which the home page adds from `app.env`.
 Link previews (Open Graph images, drawn by the app at `/og/…`) need no setup. Check
 one by pasting a post's URL into a chat app, or at <https://www.opengraph.xyz>.
 
+### 10. File storage (any time after the first deploy)
+
+Uploads live in a Huawei OBS bucket served from `files.trilleo.net`. Setup (bucket,
+IAM users, DNS, certificate workflow, `app.env`): [storage.md](storage.md).
+
 ## Day to day
 
 - **Deploy:** push to `main`. CI runs, then Deploy. Nothing else to do.

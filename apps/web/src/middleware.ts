@@ -7,6 +7,8 @@ import {
 import { validateSession } from "./lib/auth/sessions";
 import { getDb } from "./lib/db";
 import { announceInBackground } from "./lib/indexnow";
+import { storageDeps } from "./lib/storage/deps";
+import { maintainInBackground } from "./lib/storage/maintenance";
 
 /**
  * Looks up the signed-in user for server-rendered requests (Astro.locals.user).
@@ -19,6 +21,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // Scheduled posts go live without anyone saving them: any request may notice
   // (at most every few minutes, in the background, only with IndexNow set up).
   announceInBackground(getDb);
+  // Unfinished uploads, stuck processing, bytes past their retention (same idea).
+  maintainInBackground(storageDeps);
 
   const { cookies, url } = context;
   const token = readSessionToken(cookies, url);

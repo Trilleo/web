@@ -34,6 +34,9 @@
   `FileDrop`, `Choice` (radio row), `Field` (label + hint as description),
   `CopyButton`, `fieldClasses`.
 - packages/db (@trilleo/db): Drizzle schema, migrations, and client. Source-only.
+- packages/storage (@trilleo/storage): file storage. `.` the shared rules (names,
+  types, limits, the moderation state machine, API shapes), `./server` the drivers
+  (OBS, local), `./client` `uploadFile()`, `./react` `<FileUpload>`. Source-only.
 - Blog content: Markdown posts in Postgres, written in the admin editor (/admin/posts).
 - Workspace packages use the `@trilleo/*` scope.
 
@@ -347,6 +350,34 @@
   on the light paper is too faint.
 - Server-rendered game content must be visible without JavaScript: don't start it
   at opacity 0 for an entrance animation (axe also flags it mid-fade).
+
+## Storage
+
+- Files live in Huawei OBS (bucket trilleo-web-storage, cn-southwest-2); Postgres
+  (`files`, `storage_events`) is the truth about them. Runbook: deploy/storage.md.
+- The bucket is private. The browser uploads straight to it: the app hands out signed
+  part URLs (every upload is multipart, one part when small) and never sees the
+  bytes. Published files get a public-read ACL and are served from
+  https://files.trilleo.net (the bucket's custom domain, DNS only in Cloudflare; a
+  Let's Encrypt certificate installed by .github/workflows/files-cert.yml monthly).
+  Others go through /d/<id>, a redirect to a 5-minute signed link for the owner/admin.
+- Drivers (packages/storage): `ObsDriver` (S3 API via aws4fetch) when OBS_BUCKET is
+  set; otherwise `LocalDriver`: `STORAGE_URL=memory://` (e2e, tests) or a folder
+  (`pnpm dev`: apps/web/.data/storage), served by /api/storage/local/. Neither in
+  production: storage is off and the site still runs (apps/web/src/lib/storage/config.ts).
+- Features declare a purpose in apps/web/src/lib/storage/purposes.ts (who uploads,
+  types, size, visibilities, review); uploads name one. Only `site` (admin) exists yet.
+- Every status change goes through `transition` (packages/storage/src/moderation.ts)
+  and `changeStatus` (guarded by the expected status, logged in storage_events); the
+  object's ACL follows `isServedPublicly(status, visibility)`. Operations live in
+  apps/web/src/lib/storage/service.ts and return `Result`s; routes are thin.
+- Safety on the files domain: only raster images, audio, video and PDF are inline;
+  HTML/SVG/XML/JS are stored as application/octet-stream and download; a file whose
+  first bytes contradict an inline name is refused; programs are admin-only.
+  Objects cache for a day (`PUBLIC_CACHE`) so takedowns reach browsers.
+- Background maintenance (middleware, every 10 minutes): abandon day-old uploads,
+  reprocess stuck files, purge bytes after RETENTION_DAYS (rows stay).
+- The admin's page is /admin/files; each file has a page at /files/<id>/.
 
 ## Deploy
 
