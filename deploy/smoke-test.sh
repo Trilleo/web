@@ -90,8 +90,8 @@ if grep -qi '^server:' <<<"$headers"; then fail "Server header should be removed
 grep -q '<title>Trilleo Network</title>' "$stack/home.html" || fail "home page content"
 
 echo "==> compression"
-site --output /dev/null --dump-header - -H 'Accept-Encoding: gzip' "https://www.trilleo.net/" |
-	grep -qi '^content-encoding: gzip' || fail "gzip not applied"
+headers="$(site --output /dev/null --dump-header - -H 'Accept-Encoding: gzip' "https://www.trilleo.net/")"
+grep -qi '^content-encoding: gzip' <<<"$headers" || fail "gzip not applied"
 
 echo "==> bare domain redirects to www, keeping the path"
 headers="$(site --dump-header - --output /dev/null "https://trilleo.net/writing/?q=1")"
@@ -101,8 +101,8 @@ grep -qi '^location: https://www.trilleo.net/writing/?q=1' <<<"$headers" || fail
 echo "==> fingerprinted assets are immutable"
 asset="$(grep -o '/_astro/[^"'"'"' )]*' "$stack/home.html" | head -n 1)"
 [[ -n "$asset" ]] || fail "no /_astro/ asset referenced from the home page"
-site --dump-header - --output /dev/null "https://www.trilleo.net$asset" |
-	grep -qi '^cache-control: public, max-age=31536000, immutable' || fail "asset cache headers ($asset)"
+headers="$(site --dump-header - --output /dev/null "https://www.trilleo.net$asset")"
+grep -qi '^cache-control: public, max-age=31536000, immutable' <<<"$headers" || fail "asset cache headers ($asset)"
 
 echo "==> version.txt"
 headers="$(site --dump-header - --output "$stack/version.txt" "https://www.trilleo.net/version.txt")"
@@ -180,8 +180,9 @@ echo "==> backup script produces a restorable dump"
 TRILLEO_DIR="$stack" bash "$deploy_dir/server/trilleo-backup"
 dump="$(find "$stack/backups" -name 'trilleo-*.dump' | head -n 1)"
 [[ -n "$dump" ]] || fail "no backup file written"
-docker compose exec -T db pg_restore --list <"$dump" | grep -q 'TABLE public users' ||
-	fail "backup doesn't contain the users table"
+# Captured first: under pipefail, `… | grep -q` fails when grep exits before the writer is done.
+contents="$(docker compose exec -T db pg_restore --list <"$dump")" || fail "pg_restore couldn't read the backup"
+grep -q 'TABLE public users' <<<"$contents" || fail "backup doesn't contain the users table"
 
 echo "==> with the app stopped, static pages still work and the rest fails fast"
 docker compose stop app >/dev/null
