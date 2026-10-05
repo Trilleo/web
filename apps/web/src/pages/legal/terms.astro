@@ -1,0 +1,173 @@
+---
+import InfoLayout from "../../layouts/InfoLayout.astro";
+import { CONTACT_EMAIL, SITE_NAME } from "../../lib/site";
+
+const sections = [
+  { slug: "agreement", text: "The agreement" },
+  { slug: "accounts", text: "Accounts" },
+  { slug: "your-content", text: "What you post" },
+  { slug: "conduct", text: "How to behave" },
+  { slug: "tools", text: "Tools" },
+  { slug: "games", text: "Games" },
+  { slug: "site-content", text: "The site’s own content" },
+  { slug: "availability", text: "Availability and changes" },
+  { slug: "disclaimers", text: "No guarantees" },
+  { slug: "ending", text: "Ending" },
+  { slug: "law", text: "Law and disputes" },
+] as const;
+---
+
+<InfoLayout path="/legal/terms/" sections={sections} history>
+  <h2 id="agreement">The agreement</h2>
+  <p>
+    These terms are between you and Trilleo (“I”, “me”), the individual who runs{" "}
+    {SITE_NAME} at www.trilleo.net (“the site”). By using the site you agree to
+    them, along with the <a href="/legal/privacy/">privacy policy</a>, the{" "}
+    <a href="/legal/guidelines/">community guidelines</a> and the{" "}
+    <a href="/legal/copyright/">copyright policy</a>. If you don’t agree, please
+    don’t use the site. The site is free, and is offered as a personal,
+    non-commercial project.
+  </p>
+
+  <h2 id="accounts">Accounts</h2>
+  <ul>
+    <li>
+      You sign in with GitHub, so you also need to follow GitHub’s terms. Your
+      account here belongs to you and no one else; keep your GitHub account
+      secure, because whoever controls it controls this one.
+    </li>
+    <li>
+      You must be at least 14 years old to make an account. Without one you can
+      still read, use the tools and play.
+    </li>
+    <li>
+      You can delete your account at any time from your account page. That
+      deletes what you made here, as the privacy policy describes.
+    </li>
+  </ul>
+
+  <h2 id="your-content">What you post</h2>
+  <p>
+    Comments, your profile, uploaded files and anything else you add stay yours.
+    So that the site can show them, you give me a worldwide, free, non-exclusive
+    licence to store, copy, display and distribute them on the site (and in its
+    feeds, backups and share images), and to make the technical changes that
+    needs, such as thumbnails. The licence ends when you delete the content,
+    except for copies already in backups (until they expire) and where someone
+    else has quoted it in a reply.
+  </p>
+  <p>
+    You are responsible for what you post, and you promise you have the right to
+    post it. Files you publish may be downloaded by anyone; choose who can see a
+    file when you upload it. Your first comment, and your uploads until you are
+    trusted, are reviewed before they appear, as the community guidelines
+    describe. Uploading isn’t open to every account yet.
+  </p>
+
+  <h2 id="conduct">How to behave</h2>
+  <p>
+    Follow the <a href="/legal/guidelines/">community guidelines</a>. In
+    particular, don’t:
+  </p>
+  <ul>
+    <li>
+      break the law of mainland China, where the site is hosted, or of the place
+      you are in;
+    </li>
+    <li>
+      upload malware, or try to break into, overload or get around the limits of
+      the site or its accounts (security research within the{" "}
+      <a href="/security/">security policy</a> is welcome);
+    </li>
+    <li>
+      scrape the site in a way that slows it down, or use automated accounts;
+    </li>
+    <li>
+      pretend to be someone else, or use the site to send spam or advertising.
+    </li>
+  </ul>
+
+  <h2 id="tools">Tools</h2>
+  <p>
+    The tools are given as they are. File tools run in your browser and never
+    upload your files; check their results before relying on them, and keep your
+    own copies of anything important. Data saved in your browser can be lost if
+    you clear it; data saved to your account is backed up, but is not a
+    substitute for your own backups.
+  </p>
+
+  <h2 id="games">Games</h2>
+  <ul>
+    <li>
+      Coins, items, islands and everything else in the games are part of the
+      game. They have no money value, can’t be exchanged for money, and aren’t
+      your property. Don’t buy, sell or trade them for anything outside the
+      game.
+    </li>
+    <li>The Bazaar is a market between players for in-game items only.</li>
+    <li>
+      Play fair: no bots, scripts, or exploiting bugs. If you find a bug, report
+      it. The server checks every action; progress gained by breaking the rules
+      can be rolled back, and leaderboard places removed.
+    </li>
+    <li>
+      Games may be rebalanced, changed or, rarely, reset, and may end. You’ll be
+      told before a reset.
+    </li>
+  </ul>
+
+  <h2 id="site-content">The site’s own content</h2>
+  <p>
+    The writing, design, images, pictograms and games on the site are © Trilleo
+    unless stated otherwise. You may quote and link to them with credit. Source
+    code is open where its repository on GitHub says so, under the licence
+    stated there. Fonts and libraries belong to their makers; see the{" "}
+    <a href="/colophon/">colophon</a>.
+  </p>
+  <p>
+    Some content is about Minecraft. {SITE_NAME} is not an official Minecraft
+    product, and is not approved by or associated with Mojang or Microsoft.
+    Minecraft is a trademark of Mojang Synergies AB.
+  </p>
+
+  <h2 id="availability">Availability and changes</h2>
+  <p>
+    The site is run by one person in their own time. It may be unavailable,
+    change, lose features or close. If it closes, I will give at least 30 days’
+    notice when I can, so you can download your data. These terms may change;
+    the date at the top shows when they last did, and changes that affect your
+    rights are announced before they apply. Using the site after that means you
+    accept the new terms.
+  </p>
+
+  <h2 id="disclaimers">No guarantees</h2>
+  <p>
+    The site, its tools and games are provided “as is”, without warranties of
+    any kind. To the extent the law allows, I am not liable for indirect or
+    consequential losses, lost data or lost profits from using the site, and my
+    total liability is limited to 100 yuan. Nothing in these terms limits
+    liability that the law doesn’t allow to be limited, or your rights as a
+    consumer where you live.
+  </p>
+
+  <h2 id="ending">Ending</h2>
+  <p>
+    You can stop using the site and delete your account at any time. I may hide
+    content, limit features, or suspend or block an account that breaks these
+    terms or the guidelines, usually with a warning first and always with a way
+    to appeal (see the guidelines). Parts of these terms that by their nature
+    should last (such as the licence for content already quoted, and the limits
+    of liability) survive the end of your account.
+  </p>
+
+  <h2 id="law">Law and disputes</h2>
+  <p>
+    These terms are governed by the laws of the People’s Republic of China
+    (excluding Hong Kong, Macao and Taiwan). Please{" "}
+    <a href="/contact/">write to me</a> first, at{" "}
+    <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>; most things can be
+    sorted out that way. Otherwise, disputes go to the people’s court with
+    jurisdiction where I live, unless the law where you live gives you the right
+    to bring them there.
+  </p>
+</InfoLayout>

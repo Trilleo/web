@@ -1,0 +1,122 @@
+---
+import InfoLayout from "../layouts/InfoLayout.astro";
+import { listPublicPosts } from "../lib/blog/store";
+import { getDb } from "../lib/db";
+import { GAMES, gamePath } from "../lib/games/registry";
+import {
+  INFO_GROUP_LABELS,
+  LEGAL_HUB,
+  infoPagesIn,
+  type InfoGroup,
+} from "../lib/info-pages";
+import { postHref } from "../lib/posts";
+import { NAV_ITEMS } from "../lib/site";
+import { TOOLS, toolPath } from "../lib/tools/registry";
+
+// Lists the posts, which live in the database.
+export const prerender = false;
+
+const posts = await listPublicPosts(await getDb());
+const tools = TOOLS.filter((tool) => tool.status !== "planned");
+const games = GAMES.filter((game) => game.status !== "planned");
+const groups: readonly InfoGroup[] = ["help", "legal", "site"];
+
+const sections = [
+  { slug: "sections", text: "Sections" },
+  { slug: "writing", text: "Writing" },
+  { slug: "tools", text: "Tools" },
+  { slug: "games", text: "Games" },
+  ...groups.map((group) => ({ slug: group, text: INFO_GROUP_LABELS[group] })),
+  { slug: "machines", text: "For machines" },
+];
+---
+
+<InfoLayout path="/sitemap/" sections={sections}>
+  <h2 id="sections">Sections</h2>
+  <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    {NAV_ITEMS.map((item) => (
+      <li>
+        <a href={item.href}>{item.label}</a>
+      </li>
+    ))}
+  </ul>
+
+  <h2 id="writing">Writing</h2>
+  {posts.length > 0 ? (
+    <ul>
+      {posts.map((post) => (
+        <li>
+          <a href={postHref(post.id)}>{post.data.title}</a>
+        </li>
+      ))}
+    </ul>
+  ) : (
+    <p>No posts yet.</p>
+  )}
+
+  <h2 id="tools">Tools</h2>
+  <ul>
+    {tools.map((tool) => (
+      <li>
+        <a href={toolPath(tool.slug)}>{tool.name}</a>: {tool.description}
+      </li>
+    ))}
+  </ul>
+
+  <h2 id="games">Games</h2>
+  <ul>
+    {games.map((game) => (
+      <li>
+        <a href={gamePath(game.slug)}>{game.name}</a>: {game.description}
+      </li>
+    ))}
+    <li>
+      <a href="/games/skygrid/leaderboard/">Skygrid leaderboards</a>
+    </li>
+  </ul>
+
+  {groups.map((group) => (
+    <>
+      <h2 id={group}>{INFO_GROUP_LABELS[group]}</h2>
+      <ul>
+        {group === "legal" && (
+          <li>
+            <a href={LEGAL_HUB.path}>{LEGAL_HUB.title}</a>: all of the below
+          </li>
+        )}
+        {group === "site" && (
+          <li>
+            <a href="/about/">About</a>
+          </li>
+        )}
+        {infoPagesIn(group).map((page) => (
+          <li>
+            <a href={page.path}>{page.title}</a>
+          </li>
+        ))}
+      </ul>
+    </>
+  ))}
+
+  <h2 id="machines">For machines</h2>
+  <ul>
+    <li>
+      <a href="/rss.xml">RSS feed</a>
+    </li>
+    <li>
+      <a href="/sitemap-index.xml">XML sitemap</a>
+    </li>
+    <li>
+      <a href="/llms.txt">llms.txt</a>
+    </li>
+    <li>
+      <a href="/.well-known/security.txt">security.txt</a>
+    </li>
+    <li>
+      <a href="/humans.txt">humans.txt</a>
+    </li>
+  </ul>
+</InfoLayout>

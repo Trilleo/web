@@ -1,0 +1,214 @@
+---
+import InfoLayout from "../layouts/InfoLayout.astro";
+import { GITHUB_URL, SITE_NAME } from "../lib/site";
+
+const sections = [
+  { slug: "made", text: "How it’s made" },
+  { slug: "design", text: "Design" },
+  { slug: "type", text: "Typefaces" },
+  { slug: "hosting", text: "Hosting" },
+  { slug: "credits", text: "Open-source credits" },
+] as const;
+
+const credits = [
+  {
+    name: "Astro",
+    use: "the site framework",
+    license: "MIT",
+    href: "https://astro.build",
+  },
+  {
+    name: "React",
+    use: "tools and games",
+    license: "MIT",
+    href: "https://react.dev",
+  },
+  {
+    name: "Tailwind CSS",
+    use: "styling",
+    license: "MIT",
+    href: "https://tailwindcss.com",
+  },
+  {
+    name: "Motion",
+    use: "animation in tools and games",
+    license: "MIT",
+    href: "https://motion.dev",
+  },
+  {
+    name: "Drizzle ORM",
+    use: "the database layer",
+    license: "Apache-2.0",
+    href: "https://orm.drizzle.team",
+  },
+  {
+    name: "Postgres.js",
+    use: "the database driver",
+    license: "Unlicense",
+    href: "https://github.com/porsager/postgres",
+  },
+  {
+    name: "PostgreSQL",
+    use: "the database",
+    license: "PostgreSQL",
+    href: "https://www.postgresql.org",
+  },
+  {
+    name: "markdown-it",
+    use: "posts and comments",
+    license: "MIT",
+    href: "https://github.com/markdown-it/markdown-it",
+  },
+  {
+    name: "Shiki",
+    use: "code highlighting",
+    license: "MIT",
+    href: "https://shiki.style",
+  },
+  {
+    name: "Satori and resvg",
+    use: "share images",
+    license: "MPL-2.0",
+    href: "https://github.com/vercel/satori",
+  },
+  {
+    name: "Mediabunny",
+    use: "audio and video in the file tools",
+    license: "MPL-2.0",
+    href: "https://mediabunny.dev",
+  },
+  {
+    name: "jSquash",
+    use: "AVIF images",
+    license: "Apache-2.0",
+    href: "https://github.com/jamsinclair/jSquash",
+  },
+  {
+    name: "libheif-js",
+    use: "HEIC images",
+    license: "LGPL-3.0",
+    href: "https://github.com/catdad-experiments/libheif-js",
+  },
+  {
+    name: "gifenc, UTIF2, fflate",
+    use: "GIF, TIFF and ZIP",
+    license: "MIT",
+    href: "https://github.com/101arrowz/fflate",
+  },
+  {
+    name: "exifr, hash-wasm",
+    use: "file details and checksums",
+    license: "MIT",
+    href: "https://github.com/MikeKovarik/exifr",
+  },
+  {
+    name: "uqr",
+    use: "QR codes",
+    license: "MIT",
+    href: "https://github.com/unjs/uqr",
+  },
+  {
+    name: "culori",
+    use: "colour maths",
+    license: "MIT",
+    href: "https://culorijs.org",
+  },
+  {
+    name: "aws4fetch",
+    use: "file storage requests",
+    license: "MIT",
+    href: "https://github.com/mhart/aws4fetch",
+  },
+  {
+    name: "Caddy",
+    use: "the web server",
+    license: "Apache-2.0",
+    href: "https://caddyserver.com",
+  },
+  {
+    name: "ClamAV",
+    use: "malware scanning",
+    license: "GPL-2.0",
+    href: "https://www.clamav.net",
+  },
+] as const;
+---
+
+<InfoLayout path="/colophon/" sections={sections}>
+  <h2 id="made">How it’s made</h2>
+  <p>
+    {SITE_NAME} is written by hand in TypeScript: an{" "}
+    <a href="https://astro.build">Astro</a> site whose pages are built ahead of
+    time where they can be, and rendered on the server where they depend on
+    who’s reading. Tools and games are small React apps. Posts are Markdown,
+    written in the site’s own editor and kept in Postgres. The source is on{" "}
+    <a href={GITHUB_URL}>GitHub</a>.
+  </p>
+
+  <h2 id="design">Design</h2>
+  <p>
+    The design follows the Swiss grid: four columns on a phone, eight on a
+    tablet and twelve on a desktop, with small labels hanging in the left
+    columns and one orange accent. Light and dark follow your system. Motion is
+    quick and slides along the grid, and switches off when your device asks for
+    reduced motion. The pictograms are drawn on a 120-unit grid.
+  </p>
+
+  <h2 id="type">Typefaces</h2>
+  <ul>
+    <li>
+      <strong>Schibsted Grotesk</strong> (Bakken &amp; Bæck for Schibsted) for
+      headings and interface.
+    </li>
+    <li>
+      <strong>Source Serif 4</strong> (Frank Grießhammer, Adobe) for reading
+      text, with optical sizes.
+    </li>
+    <li>
+      <strong>Geist Mono</strong> (Vercel) for labels, code, and every Skygrid
+      map.
+    </li>
+  </ul>
+  <p>
+    All three are under the SIL Open Font License and served from this site,
+    never from a font service. Chinese characters use your system’s own font.
+  </p>
+
+  <h2 id="hosting">Hosting</h2>
+  <p>
+    One small Huawei Cloud server in mainland China runs everything in Docker:
+    Caddy, the Astro server, Postgres and ClamAV. Cloudflare sits in front.
+    Every change is tested, built into images by GitHub Actions, and deployed
+    automatically; the database is backed up every night.
+  </p>
+
+  <h2 id="credits">Open-source credits</h2>
+  <p>
+    This site stands on the work of many people who give their code away. Thank
+    you.
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Project</th>
+        <th scope="col">Used for</th>
+        <th scope="col">Licence</th>
+      </tr>
+    </thead>
+    <tbody>
+      {credits.map((credit) => (
+        <tr>
+          <td>
+            <a href={credit.href}>{credit.name}</a>
+          </td>
+          <td>{credit.use}</td>
+          <td>{credit.license}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+  <p>
+    The people behind the site are listed in{" "}
+    <a href="/humans.txt">humans.txt</a>.
+  </p>
+</InfoLayout>

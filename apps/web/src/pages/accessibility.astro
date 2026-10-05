@@ -1,0 +1,86 @@
+---
+import InfoLayout from "../layouts/InfoLayout.astro";
+import { CONTACT_EMAIL, SITE_NAME } from "../lib/site";
+
+const sections = [
+  { slug: "aim", text: "The aim" },
+  { slug: "what-works", text: "What should work" },
+  { slug: "known", text: "Known limits" },
+  { slug: "testing", text: "How it’s checked" },
+  { slug: "feedback", text: "Report a barrier" },
+] as const;
+---
+
+<InfoLayout path="/accessibility/" sections={sections}>
+  <h2 id="aim">The aim</h2>
+  <p>
+    {SITE_NAME} should work for everyone, however they browse. It aims to meet
+    the Web Content Accessibility Guidelines (WCAG) 2.2 at level AA, and treats
+    anything that falls short as a bug.
+  </p>
+
+  <h2 id="what-works">What should work</h2>
+  <ul>
+    <li>
+      Every page and form works with a keyboard alone, with a visible focus
+      ring, and a “Skip to content” link first.
+    </li>
+    <li>
+      Pages are built from real headings, landmarks and labels, for screen
+      readers.
+    </li>
+    <li>
+      Text can be enlarged to 200% and pages reflow down to 320 pixels wide
+      without scrolling sideways.
+    </li>
+    <li>
+      Light and dark modes follow your system, both with sufficient contrast.
+    </li>
+    <li>
+      Motion is optional: with “reduce motion” set on your device, entrances,
+      page transitions and scroll effects are switched off.
+    </li>
+    <li>
+      Comments, sign-in, account settings and the contact form work without
+      JavaScript; so does everything you only read.
+    </li>
+  </ul>
+
+  <h2 id="known">Known limits</h2>
+  <ul>
+    <li>
+      <strong>Skygrid</strong> is drawn as a grid of characters. Its controls,
+      panels and a running log of what happened are available to screen readers,
+      but the map itself is visual, so the game is easiest to play with sight
+      and a keyboard.
+    </li>
+    <li>
+      <strong>File tools</strong> preview images and media visually; the details
+      and results are also given as text.
+    </li>
+    <li>
+      <strong>Older posts</strong> may have images without good descriptions.
+      Tell me about any you find.
+    </li>
+  </ul>
+
+  <h2 id="testing">How it’s checked</h2>
+  <p>
+    Every change runs automated accessibility checks (axe, against WCAG 2.2 A
+    and AA) on the main pages and tools, alongside tests that use the site the
+    way a keyboard user would. Automated checks catch only part of what matters,
+    so reports from people who use assistive technology are especially valuable.
+  </p>
+
+  <h2 id="feedback">Report a barrier</h2>
+  <p>
+    If something is hard or impossible to use, please{" "}
+    <a href="/contact/">tell me</a> or email{" "}
+    <a href={`mailto:${CONTACT_EMAIL}?subject=Accessibility`}>
+      {CONTACT_EMAIL}
+    </a>
+    , with the page’s address and what you were using (browser, screen reader or
+    other tools). I’ll reply within a week, and help you get what you need in
+    the meantime.
+  </p>
+</InfoLayout>

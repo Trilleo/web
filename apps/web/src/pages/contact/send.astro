@@ -1,0 +1,105 @@
+---
+/**
+ * POST from /contact/: saves the message and says so. If something's wrong, the
+ * form comes back filled in, with what to fix, so nothing typed is lost.
+ */
+import { ArrowLeftIcon } from "@trilleo/ui";
+import DisplayTitle from "../../components/DisplayTitle.astro";
+import ContactForm from "../../components/contact/ContactForm.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { field } from "../../lib/comments/form";
+import {
+  SEND_ERROR_MESSAGES,
+  sendContactMessage,
+  type ContactInput,
+} from "../../lib/contact/store";
+import { getDb } from "../../lib/db";
+import { CONTACT_EMAIL } from "../../lib/site";
+
+export const prerender = false;
+
+if (Astro.request.method !== "POST") {
+  return Astro.redirect("/contact/", 303);
+}
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const form = await Astro.request.formData();
+const input: ContactInput = {
+  topic: field(form, "topic"),
+  name: field(form, "name"),
+  email: field(form, "email"),
+  body: field(form, "body"),
+  website: field(form, "website"),
+};
+let ip = "";
+try {
+  ip = Astro.clientAddress;
+} catch {
+  // Not available (some test setups): everyone shares one limit.
+}
+const result = await sendContactMessage(await getDb(), input, {
+  user: Astro.locals.user,
+  ip,
+});
+if (!result.ok) {
+  Astro.response.status = result.error === "invalid" ? 400 : 429;
+}
+const title = result.ok ? "Sent" : "Not sent";
+---
+
+<BaseLayout title={result.ok ? "Message sent" : "Message not sent"} noindex>
+  <section
+    aria-labelledby="contact-result-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">(Help) Contact</p>
+
+    <DisplayTitle id="contact-result-title">{title}</DisplayTitle>
+
+    <div class="grid-swiss mt-7 gap-y-8 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <div class="col-span-4 flex flex-col gap-8 md:col-span-6 md:col-start-3 xl:col-start-3">
+        {result.ok ? (
+          <p role="status" class="type-lead">
+            Thanks{input.name.trim() ? `, ${input.name.trim()}` : ""}: your
+            message has arrived.
+            {input.email.trim()
+              ? " I’ll reply by email."
+              : " You didn’t leave an address, so I can’t write back, but it will be read."}
+          </p>
+        ) : result.error === "invalid" ? (
+          <>
+            <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+              Something needs fixing before this can be sent.
+            </p>
+            <ContactForm values={input} errors={result.errors} />
+          </>
+        ) : (
+          <>
+            <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+              {SEND_ERROR_MESSAGES[result.error]} The address is{" "}
+              <a href={`mailto:${CONTACT_EMAIL}`} class="underline">
+                {CONTACT_EMAIL}
+              </a>
+              .
+            </p>
+            <ContactForm values={input} />
+          </>
+        )}
+        <a
+          href={result.ok ? "/" : "/contact/"}
+          class="group type-label inline-flex w-fit items-center gap-2"
+        >
+          <ArrowLeftIcon
+            size={16}
+            className="transition-transform duration-(--tr-dur-base) ease-swiss group-hover:-translate-x-1"
+          />
+          <span class="link-wipe">
+            {result.ok ? "Home" : "Back to Contact"}
+          </span>
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,16 @@
+---
+import ContactForm from "../../components/contact/ContactForm.astro";
+import ContactRoutes from "../../components/contact/ContactRoutes.astro";
+import InfoLayout from "../../layouts/InfoLayout.astro";
+---
+
+<InfoLayout path="/contact/">
+  <p>
+    Trilleo Network is run by one person, so every message is read by the person
+    who will answer it. I reply to most within a week; privacy requests within
+    15 days, and takedowns and security reports as soon as I can.
+  </p>
+  <h2 id="write">Write a message</h2>
+  <ContactForm />
+  <ContactRoutes slot="aside" />
+</InfoLayout>

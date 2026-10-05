@@ -9,6 +9,7 @@ import {
   type User,
 } from "@trilleo/db";
 import { and, asc, desc, eq, isNull, lte, sql } from "drizzle-orm";
+import { messagesFrom } from "../contact/store";
 import type { ProfileInput } from "./profile";
 
 /** Saves someone's profile. Returns the updated user. */
@@ -102,8 +103,8 @@ export async function findProfile(
 
 /**
  * Everything kept about someone, for /account/export.json: their account and
- * profile, signed-in browsers (without the session ids), comments, tool data, and
- * game saves.
+ * profile, signed-in browsers (without the session ids), comments, tool data,
+ * game saves, and messages sent from /contact/ while signed in.
  */
 export async function exportUserData(
   db: Database,
@@ -112,7 +113,7 @@ export async function exportUserData(
 ) {
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) return null;
-  const [browsers, own, tools, skygrid] = await Promise.all([
+  const [browsers, own, tools, skygrid, messages] = await Promise.all([
     db
       .select({
         createdAt: sessions.createdAt,
@@ -154,6 +155,7 @@ export async function exportUserData(
       })
       .from(skygridSaves)
       .where(eq(skygridSaves.userId, userId)),
+    messagesFrom(db, userId),
   ]);
   return {
     exportedAt: now.toISOString(),
@@ -181,5 +183,6 @@ export async function exportUserData(
     comments: own,
     toolData: tools,
     games: { skygrid: skygrid[0] ?? null },
+    contactMessages: messages,
   };
 }

@@ -9,6 +9,7 @@ describe("isPrivatePath", () => {
       "/api/tools/notes/data",
       "/auth/github",
       "/comments",
+      "/contact/send",
       "/sign-in/",
     ]) {
       expect(isPrivatePath(path)).toBe(true);
@@ -20,6 +21,8 @@ describe("isPrivatePath", () => {
       "/",
       "/writing/",
       "/writing/admin-notes/",
+      "/contact/",
+      "/legal/privacy/",
       "/authors/",
     ]) {
       expect(isPrivatePath(path)).toBe(false);

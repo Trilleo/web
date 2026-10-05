@@ -1,0 +1,73 @@
+---
+import DisplayTitle from "../../components/DisplayTitle.astro";
+import InfoPageList from "../../components/InfoPageList.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { LEGAL_HUB, infoPagesIn } from "../../lib/info-pages";
+import { breadcrumbJsonLd } from "../../lib/seo";
+import { CONTACT_EMAIL, ICP_FILING, SITE_NAME } from "../../lib/site";
+---
+
+<BaseLayout
+  title={LEGAL_HUB.title}
+  description={LEGAL_HUB.description}
+  jsonLd={[
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: LEGAL_HUB.title, path: LEGAL_HUB.path },
+    ]),
+  ]}
+>
+  <section
+    aria-labelledby="legal-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label">(Legal)</p>
+
+    <DisplayTitle id="legal-title">Legal</DisplayTitle>
+
+    <div class="grid-swiss mt-7 gap-y-8 border-t border-ink pt-4 md:mt-8 md:gap-y-10 md:pt-5 xl:mt-12 xl:pt-6">
+      <p class="type-lead col-span-4 md:col-span-6 md:col-start-3 xl:col-start-3">
+        The rules of {SITE_NAME}, written to be read. The short version: be
+        kind, post only what’s yours to share, and your data is yours to see and
+        delete.
+      </p>
+
+      <div class="col-span-4 md:col-span-6 md:col-start-3 xl:col-span-7 xl:col-start-3">
+        <InfoPageList pages={infoPagesIn("legal")} dates />
+      </div>
+
+      <dl class="type-label col-span-4 flex flex-col gap-4 md:col-span-6 md:col-start-3 xl:col-span-3 xl:col-start-10 xl:row-span-2 xl:row-start-1">
+        <div class="flex flex-col gap-1">
+          <dt class="text-muted">Operator</dt>
+          <dd>Trilleo, an individual</dd>
+        </div>
+        <div class="flex flex-col gap-1">
+          <dt class="text-muted">Contact</dt>
+          <dd>
+            <a href={`mailto:${CONTACT_EMAIL}`} class="group">
+              <span class="link-wipe normal-case">{CONTACT_EMAIL}</span>
+            </a>
+          </dd>
+        </div>
+        <div class="flex flex-col gap-1">
+          <dt class="text-muted">Hosted in</dt>
+          <dd>Mainland China</dd>
+        </div>
+        {ICP_FILING && (
+          <div class="flex flex-col gap-1">
+            <dt class="text-muted">ICP filing</dt>
+            <dd>
+              <a
+                href="https://beian.miit.gov.cn/"
+                class="group font-cjk normal-case"
+                lang="zh-CN"
+              >
+                <span class="link-wipe">{ICP_FILING}</span>
+              </a>
+            </dd>
+          </div>
+        )}
+      </dl>
+    </div>
+  </section>
+</BaseLayout>

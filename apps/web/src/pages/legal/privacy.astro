@@ -1,0 +1,289 @@
+---
+import { RETENTION_DAYS } from "@trilleo/storage";
+import InfoLayout from "../../layouts/InfoLayout.astro";
+import { SESSION_TTL_MS } from "../../lib/auth/sessions";
+import { CONTACT_RETENTION_DAYS } from "../../lib/contact/store";
+import { CONTACT_EMAIL, SITE_NAME } from "../../lib/site";
+
+const sessionDays = SESSION_TTL_MS / (24 * 60 * 60 * 1000);
+// deploy/server/trilleo-backup keeps this many days of nightly dumps (KEEP_DAYS).
+const BACKUP_DAYS = 14;
+
+const sections = [
+  { slug: "summary", text: "In short" },
+  { slug: "who", text: "Who is responsible" },
+  { slug: "what", text: "What is kept, and why" },
+  { slug: "not-kept", text: "What isn’t collected" },
+  { slug: "contact-messages", text: "Contact messages" },
+  { slug: "sharing", text: "Who else handles it" },
+  { slug: "where", text: "Where it is stored" },
+  { slug: "retention", text: "How long it is kept" },
+  { slug: "rights", text: "Your rights" },
+  { slug: "children", text: "Children" },
+  { slug: "security", text: "Keeping it safe" },
+] as const;
+---
+
+<InfoLayout path="/legal/privacy/" sections={sections} history>
+  <h2 id="summary">In short</h2>
+  <ul>
+    <li>
+      You can read, use the tools and play without an account. Then nothing is
+      kept about you on the server: tool data and game saves stay in your
+      browser.
+    </li>
+    <li>
+      If you sign in with GitHub, the site keeps your public GitHub name and
+      username, what you choose to write or upload, and when you signed in.
+    </li>
+    <li>
+      There are no ads and no tracking. Page views are counted by Cloudflare Web
+      Analytics, which sets no cookies and doesn’t identify you. Fonts are
+      served from this site.
+    </li>
+    <li>
+      You can download everything kept about you, or delete your account, from
+      your account page at any time.
+    </li>
+  </ul>
+
+  <h2 id="who">Who is responsible</h2>
+  <p>
+    {SITE_NAME} (www.trilleo.net) is run by an individual known as Trilleo,
+    based in mainland China, who decides what is collected and why: the
+    “personal information handler” under China’s Personal Information Protection
+    Law (PIPL), and the “controller” in the sense of the EU and UK GDPR. In this
+    policy, “I” means Trilleo. Write to{" "}
+    <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> or use the{" "}
+    <a href="/contact/">contact form</a> about anything here.
+  </p>
+
+  <h2 id="what">What is kept, and why</h2>
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">What</th>
+        <th scope="col">When</th>
+        <th scope="col">Why</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          Your GitHub user ID, username and public name (refreshed at each
+          sign-in)
+        </td>
+        <td>You sign in</td>
+        <td>To know it’s you, and to sign your comments</td>
+      </tr>
+      <tr>
+        <td>
+          Your profile: display name, pronouns, location, a status line, a bio,
+          links, and your privacy choices
+        </td>
+        <td>You fill it in (all optional)</td>
+        <td>To show your profile the way you chose</td>
+      </tr>
+      <tr>
+        <td>
+          Sessions: a fingerprint (SHA-256) of your sign-in cookie, your
+          browser’s User-Agent, and when it was created and last used
+        </td>
+        <td>Each signed-in browser</td>
+        <td>To keep you signed in, and to let you see and end your sessions</td>
+      </tr>
+      <tr>
+        <td>Comments, and their status (waiting, published, hidden)</td>
+        <td>You comment</td>
+        <td>To publish them, and to moderate</td>
+      </tr>
+      <tr>
+        <td>
+          Tool data (such as notes) and game saves, Bazaar orders and trades
+        </td>
+        <td>You use a tool or play while signed in</td>
+        <td>
+          To keep them in your account. Trades are recorded without names, for
+          price history
+        </td>
+      </tr>
+      <tr>
+        <td>
+          Uploaded files, their names, sizes, types and checksums, reports you
+          make or receive, appeals, and moderation decisions
+        </td>
+        <td>You upload, report or appeal</td>
+        <td>To store and serve files, and to keep the site safe and legal</td>
+      </tr>
+      <tr>
+        <td>Download counts: one number per file per day</td>
+        <td>Someone downloads a file</td>
+        <td>
+          To show the owner how often it’s downloaded. Who downloaded it is not
+          recorded
+        </td>
+      </tr>
+      <tr>
+        <td>Messages from the contact form</td>
+        <td>You write one</td>
+        <td>To read and answer it (see below)</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    The basis for all of this is that you asked for it: signing in, writing,
+    uploading or saving is something you do to use a feature (PIPL article
+    13(2), GDPR article 6(1)(b)). Moderation records, and keeping files someone
+    reported, rest on legal duties and the legitimate interest in a safe site
+    (PIPL article 13(3), GDPR article 6(1)(c) and (f)).
+  </p>
+
+  <h2 id="not-kept">What isn’t collected</h2>
+  <ul>
+    <li>
+      No advertising or social-media trackers, and no fingerprinting. The one
+      outside script is Cloudflare Web Analytics: it counts page views without
+      cookies or identifiers, and I see only totals (pages, referring sites,
+      countries, browsers), never individual visitors.
+    </li>
+    <li>
+      No email address from GitHub: sign-in asks for no permissions. GitHub’s
+      access token is used once, to read your public profile, and thrown away.
+    </li>
+    <li>
+      No IP address is stored. To count a download once per visitor per day, a
+      hash of your address and browser is held in the server’s memory for that
+      day only; the contact form keeps a similar hash in memory for a day to
+      limit spam.
+    </li>
+    <li>
+      Files are scanned for malware on the server, but nothing in them is used
+      for anything else. The file tools (convert, file info, QR, colour) work
+      entirely in your browser: what you open in them is never uploaded.
+    </li>
+  </ul>
+
+  <h2 id="contact-messages">Contact messages</h2>
+  <p>
+    The contact form asks for a name (any name will do), an optional email
+    address for the reply, and your message. If you are signed in, the message
+    is also linked to your account and appears in your data export. Messages are
+    read only by me, are never used for marketing, and are deleted{" "}
+    {CONTACT_RETENTION_DAYS} days after they arrive at the latest, or sooner if
+    you ask.
+  </p>
+
+  <h2 id="sharing">Who else handles it</h2>
+  <p>
+    Nothing is sold or shared for advertising. A few services handle data on the
+    site’s behalf, only to run it:
+  </p>
+  <ul>
+    <li>
+      <strong>Huawei Cloud</strong> hosts the server, the database and uploaded
+      files, in mainland China.
+    </li>
+    <li>
+      <strong>Cloudflare</strong> sits in front of the site and handles every
+      request (including your IP address) to deliver it and protect it from
+      attacks, and counts page views (Web Analytics, described above). See
+      Cloudflare’s own privacy policy.
+    </li>
+    <li>
+      <strong>GitHub</strong> handles sign-in. When you sign in, GitHub learns
+      that you used this site.
+    </li>
+  </ul>
+  <p>
+    Public things are public: published comments, public profiles, published
+    files and leaderboard entries can be seen by anyone, and may be copied by
+    search engines. Information may also be disclosed when the law requires it.
+  </p>
+
+  <h2 id="where">Where it is stored</h2>
+  <p>
+    The server, database and files are in mainland China. If you use the site
+    from elsewhere, what you send is transferred there; Cloudflare may process
+    requests in the data centre nearest to you. By signing in or sending a
+    message you agree to this transfer, and you can withdraw that by deleting
+    your account.
+  </p>
+
+  <h2 id="retention">How long it is kept</h2>
+  <ul>
+    <li>
+      Your account, profile, comments, tool data and saves: until you delete
+      them or your account.
+    </li>
+    <li>
+      Sessions: until you sign out, or {sessionDays} days after they were last
+      renewed.
+    </li>
+    <li>
+      Deleted files: {RETENTION_DAYS.deleted} days (so a mistake can be undone),
+      then the file itself is erased. Files taken down by moderation:{" "}
+      {RETENTION_DAYS.removed} days, as evidence and to allow an appeal. A
+      record that the file existed (its name, checksum and status) stays, to
+      stop the same file being uploaded again.
+    </li>
+    <li>Contact messages: at most {CONTACT_RETENTION_DAYS} days.</li>
+    <li>
+      Backups of the database are kept for {BACKUP_DAYS} days, so deleted data
+      disappears from them within that time.
+    </li>
+  </ul>
+
+  <h2 id="rights">Your rights</h2>
+  <p>Wherever you live, you can:</p>
+  <ul>
+    <li>
+      <strong>See and copy</strong> what is kept:{" "}
+      <a href="/account/">your account</a> has a “Download your data” link (a
+      JSON file with everything).
+    </li>
+    <li>
+      <strong>Correct</strong> it: edit your{" "}
+      <a href="/account/profile/">profile</a>; your GitHub name and username
+      update when you next sign in.
+    </li>
+    <li>
+      <strong>Delete</strong> it: delete comments or files one by one, sign
+      other browsers out, or delete your whole account from your account page.
+      That removes your profile, comments, tool data, saves, files and messages.
+    </li>
+    <li>
+      <strong>Withdraw consent, object, or restrict</strong> a use, and ask how
+      a decision about you was made. Nothing here is decided about you
+      automatically, except spam limits and malware checks, which a person can
+      review.
+    </li>
+    <li>
+      <strong>Complain</strong> to a regulator: in China, the Cyberspace
+      Administration (CAC); in the EU or UK, your data protection authority.
+      Please write to me first; I would like the chance to fix it.
+    </li>
+  </ul>
+  <p>
+    For anything you can’t do yourself, <a href="/contact/">get in touch</a>. I
+    answer within 15 days, and may ask you to show it’s your account (for
+    example, by signing in).
+  </p>
+
+  <h2 id="children">Children</h2>
+  <p>
+    You need to be at least 14 to make an account. Younger visitors are welcome
+    to read, use the tools and play without signing in. If you think a child
+    under 14 has an account, tell me and it will be deleted.
+  </p>
+
+  <h2 id="security">Keeping it safe</h2>
+  <p>
+    Everything travels over HTTPS. The server keeps only a hash of your sign-in
+    token, and the cookie that carries it is secure, HTTP-only and limited to
+    this site. Uploaded files are kept in a private bucket unless they are
+    published, and are checked for malware. Backups stay on the server. No
+    system is perfect: if something goes wrong that affects your data, you will
+    be told, and so will the authorities where the law requires it. To report a
+    weakness, see the <a href="/security/">security policy</a>.
+  </p>
+</InfoLayout>

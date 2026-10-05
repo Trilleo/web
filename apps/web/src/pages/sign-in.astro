@@ -90,6 +90,19 @@ const accountDeleted = params.has("account-deleted") && !user;
             </a>
           )
         )}
+        {!user && configured && (
+          <p class="text-sm text-muted">
+            By signing in you agree to the{" "}
+            <a href="/legal/terms/" class="text-ink underline">
+              terms
+            </a>{" "}
+            and{" "}
+            <a href="/legal/privacy/" class="text-ink underline">
+              privacy policy
+            </a>
+            . You must be 14 or older.
+          </p>
+        )}
       </div>
     </div>
   </section>

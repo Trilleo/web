@@ -14,6 +14,7 @@ import {
 import { moderationOverview } from "../../lib/comments/store";
 import { getDb } from "../../lib/db";
 import { indexNowKey } from "../../lib/indexnow";
+import { infoPaths } from "../../lib/info-pages";
 import { postHref } from "../../lib/posts";
 import { auditPosts, knownPages, tagPaths } from "../../lib/seo-audit";
 import { toolPath, TOOLS } from "../../lib/tools/registry";
@@ -40,6 +41,8 @@ const known = knownPages(
     "/rss.xml",
     "/llms.txt",
     "/sign-in/",
+    "/sitemap/",
+    ...infoPaths(),
     ...publicPosts.map((post) => postHref(post.slug)),
     ...(await listOldSlugs(db)).map((slug) => postHref(slug)),
     ...tagPaths(publicPosts),

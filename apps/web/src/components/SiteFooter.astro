@@ -1,9 +1,33 @@
 ---
 import { ArrowUpIcon } from "@trilleo/ui";
-import { GITHUB_URL, NAV_ITEMS, SITE_NAME } from "../lib/site";
+import {
+  GITHUB_URL,
+  ICP_FILING,
+  NAV_ITEMS,
+  PSB_FILING,
+  SITE_NAME,
+} from "../lib/site";
 
 const year = new Date().getFullYear();
 const linkClass = "group type-label inline-flex min-h-9 items-center";
+const smallLink = "group inline-flex min-h-6 items-center";
+
+const information = [
+  { label: "Contact", href: "/contact/" },
+  { label: "FAQ", href: "/faq/" },
+  { label: "Legal", href: "/legal/" },
+  { label: "Accessibility", href: "/accessibility/" },
+] as const;
+const fine = [
+  { label: "Terms", href: "/legal/terms/" },
+  { label: "Privacy", href: "/legal/privacy/" },
+  { label: "Cookies", href: "/legal/cookies/" },
+  { label: "Security", href: "/security/" },
+  { label: "Colophon", href: "/colophon/" },
+  { label: "Sitemap", href: "/sitemap/" },
+] as const;
+// The PSB number's digits, which its search page links by (…?code=<digits>).
+const psbCode = PSB_FILING?.match(/\d+/)?.[0];
 ---
 
 <footer class="grid-swiss px-page gap-y-6 pt-7 pb-8 md:pt-8 md:pb-10">
@@ -16,7 +40,7 @@ const linkClass = "group type-label inline-flex min-h-9 items-center";
 
   <nav
     aria-label="Sections"
-    class="col-span-2 flex flex-col md:col-span-2 xl:col-span-3"
+    class="col-span-2 flex flex-col md:col-span-2 xl:col-span-2"
   >
     {NAV_ITEMS.map((item) => (
       <a href={item.href} class={linkClass}>
@@ -26,8 +50,19 @@ const linkClass = "group type-label inline-flex min-h-9 items-center";
   </nav>
 
   <nav
+    aria-label="Information"
+    class="col-span-2 flex flex-col md:col-span-2 xl:col-span-2"
+  >
+    {information.map((item) => (
+      <a href={item.href} class={linkClass}>
+        <span class="link-wipe">{item.label}</span>
+      </a>
+    ))}
+  </nav>
+
+  <nav
     aria-label="Elsewhere"
-    class="col-span-2 flex flex-col md:col-span-2 xl:col-span-3"
+    class="col-span-2 flex flex-col md:col-span-2 xl:col-span-2"
   >
     <a href="/rss.xml" class={linkClass}>
       <span class="link-wipe">RSS</span>
@@ -39,7 +74,7 @@ const linkClass = "group type-label inline-flex min-h-9 items-center";
 
   <a
     href="#top"
-    class={`${linkClass} col-span-4 gap-2 self-start md:col-span-2 md:justify-self-end xl:col-span-4`}
+    class={`${linkClass} col-span-2 gap-2 self-start md:col-span-8 md:justify-self-start xl:col-span-4 xl:justify-self-end`}
   >
     <span class="link-wipe">Back to top</span>
     <ArrowUpIcon
@@ -47,4 +82,35 @@ const linkClass = "group type-label inline-flex min-h-9 items-center";
       className="transition-transform duration-(--tr-dur-fast) ease-swiss group-hover:-translate-y-0.5"
     />
   </a>
+
+  <div class="type-label col-span-4 flex flex-col gap-3 border-t border-hair pt-4 text-muted md:col-span-8 md:flex-row md:items-center md:justify-between xl:col-span-12">
+    <nav aria-label="Legal" class="flex flex-wrap gap-x-5 gap-y-1">
+      {fine.map((item) => (
+        <a href={item.href} class={smallLink}>
+          <span class="link-wipe">{item.label}</span>
+        </a>
+      ))}
+    </nav>
+    {(ICP_FILING || PSB_FILING) && (
+      <p
+        lang="zh-CN"
+        class="flex flex-wrap gap-x-5 gap-y-1 font-cjk text-[13px] tracking-normal normal-case"
+      >
+        {ICP_FILING && (
+          <a href="https://beian.miit.gov.cn/" rel="noopener" class={smallLink}>
+            <span class="link-wipe">{ICP_FILING}</span>
+          </a>
+        )}
+        {PSB_FILING && (
+          <a
+            href={`https://beian.mps.gov.cn/#/query/webSearch${psbCode ? `?code=${psbCode}` : ""}`}
+            rel="noopener"
+            class={smallLink}
+          >
+            <span class="link-wipe">{PSB_FILING}</span>
+          </a>
+        )}
+      </p>
+    )}
+  </div>
 </footer>

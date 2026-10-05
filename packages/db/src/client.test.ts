@@ -65,6 +65,7 @@ describe("openDatabase", () => {
     expect(tables.map((row) => row.table_name)).toEqual([
       "blocked_hashes",
       "comments",
+      "contact_messages",
       "file_appeals",
       "file_downloads",
       "file_reports",

@@ -586,6 +586,32 @@ export const skygridTrades = pgTable(
   (table) => [index("skygrid_trades_item_idx").on(table.item, table.at)],
 );
 
+/**
+ * A message sent from /contact/. Anyone can write, signed in or not; a signed-in
+ * sender's account is linked (and the message goes with the account). `email` is
+ * optional: where to reply. status: new, read, or archived by the admin. Deleted a
+ * year after it arrives (CONTACT_RETENTION_DAYS in apps/web).
+ */
+export const contactMessages = pgTable(
+  "contact_messages",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    topic: text("topic").notNull(),
+    name: text("name").notNull(),
+    email: text("email"),
+    body: text("body").notNull(),
+    status: text("status", { enum: ["new", "read", "archived"] })
+      .notNull()
+      .default("new"),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index("contact_messages_status_idx").on(table.status, table.createdAt),
+    index("contact_messages_user_idx").on(table.userId, table.createdAt),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
@@ -603,3 +629,4 @@ export type FileReport = typeof fileReports.$inferSelect;
 export type FileAppeal = typeof fileAppeals.$inferSelect;
 export type SkygridSave = typeof skygridSaves.$inferSelect;
 export type SkygridOrder = typeof skygridOrders.$inferSelect;
+export type ContactMessage = typeof contactMessages.$inferSelect;

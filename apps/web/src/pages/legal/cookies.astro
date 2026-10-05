@@ -1,0 +1,116 @@
+---
+import { THEME_STORAGE_KEY } from "@trilleo/ui/theme";
+import InfoLayout from "../../layouts/InfoLayout.astro";
+import { SESSION_TTL_MS } from "../../lib/auth/sessions";
+
+const sessionDays = SESSION_TTL_MS / (24 * 60 * 60 * 1000);
+
+const sections = [
+  { slug: "short", text: "In short" },
+  { slug: "cookies", text: "Cookies" },
+  { slug: "storage", text: "Browser storage" },
+  { slug: "control", text: "Your choices" },
+] as const;
+---
+
+<InfoLayout path="/legal/cookies/" sections={sections} history>
+  <h2 id="short">In short</h2>
+  <p>
+    The site sets one cookie, and only once you sign in. It keeps a few things
+    in your browser’s own storage so the site works the way you left it. None of
+    it tracks you, none of it is shared, and there are no advertising or
+    analytics cookies (page views are counted without any). That’s why there is
+    no cookie banner: everything here is strictly necessary for something you
+    asked for.
+  </p>
+
+  <h2 id="cookies">Cookies</h2>
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">What it does</th>
+        <th scope="col">How long</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <code>__Host-trilleo_session</code>
+        </td>
+        <td>
+          Keeps you signed in. A random token; the server stores only its hash.
+          Secure, HTTP-only, same-site.
+        </td>
+        <td>
+          {sessionDays} days, renewed while you use the site; gone when you sign
+          out
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <code>trilleo_oauth</code>
+        </td>
+        <td>
+          Protects the trip to GitHub and back while you sign in (a one-time
+          check value).
+        </td>
+        <td>10 minutes, or until you’re back</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    Cloudflare, which delivers the site, may set its own strictly necessary
+    security cookie (such as <code>__cf_bm</code>) when it checks for bots.
+    Cloudflare’s cookie policy covers it.
+  </p>
+
+  <h2 id="storage">Browser storage</h2>
+  <p>
+    These stay in your browser (localStorage) and are never sent to the server
+    by themselves:
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Key</th>
+        <th scope="col">What it holds</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <code>{THEME_STORAGE_KEY}</code>
+        </td>
+        <td>
+          Light or dark mode, if you chose one with the header toggle. Cleared
+          when you switch back to your system’s choice.
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <code>trilleo:tool:…</code>
+        </td>
+        <td>What you made in a tool (such as notes) while signed out.</td>
+      </tr>
+      <tr>
+        <td>
+          <code>trilleo:game:skygrid</code>
+        </td>
+        <td>Your Skygrid island while signed out.</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    When you sign in, a tool may offer to move what’s in your browser into your
+    account. Nothing moves unless you say so.
+  </p>
+
+  <h2 id="control">Your choices</h2>
+  <p>
+    You can clear cookies and site data in your browser’s settings at any time.
+    You’ll be signed out, and anything kept only in your browser (tool data and
+    game saves from while you were signed out) will be lost, so move it to an
+    account or export it first.
+  </p>
+</InfoLayout>

@@ -1,0 +1,104 @@
+---
+import InfoLayout from "../layouts/InfoLayout.astro";
+import { CONTACT_EMAIL, SITE_NAME } from "../lib/site";
+
+const sections = [
+  { slug: "report", text: "Reporting a problem" },
+  { slug: "scope", text: "In scope" },
+  { slug: "out-of-scope", text: "Out of scope" },
+  { slug: "rules", text: "Testing safely" },
+  { slug: "response", text: "What to expect" },
+  { slug: "measures", text: "How the site is protected" },
+  { slug: "thanks", text: "Thanks" },
+] as const;
+---
+
+<InfoLayout path="/security/" sections={sections}>
+  <h2 id="report">Reporting a problem</h2>
+  <p>
+    If you find a vulnerability in {SITE_NAME}, please email{" "}
+    <a href={`mailto:${CONTACT_EMAIL}?subject=Security`}>{CONTACT_EMAIL}</a>{" "}
+    with “Security” in the subject, or use the{" "}
+    <a href="/contact/">contact form</a> (choose “A security problem”). Include
+    what you found, where, the steps to reproduce it, and what someone could do
+    with it. Please don’t put working secrets, other people’s data or exploit
+    code in the contact form. This policy is also listed in{" "}
+    <a href="/.well-known/security.txt">security.txt</a>.
+  </p>
+
+  <h2 id="scope">In scope</h2>
+  <ul>
+    <li>www.trilleo.net and trilleo.net, including the API under /api/.</li>
+    <li>files.trilleo.net, where published files are served.</li>
+    <li>
+      Sign-in, sessions, comments, uploads and moderation, tool data, game saves
+      and the Bazaar (including ways to cheat the server’s checks).
+    </li>
+    <li>The source code of this site on GitHub.</li>
+  </ul>
+
+  <h2 id="out-of-scope">Out of scope</h2>
+  <ul>
+    <li>GitHub, Cloudflare and Huawei Cloud themselves: report to them.</li>
+    <li>Denial of service, load testing, spam, and social engineering.</li>
+    <li>
+      Reports from automated scanners without a demonstrated impact, missing
+      headers with no exploit, and self-XSS.
+    </li>
+    <li>
+      The Content-Security-Policy is report-only for now; that alone isn’t a
+      finding.
+    </li>
+  </ul>
+
+  <h2 id="rules">Testing safely</h2>
+  <p>
+    Use your own accounts, and only test against data that is yours. Don’t
+    access, change or delete anyone else’s data; stop and report as soon as you
+    see some. Don’t degrade the site for others, and give me reasonable time to
+    fix a problem before telling anyone else. If you follow this policy in good
+    faith, I won’t take legal action against you, and will say so to anyone who
+    asks.
+  </p>
+
+  <h2 id="response">What to expect</h2>
+  <ul>
+    <li>A reply within 3 days, saying whether I could reproduce it.</li>
+    <li>
+      Serious problems fixed as fast as possible, usually within a week; you’ll
+      hear when it’s done.
+    </li>
+    <li>
+      Credit by name (or handle) here and in the fix, if you’d like it. There is
+      no bug bounty: this is a personal, non-commercial site.
+    </li>
+  </ul>
+
+  <h2 id="measures">How the site is protected</h2>
+  <ul>
+    <li>
+      HTTPS everywhere, behind Cloudflare; the server accepts connections only
+      from Cloudflare.
+    </li>
+    <li>
+      No passwords: GitHub sign-in with PKCE and no permissions. Session tokens
+      are stored only as hashes.
+    </li>
+    <li>
+      Every change that alters data is a POST form with an origin check; pages
+      with private data are never cached.
+    </li>
+    <li>
+      Comment formatting allows no HTML, and only web links. Uploaded files are
+      scanned for malware, and anything that could run in a browser is served as
+      a download from a separate domain.
+    </li>
+    <li>
+      Dependencies are kept up to date automatically, and code is scanned on
+      every change.
+    </li>
+  </ul>
+
+  <h2 id="thanks">Thanks</h2>
+  <p>No reports yet. Yours could be the first.</p>
+</InfoLayout>

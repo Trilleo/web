@@ -1,0 +1,212 @@
+---
+/**
+ * The admin's inbox: messages from /contact/, one view at a time (new, read,
+ * archived; ?view=). Opening the inbox doesn't mark anything read: that's a button.
+ */
+import AdminNav from "../../../components/admin/AdminNav.astro";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireAdmin } from "../../../lib/auth/guard";
+import {
+  CONTACT_RETENTION_DAYS,
+  CONTACT_TOPICS,
+  CONTACT_TOPIC_LABELS,
+  INBOX_VIEWS,
+  inboxCounts,
+  listMessages,
+  purgeOldMessages,
+  type ContactTopic,
+  type InboxView,
+} from "../../../lib/contact/store";
+import { getDb } from "../../../lib/db";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const param = Astro.url.searchParams.get("view") ?? "new";
+const view: InboxView = INBOX_VIEWS.includes(param as InboxView)
+  ? (param as InboxView)
+  : "new";
+const done = Astro.url.searchParams.get("done");
+
+const db = await getDb();
+await purgeOldMessages(db);
+const counts = await inboxCounts(db);
+const messages = await listMessages(db, view);
+const back = `/admin/messages/?view=${view}`;
+
+const VIEW_LABELS: Record<InboxView, string> = {
+  new: "New",
+  read: "Read",
+  archived: "Archived",
+};
+const DONE_LABELS: Record<string, string> = {
+  read: "Marked as read.",
+  new: "Marked as new.",
+  archived: "Archived.",
+  deleted: "Deleted.",
+};
+const topicLabel = (topic: string) =>
+  (CONTACT_TOPICS as readonly string[]).includes(topic)
+    ? CONTACT_TOPIC_LABELS[topic as ContactTopic]
+    : topic;
+const when = (date: Date) =>
+  date.toISOString().slice(0, 16).replace("T", " ") + " UTC";
+const smallButton =
+  "type-label min-h-9 border border-ink px-3 hover:bg-chip press";
+const actions: Record<InboxView, readonly { status: string; label: string }[]> =
+  {
+    new: [
+      { status: "read", label: "Mark read" },
+      { status: "archived", label: "Archive" },
+    ],
+    read: [
+      { status: "new", label: "Mark new" },
+      { status: "archived", label: "Archive" },
+    ],
+    archived: [{ status: "read", label: "Move to read" }],
+  };
+---
+
+<BaseLayout title="Messages · Admin" noindex>
+  <section
+    aria-labelledby="messages-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="messages" />
+
+    <DisplayTitle id="messages-title">Messages</DisplayTitle>
+
+    <div class="grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <p class="type-label col-span-4 text-muted md:col-span-2 xl:col-span-2">
+        From /contact/
+      </p>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
+        <nav
+          aria-label="Inbox"
+          class="type-label flex flex-wrap gap-x-6 gap-y-2"
+        >
+          {INBOX_VIEWS.map((key) => (
+            <a
+              href={`/admin/messages/?view=${key}`}
+              class="group inline-flex items-center gap-2"
+              aria-current={key === view ? "page" : undefined}
+            >
+              <span
+                class:list={[
+                  "size-2",
+                  key === view ? "bg-accent" : "bg-transparent",
+                ]}
+                aria-hidden="true"
+              />
+              <span class="link-wipe">{VIEW_LABELS[key]}</span>
+              {key === "new" && counts.new > 0 ? (
+                <span class="bg-accent px-1.5 text-on-accent">
+                  {counts.new}
+                </span>
+              ) : (
+                <span class="text-muted">{counts[key]}</span>
+              )}
+            </a>
+          ))}
+        </nav>
+        <p class="text-muted">
+          Messages are deleted {CONTACT_RETENTION_DAYS} days after they arrive,
+          as the privacy policy promises.
+        </p>
+        {done && DONE_LABELS[done] && (
+          <p role="status" class="type-lead border-l-2 border-accent pl-4">
+            {DONE_LABELS[done]}
+          </p>
+        )}
+      </div>
+    </div>
+
+    {messages.length === 0 ? (
+      <p class="mt-10 text-muted">
+        No {VIEW_LABELS[view].toLowerCase()} messages.
+      </p>
+    ) : (
+      <ol class="mt-10 border-b border-ink">
+        {messages.map((message) => (
+          <li
+            class="grid-swiss gap-y-4 border-t border-ink py-5"
+            id={`message-${String(message.id)}`}
+          >
+            <dl class="type-label col-span-4 flex flex-col gap-2 md:col-span-2 xl:col-span-2">
+              <div>
+                <dt class="sr-only">Received</dt>
+                <dd>
+                  <time datetime={message.createdAt.toISOString()}>
+                    {when(message.createdAt)}
+                  </time>
+                </dd>
+              </div>
+              <div>
+                <dt class="sr-only">About</dt>
+                <dd class="text-muted">{topicLabel(message.topic)}</dd>
+              </div>
+            </dl>
+            <div class="col-span-4 flex flex-col gap-3 md:col-span-6 xl:col-span-7">
+              <p class="font-semibold">
+                {message.name}
+                {message.login && (
+                  <>
+                    {" · "}
+                    <a
+                      href={`https://github.com/${message.login}`}
+                      class="group"
+                    >
+                      <span class="link-wipe">@{message.login}</span>
+                    </a>
+                  </>
+                )}
+                {message.email && (
+                  <>
+                    {" · "}
+                    <a
+                      href={`mailto:${message.email}?subject=${encodeURIComponent("Re: your message to Trilleo Network")}`}
+                      class="group"
+                    >
+                      <span class="link-wipe">{message.email}</span>
+                    </a>
+                  </>
+                )}
+              </p>
+              <p class="whitespace-pre-wrap">{message.body}</p>
+            </div>
+            <div class="col-span-4 flex flex-wrap content-start gap-2 md:col-span-6 md:col-start-3 xl:col-span-3 xl:col-start-10 xl:justify-end">
+              {actions[view].map((action) => (
+                <form method="post" action="/admin/messages/action">
+                  <input type="hidden" name="id" value={String(message.id)} />
+                  <input type="hidden" name="status" value={action.status} />
+                  <input type="hidden" name="back" value={back} />
+                  <button type="submit" class={smallButton}>
+                    {action.label}
+                  </button>
+                </form>
+              ))}
+              <form method="post" action="/admin/messages/action">
+                <input type="hidden" name="id" value={String(message.id)} />
+                <input type="hidden" name="status" value="deleted" />
+                <input type="hidden" name="back" value={back} />
+                <button
+                  type="submit"
+                  class={smallButton}
+                  aria-label={`Delete the message from ${message.name}`}
+                >
+                  Delete
+                </button>
+              </form>
+            </div>
+          </li>
+        ))}
+      </ol>
+    )}
+  </section>
+</BaseLayout>

@@ -1,0 +1,160 @@
+---
+/**
+ * The contact form: a plain POST to /contact/send that works without JavaScript.
+ * /contact/ shows it empty; /contact/send shows it again, filled in, when something
+ * was wrong, with each field's problem beside it.
+ */
+import { buttonClasses, fieldClasses } from "@trilleo/ui";
+import {
+  CONTACT_FIELD_LIMITS,
+  CONTACT_TOPICS,
+  CONTACT_TOPIC_LABELS,
+  type ContactField,
+} from "../../lib/contact/store";
+
+interface Props {
+  values?: { topic: string; name: string; email: string; body: string };
+  errors?: Partial<Record<ContactField, string>>;
+}
+
+const { values = { topic: "", name: "", email: "", body: "" }, errors = {} } =
+  Astro.props;
+const input = `${fieldClasses} px-3 py-2.5 text-base`;
+const described = (field: ContactField, hint?: string) =>
+  [hint, errors[field] ? `contact-${field}-error` : undefined]
+    .filter(Boolean)
+    .join(" ") || undefined;
+---
+
+<form
+  method="post"
+  action="/contact/send"
+  class="flex flex-col gap-6 font-sans"
+  novalidate={Object.keys(errors).length > 0 ? true : undefined}
+>
+  <fieldset class="flex flex-col gap-2">
+    <legend class="type-label mb-2">What is it about?</legend>
+    {CONTACT_TOPICS.map((topic, index) => (
+      <label class="flex min-h-9 cursor-pointer items-center gap-3 text-base">
+        <input
+          type="radio"
+          name="topic"
+          value={topic}
+          required={index === 0}
+          checked={
+            values.topic === topic || (values.topic === "" && index === 0)
+          }
+          class="size-4 accent-(--tr-accent)"
+          aria-describedby={described("topic")}
+        />
+        {CONTACT_TOPIC_LABELS[topic]}
+      </label>
+    ))}
+    {errors.topic && (
+      <p id="contact-topic-error" class="text-sm text-ink">
+        {errors.topic}
+      </p>
+    )}
+  </fieldset>
+
+  <div class="grid gap-6 md:grid-cols-2">
+    <div class="flex flex-col gap-2">
+      <label for="contact-name" class="type-label">
+        Your name
+      </label>
+      <input
+        id="contact-name"
+        name="name"
+        type="text"
+        required
+        autocomplete="name"
+        maxlength={CONTACT_FIELD_LIMITS.name}
+        value={values.name}
+        aria-invalid={errors.name ? "true" : undefined}
+        aria-describedby={described("name")}
+        class={input}
+      />
+      {errors.name && (
+        <p id="contact-name-error" class="text-sm">
+          {errors.name}
+        </p>
+      )}
+    </div>
+    <div class="flex flex-col gap-2">
+      <label for="contact-email" class="type-label">
+        Email <span class="text-muted">(optional)</span>
+      </label>
+      <input
+        id="contact-email"
+        name="email"
+        type="email"
+        autocomplete="email"
+        maxlength={CONTACT_FIELD_LIMITS.email}
+        value={values.email}
+        aria-invalid={errors.email ? "true" : undefined}
+        aria-describedby={described("email", "contact-email-hint")}
+        class={input}
+      />
+      <p id="contact-email-hint" class="text-sm text-muted">
+        Only if you’d like a reply. It’s used for nothing else.
+      </p>
+      {errors.email && (
+        <p id="contact-email-error" class="text-sm">
+          {errors.email}
+        </p>
+      )}
+    </div>
+  </div>
+
+  <div class="flex flex-col gap-2">
+    <label for="contact-body" class="type-label">
+      Message
+    </label>
+    <textarea
+      id="contact-body"
+      name="body"
+      required
+      minlength={CONTACT_FIELD_LIMITS.body.min}
+      maxlength={CONTACT_FIELD_LIMITS.body.max}
+      rows={8}
+      aria-invalid={errors.body ? "true" : undefined}
+      aria-describedby={described("body", "contact-body-hint")}
+      class={`${input} resize-y`}
+      set:text={values.body}
+    />
+    <p id="contact-body-hint" class="text-sm text-muted">
+      Plain text. For a takedown, include the address of the page and what you
+      own; for a security problem, the steps to see it.
+    </p>
+    {errors.body && (
+      <p id="contact-body-error" class="text-sm">
+        {errors.body}
+      </p>
+    )}
+  </div>
+
+  <!-- A trap for bots: hidden from people and screen readers alike. -->
+  <div class="sr-only" aria-hidden="true">
+    <label for="contact-website">Leave this empty</label>
+    <input
+      id="contact-website"
+      name="website"
+      type="text"
+      tabindex="-1"
+      autocomplete="off"
+    />
+  </div>
+
+  <div class="flex flex-wrap items-center gap-4">
+    <button type="submit" class={buttonClasses()}>
+      Send message
+    </button>
+    <p class="text-sm text-muted">
+      Sending it means you’ve read the{" "}
+      <a href="/legal/privacy/#contact-messages" class="underline">
+        privacy policy
+      </a>
+      .
+    </p>
+  </div>
+</form>

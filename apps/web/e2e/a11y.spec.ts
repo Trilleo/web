@@ -19,6 +19,18 @@ const PAGES = [
   "/games/",
   "/games/skygrid/",
   "/games/skygrid/leaderboard/",
+  "/legal/",
+  "/legal/terms/",
+  "/legal/privacy/",
+  "/legal/cookies/",
+  "/legal/guidelines/",
+  "/legal/copyright/",
+  "/contact/",
+  "/faq/",
+  "/accessibility/",
+  "/security/",
+  "/colophon/",
+  "/sitemap/",
 ];
 const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 900 },

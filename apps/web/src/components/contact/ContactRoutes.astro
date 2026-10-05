@@ -1,0 +1,54 @@
+---
+/** The aside on /contact/: other ways to reach the right place. */
+import { CONTACT_EMAIL, GITHUB_URL } from "../../lib/site";
+
+const routes = [
+  {
+    label: "Email",
+    detail: "Anything at all, if you’d rather not use the form.",
+    href: `mailto:${CONTACT_EMAIL}`,
+    text: CONTACT_EMAIL,
+  },
+  {
+    label: "A file someone uploaded",
+    detail:
+      "Use “Report this file” on its page: it reaches the review queue directly.",
+    href: "/legal/copyright/#report",
+    text: "How reports work",
+  },
+  {
+    label: "A security problem",
+    detail:
+      "Please read the policy first, and don’t include secrets in the form.",
+    href: "/security/",
+    text: "Security policy",
+  },
+  {
+    label: "Your data",
+    detail: "Download or delete it yourself, any time, from your account.",
+    href: "/account/",
+    text: "Your account",
+  },
+  {
+    label: "Code",
+    detail: "Bugs in the open-source projects belong in their GitHub issues.",
+    href: GITHUB_URL,
+    text: "GitHub",
+  },
+] as const;
+---
+
+<aside
+  aria-label="Other ways to get in touch"
+  class="mt-12 flex flex-col border-t border-ink xl:mt-0"
+>
+  {routes.map((route) => (
+    <div class="flex flex-col gap-1 border-b border-hair py-3">
+      <span class="type-label text-muted">{route.label}</span>
+      <a href={route.href} class="group self-start font-semibold">
+        <span class="link-wipe">{route.text}</span>
+      </a>
+      <span class="text-[14px] leading-normal text-muted">{route.detail}</span>
+    </div>
+  ))}
+</aside>

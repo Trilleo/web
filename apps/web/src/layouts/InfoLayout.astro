@@ -1,0 +1,127 @@
+---
+/**
+ * An information page (terms, privacy, contact, …): the breadcrumb bar, a header
+ * with its facts in the left column, contents on desktop, and the text in .prose,
+ * set like a post. Its title, description and dates come from lib/info-pages.ts.
+ */
+import Breadcrumb, { type Crumb } from "../components/Breadcrumb.astro";
+import TableOfContents from "../components/TableOfContents.astro";
+import { formatPostDate } from "../lib/listings";
+import {
+  INFO_GROUP_LABELS,
+  LEGAL_HUB,
+  infoPage,
+  lastUpdated,
+} from "../lib/info-pages";
+import { breadcrumbJsonLd, type JsonLd } from "../lib/seo";
+import BaseLayout from "./BaseLayout.astro";
+
+interface Props {
+  /** The page's address, as listed in INFO_PAGES. */
+  path: string;
+  /** Its h2s, for the contents list (ids must match). */
+  sections?: readonly { slug: string; text: string }[];
+  /** Show the list of changes at the end (legal pages). */
+  history?: boolean;
+  jsonLd?: readonly JsonLd[];
+}
+
+const { path, sections = [], history = false, jsonLd = [] } = Astro.props;
+const page = infoPage(path);
+const contents = history
+  ? [...sections, { slug: "changes", text: "Changes to this page" }]
+  : sections;
+const updated = lastUpdated(page);
+const isLegal = page.group === "legal";
+
+const crumbs: Crumb[] = isLegal
+  ? [{ label: "Legal", href: LEGAL_HUB.path }, { label: page.label }]
+  : // Help and site pages have no hub: their group links to its part of the sitemap.
+    [
+      {
+        label: `(${INFO_GROUP_LABELS[page.group]})`,
+        href: `/sitemap/#${page.group}`,
+      },
+      { label: page.label },
+    ];
+const trail = isLegal
+  ? [
+      { name: "Home", path: "/" },
+      { name: LEGAL_HUB.title, path: LEGAL_HUB.path },
+      { name: page.title, path },
+    ]
+  : [
+      { name: "Home", path: "/" },
+      { name: page.title, path },
+    ];
+---
+
+<BaseLayout
+  title={page.title}
+  description={page.description}
+  jsonLd={[...jsonLd, breadcrumbJsonLd(trail)]}
+>
+  <div class="grid-swiss px-page type-label border-b border-hair py-3 xl:py-4">
+    <Breadcrumb class="col-span-4 md:col-span-8 xl:col-span-6" items={crumbs} />
+  </div>
+
+  <article>
+    <header class="grid-swiss px-page gap-y-8 pt-10 pb-12 md:pt-14 md:pb-14 xl:pt-18 xl:pb-16">
+      <div class="col-span-4 flex flex-col gap-6 md:col-span-6 md:col-start-3 md:row-start-1 xl:col-span-10 xl:col-start-3 xl:gap-8">
+        <h1 class="type-headline">{page.title}</h1>
+        <p class="type-dek max-w-[47.5rem] animate-rise text-muted [animation-delay:120ms]">
+          {page.description}
+        </p>
+      </div>
+      <dl class="type-label col-span-4 flex animate-fade flex-col gap-3.5 [animation-delay:200ms] md:col-span-2 md:col-start-1 md:row-start-1 md:pt-2.5 xl:col-span-2">
+        <div class="flex gap-3">
+          <dt class="w-18 text-muted">Updated</dt>
+          <dd>
+            <time datetime={updated.toISOString().slice(0, 10)}>
+              {formatPostDate(updated)}
+            </time>
+          </dd>
+        </div>
+        <div class="flex gap-3">
+          <dt class="w-18 text-muted">Section</dt>
+          <dd>{INFO_GROUP_LABELS[page.group]}</dd>
+        </div>
+      </dl>
+    </header>
+
+    <div class="mx-page h-0.5 origin-left animate-draw bg-ink [animation-delay:150ms]"></div>
+    <div class="grid-swiss mx-page pt-10 pb-16 md:pt-12 md:pb-24">
+      {contents.length > 1 && (
+        <div class="hidden xl:col-span-2 xl:block">
+          <TableOfContents headings={contents} />
+        </div>
+      )}
+      <div class="prose col-span-4 md:col-span-8 md:max-w-[40rem] xl:col-span-7 xl:col-start-3 xl:max-w-none">
+        <slot />
+        {history && (
+          <>
+            <h2 id="changes">Changes to this page</h2>
+            <p>
+              When this page changes in a way that matters, the date above moves
+              and the change is listed here. Changes that affect your rights are
+              announced on the site before they apply.
+            </p>
+            <ul>
+              {page.changes.map((change) => (
+                <li>
+                  <time datetime={change.date}>
+                    {formatPostDate(new Date(`${change.date}T00:00:00Z`))}
+                  </time>
+                  : {change.note}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+      <div class="col-span-4 md:col-span-8 xl:col-span-3 xl:col-start-10">
+        <slot name="aside" />
+      </div>
+    </div>
+  </article>
+</BaseLayout>

@@ -66,6 +66,15 @@
   /* Reading text: post bodies, comments, rendered notes, deks. Georgia is the fallback. */
   --font-serif: "Source Serif 4 Variable", Georgia, ui-serif, serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+  /*
+   * Chinese text (the footer's filing numbers): Latin and digits stay in the grotesk,
+   * Han characters fall to each system's own Simplified Chinese sans. A CJK webfont
+   * would be megabytes for a handful of characters.
+   */
+  --font-cjk:
+    "Schibsted Grotesk Variable", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", ui-sans-serif,
+    system-ui, sans-serif;
 
   --ease-swiss: cubic-bezier(0.2, 0, 0, 1);
   --ease-swiss-out: cubic-bezier(0.16, 1, 0.3, 1);

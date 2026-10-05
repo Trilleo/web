@@ -1,0 +1,117 @@
+---
+import InfoLayout from "../layouts/InfoLayout.astro";
+import { CONTACT_RETENTION_DAYS } from "../lib/contact/store";
+import { SITE_NAME } from "../lib/site";
+
+const sections = [
+  { slug: "accounts", text: "Accounts" },
+  { slug: "data", text: "Your data" },
+  { slug: "tools", text: "Tools" },
+  { slug: "games", text: "Games" },
+  { slug: "comments", text: "Comments" },
+  { slug: "site", text: "The site" },
+] as const;
+---
+
+<InfoLayout path="/faq/" sections={sections}>
+  <h2 id="accounts">Accounts</h2>
+  <h3>Do I need an account?</h3>
+  <p>
+    No. Reading, the tools and the games all work without one. An account lets
+    you comment, keep tool data and game saves across devices, and appear on
+    leaderboards.
+  </p>
+  <h3>Why only GitHub?</h3>
+  <p>
+    It means the site never handles a password, and GitHub sign-in asks for no
+    permissions: only your public name and username. Most people who read about
+    code already have an account. More ways to sign in may come later.
+  </p>
+  <h3>How old do I need to be?</h3>
+  <p>At least 14 to make an account. Anyone can use the site signed out.</p>
+  <h3>How do I delete my account?</h3>
+  <p>
+    From <a href="/account/">your account</a>: “Delete account” removes your
+    profile, comments, tool data, game saves and files. Download your data first
+    if you want to keep it.
+  </p>
+
+  <h2 id="data">Your data</h2>
+  <h3>What do you know about me?</h3>
+  <p>
+    If you’ve never signed in: nothing. If you have: your{" "}
+    <a href="/account/export.json">data export</a> lists all of it. The{" "}
+    <a href="/legal/privacy/">privacy policy</a> explains each part.
+  </p>
+  <h3>Is there tracking or analytics?</h3>
+  <p>
+    No tracking and no ads. Page views are counted by Cloudflare Web Analytics,
+    which uses no cookies and doesn’t identify you. The site sets one cookie,
+    only once you sign in. See <a href="/legal/cookies/">cookies</a>.
+  </p>
+  <h3>What happens to a message I send through the contact form?</h3>
+  <p>
+    Only I read it, and it’s deleted within {CONTACT_RETENTION_DAYS} days. If
+    you leave an email address, it’s used only to reply.
+  </p>
+
+  <h2 id="tools">Tools</h2>
+  <h3>Are my files uploaded when I convert them?</h3>
+  <p>
+    No. Convert, File info, QR and Color run entirely in your browser; the files
+    never leave your device. That’s also why some formats depend on what your
+    browser supports.
+  </p>
+  <h3>Where are my notes kept?</h3>
+  <p>
+    Signed out, in this browser only. Signed in, in your account, so they follow
+    you. When you first sign in, Notes offers to move what’s in your browser.
+  </p>
+
+  <h2 id="games">Games</h2>
+  <h3>Can I lose my Skygrid island?</h3>
+  <p>
+    Signed out, it lives in your browser: clearing site data deletes it. Sign in
+    and it’s saved to your account, checked by the server as you play.
+  </p>
+  <h3>Can I sell coins or items?</h3>
+  <p>
+    Only in the game’s Bazaar, for other in-game things. Trading them for real
+    money isn’t allowed (see the <a href="/legal/terms/#games">terms</a>).
+  </p>
+  <h3>I found a bug or an exploit.</h3>
+  <p>
+    Thank you: please <a href="/contact/">report it</a> instead of using it.
+  </p>
+
+  <h2 id="comments">Comments</h2>
+  <h3>Why hasn’t my comment appeared?</h3>
+  <p>
+    Your first comment waits until it’s read. After one is approved, the rest
+    appear straight away. You can see your waiting comments under the post.
+  </p>
+  <h3>Can I comment under a different name?</h3>
+  <p>
+    Yes: set a display name in <a href="/account/profile/">your profile</a>, or
+    choose to show only your username.
+  </p>
+
+  <h2 id="site">The site</h2>
+  <h3>Who runs {SITE_NAME}?</h3>
+  <p>
+    Trilleo, one person. See <a href="/about/">About</a>.
+  </p>
+  <h3>How is it built?</h3>
+  <p>
+    Astro, React and Postgres on a small server; the{" "}
+    <a href="/colophon/">colophon</a> has the details and credits.
+  </p>
+  <h3>Is there a feed?</h3>
+  <p>
+    Yes: <a href="/rss.xml">RSS</a>, with every post in full.
+  </p>
+  <h3>My question isn’t here.</h3>
+  <p>
+    <a href="/contact/">Ask it</a>.
+  </p>
+</InfoLayout>

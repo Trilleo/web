@@ -28,6 +28,13 @@ describe("llmsTxt", () => {
     expect(text).not.toContain("Later");
   });
 
+  it("lists the information pages under Optional", () => {
+    const text = llmsTxt([], []);
+    const optional = text.slice(text.indexOf("## Optional"));
+    expect(optional).toContain("(https://www.trilleo.net/legal/privacy/)");
+    expect(optional).toContain("(https://www.trilleo.net/contact/)");
+  });
+
   it("lists playable games, and leaves the section out when there are none", () => {
     const text = llmsTxt(
       [],

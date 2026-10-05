@@ -8,6 +8,14 @@ export const GITHUB_URL = "https://github.com/Trilleo";
 /** Where people send takedown requests and other legal or safety reports. */
 export const CONTACT_EMAIL = "contact@trilleo.net";
 
+/**
+ * Mainland China filing numbers, shown in the footer (a legal requirement for a site
+ * hosted there). Fill them in exactly as issued; null leaves the line out.
+ */
+export const ICP_FILING: string | null = "蜀ICP备2025152282号";
+/** The public security (公安) filing: its number, e.g. "京公网安备11010502030000号". */
+export const PSB_FILING: string | null = null;
+
 /** Account pages: kept out of search (robots.txt) and the sitemap. Prefixes. */
 export const PRIVATE_PATHS = [
   "/account",
@@ -15,6 +23,7 @@ export const PRIVATE_PATHS = [
   "/api/",
   "/auth/",
   "/comments",
+  "/contact/send",
   "/d/",
   "/sign-in",
   "/writing/preview/",

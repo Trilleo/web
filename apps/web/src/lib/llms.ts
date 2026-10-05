@@ -5,6 +5,7 @@
  */
 import type { GameMeta, ToolMeta } from "@trilleo/tool-kit";
 import { gamePath } from "./games/registry";
+import { INFO_PAGES } from "./info-pages";
 import { postHref } from "./posts";
 import { SITE_BIO, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "./site";
 import { toolPath } from "./tools/registry";
@@ -74,6 +75,7 @@ export function llmsTxt(
     "## Optional",
     "",
     item("About", "/about/", `Who runs ${SITE_NAME}, and how to get in touch.`),
+    ...INFO_PAGES.map((page) => item(page.title, page.path, page.description)),
     item("RSS feed", "/rss.xml", "Every post, in full."),
     "",
   ].join("\n");

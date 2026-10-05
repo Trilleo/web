@@ -1,0 +1,107 @@
+---
+import { RETENTION_DAYS } from "@trilleo/storage";
+import InfoLayout from "../../layouts/InfoLayout.astro";
+import { CONTACT_EMAIL, SITE_NAME } from "../../lib/site";
+
+const sections = [
+  { slug: "ownership", text: "Who owns what" },
+  { slug: "using", text: "Using the site’s content" },
+  { slug: "report", text: "Reporting infringement" },
+  { slug: "after", text: "What happens next" },
+  { slug: "counter", text: "If your content was taken down" },
+  { slug: "repeat", text: "Repeat infringement" },
+  { slug: "trademarks", text: "Trademarks" },
+] as const;
+---
+
+<InfoLayout path="/legal/copyright/" sections={sections} history>
+  <h2 id="ownership">Who owns what</h2>
+  <ul>
+    <li>
+      <strong>The site’s writing, design, pictograms and games</strong>: ©
+      Trilleo, unless a page says otherwise.
+    </li>
+    <li>
+      <strong>Source code</strong>: open where its{" "}
+      <a href="https://github.com/Trilleo">GitHub repository</a> says so, under
+      the licence stated there.
+    </li>
+    <li>
+      <strong>What you post</strong> (comments, profiles, uploads): yours. The{" "}
+      <a href="/legal/terms/#your-content">terms</a> describe the licence you
+      give the site to show it.
+    </li>
+    <li>
+      <strong>Fonts and libraries</strong>: their authors’, used under their
+      licences; see the <a href="/colophon/#credits">colophon</a>.
+    </li>
+  </ul>
+
+  <h2 id="using">Using the site’s content</h2>
+  <p>
+    You’re welcome to quote posts, link to anything, and share screenshots, with
+    a credit and a link back. Please ask before republishing whole posts or
+    using the site’s images or pictograms elsewhere.
+  </p>
+
+  <h2 id="report">Reporting infringement</h2>
+  <p>
+    If something on {SITE_NAME} uses your work without permission, tell me. The
+    fastest way for a file is “Report this file” on its page (you’ll need to
+    sign in). Otherwise, use the <a href="/contact/">contact form</a> (choose
+    “Copyright or a takedown”) or email{" "}
+    <a href={`mailto:${CONTACT_EMAIL}?subject=Takedown`}>{CONTACT_EMAIL}</a>,
+    with:
+  </p>
+  <ol>
+    <li>your name and how to reach you;</li>
+    <li>
+      the work you own (or represent), and where the original can be seen;
+    </li>
+    <li>the address of each page or file on this site that infringes it;</li>
+    <li>
+      a statement that you believe in good faith the use isn’t allowed by you,
+      your agent or the law, and that what you’ve written is accurate and you
+      are the owner or allowed to act for them.
+    </li>
+  </ol>
+  <p>
+    This covers what notices need under China’s Regulations on the Protection of
+    the Right to Network Dissemination of Information, and the US DMCA.
+  </p>
+
+  <h2 id="after">What happens next</h2>
+  <p>
+    A complete notice is usually acted on within a few days: the content is
+    taken down (or access to it is disabled), and the person who posted it is
+    told, with a copy of the notice minus your contact details if you ask. An
+    incomplete or clearly mistaken notice gets a reply asking for more.
+    Knowingly false notices can make you liable for the harm they cause.
+  </p>
+
+  <h2 id="counter">If your content was taken down</h2>
+  <p>
+    If you believe it was a mistake, or you have the right to use the work,
+    appeal from <a href="/account/files/">your files</a>, or write to me with
+    the address of the content, why you have the right to post it, and your
+    contact details, which may be passed to the person who complained. If they
+    don’t pursue it, the content can be restored. Taken-down files are kept for{" "}
+    {RETENTION_DAYS.removed} days so that this is possible, then erased.
+  </p>
+
+  <h2 id="repeat">Repeat infringement</h2>
+  <p>
+    Each upload taken down for copyright normally counts as a strike, and
+    accounts that keep infringing lose the ability to upload or are blocked, as
+    the <a href="/legal/guidelines/#consequences">community guidelines</a>
+    describe.
+  </p>
+
+  <h2 id="trademarks">Trademarks</h2>
+  <p>
+    Names and logos of other products mentioned on the site belong to their
+    owners and are used only to refer to them. {SITE_NAME} is not an official
+    Minecraft product, and is not approved by or associated with Mojang or
+    Microsoft. GitHub is a trademark of GitHub, Inc.
+  </p>
+</InfoLayout>

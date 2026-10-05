@@ -1,0 +1,138 @@
+---
+import {
+  REPORTER_MIN_AGE_DAYS,
+  REPORTS_TO_HIDE,
+  STRIKE_DAYS,
+  STRIKE_LIMIT,
+  TRUST_AFTER_APPROVALS,
+} from "@trilleo/storage";
+import InfoLayout from "../../layouts/InfoLayout.astro";
+import { COMMENT_MAX_LENGTH, LIMITS } from "../../lib/comments/store";
+
+const sections = [
+  { slug: "spirit", text: "The spirit" },
+  { slug: "not-allowed", text: "Not allowed" },
+  { slug: "comments", text: "Comments" },
+  { slug: "uploads", text: "Uploads" },
+  { slug: "reporting", text: "Reporting" },
+  { slug: "consequences", text: "What happens when rules are broken" },
+  { slug: "appeals", text: "Appeals" },
+] as const;
+---
+
+<InfoLayout path="/legal/guidelines/" sections={sections} history>
+  <h2 id="spirit">The spirit</h2>
+  <p>
+    This is a small, personal corner of the web. Comments are for talking about
+    the posts; profiles and uploads are for sharing what you make. Be the kind
+    of guest you’d want in your own home: curious, generous, and kind to people
+    you disagree with.
+  </p>
+
+  <h2 id="not-allowed">Not allowed</h2>
+  <ul>
+    <li>
+      Harassment, threats, hate against people for who they are, or encouraging
+      anyone to hurt themselves or others.
+    </li>
+    <li>Sexual content, or anything sexual involving minors, ever.</li>
+    <li>
+      Other people’s private information (addresses, phone numbers, documents)
+      shared without their consent.
+    </li>
+    <li>
+      Content that is illegal in mainland China, where the site is hosted, or
+      where you are.
+    </li>
+    <li>
+      Malware, phishing, cracked software, cheats for other people’s games, or
+      links to them.
+    </li>
+    <li>
+      Work you don’t have the right to share (see{" "}
+      <a href="/legal/copyright/">copyright</a>).
+    </li>
+    <li>
+      Spam, advertising, scams, or pretending to be someone else, including me.
+    </li>
+  </ul>
+
+  <h2 id="comments">Comments</h2>
+  <ul>
+    <li>
+      Your first comment is read before it appears. Once one is approved, your
+      later comments appear straight away.
+    </li>
+    <li>
+      To keep spam out, you can post {LIMITS.burst.count} comments in{" "}
+      {LIMITS.burst.windowMs / 60_000} minutes, {LIMITS.daily.count} a day, and
+      have {LIMITS.pending} waiting for approval at once. Comments can be up to{" "}
+      {COMMENT_MAX_LENGTH.toLocaleString("en")} characters.
+    </li>
+    <li>
+      You can delete your own comments at any time. If someone replied, a
+      placeholder keeps the thread readable.
+    </li>
+    <li>
+      Some posts close comments, or have none; that’s a choice about the post,
+      not about you.
+    </li>
+  </ul>
+
+  <h2 id="uploads">Uploads</h2>
+  <ul>
+    <li>
+      Uploading is open only to some accounts for now. Where it is open, every
+      file is checked for malware, and public files are reviewed before anyone
+      else sees them, until you are trusted.
+    </li>
+    <li>
+      You become trusted automatically after {TRUST_AFTER_APPROVALS} approved
+      uploads with no strikes. Trusted uploaders publish straight away, but
+      their files are still spot-checked and can be reported.
+    </li>
+    <li>
+      Web pages, scripts and other active files are only offered as downloads,
+      never opened in the browser.
+    </li>
+  </ul>
+
+  <h2 id="reporting">Reporting</h2>
+  <p>
+    If something breaks these rules, report it: use “Report this file” on a
+    file’s page, or <a href="/contact/">get in touch</a> about a comment or
+    profile. Reports are read by a person. A public file reported by{" "}
+    {REPORTS_TO_HIDE} different people whose accounts are at least{" "}
+    {REPORTER_MIN_AGE_DAYS} days old is hidden until it’s been reviewed. Please
+    don’t report things only because you disagree with them: false reports slow
+    everything down.
+  </p>
+
+  <h2 id="consequences">What happens when rules are broken</h2>
+  <ul>
+    <li>
+      <strong>Comments</strong> can be hidden. Someone who keeps breaking the
+      rules can be blocked: they can no longer sign in, and everything they
+      wrote is hidden.
+    </li>
+    <li>
+      <strong>Files</strong> can be refused or taken down. Each of those usually
+      comes with a strike, which lasts {STRIKE_DAYS} days, and the same file
+      can’t be uploaded again. {STRIKE_LIMIT} active strikes stop you uploading.
+      Malware is refused automatically.
+    </li>
+    <li>
+      Serious or illegal content may be removed at once, without a warning, and
+      reported to the authorities where the law requires it.
+    </li>
+  </ul>
+
+  <h2 id="appeals">Appeals</h2>
+  <p>
+    If you think a decision about your file was wrong, appeal it from{" "}
+    <a href="/account/files/">your files</a> (once per file). While an appeal is
+    open, the file isn’t deleted. An accepted appeal restores the file and
+    removes the strike. For anything else, such as a hidden comment or a blocked
+    account, <a href="/contact/">write to me</a>.
+  </p>
+</InfoLayout>

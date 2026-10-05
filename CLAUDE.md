@@ -268,6 +268,34 @@
   that don't exist. /llms.txt (src/lib/llms.ts) lists public posts and tools for AI
   assistants.
 
+## Information pages
+
+- apps/web/src/lib/info-pages.ts lists them (`INFO_PAGES`: path, title, label,
+  description, group legal|help|site, `changes` newest first); the footer, /legal/,
+  /sitemap/, llms.txt and the SEO checklist read it. Legal pages live under /legal/
+  (terms, privacy, cookies, guidelines, copyright); help pages are /contact/, /faq/,
+  /accessibility/, /security/; site pages /colophon/, /sitemap/ (server-rendered: it
+  lists posts). Plus /.well-known/security.txt (Expires a year after each build) and
+  /humans.txt.
+- Pages use `InfoLayout` (title, description and "Updated" from the registry; `sections`
+  feed the contents; `history` appends "Changes to this page"). When a legal page
+  changes in substance, add an entry to its `changes`.
+- The text states facts about the code: import numbers (retention, limits, session
+  length, cookie keys) rather than copying them, and update the text when behaviour
+  changes. Operator: Trilleo, an individual in mainland China (PRC law, PIPL, GDPR
+  rights offered to all); accounts are 14+.
+- Mainland filing numbers (`ICP_FILING`, `PSB_FILING` in src/lib/site.ts) show in the
+  footer, set in `font-cjk` (Latin in the grotesk, Han characters in the system's
+  Chinese sans; no CJK webfont).
+- Contact form (src/lib/contact/store.ts): /contact/ (prerendered) posts to
+  /contact/send, which works without JS and re-shows the form with errors. Anyone can
+  write; a signed-in sender's account is linked (export, deleted with the account).
+  Limits: per account from the database; per signed-out visitor by an in-memory hash
+  of the IP, plus a daily cap on all signed-out messages; a honeypot field (`website`)
+  is accepted and dropped. Messages are purged after CONTACT_RETENTION_DAYS. The
+  admin's inbox is /admin/messages/ (new / read / archived, delete). E2E: only one
+  test may send a signed-out message (they share 127.0.0.1's limit).
+
 ## Tools
 
 - apps/web/src/lib/tools/registry.ts lists every tool; /tools, the home page's
