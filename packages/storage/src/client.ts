@@ -47,6 +47,12 @@ export interface UploadOptions {
    * False: none. Failing to make or send one never fails the upload.
    */
   thumbnail?: false | ((file: File) => Promise<Blob | null>);
+  /**
+   * Runs once the site has accepted the upload, before any bytes are sent: a feature
+   * attaches the new file to its own records here. If it throws, the upload is
+   * cancelled.
+   */
+  onStarted?: (file: StoredFileSummary) => Promise<void> | void;
 }
 
 /** The upload failed; `message` is meant for people. */
@@ -163,6 +169,7 @@ export async function uploadFile(
   const plan = { partSize: started.partSize, partCount: started.partCount };
 
   try {
+    await options.onStarted?.(started.file);
     const loaded = new Map<number, number>();
     const report = () => {
       let sum = 0;

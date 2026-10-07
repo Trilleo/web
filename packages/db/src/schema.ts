@@ -17,6 +17,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
@@ -612,6 +613,249 @@ export const contactMessages = pgTable(
   ],
 );
 
+/** What a Minecraft project is (its listing at /minecraft/<type>/). */
+export const mcProjectType = pgEnum("mc_project_type", [
+  "mod",
+  "plugin",
+  "world",
+  "build",
+  "resource_pack",
+  "data_pack",
+]);
+
+export const mcEdition = pgEnum("mc_edition", ["java", "bedrock", "both"]);
+
+/**
+ * What its creator chose: draft (only them), public (listed), unlisted (anyone with
+ * the link) or archived (public, marked as no longer updated). Others see a project
+ * only once a release's main file is published, and never while `hiddenAt` is set.
+ */
+export const mcProjectState = pgEnum("mc_project_state", [
+  "draft",
+  "public",
+  "unlisted",
+  "archived",
+]);
+
+/** A link on a project page (source code, issues, wiki, Discord, donations…). */
+export interface McProjectLink {
+  kind: string;
+  url: string;
+}
+
+/**
+ * A creation on the Minecraft platform (/minecraft/<type>/<slug>/). Its files live in
+ * releases, its images in the gallery, both stored as `files` (purposes "minecraft"
+ * and "minecraft-media"). Goes with the account.
+ */
+export const mcProjects = pgTable(
+  "mc_projects",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    /** Its URL. Old slugs live on in mc_project_slugs as redirects. */
+    slug: text("slug").notNull().unique(),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: mcProjectType("type").notNull(),
+    edition: mcEdition("edition").notNull().default("java"),
+    name: text("name").notNull(),
+    /** One line for cards and search results. */
+    summary: text("summary").notNull().default(""),
+    /** Markdown, as typed; `descriptionHtml` is rendered from it when saved. */
+    description: text("description").notNull().default(""),
+    descriptionHtml: text("description_html").notNull().default(""),
+    renderVersion: integer("render_version").notNull().default(0),
+    tags: text("tags")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    /** An id from the site's licence list, or "custom" (see `licenseText`). */
+    license: text("license").notNull(),
+    licenseText: text("license_text"),
+    links: jsonb("links").$type<McProjectLink[]>().notNull().default([]),
+    /** The gallery image shown on cards and share cards. */
+    coverFileId: text("cover_file_id").references(() => files.id, {
+      onDelete: "set null",
+    }),
+    state: mcProjectState("state").notNull().default("draft"),
+    /** Taken down by the admin (or by reports, until the admin looks). */
+    hiddenAt: timestamp("hidden_at", { withTimezone: true }),
+    hiddenReason: text("hidden_reason"),
+    /** Picked by the admin for the landing page. */
+    featuredAt: timestamp("featured_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    /** Details, gallery or releases last changed. */
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** When a release first went live (sorts "newest"). */
+    firstReleasedAt: timestamp("first_released_at", { withTimezone: true }),
+    /** When a release last went live (sorts "updated"). */
+    lastReleasedAt: timestamp("last_released_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("mc_projects_owner_idx").on(table.ownerId, table.createdAt),
+    index("mc_projects_listing_idx").on(
+      table.type,
+      table.state,
+      table.lastReleasedAt,
+    ),
+  ],
+);
+
+/** Slugs a project used to have: their URLs redirect to its current one. */
+export const mcProjectSlugs = pgTable(
+  "mc_project_slugs",
+  {
+    slug: text("slug").primaryKey(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => mcProjects.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (table) => [index("mc_project_slugs_project_idx").on(table.projectId)],
+);
+
+/** A project's images, in order. Shown once the file is published. */
+export const mcGallery = pgTable(
+  "mc_gallery",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => mcProjects.id, { onDelete: "cascade" }),
+    fileId: text("file_id")
+      .notNull()
+      .unique()
+      .references(() => files.id, { onDelete: "cascade" }),
+    caption: text("caption").notNull().default(""),
+    position: integer("position").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index("mc_gallery_project_idx").on(table.projectId, table.position),
+  ],
+);
+
+/** release: stable; beta and alpha are offered only when asked for. */
+export const mcChannel = pgEnum("mc_channel", ["release", "beta", "alpha"]);
+
+/**
+ * A version of a project. Others see it once its main file is published (after
+ * review, or straight away for trusted creators).
+ */
+export const mcReleases = pgTable(
+  "mc_releases",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => mcProjects.id, { onDelete: "cascade" }),
+    /** "1.4.2", "v3", "2024-06": unique within the project, part of its URL. */
+    version: text("version").notNull(),
+    /** An optional name ("The Nether update"). */
+    title: text("title").notNull().default(""),
+    channel: mcChannel("channel").notNull().default("release"),
+    changelog: text("changelog").notNull().default(""),
+    changelogHtml: text("changelog_html").notNull().default(""),
+    renderVersion: integer("render_version").notNull().default(0),
+    /** Minecraft versions it works with ("1.21.4"…). */
+    gameVersions: text("game_versions")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    /** Mod loaders or server platforms ("fabric", "paper"…); empty for other types. */
+    loaders: text("loaders")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    createdAt: createdAt(),
+    /** When its main file first went live. */
+    releasedAt: timestamp("released_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("mc_releases_version_idx").on(table.projectId, table.version),
+    index("mc_releases_project_idx").on(table.projectId, table.createdAt),
+  ],
+);
+
+/** A release's files: one main file (what Download gets), plus extras. */
+export const mcReleaseFiles = pgTable(
+  "mc_release_files",
+  {
+    releaseId: integer("release_id")
+      .notNull()
+      .references(() => mcReleases.id, { onDelete: "cascade" }),
+    fileId: text("file_id")
+      .notNull()
+      .unique()
+      .references(() => files.id, { onDelete: "cascade" }),
+    primary: boolean("primary").notNull().default(false),
+  },
+  (table) => [primaryKey({ columns: [table.releaseId, table.fileId] })],
+);
+
+export const mcDependencyKind = pgEnum("mc_dependency_kind", [
+  "required",
+  "optional",
+  "incompatible",
+  "embedded",
+]);
+
+/** What a release needs (or clashes with): a project here, or one elsewhere. */
+export const mcDependencies = pgTable(
+  "mc_dependencies",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    releaseId: integer("release_id")
+      .notNull()
+      .references(() => mcReleases.id, { onDelete: "cascade" }),
+    /** A project on this site… */
+    projectId: integer("project_id").references(
+      (): AnyPgColumn => mcProjects.id,
+      { onDelete: "set null" },
+    ),
+    /** …or one elsewhere (also kept as the name if the project here goes). */
+    name: text("name").notNull(),
+    url: text("url"),
+    kind: mcDependencyKind("kind").notNull().default("required"),
+  },
+  (table) => [index("mc_dependencies_release_idx").on(table.releaseId)],
+);
+
+/**
+ * Someone's report about a project's page (its text or images; files have their own
+ * reports). One open report per person per project. Enough of them hide the project
+ * until the admin looks.
+ */
+export const mcProjectReports = pgTable(
+  "mc_project_reports",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => mcProjects.id, { onDelete: "cascade" }),
+    reporterId: uuid("reporter_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reason: text("reason").notNull(),
+    details: text("details").notNull().default(""),
+    status: text("status", { enum: ["open", "dismissed", "actioned"] })
+      .notNull()
+      .default("open"),
+    createdAt: createdAt(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("mc_project_reports_project_idx").on(table.projectId, table.status),
+    index("mc_project_reports_reporter_idx").on(
+      table.reporterId,
+      table.createdAt,
+    ),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
@@ -630,3 +874,14 @@ export type FileAppeal = typeof fileAppeals.$inferSelect;
 export type SkygridSave = typeof skygridSaves.$inferSelect;
 export type SkygridOrder = typeof skygridOrders.$inferSelect;
 export type ContactMessage = typeof contactMessages.$inferSelect;
+export type McProject = typeof mcProjects.$inferSelect;
+export type McProjectType = (typeof mcProjectType.enumValues)[number];
+export type McEdition = (typeof mcEdition.enumValues)[number];
+export type McProjectState = (typeof mcProjectState.enumValues)[number];
+export type McGalleryImage = typeof mcGallery.$inferSelect;
+export type McRelease = typeof mcReleases.$inferSelect;
+export type McChannel = (typeof mcChannel.enumValues)[number];
+export type McReleaseFile = typeof mcReleaseFiles.$inferSelect;
+export type McDependency = typeof mcDependencies.$inferSelect;
+export type McDependencyKind = (typeof mcDependencyKind.enumValues)[number];
+export type McProjectReport = typeof mcProjectReports.$inferSelect;

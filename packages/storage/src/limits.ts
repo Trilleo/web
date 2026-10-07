@@ -3,6 +3,7 @@
  * multipart upload (one part for small files), so the browser only ever sends plain
  * PUTs of bytes to signed URLs and the server sets everything else.
  */
+import { extensionOf } from "./files";
 import type { FileVisibility } from "./moderation";
 
 const MiB = 1024 * 1024;
@@ -75,16 +76,26 @@ export interface StoragePurpose {
    * always, only for uploaders who aren't trusted yet, or never (private files).
    */
   review: "always" | "untrusted" | "never";
+  /**
+   * Extensions (lowercase, no dot) whose non-admin public uploads always wait for
+   * review, whoever uploads them: programs other people will run, like mods (.jar).
+   */
+  alwaysReview?: readonly string[];
 }
 
-/** Whether an upload by someone in `role` waits for review. Admins never wait. */
+/**
+ * Whether an upload by someone in `role` waits for review. Admins never wait. `name`
+ * (the file name) is checked against the purpose's `alwaysReview` extensions.
+ */
 export function needsReview(
   purpose: StoragePurpose,
   role: UploaderRole,
   visibility: FileVisibility,
+  name = "",
 ): boolean {
   if (role === "admin" || visibility === "private") return false;
   if (purpose.review === "always") return true;
+  if (purpose.alwaysReview?.includes(extensionOf(name))) return true;
   if (purpose.review === "untrusted") return role !== "trusted";
   return false;
 }

@@ -156,6 +156,28 @@ describe("uploadFile", () => {
     });
   });
 
+  it("runs onStarted before sending, and cancels when it throws", async () => {
+    const site = fakeSite(1, 10);
+    const file = new File(["0123456789"], "a.bin");
+    const putPart = vi.fn<PartTransport>(() => Promise.resolve());
+    const started: string[] = [];
+    await expect(
+      uploadFile(file, {
+        purpose: "site",
+        fetch: site.fetch,
+        putPart,
+        thumbnail: false,
+        onStarted: (stored) => {
+          started.push(stored.id);
+          throw new UploadError("That project is gone.");
+        },
+      }),
+    ).rejects.toThrow("That project is gone.");
+    expect(started).toEqual(["abc123def456"]);
+    expect(putPart).not.toHaveBeenCalled();
+    expect(site.calls.at(-1)).toMatchObject({ method: "DELETE" });
+  });
+
   it("sends a thumbnail once the upload is done", async () => {
     const site = fakeSite(1, 10);
     const result = await uploadFile(new File(["0123456789"], "a.png"), {

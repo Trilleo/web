@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { requireUser } from "../../lib/auth/guard";
 import { getDb } from "../../lib/db";
+import { minecraftExport } from "../../lib/minecraft/service";
 import { exportUserData } from "../../lib/profile/store";
 import { storageExport } from "../../lib/storage/account";
 
@@ -17,6 +18,7 @@ export const GET: APIRoute = async (context) => {
   const data = profile && {
     ...profile,
     storage: await storageExport(db, user.id),
+    minecraft: await minecraftExport({ db }, user.id),
   };
   const day = new Date().toISOString().slice(0, 10);
   return new Response(JSON.stringify(data, null, 2), {

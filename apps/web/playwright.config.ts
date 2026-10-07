@@ -26,6 +26,8 @@ const e2eEnv = {
   STORAGE_ENABLE_PURPOSES: "shared",
   // Malware scanning goes to e2e/fake-clamd.ts.
   CLAMAV_ADDRESS: `127.0.0.1:${String(FAKE_CLAMD_PORT)}`,
+  // Minecraft versions: the list kept in the code, never Mojang's manifest.
+  MINECRAFT_VERSION_MANIFEST: "off",
   MIGRATIONS_DIR: fileURLToPath(
     new URL("../../packages/db/migrations", import.meta.url),
   ),

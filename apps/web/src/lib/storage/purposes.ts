@@ -8,6 +8,12 @@
  * on without a code change: e2e does that for `shared`.
  */
 import type { StoragePurpose } from "@trilleo/storage";
+import {
+  ALWAYS_REVIEWED_EXTENSIONS,
+  GALLERY_EXTENSIONS,
+  GALLERY_MAX_BYTES,
+  RELEASE_EXTENSIONS,
+} from "../minecraft/catalog";
 
 export const STORAGE_PURPOSES: readonly StoragePurpose[] = [
   {
@@ -28,6 +34,29 @@ export const STORAGE_PURPOSES: readonly StoragePurpose[] = [
     defaultVisibility: "public",
     review: "untrusted",
     enabled: false,
+  },
+  {
+    // Releases on the Minecraft platform (/minecraft/): reviewed until the creator is
+    // trusted, and mods and plugins (.jar) always.
+    slug: "minecraft",
+    label: "Minecraft releases",
+    uploaders: "users",
+    extensions: RELEASE_EXTENSIONS,
+    visibilities: ["public"],
+    defaultVisibility: "public",
+    review: "untrusted",
+    alwaysReview: ALWAYS_REVIEWED_EXTENSIONS,
+  },
+  {
+    // Minecraft projects' gallery images.
+    slug: "minecraft-media",
+    label: "Minecraft gallery images",
+    uploaders: "users",
+    extensions: GALLERY_EXTENSIONS,
+    maxFileBytes: GALLERY_MAX_BYTES,
+    visibilities: ["public"],
+    defaultVisibility: "public",
+    review: "untrusted",
   },
 ];
 

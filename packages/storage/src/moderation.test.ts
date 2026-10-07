@@ -120,6 +120,14 @@ describe("needsReview", () => {
       needsReview({ ...purpose, review: "always" }, "trusted", "unlisted"),
     ).toBe(true);
   });
+
+  it("always reviews the purpose's alwaysReview extensions, except the admin's", () => {
+    const mods = { ...purpose, alwaysReview: ["jar"] };
+    expect(needsReview(mods, "trusted", "public", "Mod-1.2.JAR")).toBe(true);
+    expect(needsReview(mods, "trusted", "public", "pack.zip")).toBe(false);
+    expect(needsReview(mods, "admin", "public", "mod.jar")).toBe(false);
+    expect(needsReview(mods, "trusted", "private", "mod.jar")).toBe(false);
+  });
 });
 
 describe("planParts", () => {

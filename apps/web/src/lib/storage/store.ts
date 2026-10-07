@@ -31,6 +31,7 @@ import {
   sum,
   type SQL,
 } from "drizzle-orm";
+import { isMinecraftPurpose, syncFile } from "../minecraft/sync";
 
 export async function getFile(
   db: Database,
@@ -110,6 +111,14 @@ export async function changeStatus(
     reason: input.reason ?? null,
     createdAt: now,
   });
+  // Features whose pages depend on their files going live (or away).
+  if (isMinecraftPurpose(row.purpose)) {
+    try {
+      await syncFile(db, row, now);
+    } catch (error) {
+      console.error("Couldn’t update the Minecraft project for a file:", error);
+    }
+  }
   return row;
 }
 

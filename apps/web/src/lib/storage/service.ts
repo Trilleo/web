@@ -286,7 +286,7 @@ export async function startUpload(
       return fail(429, "You’ve uploaded a lot today. Try again tomorrow.");
     if (
       limits.maxPending !== null &&
-      needsReview(purpose, role, visibility) &&
+      needsReview(purpose, role, visibility, name) &&
       usage.pending >= limits.maxPending
     )
       return fail(
@@ -537,7 +537,7 @@ async function runProcessing(
       : "user";
   const visibility = row.visibility;
   const byRules = purpose
-    ? needsReview(purpose, role, visibility)
+    ? needsReview(purpose, role, visibility, row.name)
     : !ownerIsAdmin;
   // A file nobody could scan waits for review (the admin's own files never wait).
   const unscanned = scan?.status === "unscanned" && !ownerIsAdmin;
