@@ -1,0 +1,576 @@
+---
+/**
+ * A project's details: /account/minecraft/new/ makes one, /account/minecraft/<id>/
+ * edits it. GET shows the form; POST saves and moves on (a new project goes to its
+ * gallery next), or shows the form again with what was typed and what's wrong. The
+ * danger zone at the bottom deletes the project.
+ */
+import { buttonClasses } from "@trilleo/ui";
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import CreatorHeader from "../../../../components/minecraft/CreatorHeader.astro";
+import { isAdmin, requireUser } from "../../../../lib/auth/guard";
+import { noStoreRedirect } from "../../../../lib/auth/redirect";
+import { getDb } from "../../../../lib/db";
+import {
+  EDITIONS,
+  LICENSES,
+  LINK_KINDS,
+  MC_LIMITS,
+  PROJECT_TYPES,
+  STATES,
+  typeInfo,
+} from "../../../../lib/minecraft/catalog";
+import {
+  emptyProjectDraft,
+  ownProject,
+  projectDraftOf,
+  saveProjectForm,
+} from "../../../../lib/minecraft/creator";
+import type {
+  Errors,
+  ProjectDraft,
+  ProjectField,
+} from "../../../../lib/minecraft/input";
+import { actionPath, editPath } from "../../../../lib/minecraft/paths";
+import { isVisible, projectOwner } from "../../../../lib/minecraft/store";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const admin = isAdmin(user);
+const isNew = Astro.params.id === "new";
+const found = isNew ? null : await ownProject(db, user, admin, Astro.params.id);
+if (!isNew && !found) return Astro.rewrite("/404");
+const project = found?.project ?? null;
+
+const requestedType = Astro.url.searchParams.get("type") ?? "mod";
+let values: ProjectDraft = project
+  ? projectDraftOf(project)
+  : emptyProjectDraft(
+      PROJECT_TYPES.some((info) => info.type === requestedType)
+        ? requestedType
+        : "mod",
+    );
+let errors: Errors<ProjectField> & { form?: string } = {};
+
+if (Astro.request.method === "POST") {
+  const outcome = await saveProjectForm(
+    db,
+    user,
+    admin,
+    project,
+    await Astro.request.formData(),
+  );
+  if (outcome.kind === "redirect")
+    return noStoreRedirect(outcome.location, 303);
+  values = outcome.values;
+  while (values.links.length < MC_LIMITS.links)
+    values.links.push({ kind: "source", url: "" });
+  errors = outcome.errors;
+  Astro.response.status = 422;
+}
+
+const owner = project ? await projectOwner(db, project) : null;
+const live = project ? isVisible(project, owner ?? null) : false;
+const hasErrors = Object.keys(errors).length > 0;
+const saved =
+  Astro.url.searchParams.get("done") === "saved" &&
+  Astro.request.method !== "POST";
+const error = Astro.url.searchParams.get("error");
+const segment =
+  PROJECT_TYPES.find((info) => info.type === values.type)?.segment ?? "mods";
+
+const input =
+  "w-full border border-ink bg-paper px-3 py-2.5 text-base text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-invalid:border-accent";
+const row = "grid-swiss gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6";
+const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
+const hintClass = (field: ProjectField) => [
+  "text-sm",
+  errors[field] ? "text-ink" : "text-muted",
+];
+---
+
+<BaseLayout
+  title={`${project ? project.name : "New project"} · Minecraft`}
+  noindex
+>
+  <section
+    aria-labelledby="creator-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <CreatorHeader
+      login={user.githubLogin}
+      project={project}
+      current="details"
+      title="New project"
+      live={live}
+    />
+
+    {(saved || hasErrors || error) && (
+      <p
+        role={hasErrors || error ? "alert" : "status"}
+        class="type-lead mt-6 border-l-2 border-accent pl-4"
+      >
+        {error ??
+          (hasErrors
+            ? (errors.form ?? "Not saved: check the fields marked below.")
+            : "Saved.")}
+      </p>
+    )}
+    {project?.hiddenAt && (
+      <p role="alert" class="type-lead mt-6 border-l-2 border-accent pl-4">
+        Hidden by the site owner: {project.hiddenReason ?? "no reason given"}.
+        Others can’t see it.{" "}
+        <a href="/contact/" class="link-wipe">
+          Get in touch
+        </a>{" "}
+        if that’s wrong.
+      </p>
+    )}
+
+    <form
+      method="post"
+      action={editPath(project?.id ?? "new")}
+      class="mt-7 flex flex-col gap-12 md:mt-8 xl:mt-12"
+      novalidate
+    >
+      {isNew ? (
+        <div role="radiogroup" aria-labelledby="kind-heading" class={row}>
+          <h2 id="kind-heading" class={heading}>
+            Kind
+          </h2>
+          <div class:list={[body, "grid gap-3 md:grid-cols-2"]}>
+            {PROJECT_TYPES.map((info) => (
+              <div class="relative flex items-start gap-3 border border-ink p-4 has-checked:bg-chip has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent">
+                <input
+                  id={`type-${info.type}`}
+                  type="radio"
+                  name="type"
+                  value={info.type}
+                  data-segment={info.segment}
+                  checked={values.type === info.type}
+                  aria-describedby={`type-${info.type}-hint`}
+                  class="relative z-10 mt-1 size-4 shrink-0 accent-accent"
+                />
+                <div class="flex flex-col gap-1">
+                  <label
+                    for={`type-${info.type}`}
+                    class="cursor-pointer font-medium after:absolute after:inset-0"
+                  >
+                    {info.label}
+                  </label>
+                  <span
+                    id={`type-${info.type}-hint`}
+                    class="text-sm text-muted"
+                  >
+                    {info.blurb}
+                  </span>
+                </div>
+              </div>
+            ))}
+            {errors.type && (
+              <p class="text-sm font-medium md:col-span-2">{errors.type}</p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <input type="hidden" name="type" value={values.type} />
+      )}
+
+      <div class={row}>
+        <h2 class={heading}>About it</h2>
+        <div class={body}>
+          <div class="flex flex-col gap-2">
+            <label for="name" class="font-medium">
+              Name
+            </label>
+            <input
+              id="name"
+              name="name"
+              value={values.name}
+              required
+              maxlength={MC_LIMITS.name * 2}
+              aria-invalid={errors.name ? "true" : undefined}
+              aria-describedby="name-hint"
+              class={input}
+            />
+            <p id="name-hint" class:list={hintClass("name")}>
+              {errors.name ? (
+                <strong class="font-medium">{errors.name}</strong>
+              ) : (
+                `Up to ${String(MC_LIMITS.name)} characters.`
+              )}
+            </p>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="slug" class="font-medium">
+              Address
+            </label>
+            <div class="flex items-stretch">
+              <span
+                class="type-label flex items-center border border-r-0 border-ink bg-chip px-3 text-muted"
+                aria-hidden="true"
+                data-slug-prefix
+              >
+                /minecraft/{segment}/
+              </span>
+              <input
+                id="slug"
+                name="slug"
+                value={values.slug}
+                placeholder="made from the name"
+                maxlength={MC_LIMITS.slug}
+                autocomplete="off"
+                spellcheck="false"
+                aria-invalid={errors.slug ? "true" : undefined}
+                aria-describedby="slug-hint"
+                class={input}
+              />
+            </div>
+            <p id="slug-hint" class:list={hintClass("slug")}>
+              {errors.slug ? (
+                <strong class="font-medium">{errors.slug}</strong>
+              ) : (
+                "Lowercase letters, digits and dashes. Old addresses keep working after a change."
+              )}
+            </p>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="summary" class="font-medium">
+              Summary
+            </label>
+            <input
+              id="summary"
+              name="summary"
+              value={values.summary}
+              required
+              maxlength={MC_LIMITS.summary * 2}
+              aria-invalid={errors.summary ? "true" : undefined}
+              aria-describedby="summary-hint"
+              class={input}
+            />
+            <p id="summary-hint" class:list={hintClass("summary")}>
+              {errors.summary ? (
+                <strong class="font-medium">{errors.summary}</strong>
+              ) : (
+                `One line for cards and search results, up to ${String(MC_LIMITS.summary)} characters.`
+              )}
+            </p>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="description" class="font-medium">
+              Description
+            </label>
+            <textarea
+              id="description"
+              name="description"
+              rows="14"
+              aria-invalid={errors.description ? "true" : undefined}
+              aria-describedby="description-hint"
+              class:list={[input, "font-serif leading-relaxed"]}
+            >{values.description}</textarea>
+            <p id="description-hint" class:list={hintClass("description")}>
+              {errors.description ? (
+                <strong class="font-medium">{errors.description}</strong>
+              ) : (
+                <>
+                  Markdown: ## headings, lists, tables, `code`, links. To show a
+                  picture, add it to the gallery and paste its address as ![alt
+                  text](address).
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div role="radiogroup" aria-labelledby="edition-heading" class={row}>
+        <h2 id="edition-heading" class={heading}>
+          Edition
+        </h2>
+        <div class:list={[body, "flex-row flex-wrap"]}>
+          {EDITIONS.map((edition) => (
+            <label class="flex items-center gap-2">
+              <input
+                type="radio"
+                name="edition"
+                value={edition.value}
+                checked={values.edition === edition.value}
+                class="size-4 accent-accent"
+              />
+              {edition.label}
+            </label>
+          ))}
+          {errors.edition && (
+            <p class="w-full text-sm font-medium">{errors.edition}</p>
+          )}
+        </div>
+      </div>
+
+      <div class={row}>
+        <h2 class={heading}>Finding it</h2>
+        <div class={body}>
+          <div class="flex flex-col gap-2">
+            <label for="tags" class="font-medium">
+              Tags
+            </label>
+            <input
+              id="tags"
+              name="tags"
+              value={values.tags}
+              placeholder="redstone, adventure, decoration"
+              aria-invalid={errors.tags ? "true" : undefined}
+              aria-describedby="tags-hint"
+              class={input}
+            />
+            <p id="tags-hint" class:list={hintClass("tags")}>
+              {errors.tags ? (
+                <strong class="font-medium">{errors.tags}</strong>
+              ) : (
+                `Up to ${String(MC_LIMITS.tags)}, separated by commas.`
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class={row}>
+        <h2 class={heading}>Licence</h2>
+        <div class={body}>
+          <div class="flex flex-col gap-2">
+            <label for="license" class="font-medium">
+              What others may do with it
+            </label>
+            <select
+              id="license"
+              name="license"
+              aria-invalid={errors.license ? "true" : undefined}
+              aria-describedby="license-hint"
+              class={input}
+              data-license
+            >
+              {LICENSES.map((license) => (
+                <option
+                  value={license.id}
+                  selected={values.license === license.id}
+                >
+                  {license.label}
+                </option>
+              ))}
+            </select>
+            <p id="license-hint" class:list={hintClass("license")}>
+              {errors.license ? (
+                <strong class="font-medium">{errors.license}</strong>
+              ) : (
+                "Shown on the project page. Only share what you made, or may share."
+              )}
+            </p>
+          </div>
+          <div class="flex flex-col gap-2" data-license-text>
+            <label for="licenseText" class="font-medium">
+              Your licence’s text
+            </label>
+            <textarea
+              id="licenseText"
+              name="licenseText"
+              rows="5"
+              aria-invalid={errors.licenseText ? "true" : undefined}
+              aria-describedby="licenseText-hint"
+              class={input}
+            >{values.licenseText}</textarea>
+            <p id="licenseText-hint" class:list={hintClass("licenseText")}>
+              {errors.licenseText ? (
+                <strong class="font-medium">{errors.licenseText}</strong>
+              ) : (
+                "Only for a custom licence."
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div role="group" aria-labelledby="links-heading" class={row}>
+        <h2 id="links-heading" class={heading}>
+          Links
+        </h2>
+        <div class={body}>
+          <p class="text-muted">
+            Up to {MC_LIMITS.links}: source code, issues, wiki, Discord,
+            donations.
+          </p>
+          <ol class="flex flex-col gap-4">
+            {values.links.map((link, index) => {
+              const key = `link-${String(index)}` as const;
+              const linkError = errors[key];
+              return (
+                <li class="grid grid-cols-[1.75rem_1fr] gap-x-3 gap-y-2 md:grid-cols-[1.75rem_minmax(0,1fr)_minmax(0,2fr)]">
+                  <span class="type-label pt-3.5 text-muted">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <div>
+                    <label for={`link-kind-${String(index)}`} class="sr-only">
+                      Link {index + 1} kind
+                    </label>
+                    <select
+                      id={`link-kind-${String(index)}`}
+                      name={`link-kind-${String(index)}`}
+                      class={input}
+                    >
+                      {LINK_KINDS.map((kind) => (
+                        <option
+                          value={kind.value}
+                          selected={link.kind === kind.value}
+                        >
+                          {kind.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div class="col-start-2 md:col-start-3">
+                    <label for={`link-url-${String(index)}`} class="sr-only">
+                      Link {index + 1} address
+                    </label>
+                    <input
+                      id={`link-url-${String(index)}`}
+                      name={`link-url-${String(index)}`}
+                      value={link.url}
+                      placeholder="https://"
+                      inputmode="url"
+                      maxlength={MC_LIMITS.linkUrl + 20}
+                      aria-invalid={linkError ? "true" : undefined}
+                      aria-describedby={linkError ? `${key}-error` : undefined}
+                      class={input}
+                    />
+                  </div>
+                  {linkError && (
+                    <p
+                      id={`${key}-error`}
+                      class="col-start-2 text-sm font-medium md:col-span-2"
+                    >
+                      {linkError}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      </div>
+
+      <div role="radiogroup" aria-labelledby="state-heading" class={row}>
+        <h2 id="state-heading" class={heading}>
+          Who can see it
+        </h2>
+        <div class={body}>
+          {STATES.map((state) => (
+            <div class="flex items-start gap-3">
+              <input
+                id={`state-${state.value}`}
+                type="radio"
+                name="state"
+                value={state.value}
+                checked={values.state === state.value}
+                aria-describedby={`state-${state.value}-hint`}
+                class="mt-1 size-4 shrink-0 accent-accent"
+              />
+              <div>
+                <label for={`state-${state.value}`} class="font-medium">
+                  {state.label}
+                </label>
+                <p id={`state-${state.value}-hint`} class="text-muted">
+                  {state.hint}
+                </p>
+              </div>
+            </div>
+          ))}
+          {errors.state && <p class="text-sm font-medium">{errors.state}</p>}
+        </div>
+      </div>
+
+      <div class={row}>
+        <div class="col-span-4 flex flex-wrap gap-3 md:col-span-6 md:col-start-3 xl:col-start-3">
+          <button type="submit" class={buttonClasses()}>
+            {project ? "Save details" : "Create project"}
+          </button>
+          {project && (
+            <a
+              href={editPath(project.id)}
+              class={buttonClasses({ variant: "secondary" })}
+            >
+              Discard changes
+            </a>
+          )}
+        </div>
+      </div>
+    </form>
+
+    {project && (
+      <div
+        id="delete"
+        class="grid-swiss mt-16 scroll-mt-6 gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6"
+      >
+        <h2 class={heading}>Delete project</h2>
+        <form method="post" action={actionPath(project.id)} class={body}>
+          <input type="hidden" name="action" value="delete-project" />
+          <p>
+            Deletes the {typeInfo(project.type).label.toLowerCase()}’s page, its
+            releases and every file and picture in them. Links to it stop
+            working. This can’t be undone.
+          </p>
+          <label class="flex items-start gap-3">
+            <input
+              type="checkbox"
+              name="confirm"
+              value="yes"
+              required
+              class="mt-1 size-4 shrink-0 accent-accent"
+            />
+            I understand: delete {project.name} and its files.
+          </label>
+          <div>
+            <button
+              type="submit"
+              class={buttonClasses({ variant: "secondary" })}
+            >
+              Delete project
+            </button>
+          </div>
+        </form>
+      </div>
+    )}
+  </section>
+</BaseLayout>
+
+<script>
+  // The licence text only matters for a custom licence.
+  const select = document.querySelector<HTMLSelectElement>("[data-license]");
+  const text = document.querySelector<HTMLElement>("[data-license-text]");
+  if (select && text) {
+    const update = () => {
+      text.hidden = select.value !== "custom";
+    };
+    select.addEventListener("change", update);
+    update();
+  }
+
+  // A new project's address follows the kind chosen.
+  const prefix = document.querySelector<HTMLElement>("[data-slug-prefix]");
+  for (const radio of document.querySelectorAll<HTMLInputElement>(
+    "input[data-segment]",
+  )) {
+    radio.addEventListener("change", () => {
+      if (prefix && radio.checked)
+        prefix.textContent = `/minecraft/${radio.dataset.segment ?? ""}/`;
+    });
+  }
+</script>

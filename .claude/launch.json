@@ -6,6 +6,34 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@trilleo/web", "dev"],
       "port": 4321
+    },
+    {
+      "name": "fake-github",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["apps/web/e2e/fake-github.ts"],
+      "port": 4330
+    },
+    {
+      "name": "web-fake-signin",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@trilleo/web",
+        "dev",
+        "--port",
+        "4331",
+        "--ignore-lock"
+      ],
+      "port": 4331,
+      "env": {
+        "DATABASE_URL": "memory://",
+        "STORAGE_URL": "memory://",
+        "GITHUB_CLIENT_ID": "e2e-client",
+        "GITHUB_CLIENT_SECRET": "e2e-secret",
+        "ADMIN_GITHUB_IDS": "1001",
+        "GITHUB_WEB_URL": "http://127.0.0.1:4330",
+        "GITHUB_API_URL": "http://127.0.0.1:4330"
+      }
     }
   ]
 }

@@ -550,6 +550,9 @@ importers:
       '@trilleo/game-skygrid':
         specifier: workspace:*
         version: link:../skygrid
+      '@trilleo/mc-files':
+        specifier: workspace:*
+        version: link:../../packages/mc-files
       '@trilleo/storage':
         specifier: workspace:*
         version: link:../../packages/storage
@@ -669,6 +672,22 @@ importers:
       drizzle-kit:
         specifier: ^0.31.11
         version: 0.31.11
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.3
+        version: 5.0.3(@types/node@26.6.4)(jsdom@30.1.1)(vite@8.3.1(@types/node@26.6.4)(jiti@2.7.0))
+
+  packages/mc-files:
+    dependencies:
+      '@trilleo/storage':
+        specifier: workspace:*
+        version: link:../storage
+    devDependencies:
+      '@types/node':
+        specifier: ^26.6.4
+        version: 26.6.4
       typescript:
         specifier: ~6.0.3
         version: 6.0.3

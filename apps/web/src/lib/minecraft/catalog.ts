@@ -337,7 +337,7 @@ export const MC_LIMITS = {
 } as const;
 
 /** Gallery images can be up to this big. */
-export const GALLERY_MAX_BYTES = 10 * 1024 * 1024;
+export const GALLERY_MAX_BYTES = 10_000_000;
 
 /** Reports from established accounts that hide a project until the admin looks. */
 export const PROJECT_REPORTS_TO_HIDE = 3;

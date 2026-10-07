@@ -1,0 +1,301 @@
+---
+/**
+ * A release: /account/minecraft/<id>/releases/new/ makes one, …/<release>/ edits it.
+ * The form is ReleaseEditor (it also takes a new release's main file and uploads it
+ * once the release is saved, asking this page for JSON). An existing release also
+ * lists its files, takes more, and can be deleted.
+ */
+import { formatBytes } from "@trilleo/tool-kit/files";
+import { extensionOf } from "@trilleo/storage";
+import { buttonClasses } from "@trilleo/ui";
+import BaseLayout from "../../../../../layouts/BaseLayout.astro";
+import CreatorHeader from "../../../../../components/minecraft/CreatorHeader.astro";
+import { ReleaseEditor } from "../../../../../components/minecraft/ReleaseEditor";
+import ReleaseFileUpload from "../../../../../components/minecraft/ReleaseFileUpload";
+import { isAdmin, requireUser } from "../../../../../lib/auth/guard";
+import { noStoreRedirect } from "../../../../../lib/auth/redirect";
+import { parseId } from "../../../../../lib/comments/form";
+import { getDb } from "../../../../../lib/db";
+import {
+  MC_LIMITS,
+  RELEASE_EXTENSIONS,
+  typeInfo,
+} from "../../../../../lib/minecraft/catalog";
+import {
+  emptyReleaseDraft,
+  ownProject,
+  releaseDraftOf,
+  releaseEditorProps,
+  saveReleaseForm,
+  type ReleaseEditorProps,
+} from "../../../../../lib/minecraft/creator";
+import { actionPath, releasePath } from "../../../../../lib/minecraft/paths";
+import {
+  getRelease,
+  isVisible,
+  projectOwner,
+  releasesOf,
+} from "../../../../../lib/minecraft/store";
+import { getStorage } from "../../../../../lib/storage/config";
+import { STATUS_LABELS } from "../../../../../lib/storage/labels";
+import { downloadPath } from "../../../../../lib/storage/service";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const found = await ownProject(db, user, isAdmin(user), Astro.params.id);
+if (!found) return Astro.rewrite("/404");
+const { project, viewer } = found;
+const isNew = Astro.params.release === "new";
+const releaseId = isNew ? null : parseId(Astro.params.release ?? "");
+if (!isNew && releaseId === null) return Astro.rewrite("/404");
+const release =
+  releaseId === null
+    ? null
+    : ((await getRelease(db, project.id, releaseId)) ?? null);
+if (!isNew && !release) return Astro.rewrite("/404");
+
+const entry = release
+  ? (await releasesOf(db, project, viewer, { releaseId: release.id }))[0]
+  : undefined;
+
+let props: ReleaseEditorProps;
+if (Astro.request.method === "POST") {
+  const json = Astro.request.headers.get("accept") === "application/json";
+  const outcome = await saveReleaseForm(
+    db,
+    viewer,
+    project,
+    release,
+    await Astro.request.formData(),
+    json,
+  );
+  if (outcome.kind === "json")
+    return Response.json(outcome.body, {
+      status: outcome.status,
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  if (outcome.kind === "redirect")
+    return noStoreRedirect(outcome.location, 303);
+  props = await releaseEditorProps(
+    project,
+    release,
+    outcome.values,
+    outcome.errors,
+  );
+  Astro.response.status = 422;
+} else {
+  const done = Astro.url.searchParams.get("done");
+  const NOTICES: Record<string, string> = {
+    created: entry?.live
+      ? "Release made and published."
+      : entry?.files.some((file) => file.primary)
+        ? "Release made. It goes out once its main file has been reviewed."
+        : "Release made. Upload its main file below.",
+    saved: "Saved.",
+  };
+  props = await releaseEditorProps(
+    project,
+    release,
+    release && entry
+      ? releaseDraftOf(release, entry.dependencies)
+      : emptyReleaseDraft(),
+    {},
+    done ? (NOTICES[done] ?? null) : null,
+  );
+}
+
+const owner = await projectOwner(db, project);
+const live = isVisible(project, owner ?? null);
+const storage = getStorage();
+const error = Astro.url.searchParams.get("error");
+const fileDone = Astro.url.searchParams.get("done");
+const FILE_DONE: Record<string, string> = {
+  primary: "That’s the main file now.",
+  removed: "File removed.",
+};
+const info = typeInfo(project.type);
+const files = entry?.files ?? [];
+const extras = files.filter((file) => !file.primary).length;
+const row = "grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6";
+const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const small =
+  "type-label border border-ink px-2.5 py-1.5 text-ink hover:bg-ink hover:text-paper";
+---
+
+<BaseLayout
+  title={`${release ? release.version : "New release"} · ${project.name} · Minecraft`}
+  noindex
+>
+  <section
+    aria-labelledby="creator-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <CreatorHeader
+      login={user.githubLogin}
+      project={project}
+      current="releases"
+      live={live}
+    />
+
+    <h2 class="type-lead mt-10 xl:mt-12">
+      {release ? `Release ${release.version}` : "New release"}
+    </h2>
+    {release && entry?.live && live && (
+      <p class="mt-2">
+        <a href={releasePath(project, release.version)} class="link-wipe">
+          See it on the project page
+        </a>
+      </p>
+    )}
+
+    <ReleaseEditor client:load {...props} />
+
+    {release && (
+      <>
+        <div id="files" class:list={[row, "scroll-mt-6"]}>
+          <h2 class={heading}>Files ({files.length})</h2>
+          <div class="col-span-4 flex flex-col gap-6 md:col-span-6 xl:col-span-10">
+            {(error || (fileDone && FILE_DONE[fileDone])) && (
+              <p
+                role={error ? "alert" : "status"}
+                class="type-lead border-l-2 border-accent pl-4"
+              >
+                {error ?? (fileDone ? FILE_DONE[fileDone] : "")}
+              </p>
+            )}
+            {files.length === 0 ? (
+              <p class="text-muted">
+                No files yet. Upload the main file: it’s what Download gets.
+              </p>
+            ) : (
+              <ol class="border-b border-ink" data-testid="release-files">
+                {files.map(({ file, primary }) => (
+                  <li class="flex flex-col gap-2 border-t border-ink py-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                      <p class="type-row break-all">
+                        {primary && (
+                          <span class="type-label mr-2 bg-accent px-1.5 py-0.5 align-middle text-on-accent">
+                            Main
+                          </span>
+                        )}
+                        {file.name}
+                      </p>
+                      <p class="type-label">{STATUS_LABELS[file.status]}</p>
+                    </div>
+                    <p class="type-label flex flex-wrap gap-x-4 gap-y-1 text-muted">
+                      <span>{file.label}</span>
+                      <span>{formatBytes(file.size)}</span>
+                      {file.status === "published" && (
+                        <span>
+                          {file.downloads.toLocaleString("en")} downloads
+                        </span>
+                      )}
+                    </p>
+                    {file.statusReason && (
+                      <p class="border-l-2 border-accent pl-3">
+                        {file.statusReason}
+                      </p>
+                    )}
+                    <div class="flex flex-wrap gap-2">
+                      {!file.purgedAt &&
+                        storage &&
+                        file.status !== "uploading" && (
+                          <a href={downloadPath(file.id)} class={small}>
+                            Download
+                          </a>
+                        )}
+                      {!primary &&
+                        info.extensions.includes(extensionOf(file.name)) && (
+                          <form method="post" action={actionPath(project.id)}>
+                            <input
+                              type="hidden"
+                              name="action"
+                              value="primary"
+                            />
+                            <input
+                              type="hidden"
+                              name="release"
+                              value={String(release.id)}
+                            />
+                            <input type="hidden" name="file" value={file.id} />
+                            <button type="submit" class={small}>
+                              Make main
+                            </button>
+                          </form>
+                        )}
+                      <form method="post" action={actionPath(project.id)}>
+                        <input
+                          type="hidden"
+                          name="action"
+                          value="remove-file"
+                        />
+                        <input
+                          type="hidden"
+                          name="release"
+                          value={String(release.id)}
+                        />
+                        <input type="hidden" name="file" value={file.id} />
+                        <button
+                          type="submit"
+                          class={small}
+                          aria-label={`Remove ${file.name}`}
+                        >
+                          Remove
+                        </button>
+                      </form>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+            {storage ? (
+              <ReleaseFileUpload
+                client:load
+                projectId={project.id}
+                releaseId={release.id}
+                mainExtensions={[...info.extensions]}
+                extraExtensions={[...RELEASE_EXTENSIONS]}
+                hasMain={files.some((file) => file.primary)}
+                extraRoom={MC_LIMITS.extraFiles - extras}
+              />
+            ) : (
+              <p class="text-muted">
+                File storage isn’t set up on this server.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div class={row}>
+          <h2 class={heading}>Delete release</h2>
+          <form
+            method="post"
+            action={actionPath(project.id)}
+            class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-7"
+          >
+            <input type="hidden" name="action" value="delete-release" />
+            <input type="hidden" name="release" value={String(release.id)} />
+            <p>
+              Deletes {release.version} and its files. Links to it stop working.
+            </p>
+            <div>
+              <button
+                type="submit"
+                class={buttonClasses({ variant: "secondary" })}
+              >
+                Delete release
+              </button>
+            </div>
+          </form>
+        </div>
+      </>
+    )}
+  </section>
+</BaseLayout>

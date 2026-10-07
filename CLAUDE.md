@@ -37,6 +37,9 @@
 - packages/storage (@trilleo/storage): file storage. `.` the shared rules (names,
   types, limits, the moderation state machine, API shapes), `./server` the drivers
   (OBS, local), `./client` `uploadFile()`, `./react` `<FileUpload>`. Source-only.
+- packages/mc-files (@trilleo/mc-files): reading Minecraft files in the browser: NBT
+  (Java and Bedrock), version ranges/pack formats/data versions, and `readHints`
+  (what a mod, plugin, pack, world or schematic says about itself). Source-only.
 - Blog content: Markdown posts in Postgres, written in the admin editor (/admin/posts).
 - Workspace packages use the `@trilleo/*` scope.
 
@@ -378,6 +381,32 @@
   on the light paper is too faint.
 - Server-rendered game content must be visible without JavaScript: don't start it
   at opacity 0 for an entrance animation (axe also flags it mid-fade).
+
+## Minecraft platform
+
+- People share Minecraft creations at /minecraft/<type>/<slug>/ (types: mods, plugins,
+  worlds, builds, resource-packs, data-packs; src/lib/minecraft/catalog.ts). A project
+  (mc_projects) has a gallery (mc_gallery) and releases (mc_releases: version, channel,
+  game versions, loaders, dependencies), whose files are `files` rows in storage:
+  purposes `minecraft` (release files; `alwaysReview: ["jar"]`, so mods and plugins
+  always wait for the admin) and `minecraft-media` (gallery images).
+- Others see a project when it isn't a draft or hidden, its owner isn't blocked, and a
+  release's main file is published (`lastReleasedAt`). Storage's `changeStatus` calls
+  src/lib/minecraft/sync.ts for Minecraft files, which keeps those dates; nothing polls.
+- Creator pages: /account/minecraft/ (dashboard), …/<id>/ (details; `new` makes one),
+  …/<id>/gallery/, …/<id>/releases/[<release>|new]/, buttons POST to …/<id>/action.
+  Uploads attach to their release or gallery as they start (`uploadFile`'s
+  `onStarted` → /api/minecraft/attach), so no upload is left belonging to nothing.
+- ReleaseEditor reads a dropped main file with @trilleo/mc-files to fill in the form;
+  everything it finds is a suggestion the creator checks.
+- Descriptions and changelogs: src/lib/minecraft/render.ts (comment Markdown plus
+  headings, lists, tables; images only from the project's own published gallery).
+  Bump MC_RENDER_VERSION when its output changes.
+- Game versions: Mojang's version manifest (server-side, cached 6 hours), with
+  FALLBACK_JAVA_VERSIONS in game-versions.ts when it can't be read; add new releases
+  there now and then. MINECRAFT_VERSION_MANIFEST=off (e2e) never fetches.
+- Mojang's usage guidelines: pages about the platform carry MOJANG_NOTICE ("Not an
+  official Minecraft product…"); never use Mojang's textures or logo.
 
 ## Storage
 

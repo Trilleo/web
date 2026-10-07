@@ -1,0 +1,146 @@
+---
+/**
+ * The creator's dashboard: their Minecraft projects (every state), what's waiting
+ * for review, and how publishing works.
+ */
+import { buttonClasses } from "@trilleo/ui";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import CreatorHeader from "../../../components/minecraft/CreatorHeader.astro";
+import ProjectThumb from "../../../components/minecraft/ProjectThumb.astro";
+import { requireUser } from "../../../lib/auth/guard";
+import { getDb } from "../../../lib/db";
+import { formatPostDate } from "../../../lib/listings";
+import {
+  MC_LIMITS,
+  stateLabel,
+  typeInfo,
+} from "../../../lib/minecraft/catalog";
+import { editPath, projectPath } from "../../../lib/minecraft/paths";
+import { projectsOf } from "../../../lib/minecraft/store";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const projects = await projectsOf(await getDb(), user.id);
+const done = Astro.url.searchParams.get("done");
+const DONE: Record<string, string> = {
+  deleted: "Project deleted, with its files.",
+};
+const row = "grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6";
+const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+---
+
+<BaseLayout title="Minecraft · Account" noindex>
+  <section
+    aria-labelledby="creator-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <CreatorHeader login={user.githubLogin} title="Projects" />
+
+    {done && DONE[done] && (
+      <p role="status" class="type-lead mt-6 border-l-2 border-accent pl-4">
+        {DONE[done]}
+      </p>
+    )}
+
+    <div class={row}>
+      <h2 class={heading}>Your projects ({projects.length})</h2>
+      <div class="col-span-4 flex flex-col gap-6 md:col-span-6 xl:col-span-10">
+        <div>
+          <a href={editPath("new")} class={buttonClasses()}>
+            New project
+          </a>
+        </div>
+        {projects.length === 0 ? (
+          <p class="text-muted">
+            Nothing yet. Share a mod, a plugin, a world, a build or a pack: make
+            a project, add pictures, then upload a release.
+          </p>
+        ) : (
+          <ol class="border-b border-ink" data-testid="my-projects">
+            {projects.map((project) => {
+              const live =
+                project.lastReleasedAt !== null &&
+                !project.hiddenAt &&
+                project.state !== "draft";
+              return (
+                <li class="flex items-center gap-4 border-t border-ink py-4">
+                  <ProjectThumb cover={project.cover} type={project.type} />
+                  <div class="flex min-w-0 flex-1 flex-col gap-1">
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                      <a href={editPath(project.id)} class="group type-row">
+                        <span class="link-wipe">{project.name}</span>
+                      </a>
+                      <p class="type-label">
+                        {project.hiddenAt
+                          ? "Hidden by the site owner"
+                          : live
+                            ? stateLabel(project.state)
+                            : project.state === "draft"
+                              ? "Draft"
+                              : "Waiting for a published release"}
+                      </p>
+                    </div>
+                    <p class="type-label flex flex-wrap gap-x-4 gap-y-1 text-muted">
+                      <span>{typeInfo(project.type).label}</span>
+                      {project.pending > 0 && (
+                        <span class="text-ink">
+                          {project.pending} waiting for review
+                        </span>
+                      )}
+                      <span>
+                        {project.downloads.toLocaleString("en")} downloads
+                      </span>
+                      {project.lastReleasedAt && (
+                        <span>
+                          Released {formatPostDate(project.lastReleasedAt)}
+                        </span>
+                      )}
+                      {live && (
+                        <a
+                          href={projectPath(project)}
+                          class="link-wipe text-ink"
+                        >
+                          View
+                        </a>
+                      )}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <h2 class={heading}>How it works</h2>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-7">
+        <p>
+          A project is its page: a name, a description, pictures and a licence.
+          Its files come in releases, each with the Minecraft versions it works
+          with. Others can see a project once one of its releases is published.
+        </p>
+        <p class="text-muted">
+          Uploads are checked for malware. Until you’re trusted, the site owner
+          looks at them first; mods and plugins (.jar files) are always looked
+          at, since people run them. See{" "}
+          <a href="/account/files/" class="link-wipe text-ink">
+            your files
+          </a>{" "}
+          for storage and standing, and the{" "}
+          <a href="/legal/guidelines/" class="link-wipe text-ink">
+            guidelines
+          </a>{" "}
+          for what’s allowed. Up to {MC_LIMITS.projectsPerAccount} projects.
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

@@ -116,6 +116,23 @@ const STATUS = {
     </div>
 
     <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
+        Minecraft
+      </h2>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-7">
+        <p>
+          Share your mods, plugins, worlds, builds and packs: each gets a page,
+          a gallery and releases to download.
+        </p>
+        <div>
+          <a href="/account/minecraft/" class={buttonClasses()}>
+            Your projects
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
       <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">Privacy</h2>
       <ul class="col-span-4 flex flex-col md:col-span-6 xl:col-span-7">
         <li class="border-b border-hair">
@@ -148,8 +165,8 @@ const STATUS = {
           >
             <span class="link-wipe type-nav w-fit">Download your data</span>
             <span class="text-muted">
-              Your account, profile, sessions, comments, tool data and files, as
-              JSON.
+              Your account, profile, sessions, comments, tool data, files and
+              Minecraft projects, as JSON.
             </span>
           </a>
         </li>
@@ -221,10 +238,11 @@ const STATUS = {
         class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-7"
       >
         <p>
-          Deletes your account, all your comments, and everything saved in tools
-          (like your notes). Where others replied to you, a “removed” note keeps
-          their replies readable. This can’t be undone; signing in again later
-          starts a new, empty account.
+          Deletes your account, all your comments, everything saved in tools
+          (like your notes), and your Minecraft projects with their files. Where
+          others replied to you, a “removed” note keeps their replies readable.
+          This can’t be undone; signing in again later starts a new, empty
+          account.
         </p>
         <label class="flex items-start gap-3">
           <input

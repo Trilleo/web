@@ -1,0 +1,277 @@
+---
+/**
+ * A project's gallery: add pictures (uploaded straight to storage, reviewed like any
+ * upload until the creator is trusted), caption them, order them, pick the cover,
+ * remove them. The buttons are plain forms posting to ./action.
+ */
+import { buttonClasses } from "@trilleo/ui";
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import CreatorHeader from "../../../../components/minecraft/CreatorHeader.astro";
+import GalleryUpload from "../../../../components/minecraft/GalleryUpload";
+import { isAdmin, requireUser } from "../../../../lib/auth/guard";
+import { getDb } from "../../../../lib/db";
+import {
+  GALLERY_EXTENSIONS,
+  GALLERY_MAX_BYTES,
+  MC_LIMITS,
+} from "../../../../lib/minecraft/catalog";
+import { ownProject } from "../../../../lib/minecraft/creator";
+import { actionPath, releaseEditPath } from "../../../../lib/minecraft/paths";
+import {
+  galleryOf,
+  isVisible,
+  projectOwner,
+} from "../../../../lib/minecraft/store";
+import { getStorage } from "../../../../lib/storage/config";
+import { STATUS_LABELS } from "../../../../lib/storage/labels";
+import { formatBytes } from "@trilleo/tool-kit/files";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const found = await ownProject(db, user, isAdmin(user), Astro.params.id);
+if (!found) return Astro.rewrite("/404");
+const { project, viewer } = found;
+const owner = await projectOwner(db, project);
+const live = isVisible(project, owner ?? null);
+const images = await galleryOf(db, project, viewer);
+const storage = getStorage();
+
+const shown = await Promise.all(
+  images.map(async (entry) => {
+    const { file } = entry;
+    const published = file.status === "published";
+    const src =
+      !storage || file.purgedAt
+        ? null
+        : published
+          ? storage.publicUrl(file.thumbnailKey ?? file.key)
+          : await storage.signedUrl(file.thumbnailKey ?? file.key, 15 * 60);
+    return {
+      ...entry,
+      src,
+      publicUrl: published && storage ? storage.publicUrl(file.key) : null,
+    };
+  }),
+);
+
+const done = Astro.url.searchParams.get("done");
+const error = Astro.url.searchParams.get("error");
+const DONE: Record<string, string> = {
+  caption: "Caption saved.",
+  moved: "Moved.",
+  cover: "That’s the cover now.",
+  removed: "Picture removed.",
+};
+const row = "grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6";
+const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const input =
+  "w-full border border-ink bg-paper px-3 py-2 text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+const small =
+  "type-label border border-ink px-2.5 py-1.5 text-ink hover:bg-ink hover:text-paper disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink";
+---
+
+<BaseLayout title={`Gallery · ${project.name} · Minecraft`} noindex>
+  <section
+    aria-labelledby="creator-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <CreatorHeader
+      login={user.githubLogin}
+      project={project}
+      current="gallery"
+      live={live}
+    />
+
+    {done === "created" ? (
+      <p role="status" class="type-lead mt-6 border-l-2 border-accent pl-4">
+        Project made. Add a few pictures here, then{" "}
+        <a href={releaseEditPath(project.id, "new")} class="link-wipe">
+          make its first release
+        </a>
+        .
+      </p>
+    ) : (
+      (error ?? (done && DONE[done])) && (
+        <p
+          role={error ? "alert" : "status"}
+          class="type-lead mt-6 border-l-2 border-accent pl-4"
+        >
+          {error ?? (done ? DONE[done] : "")}
+        </p>
+      )
+    )}
+
+    <div class={row}>
+      <h2 class={heading}>Add pictures</h2>
+      <div class="col-span-4 md:col-span-6 xl:col-span-7">
+        {images.length >= MC_LIMITS.gallery ? (
+          <p class="text-muted">
+            The gallery is full ({MC_LIMITS.gallery} pictures). Remove one to
+            add another.
+          </p>
+        ) : storage ? (
+          <GalleryUpload
+            client:load
+            projectId={project.id}
+            room={MC_LIMITS.gallery - images.length}
+            accept={GALLERY_EXTENSIONS.map((ext) => `.${ext}`).join(",")}
+            hint={`PNG, JPEG, WebP, GIF or AVIF, up to ${formatBytes(GALLERY_MAX_BYTES)} each. Screenshots work best at 16:9.`}
+          />
+        ) : (
+          <p class="text-muted">File storage isn’t set up on this server.</p>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <h2 class={heading}>
+        Pictures ({images.length}/{MC_LIMITS.gallery})
+      </h2>
+      <div class="col-span-4 md:col-span-6 xl:col-span-10">
+        {shown.length === 0 ? (
+          <p class="text-muted">
+            None yet. The first picture becomes the cover on cards and share
+            previews.
+          </p>
+        ) : (
+          <ol class="border-b border-ink" data-testid="gallery">
+            {shown.map((entry, index) => (
+              <li
+                id={`image-${String(entry.image.id)}`}
+                class="grid scroll-mt-6 gap-4 border-t border-ink py-5 md:grid-cols-[12rem_minmax(0,1fr)]"
+              >
+                <div class="relative aspect-video w-full border border-ink bg-chip md:w-48">
+                  {entry.src && (
+                    <img
+                      src={entry.src}
+                      alt={entry.image.caption}
+                      loading="lazy"
+                      class="size-full object-cover"
+                    />
+                  )}
+                  {entry.isCover && (
+                    <span class="type-label absolute top-0 left-0 bg-accent px-2 py-1 text-on-accent">
+                      Cover
+                    </span>
+                  )}
+                </div>
+                <div class="flex min-w-0 flex-col gap-3">
+                  <p class="type-label flex flex-wrap gap-x-4 gap-y-1 text-muted">
+                    <span class="text-ink">
+                      {STATUS_LABELS[entry.file.status]}
+                    </span>
+                    <span class="break-all">{entry.file.name}</span>
+                    <span>{formatBytes(entry.file.size)}</span>
+                  </p>
+                  {entry.file.statusReason && (
+                    <p class="border-l-2 border-accent pl-3">
+                      {entry.file.statusReason}
+                    </p>
+                  )}
+                  <form
+                    method="post"
+                    action={actionPath(project.id)}
+                    class="flex flex-wrap items-end gap-2"
+                  >
+                    <input type="hidden" name="action" value="caption" />
+                    <input
+                      type="hidden"
+                      name="image"
+                      value={String(entry.image.id)}
+                    />
+                    <label class="flex min-w-48 flex-1 flex-col gap-1.5">
+                      <span class="type-label">Caption</span>
+                      <input
+                        name="caption"
+                        value={entry.image.caption}
+                        maxlength={MC_LIMITS.caption * 2}
+                        class={input}
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      class={buttonClasses({ variant: "secondary" })}
+                    >
+                      Save
+                    </button>
+                  </form>
+                  {entry.publicUrl && (
+                    <label class="flex flex-col gap-1.5">
+                      <span class="type-label text-muted">
+                        Address, for the description
+                      </span>
+                      <input
+                        readonly
+                        value={`![${entry.image.caption || "Picture"}](${entry.publicUrl})`}
+                        class:list={[input, "font-mono text-sm text-muted"]}
+                        data-select-on-focus
+                      />
+                    </label>
+                  )}
+                  <div class="flex flex-wrap gap-2">
+                    {[
+                      { action: "up", label: "Move up", disabled: index === 0 },
+                      {
+                        action: "down",
+                        label: "Move down",
+                        disabled: index === shown.length - 1,
+                      },
+                      {
+                        action: "cover",
+                        label: "Make cover",
+                        disabled: entry.isCover,
+                      },
+                      {
+                        action: "remove-image",
+                        label: "Remove",
+                        disabled: false,
+                      },
+                    ].map((button) => (
+                      <form method="post" action={actionPath(project.id)}>
+                        <input
+                          type="hidden"
+                          name="action"
+                          value={button.action}
+                        />
+                        <input
+                          type="hidden"
+                          name="image"
+                          value={String(entry.image.id)}
+                        />
+                        <button
+                          type="submit"
+                          class={small}
+                          disabled={button.disabled}
+                          aria-label={`${button.label}: ${entry.image.caption || entry.file.name}`}
+                        >
+                          {button.label}
+                        </button>
+                      </form>
+                    ))}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  for (const field of document.querySelectorAll<HTMLInputElement>(
+    "[data-select-on-focus]",
+  )) {
+    field.addEventListener("focus", () => {
+      field.select();
+    });
+  }
+</script>

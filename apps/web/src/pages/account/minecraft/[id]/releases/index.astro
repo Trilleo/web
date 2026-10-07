@@ -1,0 +1,149 @@
+---
+/** A project's releases, for its creator: every one, with how far along it is. */
+import { buttonClasses } from "@trilleo/ui";
+import BaseLayout from "../../../../../layouts/BaseLayout.astro";
+import CreatorHeader from "../../../../../components/minecraft/CreatorHeader.astro";
+import { isAdmin, requireUser } from "../../../../../lib/auth/guard";
+import { getDb } from "../../../../../lib/db";
+import { formatPostDate } from "../../../../../lib/listings";
+import {
+  channelLabel,
+  loaderLabel,
+} from "../../../../../lib/minecraft/catalog";
+import { ownProject } from "../../../../../lib/minecraft/creator";
+import { releaseEditPath } from "../../../../../lib/minecraft/paths";
+import {
+  isVisible,
+  projectOwner,
+  releasesOf,
+  type ReleaseEntry,
+} from "../../../../../lib/minecraft/store";
+import { summarizeVersions } from "../../../../../lib/minecraft/format";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const found = await ownProject(db, user, isAdmin(user), Astro.params.id);
+if (!found) return Astro.rewrite("/404");
+const { project, viewer } = found;
+const owner = await projectOwner(db, project);
+const live = isVisible(project, owner ?? null);
+const releases = await releasesOf(db, project, viewer);
+
+/** Where a release stands, from its main file. */
+function standing(entry: ReleaseEntry): string {
+  const main = entry.files.find((file) => file.primary)?.file;
+  if (!main) return "No main file yet";
+  switch (main.status) {
+    case "published":
+      return "Published";
+    case "uploading":
+    case "processing":
+      return "Uploading";
+    case "pending_review":
+      return "Waiting for review";
+    case "rejected":
+      return "Main file refused";
+    case "removed":
+      return "Main file taken down";
+    default:
+      return "No main file";
+  }
+}
+
+const done = Astro.url.searchParams.get("done");
+const error = Astro.url.searchParams.get("error");
+const row = "grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6";
+const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+---
+
+<BaseLayout title={`Releases · ${project.name} · Minecraft`} noindex>
+  <section
+    aria-labelledby="creator-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <CreatorHeader
+      login={user.githubLogin}
+      project={project}
+      current="releases"
+      live={live}
+    />
+
+    {(done === "deleted" || error) && (
+      <p
+        role={error ? "alert" : "status"}
+        class="type-lead mt-6 border-l-2 border-accent pl-4"
+      >
+        {error ?? "Release deleted, with its files."}
+      </p>
+    )}
+
+    <div class={row}>
+      <h2 class={heading}>Releases ({releases.length})</h2>
+      <div class="col-span-4 flex flex-col gap-6 md:col-span-6 xl:col-span-10">
+        <div>
+          <a href={releaseEditPath(project.id, "new")} class={buttonClasses()}>
+            New release
+          </a>
+        </div>
+        {releases.length === 0 ? (
+          <p class="text-muted">
+            No releases yet. Make one and upload its file: once it’s published,
+            the project is out.
+          </p>
+        ) : (
+          <ol class="border-b border-ink" data-testid="releases">
+            {releases.map((entry) => (
+              <li class="flex flex-col gap-1.5 border-t border-ink py-4">
+                <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                  <a
+                    href={releaseEditPath(project.id, entry.release.id)}
+                    class="group type-row"
+                  >
+                    <span class="link-wipe">
+                      {entry.release.version}
+                      {entry.release.title && ` · ${entry.release.title}`}
+                    </span>
+                  </a>
+                  <p
+                    class:list={["type-label", entry.live ? "" : "text-muted"]}
+                  >
+                    {standing(entry)}
+                  </p>
+                </div>
+                <p class="type-label flex flex-wrap gap-x-4 gap-y-1 text-muted">
+                  {entry.release.channel !== "release" && (
+                    <span class="text-ink">
+                      {channelLabel(entry.release.channel)}
+                    </span>
+                  )}
+                  <span>{summarizeVersions(entry.release.gameVersions)}</span>
+                  {entry.release.loaders.length > 0 && (
+                    <span>
+                      {entry.release.loaders.map(loaderLabel).join(", ")}
+                    </span>
+                  )}
+                  <span>
+                    {entry.files.length}{" "}
+                    {entry.files.length === 1 ? "file" : "files"}
+                  </span>
+                  <span>
+                    {formatPostDate(
+                      entry.release.releasedAt ?? entry.release.createdAt,
+                    )}
+                  </span>
+                </p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,41 @@
+---
+/**
+ * A project's small square picture in lists: its cover's thumbnail, or its type's
+ * code on the paper when it has none yet.
+ */
+import type { McProjectType } from "@trilleo/db";
+import { typeInfo } from "../../lib/minecraft/catalog";
+import { getStorage } from "../../lib/storage/config";
+
+interface Props {
+  cover: { key: string; thumbnailKey: string | null } | null;
+  type: McProjectType;
+  size?: "sm" | "md";
+}
+
+const { cover, type, size = "sm" } = Astro.props;
+const storage = getStorage();
+const src =
+  cover && storage ? storage.publicUrl(cover.thumbnailKey ?? cover.key) : null;
+const box = size === "md" ? "size-20" : "size-14";
+---
+
+{src ? (
+  <img
+    src={src}
+    alt=""
+    loading="lazy"
+    decoding="async"
+    class:list={[box, "shrink-0 border border-ink object-cover"]}
+  />
+) : (
+  <span
+    aria-hidden="true"
+    class:list={[
+      box,
+      "type-label flex shrink-0 items-center justify-center border border-ink bg-chip text-muted",
+    ]}
+  >
+    {typeInfo(type).code}
+  </span>
+)}

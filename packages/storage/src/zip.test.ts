@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeZip } from "./testing";
-import { listZip, type ReadRange } from "./zip";
+import { listZip, readZipEntry, type ReadRange } from "./zip";
 
 const encoder = new TextEncoder();
 
@@ -12,6 +12,26 @@ function reader(bytes: Uint8Array) {
   };
   return { read, reads };
 }
+
+describe("readZipEntry", () => {
+  it("reads stored and deflated entries", async () => {
+    const text = "fabric ".repeat(50);
+    const zip = makeZip([
+      { name: "plain.txt", data: "hello" },
+      { name: "fabric.mod.json", data: text, deflate: true },
+    ]);
+    const { read } = reader(zip);
+    const listing = await listZip(zip.length, read);
+    const [plain, packed] = listing?.entries ?? [];
+    if (!plain || !packed) throw new Error("no entries");
+    expect(packed.compressedSize).toBeLessThan(packed.size);
+    const decode = (bytes: Uint8Array | null) =>
+      bytes ? new TextDecoder().decode(bytes) : null;
+    expect(decode(await readZipEntry(plain, read))).toBe("hello");
+    expect(decode(await readZipEntry(packed, read))).toBe(text);
+    expect(await readZipEntry(packed, read, 10)).toBeNull();
+  });
+});
 
 describe("listZip", () => {
   it("lists entries from the central directory", async () => {
@@ -26,18 +46,29 @@ describe("listZip", () => {
     const { read, reads } = reader(zip);
     expect(await listZip(zip.length, read)).toEqual({
       entries: [
-        { name: "META-INF/", size: 0, compressedSize: 0, directory: true },
+        {
+          name: "META-INF/",
+          size: 0,
+          compressedSize: 0,
+          directory: true,
+          offset: 0,
+          method: 0,
+        },
         {
           name: "META-INF/MANIFEST.MF",
           size: 22,
           compressedSize: 22,
           directory: false,
+          offset: 39,
+          method: 0,
         },
         {
           name: "assets/Mój świat.txt",
           size: 2,
           compressedSize: 2,
           directory: false,
+          offset: 111,
+          method: 0,
         },
       ],
       total: 3,

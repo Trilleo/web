@@ -11,6 +11,10 @@ export interface ArchiveEntry {
   size: number;
   compressedSize: number;
   directory: boolean;
+  /** Where its local header starts (for `readZipEntry`). */
+  offset: number;
+  /** 0: stored, 8: deflated (others can't be read here). */
+  method: number;
 }
 
 export interface ArchiveListing {
@@ -105,8 +109,10 @@ export async function listZip(
   let at = 0;
   while (entries.length < limit && at + 46 <= directory.bytes.length) {
     if (directory.u32(at) !== CENTRAL) break;
+    const method = directory.u16(at + 10);
     let compressedSize = directory.u32(at + 20);
     let entrySize = directory.u32(at + 24);
+    let offset = directory.u32(at + 42);
     const nameLength = directory.u16(at + 28);
     const extraLength = directory.u16(at + 30);
     const commentLength = directory.u16(at + 32);
@@ -127,8 +133,12 @@ export async function listZip(
           entrySize = directory.u64(field);
           field += 8;
         }
-        if (compressedSize === 0xffffffff && field + 8 <= extra + 4 + length)
+        if (compressedSize === 0xffffffff && field + 8 <= extra + 4 + length) {
           compressedSize = directory.u64(field);
+          field += 8;
+        }
+        if (offset === 0xffffffff && field + 8 <= extra + 4 + length)
+          offset = directory.u64(field);
       }
       extra += 4 + length;
     }
@@ -137,6 +147,8 @@ export async function listZip(
       size: entrySize,
       compressedSize,
       directory: name.endsWith("/"),
+      offset,
+      method,
     });
     uncompressed += entrySize;
     at = next;
@@ -147,4 +159,35 @@ export async function listZip(
     uncompressed,
     truncated: entries.length < total,
   };
+}
+
+const LOCAL = 0x04034b50;
+
+/**
+ * One entry's bytes, uncompressed (deflate via the platform's DecompressionStream).
+ * Null when it can't be read here (another compression method, damaged, or bigger
+ * than `maxBytes`).
+ */
+export async function readZipEntry(
+  entry: ArchiveEntry,
+  read: ReadRange,
+  maxBytes = 16 * 1024 * 1024,
+): Promise<Uint8Array | null> {
+  if (entry.directory || entry.size > maxBytes) return null;
+  if (entry.method !== 0 && entry.method !== 8) return null;
+  const header = new Reader(await read(entry.offset, entry.offset + 30));
+  if (header.bytes.length < 30 || header.u32(0) !== LOCAL) return null;
+  const start = entry.offset + 30 + header.u16(26) + header.u16(28);
+  const data = await read(start, start + entry.compressedSize);
+  if (data.length < entry.compressedSize) return null;
+  if (entry.method === 0) return data;
+  try {
+    const stream = new Blob([data as BlobPart])
+      .stream()
+      .pipeThrough(new DecompressionStream("deflate-raw"));
+    const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+    return bytes.length > maxBytes ? null : bytes;
+  } catch {
+    return null;
+  }
 }

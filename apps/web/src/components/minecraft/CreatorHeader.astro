@@ -1,0 +1,114 @@
+---
+/**
+ * The top of the creator's pages: where they are, the project's name, and its tabs
+ * (details, gallery, releases, and its public page once others can see it).
+ */
+import type { McProject } from "@trilleo/db";
+import { ArrowUpRightIcon } from "@trilleo/ui";
+import DisplayTitle from "../DisplayTitle.astro";
+import { typeInfo } from "../../lib/minecraft/catalog";
+import {
+  DASHBOARD_PATH,
+  editPath,
+  galleryEditPath,
+  projectPath,
+  releasesEditPath,
+} from "../../lib/minecraft/paths";
+
+interface Props {
+  login: string;
+  /** The project; none on the dashboard and the "new project" page. */
+  project?: McProject | null;
+  current?: "details" | "gallery" | "releases";
+  /**
+   * The title when there's no project. One word ("Projects") is set as the big
+   * display title; longer ones, like project names, in the title size, which wraps.
+   */
+  title?: string;
+  /** Whether others can open the project's page. */
+  live?: boolean;
+}
+
+const { login, project, current, title, live = false } = Astro.props;
+const tabs = project
+  ? [
+      { key: "details", label: "Details", href: editPath(project.id) },
+      { key: "gallery", label: "Gallery", href: galleryEditPath(project.id) },
+      {
+        key: "releases",
+        label: "Releases",
+        href: releasesEditPath(project.id),
+      },
+    ]
+  : [];
+---
+
+<p class="type-label relative z-10 flex flex-wrap gap-x-2 text-ink">
+  <span>(Account)</span>
+  <a href="/account/" class="link-wipe">
+    @{login}
+  </a>
+  <span aria-hidden="true">/</span>
+  {project ? (
+    <a href={DASHBOARD_PATH} class="link-wipe">
+      Minecraft
+    </a>
+  ) : (
+    <span>Minecraft</span>
+  )}
+  {project && (
+    <>
+      <span aria-hidden="true">/</span>
+      <span class="text-muted">{typeInfo(project.type).label}</span>
+    </>
+  )}
+</p>
+
+{project || (title ?? "").includes(" ") ? (
+  <h1
+    id="creator-title"
+    class="type-title mt-6 max-w-[22ch] break-words xl:mt-8"
+  >
+    {project ? project.name : title}
+  </h1>
+) : (
+  <DisplayTitle id="creator-title">{title}</DisplayTitle>
+)}
+
+{project && (
+  <nav
+    aria-label="Project"
+    class="type-label mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-ink pb-3"
+  >
+    {tabs.map((tab) => (
+      <a
+        href={tab.href}
+        class="group inline-flex items-center gap-2"
+        aria-current={tab.key === current ? "page" : undefined}
+      >
+        <span
+          class:list={[
+            "size-2",
+            tab.key === current ? "bg-accent" : "bg-transparent",
+          ]}
+          aria-hidden="true"
+        ></span>
+        <span class="link-wipe">{tab.label}</span>
+      </a>
+    ))}
+    <span class="grow" aria-hidden="true"></span>
+    {live ? (
+      <a
+        href={projectPath(project)}
+        class="group inline-flex items-center gap-2"
+      >
+        <span class="link-wipe">Public page</span>
+        <ArrowUpRightIcon size={14} />
+      </a>
+    ) : (
+      <span class="text-muted">
+        {project.state === "draft" ? "Draft" : "Not public yet"}
+      </span>
+    )}
+  </nav>
+)}
