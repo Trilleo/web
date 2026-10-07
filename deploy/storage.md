@@ -197,15 +197,17 @@ After the next deploy (or now, if the release with storage is already live):
 
 - **Limits** (packages/storage/src/limits.ts): 1 GiB per file. Signed-in users get
   2 GiB in total and 200 MiB per file; trusted uploaders 10 GiB and 1 GiB; the admin has
-  no total limit. For now only the admin can upload (the `site` purpose). People's
-  uploads use the `shared` purpose, which stays off until a feature (the creator
-  platform) turns it on in `apps/web/src/lib/storage/purposes.ts`. To switch it on
-  early without a code change, add `STORAGE_ENABLE_PURPOSES=shared` to `app.env`.
+  no total limit. Who uploads what is set per purpose in
+  `apps/web/src/lib/storage/purposes.ts`: the admin's `site` files (/admin/files), and
+  anyone's Minecraft releases (`minecraft`) and gallery images (`minecraft-media`,
+  raster images up to 10 MB) from the creator pages. The general `shared` purpose is
+  defined but off; `STORAGE_ENABLE_PURPOSES=shared` in `app.env` would switch it on.
 - **Types**: almost anything. Images, audio, video and PDF open in the browser; every
   other type downloads. HTML, SVG and scripts are stored as plain bytes and always
   download, so nothing on `files.trilleo.net` can run as a web page. Programs (`.exe`,
-  `.apk`, …) are admin-only. A file whose bytes don't match its name (a ".png" that's
-  really HTML) is refused.
+  `.apk`, …) are admin-only. Minecraft mods and plugins (`.jar`) are allowed in
+  releases, but every one waits for review, however trusted its uploader. A file whose
+  bytes don't match its name (a ".png" that's really HTML) is refused.
 - **Life of a file**: uploading → processing (size check, type check, SHA-256) →
   published, or waiting for review for uploads that need it. The admin can approve,
   refuse, take down (with a reason the uploader sees), restore and delete. Every
@@ -253,6 +255,8 @@ It needs about 1.5 GB of RAM (the server has 4 GB).
 ## Backups
 
 The nightly `pg_dump` covers the `files` table (what exists), not the bytes in OBS.
+Minecraft builds' 3D previews are kept in the database (`mc_previews`), so the dump
+covers them.
 OBS stores objects redundantly within the region. If you want a second copy, turn on
 **Cross-Region Replication** to a bucket in another region (it costs storage there).
 

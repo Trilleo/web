@@ -6,6 +6,11 @@
   idea and design instead of assuming. Propose a plan and wait for approval.
 - Do not commit after changes.
 - Keep changes scoped to one task. Summarize what changed and why at the end.
+- Keep the documentation current: after every change, check what it affects and
+  update it in the same change. That means this file, README.md, deploy/README.md,
+  deploy/storage.md, apps/web/.env.example, and the information pages (legal, FAQ,
+  accessibility, security, colophon, about), which state facts about the code. A
+  change to a legal page's substance also gets an entry in its `changes`.
 
 ## Architecture
 
@@ -243,14 +248,17 @@
   (`serializeJsonLd` escapes `<` so titles can't close the script). BaseLayout turns its
   props (`image`, `article`, `jsonLd`, `noindex`) into Open Graph, X card, canonical
   and verification tags; `noindex` pages get no canonical.
-- Share images: /og/site.png, /og/posts/<slug>.png, /og/tools/<slug>.png, 1200×630,
+- Share images: /og/site.png, /og/posts/<slug>.png, /og/tools/<slug>.png,
+  /og/games/<slug>.png, /og/minecraft.png and /og/minecraft/<slug>.png, 1200×630,
   drawn per request by satori + resvg-wasm (src/lib/og/) and kept in memory. Pages
   link them with `?v=<hash of the card>`, cached immutably; bump OG_CARD_VERSION
   when the card's design changes. Fonts and resvg's WebAssembly are inlined with
   `?inline` (astro.config's `assetsInclude`), so the bundle carries them. satori is
   pinned to 0.32: newer versions load harfbuzzjs, which the bundle can't carry.
 - Structured data: WebSite + Person (the author, "Trilleo") on the home page,
-  BlogPosting on posts, WebApplication on tools, BreadcrumbList on inner pages.
+  BlogPosting on posts, WebApplication on tools, VideoGame on games,
+  SoftwareApplication (mods, plugins) or CreativeWork (worlds, builds, packs) on
+  Minecraft projects, BreadcrumbList on inner pages.
 - Kept out of the index (noindex): private pages, search results (`?q=`), tag pages
   with fewer than TAG_INDEX_MIN_POSTS posts (also left out of sitemap-posts.xml), and
   the 404 page.
@@ -270,8 +278,9 @@
   scheduled posts. Failures are only logged and retried later; unset key: no pings.
 - /admin has an SEO checklist (src/lib/seo-audit.ts): long or missing search titles
   and descriptions, duplicate titles, untagged posts, and internal links to pages
-  that don't exist. /llms.txt (src/lib/llms.ts) lists public posts and tools for AI
-  assistants.
+  that don't exist. /llms.txt (src/lib/llms.ts) lists public posts, tools, games
+  and listed Minecraft projects for AI assistants. Sitemaps: sitemap-index.xml (built
+  pages), /sitemap-posts.xml and /sitemap-minecraft.xml (from the database).
 
 ## Information pages
 
@@ -453,9 +462,10 @@
   (`pnpm dev`: apps/web/.data/storage), served by /api/storage/local/. Neither in
   production: storage is off and the site still runs (apps/web/src/lib/storage/config.ts).
 - Features declare a purpose in apps/web/src/lib/storage/purposes.ts (who uploads,
-  types, size, visibilities, review); uploads name one. `site` is the admin's;
-  `shared` (people's uploads, review until trusted) is defined but `enabled: false`
-  until the creator platform; STORAGE_ENABLE_PURPOSES=shared switches it on (e2e).
+  types, size, visibilities, review, `alwaysReview` extensions); uploads name one.
+  `site` is the admin's; `minecraft` and `minecraft-media` are anyone's (the
+  Minecraft platform). `shared` (general uploads, review until trusted) is defined
+  but `enabled: false`; STORAGE_ENABLE_PURPOSES=shared switches it on (e2e).
 - Every status change goes through `transition` (packages/storage/src/moderation.ts)
   and `changeStatus` (guarded by the expected status, logged in storage_events); the
   object's ACL follows `isServedPublicly(status, visibility)`. Operations live in
@@ -519,7 +529,10 @@
   CI checks it against Cloudflare's live list). It serves files that exist and
   proxies everything else to the app, so new server routes need no Caddy change;
   /api/health stays internal. CSP is report-only for now; it allows
-  'wasm-unsafe-eval' and blob: (images, media, workers) for the file tools.
+  'wasm-unsafe-eval' and blob: (images, media, workers) for the file tools. Its
+  `frame-ancestors 'none'` and X-Frame-Options DENY don't stop Minecraft embeds,
+  which send their own enforced `frame-ancestors *`; when the CSP is enforced, leave
+  the embed paths out of it (deploy/README.md says how).
 - Server config (deploy/compose.yaml) ships inside the web image; changing it only
   needs a deploy. deploy/server/* changes (trilleo-deploy, trilleo-backup) need a
   manual reinstall. Server-only secrets live in /srv/trilleo/*.env, never in git

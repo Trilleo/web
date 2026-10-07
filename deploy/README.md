@@ -328,9 +328,11 @@ Otherwise use the HTML tag, which the home page adds from `app.env`.
 
 4. Press **Verify** in each console. Keep the values in `app.env` afterwards: both
    engines re-check from time to time.
-5. In each console, submit both sitemaps: `https://www.trilleo.net/sitemap-index.xml`
-   (pages built with the site) and `https://www.trilleo.net/sitemap-posts.xml` (posts
-   and tags, from the database).
+5. In each console, submit the three sitemaps:
+   `https://www.trilleo.net/sitemap-index.xml` (pages built with the site),
+   `https://www.trilleo.net/sitemap-posts.xml` (posts and tags) and
+   `https://www.trilleo.net/sitemap-minecraft.xml` (Minecraft projects), the last two
+   from the database.
 
 6. **IndexNow** (Bing, Yandex and others hear about new and changed posts within
    minutes; Google doesn't take part). Make a key, add it to `app.env`, recreate the
@@ -376,6 +378,13 @@ IAM users, DNS, certificate workflow, `app.env`): [storage.md](storage.md).
   **Review** until you approve one (after that theirs appear at once). You can hide,
   delete, or block from there; blocking hides all of that person's comments and signs
   them out. There are no notifications, so check it now and then.
+- **Moderate Minecraft projects:** their files wait in
+  <https://www.trilleo.net/admin/files/review> (mods and plugins always; other files
+  until their creator is trusted), each card naming its project and release. Pages
+  (feature on the front page, hide with a reason, reports about a project's text or
+  pictures) are at <https://www.trilleo.net/admin/minecraft/>. The Minecraft version
+  list comes from Mojang (`piston-meta.mojang.com`, cached 6 hours); /admin/minecraft
+  says whether it's live or the fallback list in the code.
 - **Change who is admin, or the OAuth secret:** edit `/srv/trilleo/app.env`, then
   `cd /srv/trilleo && docker compose up -d --force-recreate app` (a plain restart keeps
   the old values). Someone removed from the list keeps their account but loses /admin.
@@ -403,7 +412,11 @@ IAM users, DNS, certificate workflow, `app.env`): [storage.md](storage.md).
   in `compose.yaml` (minor versions within 18 need nothing else).
 - **Enforce the Content-Security-Policy:** after browsing the live site with DevTools
   open shows no CSP reports, rename `Content-Security-Policy-Report-Only` to
-  `Content-Security-Policy` in `Caddyfile`.
+  `Content-Security-Policy` in `Caddyfile`. Minecraft embed cards
+  (`/minecraft/<type>/<slug>/embed/`) are meant to be framed by other sites and send
+  their own `frame-ancestors *`: an enforced `frame-ancestors 'none'` from Caddy would
+  block them, so leave those paths out of that header (a `path_regexp` matcher) when
+  you enforce it.
 - **Origin certificate** is valid for 15 years; to replace it, redo steps 1.3 and 4d, then
   `sudo -u deploy docker compose restart` in `/srv/trilleo`.
 

@@ -1,7 +1,8 @@
 # web
 
-Personal site, blog, tools, games and file storage behind <https://www.trilleo.net>. A
-pnpm + Turborepo monorepo with an Astro site and shared React UI.
+Personal site, blog, tools, games, a Minecraft creator platform and file storage behind
+<https://www.trilleo.net>. A pnpm + Turborepo monorepo with an Astro site and shared
+React UI.
 
 ## Prerequisites
 
@@ -46,6 +47,8 @@ packages/db         @trilleo/db: Drizzle schema, migrations, and database client
 packages/tool-kit   @trilleo/tool-kit: what tools share (storage, data hook, file helpers)
 packages/storage    @trilleo/storage: file storage (OBS and local drivers, upload client,
                     moderation rules, ClamAV client)
+packages/mc-files   @trilleo/mc-files: reads Minecraft files in the browser (NBT, mod and
+                    pack metadata, builds' blocks, 3D preview format and mesher)
 deploy/             Caddy config, server compose file, deploy and backup scripts, runbooks
 Dockerfile          Production images: `web` (Caddy + static site) and `app` (Node server)
 ```
@@ -57,13 +60,22 @@ new migration.
 
 File storage needs no setup either: `pnpm dev` keeps uploads in `apps/web/.data/storage`
 (production uses a Huawei OBS bucket). Malware scanning is off in development; the e2e
-tests run a fake ClamAV. Uploading happens at `/admin/files` (admin) and, for features
-that let people upload, through `@trilleo/storage`'s `uploadFile()` or `<FileUpload>`.
+tests run a fake ClamAV. Uploading happens at `/admin/files` (admin), on the Minecraft
+creator pages (`/account/minecraft/`, anyone signed in), and for other features through
+`@trilleo/storage`'s `uploadFile()` or `<FileUpload>`.
+
+The Minecraft platform lives under `/minecraft/` (public pages, a read-only JSON API at
+`/api/minecraft/v1/`) and `/account/minecraft/` (creators); the admin moderates it at
+`/admin/minecraft/` and `/admin/files/review`. Its list of Minecraft versions comes
+from Mojang's version manifest; set `MINECRAFT_VERSION_MANIFEST=off` in
+`apps/web/.env` to work offline with the list kept in the code.
 
 Sign-in (`/admin`) works in development once `apps/web/.env` has a localhost GitHub OAuth
 App's credentials: copy `apps/web/.env.example` and see
 [deploy/README.md §7](deploy/README.md#7-github-sign-in). The e2e tests use a fake GitHub
-and need nothing.
+and need nothing. Without an OAuth App, the `web-fake-signin` and `fake-github` entries
+in `.claude/launch.json` run a dev server (port 4331, in-memory database) that signs in
+against the e2e fake GitHub.
 
 Lint, format, and TypeScript base configs live at the repo root (`eslint.config.js`,
 `.prettierrc.json`, `tsconfig.base.json`).
@@ -76,4 +88,5 @@ and troubleshooting: [deploy/README.md](deploy/README.md). File storage (the OBS
 [deploy/storage.md](deploy/storage.md).
 
 Conventions and architecture notes for contributors (and AI assistants) are in
-[CLAUDE.md](CLAUDE.md).
+[CLAUDE.md](CLAUDE.md). Keep these documents current: update them in the same change as
+the code they describe.

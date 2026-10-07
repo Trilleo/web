@@ -128,7 +128,13 @@ export const INFO_PAGES: readonly InfoPage[] = [
     description:
       "The standard Trilleo Network aims for, what's known not to meet it yet, and how to report a barrier.",
     group: "help",
-    changes: FIRST,
+    changes: [
+      {
+        date: "2026-10-07",
+        note: "Added the 3D views of Minecraft builds to the known limits.",
+      },
+      ...FIRST,
+    ],
   },
   {
     path: "/security/",
@@ -137,7 +143,13 @@ export const INFO_PAGES: readonly InfoPage[] = [
     description:
       "How to report a vulnerability in Trilleo Network, what's in scope, and what to expect back.",
     group: "help",
-    changes: FIRST,
+    changes: [
+      {
+        date: "2026-10-07",
+        note: "Added the Minecraft platform to what’s in scope.",
+      },
+      ...FIRST,
+    ],
   },
   {
     path: "/colophon/",
@@ -146,7 +158,13 @@ export const INFO_PAGES: readonly InfoPage[] = [
     description:
       "How Trilleo Network is built and hosted, its typefaces, and the open-source work it stands on.",
     group: "site",
-    changes: FIRST,
+    changes: [
+      {
+        date: "2026-10-07",
+        note: "Mentioned how Minecraft files are read and drawn.",
+      },
+      ...FIRST,
+    ],
   },
   {
     path: "/sitemap/",
