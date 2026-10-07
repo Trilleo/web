@@ -72,6 +72,7 @@ describe("openDatabase", () => {
       "files",
       "mc_dependencies",
       "mc_gallery",
+      "mc_previews",
       "mc_project_reports",
       "mc_project_slugs",
       "mc_projects",

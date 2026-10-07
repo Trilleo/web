@@ -35,13 +35,22 @@ export interface DayCount {
   count: number;
 }
 
-/** The last `days` days for one file (or every file), oldest first, gaps as 0. */
+/**
+ * The last `days` days for one file, some files, or every file (null), oldest
+ * first, gaps as 0.
+ */
 export async function dailyDownloads(
   db: Database,
-  fileId: string | null,
+  fileId: string | readonly string[] | null,
   days = 30,
   now = new Date(),
 ): Promise<DayCount[]> {
+  const zeros = () =>
+    Array.from({ length: days }, (_, i) => ({
+      day: utcDay(now, days - 1 - i),
+      count: 0,
+    }));
+  if (Array.isArray(fileId) && fileId.length === 0) return zeros();
   const since = utcDay(now, days - 1);
   const rows = await db
     .select({
@@ -52,15 +61,16 @@ export async function dailyDownloads(
     .where(
       and(
         gte(fileDownloads.day, since),
-        fileId ? eq(fileDownloads.fileId, fileId) : undefined,
+        typeof fileId === "string"
+          ? eq(fileDownloads.fileId, fileId)
+          : fileId
+            ? inArray(fileDownloads.fileId, [...fileId])
+            : undefined,
       ),
     )
     .groupBy(fileDownloads.day);
   const byDay = new Map(rows.map((row) => [row.day, row.count]));
-  return Array.from({ length: days }, (_, i) => {
-    const day = utcDay(now, days - 1 - i);
-    return { day, count: byDay.get(day) ?? 0 };
-  });
+  return zeros().map(({ day }) => ({ day, count: byDay.get(day) ?? 0 }));
 }
 
 /** Downloads in the last `days` days, per file. */

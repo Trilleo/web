@@ -214,6 +214,10 @@ export interface ReleaseEditorProps {
   cancelHref: string;
   /** The editor's own address for a release, once made ("…/releases/<id>/"). */
   releaseHrefBase: string;
+  /** A build: its files get a 3D preview, made in the browser after upload. */
+  previewable: boolean;
+  /** The gallery is empty: a build's preview also makes an isometric cover. */
+  needsCover: boolean;
 }
 
 export async function releaseEditorProps(
@@ -245,6 +249,8 @@ export async function releaseEditorProps(
     action: releaseEditPath(project.id, release?.id ?? "new"),
     cancelHref: releasesEditPath(project.id),
     releaseHrefBase: releasesEditPath(project.id),
+    previewable: project.type === "build",
+    needsCover: false,
   };
 }
 

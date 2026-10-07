@@ -4,6 +4,9 @@ import { formatBytes } from "@trilleo/tool-kit/files";
 import { buttonClasses } from "@trilleo/ui";
 import BaseLayout from "../../../../../layouts/BaseLayout.astro";
 import MinecraftHeader from "../../../../../components/minecraft/MinecraftHeader.astro";
+import BuildMaterials from "../../../../../components/minecraft/BuildMaterials.astro";
+import BuildViewer from "../../../../../components/minecraft/BuildViewer";
+import { previewFor, previewPath } from "../../../../../lib/minecraft/previews";
 import { getDb } from "../../../../../lib/db";
 import { formatPostDate } from "../../../../../lib/listings";
 import {
@@ -50,6 +53,10 @@ const entry = release
 if (!release || !entry) return Astro.rewrite("/404");
 
 const info = typeInfo(project.type);
+const preview =
+  project.type === "build"
+    ? await previewFor(db, project, viewer, release.id)
+    : null;
 const path = Astro.url.pathname;
 const versions = [...release.gameVersions].sort(compareVersions);
 const title = `${project.name} ${release.version}`;
@@ -137,6 +144,21 @@ const body = "col-span-4 md:col-span-6 xl:col-span-7";
       </dl>
 
       <div class:list={[body, "flex flex-col gap-10"]}>
+        {preview && (
+          <BuildViewer
+            client:visible
+            previewUrl={previewPath(preview.fileId)}
+            size={[preview.width, preview.height, preview.length]}
+            blocks={preview.blocks}
+            name={title}
+          />
+        )}
+        {preview && (
+          <BuildMaterials
+            materials={preview.materials}
+            blocks={preview.blocks}
+          />
+        )}
         <section aria-labelledby="files-title" class="flex flex-col gap-3">
           <h2 id="files-title" class="type-label">
             Files

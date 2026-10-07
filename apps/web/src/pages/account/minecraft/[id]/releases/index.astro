@@ -19,6 +19,11 @@ import {
   type ReleaseEntry,
 } from "../../../../../lib/minecraft/store";
 import { summarizeVersions } from "../../../../../lib/minecraft/format";
+import DownloadChart from "../../../../../components/files/DownloadChart.astro";
+import {
+  dailyDownloads,
+  recentDownloads,
+} from "../../../../../lib/storage/downloads-stats";
 
 export const prerender = false;
 
@@ -35,6 +40,13 @@ const { project, viewer } = found;
 const owner = await projectOwner(db, project);
 const live = isVisible(project, owner ?? null);
 const releases = await releasesOf(db, project, viewer);
+const fileIds = releases.flatMap((entry) =>
+  entry.files.map(({ file }) => file.id),
+);
+const days = await dailyDownloads(db, fileIds, 30);
+const recent = await recentDownloads(db, fileIds, 30);
+const recentFor = (entry: ReleaseEntry) =>
+  entry.files.reduce((sum, { file }) => sum + (recent.get(file.id) ?? 0), 0);
 
 /** Where a release stands, from its main file. */
 function standing(entry: ReleaseEntry): string {
@@ -133,6 +145,9 @@ const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
                     {entry.files.length}{" "}
                     {entry.files.length === 1 ? "file" : "files"}
                   </span>
+                  {recentFor(entry) > 0 && (
+                    <span>{recentFor(entry)} downloads in 30 days</span>
+                  )}
                   <span>
                     {formatPostDate(
                       entry.release.releasedAt ?? entry.release.createdAt,
@@ -145,5 +160,13 @@ const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
         )}
       </div>
     </div>
+    {releases.some((entry) => entry.live) && (
+      <div class={row}>
+        <h2 class={heading}>Downloads</h2>
+        <div class="col-span-4 md:col-span-6 xl:col-span-7">
+          <DownloadChart days={days} label={`Downloads of ${project.name}`} />
+        </div>
+      </div>
+    )}
   </section>
 </BaseLayout>

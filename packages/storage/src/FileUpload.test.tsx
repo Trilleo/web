@@ -85,6 +85,7 @@ describe("FileUpload", () => {
     expect(screen.getByText("Uploaded")).toBeTruthy();
     expect(onUploaded).toHaveBeenCalledWith(
       expect.objectContaining({ status: "published" }),
+      expect.any(File),
     );
   });
 

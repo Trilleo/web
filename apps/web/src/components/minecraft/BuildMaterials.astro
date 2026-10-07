@@ -1,0 +1,84 @@
+---
+/**
+ * What a build is made of: each kind of block with its colour swatch and count,
+ * most first (the first few shown, the rest behind "All"). Rendered on the server,
+ * so it's there without JavaScript; the 3D view's text alternative.
+ */
+import type { McMaterial } from "@trilleo/db";
+import { blockHex, blockLabel } from "@trilleo/mc-files";
+
+interface Props {
+  materials: readonly McMaterial[];
+  blocks: number;
+}
+
+const { materials, blocks } = Astro.props;
+const SHOWN = 10;
+const stacks = (count: number) => {
+  const full = Math.floor(count / 64);
+  const rest = count % 64;
+  if (full === 0) return "";
+  return rest
+    ? `${String(full)} × 64 + ${String(rest)}`
+    : `${String(full)} × 64`;
+};
+---
+
+<section
+  aria-labelledby="materials-title"
+  class="flex flex-col gap-3"
+  data-testid="materials"
+>
+  <h2 id="materials-title" class="type-label flex justify-between">
+    <span>Materials</span>
+    <span class="text-muted">
+      {materials.length} kinds · {blocks.toLocaleString("en")} blocks
+    </span>
+  </h2>
+  {[materials.slice(0, SHOWN), materials.slice(SHOWN)].map((list, part) =>
+    list.length === 0 ? null : part === 0 ? (
+      <ul class="border-b border-hair">
+        {list.map((entry) => (
+          <li class="flex items-center gap-3 border-t border-hair py-2">
+            <span
+              class="size-4 shrink-0 border border-ink"
+              style={`background-color: ${blockHex(entry.block)}`}
+              aria-hidden="true"
+            />
+            <span class="min-w-0 flex-1 truncate">
+              {blockLabel(entry.block)}
+            </span>
+            <span class="type-label text-muted">{stacks(entry.count)}</span>
+            <span class="type-label w-16 text-right">
+              {entry.count.toLocaleString("en")}
+            </span>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <details>
+        <summary class="type-label cursor-pointer py-2 text-muted hover:text-ink">
+          All {materials.length} kinds
+        </summary>
+        <ul class="border-b border-hair">
+          {list.map((entry) => (
+            <li class="flex items-center gap-3 border-t border-hair py-2">
+              <span
+                class="size-4 shrink-0 border border-ink"
+                style={`background-color: ${blockHex(entry.block)}`}
+                aria-hidden="true"
+              />
+              <span class="min-w-0 flex-1 truncate">
+                {blockLabel(entry.block)}
+              </span>
+              <span class="type-label text-muted">{stacks(entry.count)}</span>
+              <span class="type-label w-16 text-right">
+                {entry.count.toLocaleString("en")}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </details>
+    ),
+  )}
+</section>

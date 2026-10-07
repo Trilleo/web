@@ -1324,3 +1324,23 @@ export async function adminCounts(db: Database) {
     reports: reports?.n ?? 0,
   };
 }
+
+/** Each project's release files (every status), for download stats. */
+export async function releaseFileIds(
+  db: Database,
+  projectIds: readonly number[],
+): Promise<Map<number, string[]>> {
+  const out = new Map<number, string[]>();
+  if (projectIds.length === 0) return out;
+  const rows = await db
+    .select({ projectId: mcReleases.projectId, fileId: mcReleaseFiles.fileId })
+    .from(mcReleaseFiles)
+    .innerJoin(mcReleases, eq(mcReleases.id, mcReleaseFiles.releaseId))
+    .where(inArray(mcReleases.projectId, [...projectIds]));
+  for (const row of rows) {
+    const list = out.get(row.projectId) ?? [];
+    list.push(row.fileId);
+    out.set(row.projectId, list);
+  }
+  return out;
+}

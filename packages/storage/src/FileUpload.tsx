@@ -14,8 +14,8 @@ export interface FileUploadProps {
   accept?: string;
   title?: string;
   hint?: string;
-  /** Called once per file the site has accepted. */
-  onUploaded?: (file: StoredFileSummary) => void;
+  /** Called once per file the site has accepted, with the file that was sent. */
+  onUploaded?: (file: StoredFileSummary, source: File) => void;
   /** For tests. */
   uploadOptions?: Partial<UploadOptions>;
   /** How often to ask about a file that's still processing, in ms. */
@@ -116,7 +116,7 @@ export function FileUpload({
       .then(
         (result) => {
           update(key, { stage: "done", result });
-          onUploadedRef.current?.(result);
+          onUploadedRef.current?.(result, file);
         },
         (error: unknown) => {
           if (controller.signal.aborted) {

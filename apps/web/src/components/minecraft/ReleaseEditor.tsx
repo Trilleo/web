@@ -24,6 +24,7 @@ import {
 import { groupByLine } from "../../lib/minecraft/game-versions";
 import type { DependencyDraft, ReleaseDraft } from "../../lib/minecraft/input";
 import { attachUpload } from "./attach";
+import { isPreviewableName, makeBuildPreview } from "./build-preview";
 
 const input =
   "w-full border border-ink bg-paper px-3 py-2.5 text-base text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-[invalid=true]:border-accent";
@@ -33,7 +34,7 @@ const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
 const small =
   "type-label border border-ink px-2.5 py-1.5 text-ink hover:bg-ink hover:text-paper";
 
-type Phase = "idle" | "reading" | "saving" | "uploading";
+type Phase = "idle" | "reading" | "saving" | "uploading" | "previewing";
 
 /** The kinds a file can be, as project types; used to warn about a mismatch. */
 const KIND_LABELS: Record<FileHints["kind"], string> = {
@@ -166,8 +167,9 @@ export function ReleaseEditor(props: ReleaseEditorProps) {
 
     const page = `${props.releaseHrefBase}${String(releaseId)}/`;
     setPhase("uploading");
+    let storedId: string;
     try {
-      await uploadFile(file, {
+      const stored = await uploadFile(file, {
         purpose: "minecraft",
         onStarted: (stored) =>
           attachUpload(
@@ -178,7 +180,7 @@ export function ReleaseEditor(props: ReleaseEditorProps) {
           setProgress(Math.floor((loaded / Math.max(total, 1)) * 100));
         },
       });
-      window.location.assign(`${page}?done=created`);
+      storedId = stored.id;
     } catch (error) {
       // The release exists; its page offers the upload again.
       const message =
@@ -186,7 +188,23 @@ export function ReleaseEditor(props: ReleaseEditorProps) {
       window.location.assign(
         `${page}?error=${encodeURIComponent(`Release saved, but its file didn’t upload: ${message}`)}#files`,
       );
+      return;
     }
+
+    // A build: its 3D preview (and maybe the cover), made from the file here.
+    if (props.previewable && isPreviewableName(file.name)) {
+      setPhase("previewing");
+      const made = await makeBuildPreview(file, storedId, {
+        ...(props.needsCover ? { coverFor: props.projectId } : {}),
+      });
+      if (made.problem) {
+        window.location.assign(
+          `${page}?done=created&error=${encodeURIComponent(`No 3D preview: ${made.problem}`)}#files`,
+        );
+        return;
+      }
+    }
+    window.location.assign(`${page}?done=created`);
   };
 
   // --- Versions ----------------------------------------------------------------
@@ -223,7 +241,8 @@ export function ReleaseEditor(props: ReleaseEditorProps) {
     );
   };
 
-  const busy = phase === "saving" || phase === "uploading";
+  const busy =
+    phase === "saving" || phase === "uploading" || phase === "previewing";
   const fieldError = (key: keyof ReleaseEditorProps["errors"]) => errors[key];
 
   return (
@@ -703,13 +722,15 @@ export function ReleaseEditor(props: ReleaseEditorProps) {
           <button type="submit" className={buttonClasses()} disabled={busy}>
             {phase === "saving"
               ? "Saving…"
-              : phase === "uploading"
-                ? `Uploading… ${String(progress)}%`
-                : isNew
-                  ? file
-                    ? "Create release and upload"
-                    : "Create release"
-                  : "Save release"}
+              : phase === "previewing"
+                ? "Making the 3D preview…"
+                : phase === "uploading"
+                  ? `Uploading… ${String(progress)}%`
+                  : isNew
+                    ? file
+                      ? "Create release and upload"
+                      : "Create release"
+                    : "Save release"}
           </button>
           <a
             href={props.cancelHref}

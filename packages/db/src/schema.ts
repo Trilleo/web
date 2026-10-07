@@ -856,6 +856,32 @@ export const mcProjectReports = pgTable(
   ],
 );
 
+/** One kind of block in a build, for its materials list. */
+export interface McMaterial {
+  block: string;
+  count: number;
+}
+
+/**
+ * A build file's 3D preview (@trilleo/mc-files' compact form, gzipped), made by the
+ * creator's browser when it was uploaded and checked by the server. Kept in the
+ * database (small, and backed up with it); served at /minecraft/preview/<file>.bin
+ * while its file is. Goes with the file.
+ */
+export const mcPreviews = pgTable("mc_previews", {
+  fileId: text("file_id")
+    .primaryKey()
+    .references(() => files.id, { onDelete: "cascade" }),
+  data: bytea("data").notNull(),
+  width: integer("width").notNull(),
+  height: integer("height").notNull(),
+  length: integer("length").notNull(),
+  /** Blocks that aren't air. */
+  blocks: integer("blocks").notNull(),
+  materials: jsonb("materials").$type<McMaterial[]>().notNull(),
+  createdAt: createdAt(),
+});
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
@@ -885,3 +911,4 @@ export type McReleaseFile = typeof mcReleaseFiles.$inferSelect;
 export type McDependency = typeof mcDependencies.$inferSelect;
 export type McDependencyKind = (typeof mcDependencyKind.enumValues)[number];
 export type McProjectReport = typeof mcProjectReports.$inferSelect;
+export type McPreview = typeof mcPreviews.$inferSelect;

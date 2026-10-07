@@ -1,0 +1,127 @@
+---
+/**
+ * A project as a small card for other sites to embed (an <iframe>, snippet on the
+ * project page): cover, name, summary, creator, the newest version, Download. No
+ * site header or footer. It may be framed by any site (CSP frame-ancestors, which
+ * browsers honour over the server's X-Frame-Options); links open in a new tab.
+ * ?theme=light|dark picks a theme, otherwise it follows the visitor's.
+ */
+import "../../../../styles/global.css";
+import { getDb } from "../../../../lib/db";
+import {
+  formatCount,
+  summarizeVersions,
+} from "../../../../lib/minecraft/format";
+import { compareVersions } from "../../../../lib/minecraft/game-versions";
+import { lookupProject } from "../../../../lib/minecraft/page";
+import {
+  projectDownloadPath,
+  projectPath,
+} from "../../../../lib/minecraft/paths";
+import { creditOf, imageUrl } from "../../../../lib/minecraft/public";
+import {
+  ANONYMOUS,
+  galleryOf,
+  pickDownload,
+  projectDownloads,
+  releasesOf,
+} from "../../../../lib/minecraft/store";
+import { typeInfo } from "../../../../lib/minecraft/catalog";
+import { getStorage } from "../../../../lib/storage/config";
+import { SITE_NAME } from "../../../../lib/site";
+
+export const prerender = false;
+
+const db = await getDb();
+// Embeds show what everyone sees, whoever is signed in.
+const lookup = await lookupProject(
+  db,
+  Astro.params,
+  null,
+  "embed/",
+  Astro.url.search,
+);
+if (lookup.kind === "missing")
+  return new Response("Not found", { status: 404 });
+if (lookup.kind === "redirect") return Astro.redirect(lookup.location, 301);
+const { project, owner } = lookup;
+
+const [latest, downloads, gallery, releases] = await Promise.all([
+  pickDownload(db, project.id),
+  projectDownloads(db, project.id),
+  galleryOf(db, project, ANONYMOUS),
+  releasesOf(db, project, ANONYMOUS),
+]);
+const cover = gallery.find((entry) => entry.isCover) ?? gallery[0] ?? undefined;
+const coverUrl = cover
+  ? await imageUrl(
+      getStorage(),
+      cover.file,
+      cover.file.thumbnailKey ?? cover.file.key,
+    )
+  : null;
+const versions = [
+  ...new Set(releases.flatMap((entry) => entry.release.gameVersions)),
+].sort(compareVersions);
+const credit = creditOf(owner);
+const theme = Astro.url.searchParams.get("theme");
+// Absolute links: the embed lives on other sites.
+const page = new URL(projectPath(project), Astro.url).href;
+const download = new URL(projectDownloadPath(project), Astro.url).href;
+
+Astro.response.headers.set("Content-Security-Policy", "frame-ancestors *");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+---
+
+<!doctype html>
+<html
+  lang="en"
+  data-theme={theme === "light" || theme === "dark" ? theme : undefined}
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="noindex" />
+    <title>{project.name} · {SITE_NAME}</title>
+    <base target="_blank" />
+  </head>
+  <body class="m-0 bg-paper text-ink">
+    <article class="flex h-dvh min-h-36 overflow-hidden border border-ink">
+      {coverUrl && (
+        <img
+          src={coverUrl}
+          alt=""
+          class="hidden aspect-square h-full shrink-0 border-r border-ink object-cover min-[420px]:block"
+        />
+      )}
+      <div class="flex min-w-0 flex-1 flex-col gap-1.5 p-4">
+        <p class="type-label truncate text-muted">
+          {typeInfo(project.type).label}
+          {versions.length > 0 && ` · ${summarizeVersions(versions)}`}
+        </p>
+        <h1 class="type-card truncate">
+          <a href={page} rel="noopener" class="link-wipe">
+            {project.name}
+          </a>
+        </h1>
+        <p class="line-clamp-2 text-sm text-muted">{project.summary}</p>
+        <div class="mt-auto flex items-center justify-between gap-3 pt-2">
+          <p class="type-label min-w-0 truncate">
+            @{credit.login} · {formatCount(downloads)}
+            {downloads === 1 ? " download" : " downloads"}
+          </p>
+          {latest && (
+            <a
+              href={download}
+              rel="noopener nofollow"
+              class="type-label inline-flex h-9 shrink-0 items-center bg-ink px-3 text-paper hover:bg-accent hover:text-on-accent"
+            >
+              Download {latest.release.version}
+            </a>
+          )}
+        </div>
+      </div>
+    </article>
+  </body>
+</html>

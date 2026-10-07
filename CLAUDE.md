@@ -39,7 +39,9 @@
   (OBS, local), `./client` `uploadFile()`, `./react` `<FileUpload>`. Source-only.
 - packages/mc-files (@trilleo/mc-files): reading Minecraft files in the browser: NBT
   (Java and Bedrock), version ranges/pack formats/data versions, and `readHints`
-  (what a mod, plugin, pack, world or schematic says about itself). Source-only.
+  (what a mod, plugin, pack, world or schematic says about itself); builds' blocks
+  (`readVoxels`), the compact preview format, block colours/shapes and the mesher
+  for the 3D view. `./testing` writes NBT for tests. Source-only.
 - Blog content: Markdown posts in Postgres, written in the admin editor (/admin/posts).
 - Workspace packages use the `@trilleo/*` scope.
 
@@ -420,6 +422,19 @@
 - Game versions: Mojang's version manifest (server-side, cached 6 hours), with
   FALLBACK_JAVA_VERSIONS in game-versions.ts when it can't be read; add new releases
   there now and then. MINECRAFT_VERSION_MANIFEST=off (e2e) never fetches.
+- Builds' 3D view: after a .litematic/.schem/.nbt/.mcstructure uploads, the
+  creator's browser reads its blocks, sends a compact preview (POST
+  /api/minecraft/preview, ≤ MAX_PREVIEW_BYTES) that the server decodes before keeping
+  it in mc_previews (with the materials it counted), and, for a project without
+  pictures, adds an isometric cover to the gallery (components/minecraft/
+  build-preview.ts). /minecraft/preview/<file>.bin serves it while its file is public.
+  BuildViewer loads the decoder and voxel-renderer.ts (hand-written WebGL2, no
+  three.js) only on "View in 3D"; BuildMaterials is the server-rendered text version.
+  Colours are our own (blocks.ts), never Mojang's textures.
+- Public JSON API: /api/minecraft/v1/projects[/<slug>[/latest]] (src/lib/minecraft/
+  api.ts), read-only, CORS *. Embeds: …/<slug>/embed/ sends `frame-ancestors *`,
+  which browsers obey over Caddy's X-Frame-Options. Creators see 30-day download
+  charts on their dashboard and each project's releases page.
 - Mojang's usage guidelines: pages about the platform carry MOJANG_NOTICE ("Not an
   official Minecraft product…"); never use Mojang's textures or logo.
 

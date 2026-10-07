@@ -31,6 +31,7 @@ import {
 } from "../../../../../lib/minecraft/creator";
 import { actionPath, releasePath } from "../../../../../lib/minecraft/paths";
 import {
+  galleryOf,
   getRelease,
   isVisible,
   projectOwner,
@@ -111,6 +112,11 @@ if (Astro.request.method === "POST") {
   );
 }
 
+// A build without pictures gets an isometric cover from its first preview.
+const needsCover =
+  project.type === "build" &&
+  (await galleryOf(db, project, viewer)).length === 0;
+props = { ...props, needsCover };
 const owner = await projectOwner(db, project);
 const live = isVisible(project, owner ?? null);
 const storage = getStorage();
@@ -264,6 +270,8 @@ const small =
                 extraExtensions={[...RELEASE_EXTENSIONS]}
                 hasMain={files.some((file) => file.primary)}
                 extraRoom={MC_LIMITS.extraFiles - extras}
+                previewable={project.type === "build"}
+                needsCover={needsCover}
               />
             ) : (
               <p class="text-muted">

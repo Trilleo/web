@@ -6,6 +6,7 @@ import {
   type McProject,
   type McRelease,
 } from "@trilleo/db";
+import { encodePreview, type VoxelModel } from "@trilleo/mc-files";
 import { LocalDriver } from "@trilleo/storage/server";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -22,7 +23,9 @@ import {
 } from "../storage/service";
 import { setTrust } from "../storage/standing";
 import { getFile } from "../storage/store";
+import { answerApi } from "./api";
 import type { ProjectInput, ReleaseInput } from "./input";
+import { previewBytes, previewFor, storePreview } from "./previews";
 import {
   deleteProject,
   deleteRelease,
@@ -746,6 +749,146 @@ describe("admin", () => {
       hidden: 1,
       featured: 1,
       reports: 0,
+    });
+  });
+});
+
+describe("build previews", () => {
+  const model: VoxelModel = {
+    size: [2, 1, 1],
+    palette: ["air", "stone", "oak_planks"],
+    data: Uint16Array.from([1, 2]),
+  };
+
+  async function buildWithFile(requester: Requester) {
+    const build = await newProject(requester, {
+      type: "build",
+      slug: "hut",
+      name: "Hut",
+    });
+    const v1 = await newRelease(requester, build, { loaders: [] });
+    const file = await releaseFile(requester, build, v1, "hut.schem");
+    return { build, file };
+  }
+
+  it("keeps a valid preview once, with the server's own block count", async () => {
+    const { build, file } = await buildWithFile(alice);
+    const bytes = await encodePreview(model);
+    const saved = await storePreview(handle.db, viewer(alice), file.id, bytes);
+    expect(saved).toMatchObject({
+      ok: true,
+      value: {
+        width: 2,
+        height: 1,
+        length: 1,
+        blocks: 2,
+        materials: [
+          { block: "oak_planks", count: 1 },
+          { block: "stone", count: 1 },
+        ],
+      },
+    });
+    expect(
+      await storePreview(handle.db, viewer(alice), file.id, bytes),
+    ).toMatchObject({ ok: false, status: 409 });
+
+    // Newcomers' files wait for review: only the owner sees the preview so far.
+    expect(await previewBytes(handle.db, file.id, ANONYMOUS)).toBeNull();
+    expect(await previewBytes(handle.db, file.id, viewer(alice))).toMatchObject(
+      {
+        isPublic: false,
+      },
+    );
+    expect(
+      await previewFor(handle.db, await fresh(build.id), ANONYMOUS),
+    ).toBeNull();
+    expect(
+      await previewFor(handle.db, await fresh(build.id), viewer(alice)),
+    ).toMatchObject({ version: "1.0.0", blocks: 2 });
+  });
+
+  it("refuses others, junk, and files that aren't builds", async () => {
+    const { file } = await buildWithFile(alice);
+    const bytes = await encodePreview(model);
+    expect(
+      await storePreview(handle.db, viewer(bob), file.id, bytes),
+    ).toMatchObject({ ok: false, status: 404 });
+    expect(
+      await storePreview(
+        handle.db,
+        viewer(alice),
+        file.id,
+        new Uint8Array([1, 2, 3]),
+      ),
+    ).toMatchObject({ ok: false, status: 400 });
+
+    const mod = await newProject(alice, { slug: "a-mod" });
+    const jar = await releaseFile(alice, mod, await newRelease(alice, mod));
+    expect(
+      await storePreview(handle.db, viewer(alice), jar.id, bytes),
+    ).toMatchObject({ ok: false, status: 400 });
+  });
+});
+
+describe("the JSON API", () => {
+  it("lists, shows and picks, for anyone", async () => {
+    const mod = await newProject(admin);
+    const v1 = await newRelease(admin, mod);
+    await releaseFile(admin, mod, v1);
+    const url = (path: string) => new URL(`https://x/api/minecraft/v1/${path}`);
+
+    const list = await answerApi(
+      handle.db,
+      "projects",
+      url("projects?type=mods"),
+    );
+    expect(list).toMatchObject({
+      status: 200,
+      body: { total: 1, projects: [{ slug: "better-redstone", type: "mods" }] },
+    });
+    expect(
+      await answerApi(handle.db, "projects", url("projects?type=nope")),
+    ).toMatchObject({ status: 400 });
+
+    const one = await answerApi(
+      handle.db,
+      "projects/better-redstone",
+      url("projects/better-redstone"),
+    );
+    expect(one).toMatchObject({
+      status: 200,
+      body: {
+        name: "Better Redstone",
+        license: { id: "MIT" },
+        author: { login: "owner" },
+        releases: [
+          {
+            version: "1.0.0",
+            files: [
+              {
+                primary: true,
+                url: expect.stringMatching(/\/d\/[a-z0-9]{12}$/) as string,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    expect(
+      await answerApi(
+        handle.db,
+        "projects/better-redstone/latest",
+        url("projects/better-redstone/latest?loader=forge"),
+      ),
+    ).toMatchObject({ status: 404 });
+
+    // Drafts don't exist to the API.
+    await newProject(alice, { slug: "secret", state: "draft" });
+    expect(
+      await answerApi(handle.db, "projects/secret", url("projects/secret")),
+    ).toMatchObject({ status: 404 });
+    expect(await answerApi(handle.db, "users", url("users"))).toMatchObject({
+      status: 404,
     });
   });
 });

@@ -7,6 +7,7 @@ import { FileUpload } from "@trilleo/storage/react";
 import { Choice } from "@trilleo/ui";
 import { useMemo, useState } from "react";
 import { attachUpload } from "./attach";
+import { isPreviewableName, makeBuildPreview } from "./build-preview";
 
 export interface ReleaseFileUploadProps {
   projectId: number;
@@ -19,6 +20,10 @@ export interface ReleaseFileUploadProps {
   hasMain: boolean;
   /** Extra files it still has room for. */
   extraRoom: number;
+  /** A build: its files get a 3D preview, made here after upload. */
+  previewable: boolean;
+  /** The gallery is empty: the first preview also makes an isometric cover. */
+  needsCover: boolean;
 }
 
 type Role = "main" | "extra";
@@ -30,7 +35,11 @@ export default function ReleaseFileUpload({
   extraExtensions,
   hasMain,
   extraRoom,
+  previewable,
+  needsCover,
 }: ReleaseFileUploadProps) {
+  const [previewNote, setPreviewNote] = useState<string | null>(null);
+  const [coverMade, setCoverMade] = useState(!needsCover);
   const [role, setRole] = useState<Role>(hasMain ? "extra" : "main");
   const [uploaded, setUploaded] = useState(0);
   const extensions = role === "main" ? mainExtensions : extraExtensions;
@@ -64,10 +73,23 @@ export default function ReleaseFileUpload({
         title={role === "main" ? "Drop the main file" : "Drop extra files"}
         hint={`${extensions.map((ext) => `.${ext}`).join(", ")}.${role === "main" && hasMain ? " The current main file becomes an extra." : ""}`}
         uploadOptions={uploadOptions}
-        onUploaded={() => {
+        onUploaded={(stored, source) => {
           setUploaded((n) => n + 1);
+          if (!previewable || !isPreviewableName(source.name)) return;
+          setPreviewNote(`Making the 3D preview of ${source.name}…`);
+          void makeBuildPreview(source, stored.id, {
+            ...(coverMade ? {} : { coverFor: projectId }),
+          }).then((made) => {
+            if (made.cover) setCoverMade(true);
+            setPreviewNote(
+              made.problem
+                ? `No 3D preview for ${source.name}: ${made.problem}`
+                : `3D preview of ${source.name} saved${made.cover ? ", with a cover picture" : ""}.`,
+            );
+          });
         }}
       />
+      {previewNote && <p role="status">{previewNote}</p>}
       {uploaded > 0 && (
         <p role="status">
           <button

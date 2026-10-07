@@ -1,4 +1,4 @@
-/** Test helpers: write NBT, so tests can build worlds and schematics by hand. */
+/** Test helpers (not for app code): write NBT, so tests can build worlds and schematics by hand. */
 import { gzipSync } from "node:zlib";
 
 export type NbtInput =
@@ -9,6 +9,8 @@ export type NbtInput =
   | { string: string }
   | { list: NbtInput[]; of: number }
   | { ints: number[] }
+  | { bytes: number[] }
+  | { longs: bigint[] }
   | { compound: Record<string, NbtInput> };
 
 const TYPES = {
@@ -20,6 +22,8 @@ const TYPES = {
   list: 9,
   compound: 10,
   ints: 11,
+  bytes: 7,
+  longs: 12,
 } as const;
 
 function typeOf(value: NbtInput): number {
@@ -61,7 +65,17 @@ class Writer {
       view.setBigInt64(0, value.long, this.little);
       this.bytes.push(...new Uint8Array(view.buffer));
     } else if ("string" in value) this.string(value.string);
-    else if ("ints" in value) {
+    else if ("bytes" in value) {
+      this.i32(value.bytes.length);
+      for (const n of value.bytes) this.num(n, 1);
+    } else if ("longs" in value) {
+      this.i32(value.longs.length);
+      for (const n of value.longs) {
+        const view = new DataView(new ArrayBuffer(8));
+        view.setBigInt64(0, n, this.little);
+        this.bytes.push(...new Uint8Array(view.buffer));
+      }
+    } else if ("ints" in value) {
       this.i32(value.ints.length);
       for (const n of value.ints) this.i32(n);
     } else if ("list" in value) {

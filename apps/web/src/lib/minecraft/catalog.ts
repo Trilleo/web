@@ -151,6 +151,14 @@ export const RELEASE_EXTENSIONS: readonly string[] = [
   ...new Set(PROJECT_TYPES.flatMap((info) => info.extensions)),
 ].sort();
 
+/** Build files the browser can read blocks from, for the 3D preview. */
+export const PREVIEWABLE_EXTENSIONS: readonly string[] = [
+  "litematic",
+  "schem",
+  "nbt",
+  "mcstructure",
+];
+
 /** Programs people run: every upload waits for the admin. */
 export const ALWAYS_REVIEWED_EXTENSIONS: readonly string[] = ["jar"];
 
