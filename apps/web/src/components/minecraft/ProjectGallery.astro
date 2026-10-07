@@ -1,0 +1,123 @@
+---
+/**
+ * A project's pictures: the current one large (16:9), the others as thumbnails
+ * below. Without JavaScript every thumbnail links to its full image; with it, a
+ * thumbnail shows its picture in the large frame (and arrow keys move along).
+ */
+interface Image {
+  id: number;
+  caption: string;
+  src: string | null;
+  thumb: string | null;
+  /** Shown to its owner before review. */
+  published: boolean;
+}
+
+interface Props {
+  images: readonly Image[];
+  name: string;
+}
+
+const shown = Astro.props.images.filter((image) => image.src !== null);
+const first = shown[0];
+const { name } = Astro.props;
+---
+
+{first && (
+  <section
+    aria-label={`Pictures of ${name}`}
+    class="flex flex-col gap-3"
+    data-gallery
+  >
+    <figure class="flex flex-col gap-2">
+      <div class="relative aspect-video overflow-hidden border border-ink bg-chip">
+        <img
+          src={first.src}
+          alt={first.caption || `${name}, picture 1`}
+          class="size-full object-contain"
+          data-gallery-main
+        />
+        {!first.published && (
+          <span
+            class="type-label absolute top-0 left-0 bg-ink px-2 py-1 text-paper"
+            data-gallery-pending
+          >
+            Waiting for review
+          </span>
+        )}
+      </div>
+      <figcaption class="type-label min-h-4 text-muted" data-gallery-caption>
+        {first.caption}
+      </figcaption>
+    </figure>
+    {shown.length > 1 && (
+      <ul class="flex gap-2 overflow-x-auto pb-1" aria-label="All pictures">
+        {shown.map((image, index) => (
+          <li class="shrink-0">
+            <a
+              href={image.src}
+              class="block w-24 border border-hair aria-[current=true]:border-ink aria-[current=true]:outline-2 aria-[current=true]:outline-accent md:w-28"
+              aria-current={index === 0 ? "true" : undefined}
+              aria-label={image.caption || `Picture ${String(index + 1)}`}
+              data-gallery-thumb
+              data-src={image.src}
+              data-caption={image.caption}
+              data-alt={
+                image.caption || `${name}, picture ${String(index + 1)}`
+              }
+              data-pending={image.published ? undefined : "true"}
+            >
+              <img
+                src={image.thumb ?? image.src}
+                alt=""
+                loading="lazy"
+                class="aspect-video w-full object-cover"
+              />
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+)}
+
+<script>
+  for (const gallery of document.querySelectorAll<HTMLElement>(
+    "[data-gallery]",
+  )) {
+    const main = gallery.querySelector<HTMLImageElement>("[data-gallery-main]");
+    const caption = gallery.querySelector<HTMLElement>(
+      "[data-gallery-caption]",
+    );
+    const thumbs = [
+      ...gallery.querySelectorAll<HTMLAnchorElement>("[data-gallery-thumb]"),
+    ];
+    const show = (index: number) => {
+      const thumb = thumbs[index];
+      if (!main || !thumb) return;
+      main.src = thumb.dataset.src ?? main.src;
+      main.alt = thumb.dataset.alt ?? "";
+      if (caption) caption.textContent = thumb.dataset.caption ?? "";
+      gallery
+        .querySelector<HTMLElement>("[data-gallery-pending]")
+        ?.toggleAttribute("hidden", thumb.dataset.pending !== "true");
+      for (const [i, other] of thumbs.entries())
+        other.setAttribute("aria-current", i === index ? "true" : "false");
+    };
+    for (const [index, thumb] of thumbs.entries()) {
+      thumb.addEventListener("click", (event) => {
+        event.preventDefault();
+        show(index);
+      });
+      thumb.addEventListener("keydown", (event) => {
+        const step =
+          event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+        if (!step) return;
+        event.preventDefault();
+        const next = (index + step + thumbs.length) % thumbs.length;
+        show(next);
+        thumbs[next]?.focus();
+      });
+    }
+  }
+</script>

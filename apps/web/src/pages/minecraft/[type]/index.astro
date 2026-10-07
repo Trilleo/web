@@ -1,0 +1,71 @@
+---
+/** One kind of project (/minecraft/mods/, …), with filters and search. */
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import MinecraftHeader from "../../../components/minecraft/MinecraftHeader.astro";
+import ProjectBrowser from "../../../components/minecraft/ProjectBrowser.astro";
+import { getDb } from "../../../lib/db";
+import { typeFromSegment } from "../../../lib/minecraft/catalog";
+import { MINECRAFT_PATH, typePath } from "../../../lib/minecraft/paths";
+import {
+  SECTION_CARD,
+  SECTION_LABEL,
+  countLabel,
+  loadListing,
+} from "../../../lib/minecraft/public";
+import { breadcrumbJsonLd, ogImagePath } from "../../../lib/seo";
+
+export const prerender = false;
+
+const info = typeFromSegment(Astro.params.type ?? "");
+if (!info) return Astro.rewrite("/404");
+
+const listing = await loadListing(await getDb(), Astro.url, info.type);
+const path = typePath(info.type);
+---
+
+<BaseLayout
+  title={`${info.plural} · Minecraft`}
+  description={info.blurb}
+  noindex={listing.noindex}
+  image={ogImagePath("minecraft", SECTION_CARD)}
+  jsonLd={[
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Minecraft", path: MINECRAFT_PATH },
+      { name: info.plural, path },
+    ]),
+  ]}
+>
+  <section
+    aria-labelledby="page-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <MinecraftHeader
+      crumbs={[
+        { label: SECTION_LABEL, href: MINECRAFT_PATH },
+        { label: info.plural },
+      ]}
+      title={info.plural}
+      fit={info.titleFit}
+      note={countLabel(listing.total, info.type)}
+    />
+
+    <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <p class="type-lead col-span-4 md:col-span-6 md:col-start-3 xl:col-start-3">
+        {info.blurb}
+      </p>
+    </div>
+
+    <div class="mt-10 md:mt-12">
+      <ProjectBrowser
+        path={path}
+        type={info.type}
+        query={listing.query}
+        cards={listing.cards}
+        total={listing.total}
+        versions={listing.versions}
+        tags={listing.tags}
+      />
+    </div>
+  </section>
+</BaseLayout>

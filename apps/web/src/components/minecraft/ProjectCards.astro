@@ -1,0 +1,126 @@
+---
+/**
+ * Projects as cards: the cover (16:9), a mono line of type, versions and loaders,
+ * the name (whose link covers the card), the summary, and who made it. A grid of
+ * ink cells like the tools list: one column on phones, two on iPad, three on
+ * desktop (`columns` 4 for wide rows on the landing page).
+ */
+import { getStorage } from "../../lib/storage/config";
+import { loaderLabel, typeInfo } from "../../lib/minecraft/catalog";
+import { formatCount, summarizeVersions } from "../../lib/minecraft/format";
+import { projectPath } from "../../lib/minecraft/paths";
+import type { ProjectCard } from "../../lib/minecraft/store";
+
+interface Props {
+  cards: readonly ProjectCard[];
+  /** 3 under a section's h2; 2 straight under the page's h1. */
+  headingLevel?: 2 | 3;
+  columns?: 3 | 4;
+  /** Hide the type in the mono line (on a type's own listing). */
+  hideType?: boolean;
+}
+
+const { cards, headingLevel = 3, columns = 3, hideType = false } = Astro.props;
+const Heading = headingLevel === 2 ? "h2" : "h3";
+const storage = getStorage();
+---
+
+<ul
+  class:list={[
+    "grid border-t border-l border-ink md:grid-cols-2",
+    columns === 4 ? "xl:grid-cols-4" : "xl:grid-cols-3",
+  ]}
+  data-testid="project-cards"
+>
+  {cards.map((card) => {
+    const cover =
+      card.cover && storage
+        ? storage.publicUrl(card.cover.thumbnailKey ?? card.cover.key)
+        : null;
+    const line = [
+      hideType ? null : typeInfo(card.type).label,
+      card.gameVersions.length > 0
+        ? summarizeVersions(card.gameVersions)
+        : null,
+      card.loaders.length > 0 ? card.loaders.map(loaderLabel).join(", ") : null,
+    ].filter(Boolean);
+    return (
+      <li
+        class="project group relative flex flex-col border-r border-b border-ink"
+        data-reveal
+      >
+        <div class="relative aspect-video overflow-hidden border-b border-ink bg-chip">
+          {cover ? (
+            <img
+              src={cover}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              class="size-full object-cover transition-transform duration-(--tr-dur-slow) ease-swiss group-hover:scale-[1.03]"
+            />
+          ) : (
+            <span
+              aria-hidden="true"
+              class="type-title absolute inset-0 flex items-center justify-center text-muted"
+            >
+              {typeInfo(card.type).code}
+            </span>
+          )}
+          {card.featuredAt && (
+            <span class="type-label absolute top-0 left-0 bg-accent px-2 py-1 text-on-accent">
+              Featured
+            </span>
+          )}
+          {card.state === "archived" && (
+            <span class="type-label absolute top-0 right-0 bg-ink px-2 py-1 text-paper">
+              Archived
+            </span>
+          )}
+        </div>
+        <div class="flex flex-1 flex-col gap-2 p-4 md:p-5">
+          {line.length > 0 && (
+            <p class="type-label truncate text-muted">{line.join(" · ")}</p>
+          )}
+          <Heading class="type-card">
+            <a href={projectPath(card)} class="project-link">
+              <span class="link-wipe">{card.name}</span>
+            </a>
+          </Heading>
+          <p class="line-clamp-2 text-[15px] leading-normal text-muted">
+            {card.summary}
+          </p>
+          <p class="type-label mt-auto flex justify-between gap-4 pt-2">
+            <span class="truncate">@{card.ownerLogin}</span>
+            <span class="shrink-0 text-muted">
+              {formatCount(card.downloads)}{" "}
+              {card.downloads === 1 ? "download" : "downloads"}
+            </span>
+          </p>
+        </div>
+      </li>
+    );
+  })}
+</ul>
+
+<style>
+  /* One link per card: the name's link covers it, like the tools list. */
+  .project {
+    transition: background-color var(--tr-dur-base) var(--tr-ease);
+  }
+  .project:hover,
+  .project:focus-within {
+    background-color: var(--tr-fig);
+  }
+  .project-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+  .project-link:focus-visible {
+    outline: none;
+  }
+  .project:has(.project-link:focus-visible) {
+    outline: 2px solid var(--tr-accent);
+    outline-offset: -2px;
+  }
+</style>

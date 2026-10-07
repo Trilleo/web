@@ -1,0 +1,75 @@
+---
+/**
+ * Releases as rows: version (to its page), channel, Minecraft versions, loaders,
+ * date, and its main file's download. Used on the project page and its releases.
+ */
+import type { McProject } from "@trilleo/db";
+import { formatBytes } from "@trilleo/tool-kit/files";
+import { formatPostDate } from "../../lib/listings";
+import { channelLabel, loaderLabel } from "../../lib/minecraft/catalog";
+import { summarizeVersions } from "../../lib/minecraft/format";
+import { releasePath } from "../../lib/minecraft/paths";
+import type { ReleaseEntry } from "../../lib/minecraft/store";
+import { downloadPath } from "../../lib/storage/service";
+
+interface Props {
+  project: Pick<McProject, "type" | "slug">;
+  entries: readonly ReleaseEntry[];
+}
+
+const { project, entries } = Astro.props;
+const small =
+  "type-label inline-flex min-h-9 items-center border border-ink px-3 text-ink hover:bg-ink hover:text-paper";
+---
+
+<ol class="border-b border-ink" data-testid="release-rows">
+  {entries.map((entry) => {
+    const main = entry.files.find((file) => file.primary)?.file;
+    return (
+      <li class="grid gap-x-6 gap-y-2 border-t border-ink py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <div class="flex min-w-0 flex-col gap-1">
+          <p class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <a
+              href={releasePath(project, entry.release.version)}
+              class="group type-row"
+            >
+              <span class="link-wipe">{entry.release.version}</span>
+            </a>
+            {entry.release.channel !== "release" && (
+              <span class="type-label border border-ink px-1.5 py-0.5">
+                {channelLabel(entry.release.channel)}
+              </span>
+            )}
+            {entry.release.title && (
+              <span class="text-muted">{entry.release.title}</span>
+            )}
+          </p>
+          <p class="type-label flex flex-wrap gap-x-4 gap-y-1 text-muted">
+            <span>{summarizeVersions(entry.release.gameVersions)}</span>
+            {entry.release.loaders.length > 0 && (
+              <span>{entry.release.loaders.map(loaderLabel).join(", ")}</span>
+            )}
+            <span>
+              {formatPostDate(
+                entry.release.releasedAt ?? entry.release.createdAt,
+              )}
+            </span>
+            {main && <span>{formatBytes(main.size)}</span>}
+          </p>
+        </div>
+        {entry.live && main ? (
+          <a
+            href={downloadPath(main.id)}
+            rel="nofollow"
+            class={small}
+            aria-label={`Download ${entry.release.version}`}
+          >
+            Download
+          </a>
+        ) : (
+          <span class="type-label text-muted">Not out yet</span>
+        )}
+      </li>
+    );
+  })}
+</ol>

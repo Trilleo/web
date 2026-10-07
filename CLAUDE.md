@@ -397,6 +397,16 @@
   …/<id>/gallery/, …/<id>/releases/[<release>|new]/, buttons POST to …/<id>/action.
   Uploads attach to their release or gallery as they start (`uploadFile`'s
   `onStarted` → /api/minecraft/attach), so no upload is left belonging to nothing.
+- Public pages: /minecraft/ (front page), /minecraft/browse/ and /minecraft/<type>/
+  (listings: GET filters, noindex when filtered), /minecraft/<type>/<slug>/ (project),
+  …/releases/[<version>/], …/download/ (newest stable file that fits ?version=,
+  ?loader=, ?channel= → /d/<id>), /minecraft/creators/<login>/ (noindex), /minecraft/
+  report (POST). `lookupProject` (src/lib/minecraft/page.ts) handles visibility and
+  redirects (old slug or wrong type → 301). The section is "(05) Minecraft" (04 is
+  About): a home page section and a footer link, not in the header. Also in
+  /sitemap-minecraft.xml, /sitemap/, llms.txt and /og/minecraft[/<slug>].png.
+- Long display titles use DisplayTitle's `fit` (the word's measured width in em,
+  plus room): type-display-fit shrinks it to fit between the gutters.
 - ReleaseEditor reads a dropped main file with @trilleo/mc-files to fill in the form;
   everything it finds is a suggestion the creator checks.
 - Descriptions and changelogs: src/lib/minecraft/render.ts (comment Markdown plus

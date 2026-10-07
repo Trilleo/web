@@ -13,6 +13,8 @@ import { postHref } from "../../lib/posts";
 import { displayName } from "../../lib/profile/profile";
 import { findIsland, islandHref } from "../../lib/games/skygrid/leaderboard";
 import { findProfile } from "../../lib/profile/store";
+import { creatorPath } from "../../lib/minecraft/paths";
+import { listProjects } from "../../lib/minecraft/store";
 
 export const prerender = false;
 
@@ -32,6 +34,10 @@ const island = await findIsland(
   viewer?.id ?? null,
 );
 const own = viewer?.id === user.id;
+const { total: creations } = await listProjects(await getDb(), {
+  ownerId: user.id,
+  perPage: 1,
+});
 const name = displayName(user);
 const facts = [
   user.pronouns,
@@ -77,6 +83,11 @@ const body = "col-span-4 md:col-span-6 xl:col-span-7";
           {island && (
             <a href={islandHref(user.githubLogin)} class="text-ink underline">
               Skygrid island
+            </a>
+          )}
+          {creations > 0 && (
+            <a href={creatorPath(user.githubLogin)} class="text-ink underline">
+              Minecraft projects ({creations})
             </a>
           )}
         </p>

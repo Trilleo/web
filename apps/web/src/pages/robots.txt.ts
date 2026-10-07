@@ -1,8 +1,12 @@
 import type { APIRoute } from "astro";
 import { PRIVATE_PATHS, SITE_URL } from "../lib/site";
 
-/** The build's sitemap (static pages) and the server's (posts and tags). */
-const SITEMAPS = ["sitemap-index.xml", "sitemap-posts.xml"];
+/** The build's sitemap (static pages) and the server's (posts and tags, Minecraft). */
+const SITEMAPS = [
+  "sitemap-index.xml",
+  "sitemap-posts.xml",
+  "sitemap-minecraft.xml",
+];
 
 export const GET: APIRoute = ({ site }) => {
   const sitemaps = SITEMAPS.map(

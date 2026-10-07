@@ -1,0 +1,237 @@
+---
+/**
+ * A listing with its filters: search, Minecraft version, loader, edition, tag and
+ * order. A plain GET form (the page renders the results); with JavaScript, changing
+ * a select submits it straight away. Pages of PER_PAGE below.
+ */
+import type { McProjectType } from "@trilleo/db";
+import { buttonClasses } from "@trilleo/ui";
+import ProjectCards from "./ProjectCards.astro";
+import { loaderLabel, typeInfo } from "../../lib/minecraft/catalog";
+import {
+  PER_PAGE,
+  countLabel,
+  listingHref,
+  type ListingQuery,
+} from "../../lib/minecraft/public";
+import {
+  SORT_LABELS,
+  SORTS,
+  type ProjectCard,
+} from "../../lib/minecraft/store";
+
+interface Props {
+  path: string;
+  type?: McProjectType | undefined;
+  query: ListingQuery;
+  cards: readonly ProjectCard[];
+  total: number;
+  versions: readonly string[];
+  tags: readonly { tag: string; count: number }[];
+}
+
+const { path, type, query, cards, total, versions, tags } = Astro.props;
+const loaders = type
+  ? typeInfo(type).loaders
+  : ["fabric", "forge", "neoforge", "quilt", "paper", "spigot", "velocity"];
+const pages = Math.max(1, Math.ceil(total / PER_PAGE));
+const select =
+  "type-label h-11 w-full border border-ink bg-paper px-3 text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+const filtered = Boolean(
+  query.q || query.version || query.loader || query.edition || query.tag,
+);
+---
+
+<form
+  method="get"
+  action={path}
+  role="search"
+  aria-label={
+    type ? `Filter ${typeInfo(type).plural.toLowerCase()}` : "Filter projects"
+  }
+  class="grid gap-3 md:grid-cols-4 xl:grid-cols-12"
+  data-listing-filters
+>
+  <div class="flex flex-col gap-1.5 md:col-span-4 xl:col-span-4">
+    <label for="listing-q" class="type-label text-muted">
+      Search
+    </label>
+    <input
+      id="listing-q"
+      type="search"
+      name="q"
+      value={query.q}
+      placeholder={
+        type
+          ? `Search ${typeInfo(type).plural.toLowerCase()}`
+          : "Search everything"
+      }
+      class="type-row h-11 w-full border-b border-ink bg-transparent placeholder:text-muted focus:outline-none focus-visible:border-accent"
+    />
+  </div>
+  <div class="flex flex-col gap-1.5 xl:col-span-2">
+    <label for="listing-version" class="type-label text-muted">
+      Version
+    </label>
+    <select id="listing-version" name="version" class={select} data-auto-submit>
+      <option value="">Any</option>
+      {versions.map((id) => (
+        <option value={id} selected={query.version === id}>
+          {id}
+        </option>
+      ))}
+    </select>
+  </div>
+  {loaders.length > 0 && (
+    <div class="flex flex-col gap-1.5 xl:col-span-2">
+      <label for="listing-loader" class="type-label text-muted">
+        {type === "plugin" ? "Platform" : "Loader"}
+      </label>
+      <select id="listing-loader" name="loader" class={select} data-auto-submit>
+        <option value="">Any</option>
+        {loaders.map((loader) => (
+          <option value={loader} selected={query.loader === loader}>
+            {loaderLabel(loader)}
+          </option>
+        ))}
+      </select>
+    </div>
+  )}
+  <div class="flex flex-col gap-1.5 xl:col-span-2">
+    <label for="listing-edition" class="type-label text-muted">
+      Edition
+    </label>
+    <select id="listing-edition" name="edition" class={select} data-auto-submit>
+      <option value="">Any</option>
+      <option value="java" selected={query.edition === "java"}>
+        Java
+      </option>
+      <option value="bedrock" selected={query.edition === "bedrock"}>
+        Bedrock
+      </option>
+    </select>
+  </div>
+  <div class="flex flex-col gap-1.5 xl:col-span-2">
+    <label for="listing-sort" class="type-label text-muted">
+      Order
+    </label>
+    <select id="listing-sort" name="sort" class={select} data-auto-submit>
+      {SORTS.filter((sort) => sort !== "relevance" || query.q).map((sort) => (
+        <option
+          value={sort === "updated" && !query.q ? "" : sort}
+          selected={
+            (query.sort || (query.q ? "relevance" : "updated")) === sort
+          }
+        >
+          {SORT_LABELS[sort]}
+        </option>
+      ))}
+    </select>
+  </div>
+  {query.tag && <input type="hidden" name="tag" value={query.tag} />}
+  <div
+    class="flex items-end gap-3 md:col-span-4 xl:col-span-12"
+    data-filter-submit
+  >
+    <button type="submit" class={buttonClasses()}>
+      Show
+    </button>
+    {filtered && (
+      <a href={path} class={buttonClasses({ variant: "secondary" })}>
+        Clear
+      </a>
+    )}
+  </div>
+</form>
+
+{tags.length > 0 && (
+  <nav aria-label="Tags" class="mt-6">
+    <ul class="type-label flex flex-wrap gap-2">
+      {tags.map((entry) => {
+        const active = query.tag === entry.tag;
+        return (
+          <li>
+            <a
+              href={listingHref(path, query, { tag: active ? "" : entry.tag })}
+              aria-current={active ? "true" : undefined}
+              class:list={[
+                "inline-flex min-h-8 items-center border px-2.5",
+                active
+                  ? "border-ink bg-ink text-paper"
+                  : "border-hair text-ink hover:border-ink",
+              ]}
+            >
+              #{entry.tag}
+              <span class:list={["ml-1.5", active ? "" : "text-muted"]}>
+                {entry.count}
+              </span>
+            </a>
+          </li>
+        );
+      })}
+    </ul>
+  </nav>
+)}
+
+<p class="type-label mt-8 mb-4 text-muted" aria-live="polite">
+  {countLabel(total, type)}
+  {filtered ? " match" : ""}
+  {pages > 1 && ` · page ${String(query.page)} of ${String(pages)}`}
+</p>
+
+{cards.length > 0 ? (
+  <ProjectCards cards={cards} headingLevel={2} hideType={type !== undefined} />
+) : (
+  <p class="type-lead border-t border-ink pt-6 text-muted">
+    {filtered
+      ? "Nothing matches. Try fewer filters."
+      : "Nothing here yet. Be the first to share one."}
+  </p>
+)}
+
+{pages > 1 && (
+  <nav
+    aria-label="Pages"
+    class="type-label mt-8 flex items-center justify-between"
+  >
+    {query.page > 1 ? (
+      <a
+        href={listingHref(path, query, { page: query.page - 1 })}
+        rel="prev"
+        class="group"
+      >
+        <span class="link-wipe">Previous page</span>
+      </a>
+    ) : (
+      <span />
+    )}
+    <span class="text-muted">
+      {query.page} / {pages}
+    </span>
+    {query.page < pages ? (
+      <a
+        href={listingHref(path, query, { page: query.page + 1 })}
+        rel="next"
+        class="group"
+      >
+        <span class="link-wipe">Next page</span>
+      </a>
+    ) : (
+      <span />
+    )}
+  </nav>
+)}
+
+<script>
+  // With JavaScript, a changed select shows its results at once.
+  const form = document.querySelector<HTMLFormElement>(
+    "[data-listing-filters]",
+  );
+  for (const select of form?.querySelectorAll<HTMLSelectElement>(
+    "[data-auto-submit]",
+  ) ?? []) {
+    select.addEventListener("change", () => {
+      form?.requestSubmit();
+    });
+  }
+</script>

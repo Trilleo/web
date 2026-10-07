@@ -1132,14 +1132,22 @@ export async function popularTags(
   return rows.map((row) => ({ tag: row.tag, count: row.n }));
 }
 
-/** Every listed project's address and last change (for the sitemap). */
-export async function listedProjectPaths(
-  db: Database,
-): Promise<{ slug: string; type: McProjectType; updatedAt: Date }[]> {
+/** Every listed project, newest release first (sitemaps, llms.txt). */
+export async function listedProjectPaths(db: Database): Promise<
+  {
+    slug: string;
+    type: McProjectType;
+    name: string;
+    summary: string;
+    updatedAt: Date;
+  }[]
+> {
   return db
     .select({
       slug: mcProjects.slug,
       type: mcProjects.type,
+      name: mcProjects.name,
+      summary: mcProjects.summary,
       updatedAt: mcProjects.updatedAt,
     })
     .from(mcProjects)
@@ -1168,4 +1176,31 @@ export async function allProjects(
     )
     .orderBy(desc(mcProjects.createdAt))
     .limit(options.limit ?? 200);
+}
+
+/** An account by its username, any case (null when unknown or blocked). */
+export async function creatorByLogin(
+  db: Database,
+  login: string,
+): Promise<User | null> {
+  if (!/^[A-Za-z0-9-]{1,39}$/.test(login)) return null;
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(sql`lower(${users.githubLogin}) = ${login.toLowerCase()}`)
+    .limit(1);
+  return user && !user.blockedAt ? user : null;
+}
+
+/** Listed projects per type (types with none are left out). */
+export async function countByType(
+  db: Database,
+): Promise<Map<McProjectType, number>> {
+  const rows = await db
+    .select({ type: mcProjects.type, n: count() })
+    .from(mcProjects)
+    .innerJoin(users, eq(users.id, mcProjects.ownerId))
+    .where(listedWhere())
+    .groupBy(mcProjects.type);
+  return new Map(rows.map((row) => [row.type, row.n]));
 }

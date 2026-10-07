@@ -1,0 +1,147 @@
+---
+/** Every release of a project, newest first, filterable by Minecraft version and loader. */
+import BaseLayout from "../../../../../layouts/BaseLayout.astro";
+import MinecraftHeader from "../../../../../components/minecraft/MinecraftHeader.astro";
+import ReleaseRows from "../../../../../components/minecraft/ReleaseRows.astro";
+import { getDb } from "../../../../../lib/db";
+import { loaderLabel, typeInfo } from "../../../../../lib/minecraft/catalog";
+import { compareVersions } from "../../../../../lib/minecraft/game-versions";
+import { lookupProject } from "../../../../../lib/minecraft/page";
+import {
+  MINECRAFT_PATH,
+  projectPath,
+  releasesPath,
+  typePath,
+} from "../../../../../lib/minecraft/paths";
+import { SECTION_LABEL } from "../../../../../lib/minecraft/public";
+import { releasesOf } from "../../../../../lib/minecraft/store";
+import { breadcrumbJsonLd } from "../../../../../lib/seo";
+
+export const prerender = false;
+
+const db = await getDb();
+const lookup = await lookupProject(
+  db,
+  Astro.params,
+  Astro.locals.user,
+  "releases/",
+  Astro.url.search,
+);
+if (lookup.kind === "missing") return Astro.rewrite("/404");
+if (lookup.kind === "redirect") return Astro.redirect(lookup.location, 301);
+const { project, viewer, editable, listed } = lookup;
+if (editable) Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const info = typeInfo(project.type);
+const all = await releasesOf(db, project, viewer);
+const version = Astro.url.searchParams.get("version") ?? "";
+const loader = Astro.url.searchParams.get("loader") ?? "";
+const releases = all.filter(
+  (entry) =>
+    (!version || entry.release.gameVersions.includes(version)) &&
+    (!loader || entry.release.loaders.includes(loader)),
+);
+const versions = [
+  ...new Set(all.flatMap((entry) => entry.release.gameVersions)),
+].sort(compareVersions);
+const loaders = [...new Set(all.flatMap((entry) => entry.release.loaders))];
+const path = releasesPath(project);
+const select =
+  "type-label h-11 w-full border border-ink bg-paper px-3 text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+---
+
+<BaseLayout
+  title={`Releases · ${project.name} · Minecraft`}
+  description={`Every version of ${project.name}, with the Minecraft versions each works with.`}
+  noindex={!listed || version !== "" || loader !== ""}
+  jsonLd={[
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Minecraft", path: MINECRAFT_PATH },
+      { name: info.plural, path: typePath(project.type) },
+      { name: project.name, path: projectPath(project) },
+      { name: "Releases", path },
+    ]),
+  ]}
+>
+  <section
+    aria-labelledby="page-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <MinecraftHeader
+      crumbs={[
+        { label: SECTION_LABEL, href: MINECRAFT_PATH },
+        { label: info.plural, href: typePath(project.type) },
+        { label: project.name, href: projectPath(project) },
+        { label: "Releases" },
+      ]}
+      title={`${project.name}: releases`}
+      size="title"
+      note={`${String(all.length)} ${all.length === 1 ? "release" : "releases"}`}
+    />
+
+    <div class="grid-swiss mt-8 gap-y-6 border-t border-ink pt-4 md:mt-10 md:pt-5 xl:mt-12 xl:pt-6">
+      <form
+        method="get"
+        action={path}
+        aria-label="Filter releases"
+        class="col-span-4 flex flex-col gap-4 md:col-span-2 xl:col-span-2"
+        data-release-filters
+      >
+        <div class="flex flex-col gap-1.5">
+          <label for="release-version" class="type-label text-muted">
+            Minecraft
+          </label>
+          <select id="release-version" name="version" class={select}>
+            <option value="">Any</option>
+            {versions.map((id) => (
+              <option value={id} selected={version === id}>
+                {id}
+              </option>
+            ))}
+          </select>
+        </div>
+        {loaders.length > 1 && (
+          <div class="flex flex-col gap-1.5">
+            <label for="release-loader" class="type-label text-muted">
+              {project.type === "plugin" ? "Platform" : "Loader"}
+            </label>
+            <select id="release-loader" name="loader" class={select}>
+              <option value="">Any</option>
+              {loaders.map((id) => (
+                <option value={id} selected={loader === id}>
+                  {loaderLabel(id)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <button
+          type="submit"
+          class="type-label self-start border border-ink px-3 py-2 hover:bg-ink hover:text-paper"
+          data-filter-submit
+        >
+          Show
+        </button>
+      </form>
+      <div class="col-span-4 md:col-span-6 xl:col-span-10">
+        {releases.length > 0 ? (
+          <ReleaseRows project={project} entries={releases} />
+        ) : (
+          <p class="type-lead text-muted">No release fits that.</p>
+        )}
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>(
+    "[data-release-filters]",
+  );
+  for (const select of form?.querySelectorAll("select") ?? []) {
+    select.addEventListener("change", () => {
+      form?.requestSubmit();
+    });
+  }
+</script>

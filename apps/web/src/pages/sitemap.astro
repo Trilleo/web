@@ -12,11 +12,15 @@ import {
 import { postHref } from "../lib/posts";
 import { NAV_ITEMS } from "../lib/site";
 import { TOOLS, toolPath } from "../lib/tools/registry";
+import { PROJECT_TYPES } from "../lib/minecraft/catalog";
+import { projectPath, typePath } from "../lib/minecraft/paths";
+import { listedProjectPaths } from "../lib/minecraft/store";
 
 // Lists the posts, which live in the database.
 export const prerender = false;
 
 const posts = await listPublicPosts(await getDb());
+const projects = await listedProjectPaths(await getDb());
 const tools = TOOLS.filter((tool) => tool.status !== "planned");
 const games = GAMES.filter((game) => game.status !== "planned");
 const groups: readonly InfoGroup[] = ["help", "legal", "site"];
@@ -26,6 +30,7 @@ const sections = [
   { slug: "writing", text: "Writing" },
   { slug: "tools", text: "Tools" },
   { slug: "games", text: "Games" },
+  { slug: "minecraft", text: "Minecraft" },
   ...groups.map((group) => ({ slug: group, text: INFO_GROUP_LABELS[group] })),
   { slug: "machines", text: "For machines" },
 ];
@@ -76,6 +81,29 @@ const sections = [
     <li>
       <a href="/games/skygrid/leaderboard/">Skygrid leaderboards</a>
     </li>
+  </ul>
+
+  <h2 id="minecraft">Minecraft</h2>
+  <ul>
+    <li>
+      <a href="/minecraft/">Minecraft</a>: creations shared by their makers
+    </li>
+    {PROJECT_TYPES.map((info) => (
+      <li>
+        <a href={typePath(info.type)}>{info.plural}</a>
+        {projects.some((project) => project.type === info.type) && (
+          <ul>
+            {projects
+              .filter((project) => project.type === info.type)
+              .map((project) => (
+                <li>
+                  <a href={projectPath(project)}>{project.name}</a>
+                </li>
+              ))}
+          </ul>
+        )}
+      </li>
+    ))}
   </ul>
 
   {groups.map((group) => (

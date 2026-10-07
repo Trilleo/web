@@ -1,0 +1,101 @@
+---
+/**
+ * A creator's projects: /minecraft/creators/<login>/. Credited by the profile rules
+ * (a private profile shows only the username). Unknown or blocked accounts, and
+ * people with nothing public, are a 404 (except to themselves).
+ */
+import { buttonClasses } from "@trilleo/ui";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import MinecraftHeader from "../../../components/minecraft/MinecraftHeader.astro";
+import ProjectCards from "../../../components/minecraft/ProjectCards.astro";
+import { getDb } from "../../../lib/db";
+import {
+  DASHBOARD_PATH,
+  MINECRAFT_PATH,
+  creatorPath,
+} from "../../../lib/minecraft/paths";
+import {
+  SECTION_LABEL,
+  countLabel,
+  creditOf,
+} from "../../../lib/minecraft/public";
+import { creatorByLogin, listProjects } from "../../../lib/minecraft/store";
+import { formatCount } from "../../../lib/minecraft/format";
+
+export const prerender = false;
+
+const db = await getDb();
+const user = await creatorByLogin(db, Astro.params.login ?? "");
+if (!user) return Astro.rewrite("/404");
+if (user.githubLogin !== Astro.params.login)
+  return Astro.redirect(creatorPath(user.githubLogin), 301);
+
+const own = Astro.locals.user?.id === user.id;
+const { cards, total } = await listProjects(db, {
+  ownerId: user.id,
+  sort: "updated",
+  perPage: 60,
+});
+if (total === 0 && !own) return Astro.rewrite("/404");
+if (own) Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const credit = creditOf(user);
+const title = credit.name ?? `@${credit.login}`;
+const downloads = cards.reduce((sum, card) => sum + card.downloads, 0);
+---
+
+<BaseLayout
+  title={`${title} · Minecraft`}
+  description={`Minecraft projects by ${title}.`}
+  noindex
+>
+  <section
+    aria-labelledby="page-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <MinecraftHeader
+      crumbs={[
+        { label: SECTION_LABEL, href: MINECRAFT_PATH },
+        { label: "Creators" },
+        { label: `@${credit.login}` },
+      ]}
+      title={title}
+      size="title"
+      note={countLabel(total)}
+    />
+
+    <div class="grid-swiss mt-7 gap-y-4 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <p class="type-label col-span-4 md:col-span-2 xl:col-span-2">Creator</p>
+      <div class="col-span-4 flex flex-col gap-3 md:col-span-6 xl:col-span-7">
+        <p class="type-lead">
+          {credit.name && <span class="text-muted">@{credit.login} · </span>}
+          {countLabel(total)}, {formatCount(downloads)}{" "}
+          {downloads === 1 ? "download" : "downloads"}.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          {credit.profile && (
+            <a
+              href={credit.profile}
+              class={buttonClasses({ variant: "secondary" })}
+            >
+              Profile
+            </a>
+          )}
+          {own && (
+            <a href={DASHBOARD_PATH} class={buttonClasses()}>
+              Your projects
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-10 md:mt-12">
+      {cards.length > 0 ? (
+        <ProjectCards cards={cards} headingLevel={2} />
+      ) : (
+        <p class="type-lead text-muted">Nothing public yet.</p>
+      )}
+    </div>
+  </section>
+</BaseLayout>

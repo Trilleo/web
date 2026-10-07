@@ -29,6 +29,11 @@ export interface ProjectTypeInfo {
   needsLoader: boolean;
   /** Short code for cards ("MOD"). */
   code: string;
+  /**
+   * The listing title's width in em, with its period and a little room
+   * (DisplayTitle's `fit`, so long ones shrink instead of overflowing).
+   */
+  titleFit: number;
 }
 
 export const PROJECT_TYPES: readonly ProjectTypeInfo[] = [
@@ -43,6 +48,7 @@ export const PROJECT_TYPES: readonly ProjectTypeInfo[] = [
     loaders: ["fabric", "forge", "neoforge", "quilt"],
     needsLoader: false,
     code: "MOD",
+    titleFit: 2.95,
   },
   {
     type: "plugin",
@@ -63,6 +69,7 @@ export const PROJECT_TYPES: readonly ProjectTypeInfo[] = [
     ],
     needsLoader: true,
     code: "PLG",
+    titleFit: 3.65,
   },
   {
     type: "world",
@@ -75,6 +82,7 @@ export const PROJECT_TYPES: readonly ProjectTypeInfo[] = [
     loaders: [],
     needsLoader: false,
     code: "WLD",
+    titleFit: 3.65,
   },
   {
     type: "build",
@@ -93,6 +101,7 @@ export const PROJECT_TYPES: readonly ProjectTypeInfo[] = [
     loaders: [],
     needsLoader: false,
     code: "BLD",
+    titleFit: 3.2,
   },
   {
     type: "resource_pack",
@@ -104,6 +113,7 @@ export const PROJECT_TYPES: readonly ProjectTypeInfo[] = [
     loaders: [],
     needsLoader: false,
     code: "RES",
+    titleFit: 7.5,
   },
   {
     type: "data_pack",
@@ -115,6 +125,7 @@ export const PROJECT_TYPES: readonly ProjectTypeInfo[] = [
     loaders: [],
     needsLoader: false,
     code: "DAT",
+    titleFit: 5.35,
   },
 ];
 

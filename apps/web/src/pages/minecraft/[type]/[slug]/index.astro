@@ -1,0 +1,388 @@
+---
+/**
+ * A project's page: gallery, description, the facts in the left column, Download
+ * and the creator in the right one, then recent releases. Its owner (and the admin)
+ * also see it before it's out, with a note saying so.
+ */
+import { formatBytes } from "@trilleo/tool-kit/files";
+import { ArrowUpRightIcon, buttonClasses } from "@trilleo/ui";
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import MinecraftHeader from "../../../../components/minecraft/MinecraftHeader.astro";
+import ProjectGallery from "../../../../components/minecraft/ProjectGallery.astro";
+import ReleaseRows from "../../../../components/minecraft/ReleaseRows.astro";
+import ReportProject from "../../../../components/minecraft/ReportProject.astro";
+import { getDb } from "../../../../lib/db";
+import { formatPostDate } from "../../../../lib/listings";
+import {
+  editionLabel,
+  licenseInfo,
+  linkKindLabel,
+  loaderLabel,
+  typeInfo,
+} from "../../../../lib/minecraft/catalog";
+import { summarizeVersions } from "../../../../lib/minecraft/format";
+import { compareVersions } from "../../../../lib/minecraft/game-versions";
+import { lookupProject } from "../../../../lib/minecraft/page";
+import {
+  MINECRAFT_PATH,
+  editPath,
+  projectDownloadPath,
+  releasesPath,
+  typePath,
+} from "../../../../lib/minecraft/paths";
+import {
+  SECTION_LABEL,
+  creditOf,
+  imageUrl,
+  projectCard,
+  projectJsonLd,
+} from "../../../../lib/minecraft/public";
+import { plainText } from "../../../../lib/minecraft/render";
+import {
+  galleryOf,
+  pickDownload,
+  projectDownloads,
+  releasesOf,
+} from "../../../../lib/minecraft/store";
+import { getStorage } from "../../../../lib/storage/config";
+import { breadcrumbJsonLd, ogImagePath, truncate } from "../../../../lib/seo";
+
+export const prerender = false;
+
+const db = await getDb();
+const lookup = await lookupProject(db, Astro.params, Astro.locals.user);
+if (lookup.kind === "missing") return Astro.rewrite("/404");
+if (lookup.kind === "redirect") return Astro.redirect(lookup.location, 301);
+const { project, owner, viewer, editable, visible, listed } = lookup;
+if (editable) Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const info = typeInfo(project.type);
+const storage = getStorage();
+const [gallery, releases, latest, downloads] = await Promise.all([
+  galleryOf(db, project, viewer),
+  releasesOf(db, project, viewer),
+  pickDownload(db, project.id),
+  projectDownloads(db, project.id),
+]);
+const images = await Promise.all(
+  gallery.map(async (entry) => ({
+    id: entry.image.id,
+    caption: entry.image.caption,
+    src: await imageUrl(storage, entry.file),
+    thumb: await imageUrl(
+      storage,
+      entry.file,
+      entry.file.thumbnailKey ?? entry.file.key,
+    ),
+    published: entry.file.status === "published",
+  })),
+);
+const live = releases.filter((entry) => entry.live);
+const gameVersions = [
+  ...new Set(live.flatMap((entry) => entry.release.gameVersions)),
+].sort(compareVersions);
+const loaders = [...new Set(live.flatMap((entry) => entry.release.loaders))];
+const latestEntry = latest
+  ? releases.find((entry) => entry.release.id === latest.release.id)
+  : undefined;
+const credit = creditOf(owner);
+const license = licenseInfo(project.license);
+const path = Astro.url.pathname;
+const description = truncate(project.summary || plainText(project.description));
+const image = ogImagePath(
+  `minecraft/${project.slug}`,
+  projectCard(project, owner, gameVersions),
+);
+const reported = Astro.url.searchParams.get("reported");
+const reportError = Astro.url.searchParams.get("report-error");
+
+const facts: { label: string; value: string; href?: string }[] = [
+  { label: "Kind", value: info.label, href: typePath(project.type) },
+  { label: "Edition", value: editionLabel(project.edition) },
+  ...(gameVersions.length > 0
+    ? [{ label: "Minecraft", value: summarizeVersions(gameVersions, 4) }]
+    : []),
+  ...(loaders.length > 0
+    ? [
+        {
+          label: project.type === "plugin" ? "Platforms" : "Loaders",
+          value: loaders.map(loaderLabel).join(", "),
+        },
+      ]
+    : []),
+  {
+    label: "Licence",
+    value: license?.label ?? project.license,
+    ...(license?.url ? { href: license.url } : {}),
+  },
+  { label: "Downloads", value: downloads.toLocaleString("en") },
+  ...(project.lastReleasedAt
+    ? [{ label: "Updated", value: formatPostDate(project.lastReleasedAt) }]
+    : []),
+  ...(project.firstReleasedAt
+    ? [{ label: "Published", value: formatPostDate(project.firstReleasedAt) }]
+    : []),
+];
+const label = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+---
+
+<BaseLayout
+  title={`${project.name} · Minecraft ${info.label}`}
+  {description}
+  {image}
+  imageAlt={project.name}
+  noindex={!listed}
+  jsonLd={[
+    projectJsonLd({
+      project,
+      owner,
+      latest: latest?.release ?? null,
+      gameVersions,
+      loaders,
+      downloads,
+      image,
+      description,
+    }),
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Minecraft", path: MINECRAFT_PATH },
+      { name: info.plural, path: typePath(project.type) },
+      { name: project.name, path },
+    ]),
+  ]}
+>
+  <article
+    aria-labelledby="page-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <MinecraftHeader
+      crumbs={[
+        { label: SECTION_LABEL, href: MINECRAFT_PATH },
+        { label: info.plural, href: typePath(project.type) },
+        { label: project.name },
+      ]}
+      title={project.name}
+      size="title"
+    />
+    <p class="type-dek mt-4 max-w-[48ch] text-muted xl:mt-5">
+      {project.summary}
+    </p>
+
+    {editable && (
+      <div class="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 border-l-2 border-accent pl-4">
+        <p class="type-lead">
+          {project.hiddenAt
+            ? `Hidden by the site owner: ${project.hiddenReason ?? "no reason given"}.`
+            : !visible
+              ? project.state === "draft"
+                ? "A draft: only you can see this page."
+                : "Only you can see this page until a release is published."
+              : project.state === "unlisted"
+                ? "Unlisted: anyone with the link can see it."
+                : "This is your project."}
+        </p>
+        <a
+          href={editPath(project.id)}
+          class={buttonClasses({ variant: "secondary" })}
+        >
+          Edit project
+        </a>
+      </div>
+    )}
+    {project.state === "archived" && (
+      <p class="mt-6 border-l-2 border-ink pl-4 text-muted">
+        Archived: its creator no longer updates it. Downloads still work.
+      </p>
+    )}
+
+    <div class="grid-swiss mt-8 gap-y-8 border-t border-ink pt-4 md:mt-10 md:pt-5 xl:mt-12 xl:pt-6">
+      <!-- Facts: a column of labels on the left. -->
+      <dl
+        class="col-span-4 grid content-start grid-cols-2 gap-x-4 gap-y-3 md:col-span-2 md:grid-cols-1 xl:col-span-2 xl:row-span-2"
+        data-testid="project-facts"
+      >
+        {facts.map((fact) => (
+          <div class="flex flex-col gap-0.5">
+            <dt class="type-label text-muted">{fact.label}</dt>
+            <dd class="text-[15px]">
+              {fact.href ? (
+                <a href={fact.href} class="link-wipe">
+                  {fact.value}
+                </a>
+              ) : (
+                fact.value
+              )}
+            </dd>
+          </div>
+        ))}
+        {project.tags.length > 0 && (
+          <div class="col-span-2 flex flex-col gap-1 md:col-span-1">
+            <dt class="type-label text-muted">Tags</dt>
+            <dd class="type-label flex flex-wrap gap-x-3 gap-y-1">
+              {project.tags.map((tag) => (
+                <a
+                  href={`${typePath(project.type)}?tag=${tag}`}
+                  class="link-wipe"
+                >
+                  #{tag}
+                </a>
+              ))}
+            </dd>
+          </div>
+        )}
+      </dl>
+
+      <!-- The gallery and the description: the reading columns. -->
+      <div class="col-span-4 flex min-w-0 flex-col gap-10 md:col-span-6 xl:col-span-7">
+        {images.length > 0 && (
+          <ProjectGallery images={images} name={project.name} />
+        )}
+        {project.descriptionHtml ? (
+          <div class="prose" set:html={project.descriptionHtml} />
+        ) : (
+          <p class="text-muted">No description yet.</p>
+        )}
+        {project.license === "custom" && project.licenseText && (
+          <details class="border-t border-hair pt-4">
+            <summary class="type-label cursor-pointer">Licence</summary>
+            <p class="mt-3 text-[15px] whitespace-pre-line text-muted">
+              {project.licenseText}
+            </p>
+          </details>
+        )}
+      </div>
+
+      <!-- Download and the creator: the aside. -->
+      <aside
+        aria-label="Download"
+        class="col-span-4 flex flex-col gap-6 md:col-span-6 md:col-start-3 xl:col-span-3 xl:col-start-10 xl:row-start-1"
+      >
+        {latest ? (
+          <div
+            class="flex flex-col gap-3 border border-ink p-4"
+            data-testid="download-box"
+          >
+            <a
+              href={projectDownloadPath(project)}
+              class={buttonClasses({ className: "w-full" })}
+              rel="nofollow"
+            >
+              Download {latest.release.version}
+            </a>
+            <p class="type-label flex flex-wrap justify-between gap-x-3 gap-y-1 text-muted">
+              <span class="break-all">{latest.file.name}</span>
+              <span>{formatBytes(latest.file.size)}</span>
+            </p>
+            {latestEntry &&
+              latestEntry.dependencies.some(
+                (dep) => dep.kind === "required",
+              ) && (
+                <p class="text-sm">
+                  Needs{" "}
+                  {latestEntry.dependencies
+                    .filter((dep) => dep.kind === "required")
+                    .map((dep, index, all) => (
+                      <>
+                        {dep.slug && dep.type ? (
+                          <a
+                            href={`/minecraft/${typeInfo(dep.type).segment}/${dep.slug}/`}
+                            class="link-wipe"
+                          >
+                            {dep.name}
+                          </a>
+                        ) : dep.url ? (
+                          <a
+                            href={dep.url}
+                            rel="nofollow ugc noopener noreferrer"
+                            class="link-wipe"
+                          >
+                            {dep.name}
+                          </a>
+                        ) : (
+                          dep.name
+                        )}
+                        {index < all.length - 1 ? ", " : ""}
+                      </>
+                    ))}
+                  .
+                </p>
+              )}
+            <a
+              href={releasesPath(project)}
+              class="group type-label inline-flex items-center gap-1.5"
+            >
+              <span class="link-wipe">All versions ({live.length})</span>
+            </a>
+          </div>
+        ) : (
+          <p class="border border-ink p-4 text-muted">No release is out yet.</p>
+        )}
+
+        <div class="flex flex-col gap-2">
+          <p class="type-label text-muted">Made by</p>
+          <p class="text-lg font-semibold">
+            {credit.profile ? (
+              <a href={credit.profile} class="link-wipe">
+                {credit.name}
+              </a>
+            ) : (
+              <>@{credit.login}</>
+            )}
+          </p>
+          {credit.name && <p class="type-label text-muted">@{credit.login}</p>}
+          <a
+            href={credit.creations}
+            class="group type-label inline-flex items-center gap-1.5"
+          >
+            <span class="link-wipe">More by @{credit.login}</span>
+          </a>
+        </div>
+
+        {project.links.length > 0 && (
+          <nav aria-label="Links" class="flex flex-col border-t border-ink">
+            {project.links.map((link) => (
+              <a
+                href={link.url}
+                rel="nofollow ugc noopener noreferrer"
+                class="group flex min-h-11 items-center justify-between border-b border-hair"
+              >
+                <span class="link-wipe">{linkKindLabel(link.kind)}</span>
+                <ArrowUpRightIcon size={14} />
+              </a>
+            ))}
+          </nav>
+        )}
+
+        {visible && !editable && (
+          <ReportProject
+            projectId={project.id}
+            name={project.name}
+            back={path}
+            signedIn={Astro.locals.user !== null}
+            reported={reported}
+            error={reportError}
+          />
+        )}
+      </aside>
+    </div>
+
+    {releases.length > 0 && (
+      <section
+        aria-labelledby="releases-title"
+        class="grid-swiss mt-16 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6"
+      >
+        <h2 id="releases-title" class={label}>
+          Releases
+        </h2>
+        <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
+          <ReleaseRows project={project} entries={releases.slice(0, 5)} />
+          {releases.length > 5 && (
+            <a href={releasesPath(project)} class="group type-label self-start">
+              <span class="link-wipe">All {releases.length} releases</span>
+            </a>
+          )}
+        </div>
+      </section>
+    )}
+  </article>
+</BaseLayout>

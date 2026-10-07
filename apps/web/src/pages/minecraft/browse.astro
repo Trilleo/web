@@ -1,0 +1,59 @@
+---
+/** Every kind of project together, with filters and search (/minecraft/browse/). */
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import MinecraftHeader from "../../components/minecraft/MinecraftHeader.astro";
+import ProjectBrowser from "../../components/minecraft/ProjectBrowser.astro";
+import { getDb } from "../../lib/db";
+import { MINECRAFT_PATH } from "../../lib/minecraft/paths";
+import {
+  MINECRAFT_DESCRIPTION,
+  SECTION_CARD,
+  SECTION_LABEL,
+  countLabel,
+  loadListing,
+} from "../../lib/minecraft/public";
+import { breadcrumbJsonLd, ogImagePath } from "../../lib/seo";
+
+export const prerender = false;
+
+const listing = await loadListing(await getDb(), Astro.url);
+---
+
+<BaseLayout
+  title="Browse · Minecraft"
+  description={MINECRAFT_DESCRIPTION}
+  noindex={listing.noindex}
+  image={ogImagePath("minecraft", SECTION_CARD)}
+  jsonLd={[
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Minecraft", path: MINECRAFT_PATH },
+      { name: "Browse", path: "/minecraft/browse/" },
+    ]),
+  ]}
+>
+  <section
+    aria-labelledby="page-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <MinecraftHeader
+      crumbs={[
+        { label: SECTION_LABEL, href: MINECRAFT_PATH },
+        { label: "Browse" },
+      ]}
+      title="Browse"
+      fit={3.85}
+      note={countLabel(listing.total)}
+    />
+    <div class="mt-10 border-t border-ink pt-6 md:mt-12">
+      <ProjectBrowser
+        path="/minecraft/browse/"
+        query={listing.query}
+        cards={listing.cards}
+        total={listing.total}
+        versions={listing.versions}
+        tags={listing.tags}
+      />
+    </div>
+  </section>
+</BaseLayout>

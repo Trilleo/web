@@ -1,0 +1,214 @@
+---
+/**
+ * The platform's front page: what it is, search, the six kinds, the admin's picks,
+ * what's new and what's popular.
+ */
+import { ArrowRightIcon, buttonClasses } from "@trilleo/ui";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import DisplayTitle from "../../components/DisplayTitle.astro";
+import ProjectCards from "../../components/minecraft/ProjectCards.astro";
+import SectionHeader from "../../components/SectionHeader.astro";
+import { getDb } from "../../lib/db";
+import { PROJECT_TYPES } from "../../lib/minecraft/catalog";
+import { MINECRAFT_PATH, editPath, typePath } from "../../lib/minecraft/paths";
+import {
+  MINECRAFT_DESCRIPTION,
+  SECTION_CARD,
+  SECTION_LABEL,
+  countLabel,
+} from "../../lib/minecraft/public";
+import { countByType, listProjects } from "../../lib/minecraft/store";
+import { breadcrumbJsonLd, ogImagePath } from "../../lib/seo";
+
+export const prerender = false;
+
+const db = await getDb();
+const [counts, featured, updated, popular] = await Promise.all([
+  countByType(db),
+  listProjects(db, { featured: true, perPage: 4 }),
+  listProjects(db, { sort: "updated", perPage: 6 }),
+  listProjects(db, { sort: "downloads", perPage: 6 }),
+]);
+const total = [...counts.values()].reduce((sum, n) => sum + n, 0);
+const showPopular = popular.cards.some((card) => card.downloads > 0);
+// The sections shown, numbered in order like the home page's.
+const shown = [
+  ...(featured.cards.length > 0 ? ["featured"] : []),
+  "updated",
+  ...(showPopular ? ["popular"] : []),
+];
+const number = (key: string) => String(shown.indexOf(key) + 1).padStart(2, "0");
+---
+
+<BaseLayout
+  title="Minecraft"
+  description={MINECRAFT_DESCRIPTION}
+  image={ogImagePath("minecraft", SECTION_CARD)}
+  jsonLd={[
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Minecraft", path: MINECRAFT_PATH },
+    ]),
+  ]}
+>
+  <section aria-labelledby="page-title" class="px-page pt-4 xl:pt-5">
+    <div class="grid-swiss type-label">
+      <span class="col-span-2 md:col-span-4 xl:col-span-2">
+        {SECTION_LABEL}
+      </span>
+      <span class="col-span-2 text-right text-muted md:col-span-4 xl:col-span-3 xl:col-start-10">
+        {countLabel(total)}
+      </span>
+    </div>
+
+    <DisplayTitle id="page-title" fit={4.75}>
+      Minecraft
+    </DisplayTitle>
+
+    <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 pb-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <p class="type-label col-span-4 flex items-start gap-2 md:col-span-2 xl:col-span-2">
+        <span
+          class="mt-0.5 size-2 bg-accent xl:size-2.5"
+          aria-hidden="true"
+        ></span>
+        Creations
+      </p>
+      <p class="type-lead col-span-4 md:col-span-6">{MINECRAFT_DESCRIPTION}</p>
+      <div class="col-span-4 flex flex-col gap-5 md:col-span-6 md:col-start-3 xl:col-span-3 xl:col-start-10 xl:row-start-1">
+        <form
+          role="search"
+          method="get"
+          action="/minecraft/browse/"
+          class="flex flex-col gap-2"
+        >
+          <label for="minecraft-search" class="type-label text-muted">
+            Search everything
+          </label>
+          <input
+            id="minecraft-search"
+            type="search"
+            name="q"
+            placeholder="Mods, maps, packs…"
+            class="type-row h-12 w-full border-b border-ink bg-transparent placeholder:text-muted focus:outline-none focus-visible:border-accent"
+          />
+        </form>
+        <a
+          href={editPath("new")}
+          class={buttonClasses({
+            variant: "secondary",
+            className: "self-start",
+          })}
+        >
+          Share yours
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="kinds-title" class="px-page">
+    <h2 id="kinds-title" class="sr-only">
+      Kinds
+    </h2>
+    <ul
+      class="grid border-t border-l border-ink md:grid-cols-2 xl:grid-cols-3"
+      data-testid="kinds"
+    >
+      {PROJECT_TYPES.map((info) => (
+        <li
+          class="kind group relative flex flex-col gap-2 border-r border-b border-ink p-4 md:p-5"
+          data-reveal
+        >
+          <p class="type-label flex justify-between text-muted">
+            <span>{info.code}</span>
+            <span>{countLabel(counts.get(info.type) ?? 0, info.type)}</span>
+          </p>
+          <h3 class="type-card">
+            <a
+              href={typePath(info.type)}
+              class="kind-link inline-flex items-center gap-2"
+            >
+              <span class="link-wipe">{info.plural}</span>
+              <ArrowRightIcon className="transition-transform duration-(--tr-dur-base) ease-swiss group-hover:translate-x-1" />
+            </a>
+          </h3>
+          <p class="text-[15px] leading-normal text-muted">{info.blurb}</p>
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  {featured.cards.length > 0 && (
+    <section aria-labelledby="featured-title" class="px-page pt-16 md:pt-20">
+      <SectionHeader
+        number={number("featured")}
+        title="Featured"
+        headingId="featured-title"
+      />
+      <div class="mt-6 md:mt-8">
+        <ProjectCards cards={featured.cards} columns={4} />
+      </div>
+    </section>
+  )}
+
+  <section aria-labelledby="updated-title" class="px-page pt-16 md:pt-20">
+    <SectionHeader
+      number={number("updated")}
+      title="Recently updated"
+      headingId="updated-title"
+      meta={total > 0 ? `Browse all ${countLabel(total)}` : undefined}
+      href="/minecraft/browse/"
+    />
+    <div class="mt-6 md:mt-8">
+      {updated.cards.length > 0 ? (
+        <ProjectCards cards={updated.cards} />
+      ) : (
+        <p class="type-lead text-muted">
+          Nothing shared yet.{" "}
+          <a href={editPath("new")} class="link-wipe text-ink">
+            Be the first
+          </a>
+          .
+        </p>
+      )}
+    </div>
+  </section>
+
+  {showPopular && (
+    <section aria-labelledby="popular-title" class="px-page pt-16 md:pt-20">
+      <SectionHeader
+        number={number("popular")}
+        title="Most downloaded"
+        headingId="popular-title"
+        meta="See more"
+        href="/minecraft/browse/?sort=downloads"
+      />
+      <div class="mt-6 md:mt-8">
+        <ProjectCards cards={popular.cards} />
+      </div>
+    </section>
+  )}
+
+  <div class="pb-24 xl:pb-32"></div>
+</BaseLayout>
+
+<style>
+  .kind {
+    transition: background-color var(--tr-dur-base) var(--tr-ease);
+  }
+  .kind:hover,
+  .kind:focus-within {
+    background-color: var(--tr-fig);
+  }
+  .kind-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+  .kind-link:focus-visible {
+    outline: none;
+  }
+  .kind:has(.kind-link:focus-visible) {
+    outline: 2px solid var(--tr-accent);
+    outline-offset: -2px;
+  }
+</style>

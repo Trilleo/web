@@ -4,6 +4,7 @@ import Colophon from "../components/Colophon.astro";
 import PostList from "../components/PostList.astro";
 import SectionHeader from "../components/SectionHeader.astro";
 import ToolList from "../components/ToolList.astro";
+import ProjectCards from "../components/minecraft/ProjectCards.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { listPublicPosts } from "../lib/blog/store";
 import { getDb } from "../lib/db";
@@ -12,6 +13,12 @@ import { authorJsonLd, websiteJsonLd } from "../lib/seo";
 import { SITE_BIO, SITE_DESCRIPTION } from "../lib/site";
 import { gameListings } from "../lib/games/registry";
 import { toolListings } from "../lib/tools/registry";
+import {
+  MINECRAFT_DESCRIPTION,
+  SECTION_NUMBER,
+  countLabel,
+} from "../lib/minecraft/public";
+import { listProjects } from "../lib/minecraft/store";
 
 const tools = toolListings();
 const toolCount = `${String(tools.length)} ${tools.length === 1 ? "tool" : "tools"}`;
@@ -25,6 +32,10 @@ const HOME_POST_COUNT = 4;
 const posts = await listPublicPosts(await getDb());
 const latestPosts = toListings(posts).slice(0, HOME_POST_COUNT);
 const postCount = `${String(posts.length)} ${posts.length === 1 ? "post" : "posts"}`;
+const creations = await listProjects(await getDb(), {
+  sort: "updated",
+  perPage: 3,
+});
 
 const pageLinkClass =
   "group flex min-h-12 items-center justify-between border-b border-ink font-semibold";
@@ -140,6 +151,35 @@ const pageArrowClass =
     />
     <div class="mt-6 md:mt-8 xl:mt-10">
       <ToolList tools={games} code="G" morph="game" />
+    </div>
+  </section>
+
+  <section
+    id="minecraft"
+    aria-labelledby="minecraft-title"
+    class="px-page pt-16 md:pt-24 xl:pt-30"
+  >
+    <SectionHeader
+      number={SECTION_NUMBER}
+      title="Minecraft"
+      headingId="minecraft-title"
+      meta={
+        creations.total > 0 ? `All ${countLabel(creations.total)}` : "Browse"
+      }
+      href="/minecraft/"
+    />
+    <div class="mt-6 md:mt-8 xl:mt-10">
+      {creations.cards.length > 0 ? (
+        <ProjectCards cards={creations.cards} />
+      ) : (
+        <p class="type-lead border-t border-ink pt-6 text-muted">
+          {MINECRAFT_DESCRIPTION}{" "}
+          <a href="/minecraft/" class="link-wipe text-ink">
+            Have a look
+          </a>
+          .
+        </p>
+      )}
     </div>
   </section>
 

@@ -53,6 +53,26 @@ describe("llmsTxt", () => {
     expect(llmsTxt([], [])).not.toContain("## Games");
   });
 
+  it("lists Minecraft projects, only when there are some", () => {
+    const text = llmsTxt(
+      [],
+      [],
+      [],
+      [
+        {
+          name: "Better Redstone",
+          summary: "Smarter repeaters.",
+          path: "/minecraft/mods/better-redstone/",
+          kind: "Mod",
+        },
+      ],
+    );
+    expect(text).toContain(
+      "- [Better Redstone](https://www.trilleo.net/minecraft/mods/better-redstone/): Mod. Smarter repeaters.",
+    );
+    expect(llmsTxt([], [])).not.toContain("## Minecraft");
+  });
+
   it("says so when there's nothing yet", () => {
     expect(llmsTxt([], [])).toContain("No posts yet.");
   });

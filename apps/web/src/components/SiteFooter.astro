@@ -1,5 +1,6 @@
 ---
 import { ArrowUpIcon } from "@trilleo/ui";
+import { MOJANG_NOTICE } from "../lib/minecraft/catalog";
 import {
   GITHUB_URL,
   ICP_FILING,
@@ -9,6 +10,15 @@ import {
 } from "../lib/site";
 
 const year = new Date().getFullYear();
+// The footer lists Minecraft beside the header's sections (the header doesn't).
+const sections = [
+  ...NAV_ITEMS.filter((item) => item.href !== "/about/"),
+  { label: "Minecraft", href: "/minecraft/" },
+  ...NAV_ITEMS.filter((item) => item.href === "/about/"),
+];
+// Mojang's usage guidelines ask pages about Minecraft content to say this.
+const path = Astro.url.pathname;
+const showNotice = path === "/" || path.startsWith("/minecraft");
 const linkClass = "group type-label inline-flex min-h-9 items-center";
 const smallLink = "group inline-flex min-h-6 items-center";
 
@@ -42,7 +52,7 @@ const psbCode = PSB_FILING?.match(/\d+/)?.[0];
     aria-label="Sections"
     class="col-span-2 flex flex-col md:col-span-2 xl:col-span-2"
   >
-    {NAV_ITEMS.map((item) => (
+    {sections.map((item) => (
       <a href={item.href} class={linkClass}>
         <span class="link-wipe">{item.label}</span>
       </a>
@@ -82,6 +92,12 @@ const psbCode = PSB_FILING?.match(/\d+/)?.[0];
       className="transition-transform duration-(--tr-dur-fast) ease-swiss group-hover:-translate-y-0.5"
     />
   </a>
+
+  {showNotice && (
+    <p class="type-label col-span-4 text-muted md:col-span-8 xl:col-span-12">
+      {MOJANG_NOTICE}
+    </p>
+  )}
 
   <div class="type-label col-span-4 flex flex-col gap-3 border-t border-hair pt-4 text-muted md:col-span-8 md:flex-row md:items-center md:justify-between xl:col-span-12">
     <nav aria-label="Legal" class="flex flex-wrap gap-x-5 gap-y-1">

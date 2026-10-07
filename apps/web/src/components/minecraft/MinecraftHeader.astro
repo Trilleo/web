@@ -1,0 +1,48 @@
+---
+/**
+ * The top of the platform's public pages: the trail ("(05) Minecraft / Mods"), a
+ * note at the right (a count), and the page's title: the big display word for the
+ * section and its listings, the title size (which wraps) for project names.
+ */
+import Breadcrumb, { type Crumb } from "../Breadcrumb.astro";
+import DisplayTitle from "../DisplayTitle.astro";
+
+interface Props {
+  crumbs: readonly Crumb[];
+  title: string;
+  /** "display" for one or two words; "title" for names. */
+  size?: "display" | "title";
+  note?: string | undefined;
+  titleId?: string;
+  /** The display title's width in em, when it may be too long (DisplayTitle). */
+  fit?: number | undefined;
+}
+
+const {
+  crumbs,
+  title,
+  size = "display",
+  note,
+  titleId = "page-title",
+  fit,
+} = Astro.props;
+---
+
+<div class="grid-swiss type-label">
+  <Breadcrumb items={crumbs} class="col-span-3 md:col-span-6 xl:col-span-9" />
+  {note && (
+    <span class="col-span-1 text-right text-muted md:col-span-2 xl:col-span-3">
+      {note}
+    </span>
+  )}
+</div>
+
+{size === "display" ? (
+  <DisplayTitle id={titleId} {fit}>
+    {title}
+  </DisplayTitle>
+) : (
+  <h1 id={titleId} class="type-title mt-5 max-w-[22ch] break-words xl:mt-7">
+    {title}
+  </h1>
+)}

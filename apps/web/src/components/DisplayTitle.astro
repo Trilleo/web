@@ -5,9 +5,14 @@
  */
 interface Props {
   id: string;
+  /**
+   * For a long word: its width in em (with the period), so it shrinks to fit
+   * between the gutters instead of overflowing (type-display-fit).
+   */
+  fit?: number;
 }
 
-const { id } = Astro.props;
+const { id, fit } = Astro.props;
 // Trimmed: formatters put the word on its own line, and the whitespace around it
 // would show as a space before the period.
 const word = (await Astro.slots.render("default")).trim();
@@ -18,4 +23,4 @@ const label = `${word.replace(/<[^>]*>/g, "")}.`;
 
 <!-- No whitespace between the word and the period: it would show as a space. -->
 <!-- prettier-ignore -->
-<h1 {id} aria-label={label} class="type-display mt-5 -ml-[0.03em] xl:mt-7"><span class="inline-block animate-mask-up" set:html={word} /><span class="inline-block origin-[50%_80%] animate-pop text-accent [animation-delay:450ms]">.</span></h1>
+<h1 {id} aria-label={label} class:list={[fit ? "type-display-fit whitespace-nowrap" : "type-display", "mt-5 -ml-[0.03em] xl:mt-7"]} style={fit ? `--fit: ${String(fit)}` : undefined}><span class="inline-block animate-mask-up" set:html={word} /><span class="inline-block origin-[50%_80%] animate-pop text-accent [animation-delay:450ms]">.</span></h1>
