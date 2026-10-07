@@ -37,7 +37,14 @@ test.describe("phone", () => {
       page
         .getByRole("navigation", { name: "Around the site" })
         .getByRole("link"),
-    ).toHaveText([/^Writing/, /^Tools/, /^Games/, /^Contact/, /^GitHub/]);
+    ).toHaveText([
+      /^Writing/,
+      /^Tools/,
+      /^Games/,
+      /^Minecraft/,
+      /^Contact/,
+      /^GitHub/,
+    ]);
   });
 });
 
