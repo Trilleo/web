@@ -390,27 +390,44 @@ function yamlTop(source: string): Record<string, string | undefined> {
   return out;
 }
 
-/** A YAML list given inline ([a, b]) or as "- a" lines under the key. */
+/** "'Vault'" → "Vault". */
+function unquote(value: string): string {
+  const first = value[0];
+  return value.length >= 2 &&
+    (first === '"' || first === "'") &&
+    value.endsWith(first)
+    ? value.slice(1, -1)
+    : value;
+}
+
+/**
+ * A YAML list given inline ([a, b]) or as "- a" lines under the key. Read line by
+ * line, not with one regex: plugin.yml comes from an uploaded file, and a pattern
+ * repeating a group of lines can backtrack for a very long time.
+ */
 function yamlList(source: string, key: string): string[] {
-  const inline = new RegExp(`^${key}:\\s*\\[(.*)\\]`, "m").exec(source);
-  if (inline)
-    return (inline[1] ?? "")
+  const lines = source.split(/\r?\n/);
+  const at = lines.findIndex((line) => line.startsWith(`${key}:`));
+  if (at < 0) return [];
+  const rest = (lines[at] ?? "").slice(key.length + 1).trim();
+  if (rest.startsWith("[")) {
+    const close = rest.indexOf("]");
+    return rest
+      .slice(1, close < 0 ? undefined : close)
       .split(",")
-      .map((item) => item.trim().replace(/^(["'])(.*)\1$/, "$2"))
+      .map((item) => unquote(item.trim()))
       .filter(Boolean);
-  const block = new RegExp(`^${key}:\\s*\\n((?:\\s+-.*\\n?)+)`, "m").exec(
-    source,
-  );
-  if (!block) return [];
-  return (block[1] ?? "")
-    .split(/\n/)
-    .map((item) =>
-      item
-        .replace(/^\s*-\s*/, "")
-        .trim()
-        .replace(/^(["'])(.*)\1$/, "$2"),
-    )
-    .filter(Boolean);
+  }
+  if (rest) return [];
+  const items: string[] = [];
+  for (const line of lines.slice(at + 1)) {
+    const trimmed = line.trim();
+    // The list ends at the first line that isn't an indented "- item".
+    if (!trimmed.startsWith("-") || line === trimmed) break;
+    const item = unquote(trimmed.slice(1).trim());
+    if (item) items.push(item);
+  }
+  return items;
 }
 
 function bukkitPlugin(

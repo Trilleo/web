@@ -39,10 +39,12 @@ const AIR = new Set(["air", "cave_air", "void_air", "structure_void"]);
 
 /** "minecraft:oak_stairs[facing=east]" → "oak_stairs"; air kinds → "air". */
 export function blockName(id: string): string {
-  const bare = id
-    .replace(/\[.*$/, "")
-    .replace(/^minecraft:/, "")
-    .trim();
+  // String scanning, not a regex: names come from uploaded files (CodeQL ReDoS).
+  const cut = id.indexOf("[");
+  const head = cut >= 0 ? id.slice(0, cut) : id;
+  const bare = (
+    head.startsWith("minecraft:") ? head.slice("minecraft:".length) : head
+  ).trim();
   return AIR.has(bare) || bare === "" ? "air" : bare;
 }
 

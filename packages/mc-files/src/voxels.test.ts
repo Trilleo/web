@@ -54,6 +54,13 @@ describe("blockName", () => {
     expect(blockName("minecraft:cave_air")).toBe("air");
     expect(blockName("structure_void")).toBe("air");
   });
+
+  it("copes with crafted names in linear time (they come from uploaded files)", () => {
+    const start = performance.now();
+    expect(blockName("[".repeat(50_000))).toBe("air");
+    expect(blockName("stone" + "[".repeat(50_000))).toBe("stone");
+    expect(performance.now() - start).toBeLessThan(100);
+  });
 });
 
 describe("readVoxels", () => {

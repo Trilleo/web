@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DATA_PACK_FORMATS,
+  MAX_RANGE_LENGTH,
   RESOURCE_PACK_FORMATS,
   atLeast,
   matchVersions,
@@ -129,5 +130,38 @@ describe("other rules", () => {
     expect(versionOfData(4189)).toBe("1.21.4");
     expect(versionOfData(3956)).toBe("1.21.1");
     expect(versionOfData(9999)).toBeNull();
+  });
+});
+
+describe("hostile input (these come from uploaded files)", () => {
+  /** Runs `work` and says how long it took, in ms. */
+  const time = (work: () => unknown) => {
+    const start = performance.now();
+    work();
+    return performance.now() - start;
+  };
+
+  it("parses long or crafted ranges in linear time", () => {
+    // Patterns CodeQL flagged as slow (polynomial backtracking) before.
+    expect(time(() => semverRule(" ".repeat(50_000) + "x"))).toBeLessThan(100);
+    expect(time(() => mavenRule("(" + " ".repeat(50_000)))).toBeLessThan(100);
+    expect(time(() => mavenRule("(," + " ".repeat(50_000)))).toBeLessThan(100);
+    // Too long to be real: no rule at all.
+    expect(semverRule(" ".repeat(MAX_RANGE_LENGTH + 1))).toBeNull();
+    expect(mavenRule("[1.21," + " ".repeat(MAX_RANGE_LENGTH))).toBeNull();
+  });
+
+  it("still reads ranges with spaces and odd brackets", () => {
+    expect(match(semverRule(">= 1.21.4 < 1.21.6"))).toEqual([
+      "1.21.5",
+      "1.21.4",
+    ]);
+    expect(match(mavenRule("[ 1.20.1 , 1.21 )"))).toEqual([
+      "1.20.6",
+      "1.20.4",
+      "1.20.1",
+    ]);
+    expect(match(mavenRule("[1.19.4],[1.21.1]"))).toEqual(["1.21.1", "1.19.4"]);
+    expect(mavenRule("[1.20,1.21,1.22]")).toBeNull();
   });
 });

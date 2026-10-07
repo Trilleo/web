@@ -185,6 +185,18 @@ softdepend:
     ]);
   });
 
+  it("reads a crafted plugin.yml quickly", async () => {
+    // A list of many "- -" lines: the kind that made the old pattern backtrack.
+    const yml = `name: Slow\ndepend:\n${"  - -\n".repeat(20_000)}x`;
+    const start = performance.now();
+    const found = await hints(
+      "slow.jar",
+      zip([{ name: "plugin.yml", data: yml }]),
+    );
+    expect(performance.now() - start).toBeLessThan(1000);
+    expect(found.name).toBe("Slow");
+  });
+
   it("prefers paper-plugin.yml", async () => {
     const found = await hints(
       "p.jar",

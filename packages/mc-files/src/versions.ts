@@ -96,12 +96,21 @@ function after(parts: number[]): number[] {
   return next;
 }
 
+/**
+ * Ranges longer than this aren't read (real ones are a few dozen characters). The
+ * text comes from uploaded files, so parsing also avoids regexes that can backtrack.
+ */
+export const MAX_RANGE_LENGTH = 256;
+
+/** Comparison operators, longest first so ">=" isn't read as ">". */
+const OPERATORS = [">=", "<=", ">", "<", "=", "~", "^"] as const;
+
 /** One npm-style comparator ("~1.21.4", ">=1.20", "1.21.x") as an interval. */
 function comparator(text: string): Interval | null {
-  const match = /^(>=|<=|>|<|=|~|\^)?\s*(.+)$/.exec(text.trim());
-  if (!match) return null;
-  const op = match[1] ?? "";
-  const value = match[2] ?? "";
+  const trimmed = text.trim();
+  const op = OPERATORS.find((candidate) => trimmed.startsWith(candidate)) ?? "";
+  const value = trimmed.slice(op.length).trimStart();
+  if (!value) return null;
   if (value === "*" || value === "x") return ALL;
   const version = partial(value);
   if (!version) return null;
@@ -168,9 +177,9 @@ function intersect(a: Interval, b: Interval): Interval {
 export function semverRule(
   range: string | readonly string[],
 ): VersionRule | null {
-  const alternatives = (typeof range === "string" ? [range] : range).flatMap(
-    (part) => part.split("||"),
-  );
+  const list = typeof range === "string" ? [range] : range;
+  if (list.some((part) => part.length > MAX_RANGE_LENGTH)) return null;
+  const alternatives = list.flatMap((part) => part.split("||"));
   const intervals: Interval[] = [];
   for (const alternative of alternatives) {
     // "1.20 - 1.21" (a hyphen range).
@@ -198,14 +207,34 @@ export function semverRule(
   return intervals.length > 0 ? { kind: "intervals", intervals } : null;
 }
 
+/** Where the first of `chars` is in `text`, from `from` (-1: nowhere). */
+function firstOf(text: string, chars: string, from: number): number {
+  for (let i = from; i < text.length; i++)
+    if (chars.includes(text[i] ?? "")) return i;
+  return -1;
+}
+
 /** A Maven range, as Forge and NeoForge write them: "[1.20.1,1.21)", "[1.21.1]". */
 export function mavenRule(range: string): VersionRule | null {
+  if (range.length > MAX_RANGE_LENGTH) return null;
   const intervals: Interval[] = [];
-  const pattern = /([[(])\s*([^,\])]*?)\s*(?:,\s*([^\])]*?)\s*)?([\])])/g;
   let matched = false;
-  for (const match of range.matchAll(pattern)) {
+  // Each "[low,high)" in turn: find the bracket that opens it and the one that
+  // closes it, then split what's between at its comma.
+  let at = 0;
+  for (;;) {
+    const start = firstOf(range, "[(", at);
+    if (start < 0) break;
+    const end = firstOf(range, "])", start + 1);
+    if (end < 0) break;
+    at = end + 1;
+    const pieces = range.slice(start + 1, end).split(",");
+    if (pieces.length > 2) continue;
     matched = true;
-    const [, open, low, high, close] = match;
+    const open = range[start];
+    const close = range[end];
+    const low = pieces[0]?.trim() ?? "";
+    const high = pieces.length === 2 ? (pieces[1]?.trim() ?? "") : undefined;
     const lowParts = low
       ? (parseVersion(low) ?? partial(low)?.parts)
       : undefined;
