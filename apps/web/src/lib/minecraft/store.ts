@@ -12,6 +12,7 @@ import {
   files,
   mcDependencies,
   mcGallery,
+  mcProjectReports,
   mcProjectSlugs,
   mcProjects,
   mcReleaseFiles,
@@ -63,6 +64,11 @@ const fail = <T>(status: number, error: string): Result<T> => ({
 });
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** An ILIKE pattern that finds `text` anywhere, with its own % and _ taken literally. */
+function likePattern(text: string): string {
+  return `%${text.replace(/[%_\\]/g, "\\$&")}%`;
+}
 
 /** Who's looking: nobody, someone signed in, or the admin. */
 export interface Viewer {
@@ -991,7 +997,7 @@ export async function listProjects(
     tsquery
       ? or(
           sql`${searchDocument} @@ ${tsquery}`,
-          sql`${mcProjects.name} ilike ${`%${q.replace(/[%_\\]/g, "\\$&")}%`}`,
+          sql`${mcProjects.name} ilike ${likePattern(q)}`,
         )
       : undefined,
   );
@@ -1156,28 +1162,6 @@ export async function listedProjectPaths(db: Database): Promise<
     .orderBy(desc(mcProjects.lastReleasedAt));
 }
 
-/** For tests and admin pages: projects with any state, newest first. */
-export async function allProjects(
-  db: Database,
-  options: { q?: string; limit?: number } = {},
-): Promise<{ project: McProject; ownerLogin: string }[]> {
-  return db
-    .select({ project: mcProjects, ownerLogin: users.githubLogin })
-    .from(mcProjects)
-    .innerJoin(users, eq(users.id, mcProjects.ownerId))
-    .where(
-      options.q
-        ? or(
-            sql`${mcProjects.name} ilike ${`%${options.q.replace(/[%_\\]/g, "\\$&")}%`}`,
-            eq(mcProjects.slug, options.q),
-            eq(users.githubLogin, options.q),
-          )
-        : undefined,
-    )
-    .orderBy(desc(mcProjects.createdAt))
-    .limit(options.limit ?? 200);
-}
-
 /** An account by its username, any case (null when unknown or blocked). */
 export async function creatorByLogin(
   db: Database,
@@ -1203,4 +1187,140 @@ export async function countByType(
     .where(listedWhere())
     .groupBy(mcProjects.type);
   return new Map(rows.map((row) => [row.type, row.n]));
+}
+
+/** Where a stored file is used on the platform, for reviewers. */
+export interface FileUse {
+  projectId: number;
+  name: string;
+  type: McProjectType;
+  slug: string;
+  /** The release it's in, or null for a gallery image. */
+  version: string | null;
+  role: "main file" | "extra file" | "gallery image";
+}
+
+/** The projects some files belong to, by file id. */
+export async function fileUses(
+  db: Database,
+  fileIds: readonly string[],
+): Promise<Map<string, FileUse>> {
+  const uses = new Map<string, FileUse>();
+  if (fileIds.length === 0) return uses;
+  const ids = [...fileIds];
+  const releaseRows = await db
+    .select({
+      fileId: mcReleaseFiles.fileId,
+      primary: mcReleaseFiles.primary,
+      version: mcReleases.version,
+      projectId: mcProjects.id,
+      name: mcProjects.name,
+      type: mcProjects.type,
+      slug: mcProjects.slug,
+    })
+    .from(mcReleaseFiles)
+    .innerJoin(mcReleases, eq(mcReleases.id, mcReleaseFiles.releaseId))
+    .innerJoin(mcProjects, eq(mcProjects.id, mcReleases.projectId))
+    .where(inArray(mcReleaseFiles.fileId, ids));
+  for (const row of releaseRows)
+    uses.set(row.fileId, {
+      projectId: row.projectId,
+      name: row.name,
+      type: row.type,
+      slug: row.slug,
+      version: row.version,
+      role: row.primary ? "main file" : "extra file",
+    });
+  const galleryRows = await db
+    .select({
+      fileId: mcGallery.fileId,
+      projectId: mcProjects.id,
+      name: mcProjects.name,
+      type: mcProjects.type,
+      slug: mcProjects.slug,
+    })
+    .from(mcGallery)
+    .innerJoin(mcProjects, eq(mcProjects.id, mcGallery.projectId))
+    .where(inArray(mcGallery.fileId, ids));
+  for (const row of galleryRows)
+    uses.set(row.fileId, { ...row, version: null, role: "gallery image" });
+  return uses;
+}
+
+export interface AdminProjectRow {
+  project: McProject;
+  ownerLogin: string;
+  downloads: number;
+  openReports: number;
+}
+
+/** Every project for the admin (any state), newest first, with a search. */
+export async function adminProjects(
+  db: Database,
+  options: {
+    q?: string;
+    filter?: "all" | "hidden" | "featured" | "reported";
+    limit?: number;
+  } = {},
+): Promise<AdminProjectRow[]> {
+  const q = options.q?.trim() ?? "";
+  const like = likePattern(q);
+  const openReports = sql<number>`(select count(*) from ${mcProjectReports} r where r.project_id = ${mcProjects.id} and r.status = 'open')`;
+  const rows = await db
+    .select({
+      project: mcProjects,
+      ownerLogin: users.githubLogin,
+      downloads: downloadsSql.mapWith(Number),
+      openReports: openReports.mapWith(Number),
+    })
+    .from(mcProjects)
+    .innerJoin(users, eq(users.id, mcProjects.ownerId))
+    .where(
+      and(
+        q
+          ? or(
+              sql`${mcProjects.name} ilike ${like}`,
+              sql`${mcProjects.slug} ilike ${like}`,
+              sql`${users.githubLogin} ilike ${like}`,
+            )
+          : undefined,
+        options.filter === "hidden"
+          ? isNotNull(mcProjects.hiddenAt)
+          : undefined,
+        options.filter === "featured"
+          ? isNotNull(mcProjects.featuredAt)
+          : undefined,
+        options.filter === "reported" ? sql`${openReports} > 0` : undefined,
+      ),
+    )
+    .orderBy(desc(mcProjects.createdAt), desc(mcProjects.id))
+    .limit(options.limit ?? 200);
+  return rows;
+}
+
+/** Counts for the admin's overview. */
+export async function adminCounts(db: Database) {
+  const [row] = await db
+    .select({
+      projects: count(),
+      hidden:
+        sql<number>`count(*) filter (where ${mcProjects.hiddenAt} is not null)`.mapWith(
+          Number,
+        ),
+      featured:
+        sql<number>`count(*) filter (where ${mcProjects.featuredAt} is not null)`.mapWith(
+          Number,
+        ),
+    })
+    .from(mcProjects);
+  const [reports] = await db
+    .select({ n: count() })
+    .from(mcProjectReports)
+    .where(eq(mcProjectReports.status, "open"));
+  return {
+    projects: row?.projects ?? 0,
+    hidden: row?.hidden ?? 0,
+    featured: row?.featured ?? 0,
+    reports: reports?.n ?? 0,
+  };
 }

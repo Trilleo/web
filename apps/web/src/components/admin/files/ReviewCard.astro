@@ -9,6 +9,8 @@ import { formatPostDate } from "../../../lib/listings";
 import { STATUS_LABELS } from "../../../lib/storage/labels";
 import type { ReviewItem, ReviewTab } from "../../../lib/storage/review";
 import { filePagePath } from "../../../lib/storage/service";
+import { typeInfo } from "../../../lib/minecraft/catalog";
+import { editPath, releasesEditPath } from "../../../lib/minecraft/paths";
 import ScanBadge from "../../files/ScanBadge.astro";
 import ReasonForm from "./ReasonForm.astro";
 import UploaderPanel from "./UploaderPanel.astro";
@@ -29,6 +31,7 @@ const {
   previewUrl,
   textPreview,
   thumbnailUrl,
+  use,
 } = item;
 const archive = file.details?.archive;
 const SHOWN_ENTRIES = 60;
@@ -66,6 +69,30 @@ const hidden = (fields: Record<string, string>) => Object.entries(fields);
         <p class="text-muted">Not scanned for malware: {file.scanDetail}</p>
       )}
       {file.statusReason && <p class="text-muted">{file.statusReason}</p>}
+      {use && (
+        <p class="border-l-2 border-ink pl-3" data-testid="file-use">
+          {use.role === "gallery image"
+            ? "A picture for"
+            : `The ${use.role} of`}{" "}
+          <a href={editPath(use.projectId)} class="link-wipe font-medium">
+            {use.name}
+          </a>
+          {use.version && <> {use.version}</>}
+          <span class="text-muted">
+            {" "}
+            ({typeInfo(use.type).label.toLowerCase()}
+            {use.role !== "gallery image" && use.version && (
+              <>
+                {", "}
+                <a href={releasesEditPath(use.projectId)} class="link-wipe">
+                  releases
+                </a>
+              </>
+            )}
+            )
+          </span>
+        </p>
+      )}
     </header>
 
     {thumbnailUrl && (

@@ -405,6 +405,11 @@
   redirects (old slug or wrong type → 301). The section is "(05) Minecraft" (04 is
   About): a home page section and a footer link, not in the header. Also in
   /sitemap-minecraft.xml, /sitemap/, llms.txt and /og/minecraft[/<slug>].png.
+- Admin: /admin/minecraft/ (?tab=projects|reports): feature, hide (with a reason the
+  creator sees; settles open reports), show again, dismiss reports. Files are still
+  reviewed in /admin/files/review, whose cards say which project, release and role a
+  file has (`fileUses`). Project reports: `reportProject` (src/lib/minecraft/service.ts),
+  PROJECT_REPORTS_TO_HIDE from established accounts hide a project until reviewed.
 - Long display titles use DisplayTitle's `fit` (the word's measured width in em,
   plus room): type-display-fit shrinks it to fit between the gutters.
 - ReleaseEditor reads a dropped main file with @trilleo/mc-files to fill in the form;

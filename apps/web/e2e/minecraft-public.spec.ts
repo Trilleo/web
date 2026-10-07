@@ -232,3 +232,67 @@ test("the home page and footer lead to the platform", async ({ page }) => {
     .click();
   await expect(page).toHaveURL("/minecraft/");
 });
+
+test("the admin features, hides and settles reports about projects", async ({
+  browser,
+  baseURL,
+}) => {
+  const admin = await adminPage(browser, baseURL);
+  const name = `Moderated ${freshLogin("x")}`;
+  const slug = await publishMod(admin, name, "To be moderated.");
+
+  // Featured: it leads the front page.
+  await admin.goto(`/admin/minecraft/?q=${slug}`);
+  const row = admin
+    .getByTestId("admin-projects")
+    .locator("li", { hasText: name });
+  await row.getByRole("button", { name: `Feature ${name}` }).click();
+  await expect(admin.getByRole("status")).toHaveText(
+    "Featured on the front page.",
+  );
+  await noViolations(admin);
+  const visitor = await newPage(browser, baseURL);
+  await visitor.goto("/minecraft/");
+  await expect(
+    visitor.locator("section", { has: visitor.locator("#featured-title") }),
+  ).toContainText(name);
+
+  // A report shows up for the admin, who finds nothing wrong.
+  const reader = await newPage(browser, baseURL);
+  await reader.goto(`/sign-in?next=/minecraft/mods/${slug}/`);
+  await reader.getByRole("link", { name: "Sign in with GitHub" }).click();
+  await continueAs(reader, freshLogin("reader"));
+  await reader.locator("summary", { hasText: "Report this project" }).click();
+  await reader.getByLabel("Something else").check();
+  await reader.getByLabel("Details (optional)").fill("Looks odd to me");
+  await reader.getByRole("button", { name: "Send report" }).click();
+  await admin.goto("/admin/minecraft/?tab=reports");
+  const card = admin
+    .getByTestId("project-reports")
+    .locator("article", { hasText: name });
+  await expect(card).toContainText("Looks odd to me");
+  await noViolations(admin);
+  await card
+    .getByRole("button", { name: `Dismiss reports about ${name}` })
+    .click();
+  await expect(admin.getByRole("status")).toHaveText("Reports dismissed.");
+
+  // Hidden: gone for everyone else, with the reason for the creator.
+  await admin.goto(`/admin/minecraft/?q=${slug}`);
+  await row.locator("summary", { hasText: "Hide" }).click();
+  await row
+    .getByRole("textbox", { name: `Reason to hide ${name}` })
+    .fill("Misleading pictures");
+  await row.getByRole("button", { name: `Hide ${name}` }).click();
+  await expect(admin.getByRole("status")).toHaveText("Hidden.");
+  expect((await visitor.goto(`/minecraft/mods/${slug}/`))?.status()).toBe(404);
+  await admin.goto(`/minecraft/mods/${slug}/`);
+  await expect(
+    admin.getByText("Hidden by the site owner: Misleading pictures."),
+  ).toBeVisible();
+
+  await admin.goto(`/admin/minecraft/?q=${slug}`);
+  await row.getByRole("button", { name: `Show ${name} again` }).click();
+  await expect(admin.getByRole("status")).toHaveText("Shown again.");
+  expect((await visitor.goto(`/minecraft/mods/${slug}/`))?.status()).toBe(200);
+});

@@ -1,4 +1,5 @@
 ---
+import { RETENTION_DAYS } from "@trilleo/storage";
 import InfoLayout from "../../layouts/InfoLayout.astro";
 import { CONTACT_EMAIL, SITE_NAME } from "../../lib/site";
 
@@ -9,6 +10,7 @@ const sections = [
   { slug: "conduct", text: "How to behave" },
   { slug: "tools", text: "Tools" },
   { slug: "games", text: "Games" },
+  { slug: "minecraft", text: "Minecraft creations" },
   { slug: "site-content", text: "The site’s own content" },
   { slug: "availability", text: "Availability and changes" },
   { slug: "disclaimers", text: "No guarantees" },
@@ -61,7 +63,8 @@ const sections = [
     post it. Files you publish may be downloaded by anyone; choose who can see a
     file when you upload it. Your first comment, and your uploads until you are
     trusted, are reviewed before they appear, as the community guidelines
-    describe. Uploading isn’t open to every account yet.
+    describe. Anyone signed in can share Minecraft creations; other kinds of
+    upload aren’t open to every account yet.
   </p>
 
   <h2 id="conduct">How to behave</h2>
@@ -113,6 +116,39 @@ const sections = [
     <li>
       Games may be rebalanced, changed or, rarely, reset, and may end. You’ll be
       told before a reset.
+    </li>
+  </ul>
+
+  <h2 id="minecraft">Minecraft creations</h2>
+  <ul>
+    <li>
+      Share only what you made, or what you have permission to share. A mod,
+      plugin, pack or build may build on other people’s work only as far as
+      their licences allow; say what it’s based on, and list what it needs as
+      dependencies.
+    </li>
+    <li>
+      Each project names a licence, chosen by its creator. Anyone may download a
+      published creation and use it in their own game; the licence says what
+      else they may do with it (share it, change it, reuse it). “All rights
+      reserved” allows nothing more.
+    </li>
+    <li>
+      Creations must follow Mojang’s End User Licence Agreement and its usage
+      guidelines: don’t charge for them, and don’t redistribute the game or its
+      original files (such as the default textures, copied wholesale).
+    </li>
+    <li>
+      Download at your own risk. Every file is scanned for malware, and mods and
+      plugins, which run code on your computer or server, are always looked at
+      by a person before they go out; even so, no check can promise a file is
+      safe or works. Back up your worlds before trying something new.
+    </li>
+    <li>
+      You can unpublish or delete a project or a release at any time. Deleted
+      files can be restored for {RETENTION_DAYS.deleted} days, then are erased.
+      Projects whose pages break the rules can be hidden, as the{" "}
+      <a href="/legal/guidelines/#minecraft">guidelines</a> describe.
     </li>
   </ul>
 

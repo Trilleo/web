@@ -23,6 +23,7 @@ import { openReports, reportedFileIds, type ReportView } from "./reports";
 import { standingOf, type Standing } from "./standing";
 import { thumbnailUrlFor } from "./service";
 import type { FileListItem } from "./store";
+import { fileUses, type FileUse } from "../minecraft/store";
 
 export const REVIEW_TABS = ["waiting", "reports", "appeals", "spot"] as const;
 export type ReviewTab = (typeof REVIEW_TABS)[number];
@@ -46,6 +47,8 @@ export interface ReviewItem {
   textPreview: string | null;
   /** The thumbnail the uploader's browser made (compare it with the file). */
   thumbnailUrl: string | null;
+  /** The Minecraft project it's part of, if any. */
+  use: FileUse | null;
 }
 
 const PAGE = 30;
@@ -210,6 +213,10 @@ export async function reviewItems(
     db,
     listed.map((row) => row.id),
   );
+  const uses = await fileUses(
+    db,
+    listed.map((row) => row.id),
+  );
   const uploaders = await uploaderSummaries(
     db,
     listed.map((row) => row.ownerId).filter((id) => id !== null),
@@ -223,6 +230,7 @@ export async function reviewItems(
       uploader: file.ownerId ? (uploaders.get(file.ownerId) ?? null) : null,
       ...(await previews(storage, file)),
       thumbnailUrl: await thumbnailUrlFor(storage, file),
+      use: uses.get(file.id) ?? null,
     })),
   );
 }

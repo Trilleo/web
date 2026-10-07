@@ -1,7 +1,7 @@
 ---
 /**
  * A button that opens a small form asking why (for take down, reject, ban, deny…),
- * then posts it to /admin/files/action. A <details>, so it works without JavaScript.
+ * then posts it to /admin/files/action (or `endpoint`). A <details>, so it works without JavaScript.
  */
 import { buttonClasses, fieldClasses } from "@trilleo/ui";
 import { secondaryButton } from "./styles";
@@ -26,6 +26,8 @@ interface Props {
   fieldLabel?: string;
   /** Another checkbox, e.g. clearing strikes. */
   checkbox?: { name: string; label: string };
+  /** Where it posts; the file actions by default. */
+  endpoint?: string;
 }
 
 const {
@@ -40,6 +42,7 @@ const {
   strikeChoice = false,
   checkbox,
   fieldLabel = `Reason to ${label.toLowerCase()} ${subject}`,
+  endpoint = "/admin/files/action",
 } = Astro.props;
 ---
 
@@ -54,7 +57,7 @@ const {
   </summary>
   <form
     method="post"
-    action="/admin/files/action"
+    action={endpoint}
     class="absolute left-0 z-10 mt-2 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-3 border border-ink bg-paper p-4 md:right-0 md:left-auto"
   >
     <input type="hidden" name="action" value={action} />

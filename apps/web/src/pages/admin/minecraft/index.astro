@@ -1,0 +1,392 @@
+---
+/**
+ * The admin's Minecraft page: every project (any state; search, filters), with
+ * feature/unfeature and hide/unhide, and the open reports about projects' pages.
+ * ?tab=projects|reports. Files are reviewed in /admin/files/review as usual.
+ */
+import { REPORT_REASON_LABELS, type ReportReason } from "@trilleo/storage";
+import AdminNav from "../../../components/admin/AdminNav.astro";
+import ReasonForm from "../../../components/admin/files/ReasonForm.astro";
+import {
+  primaryButton,
+  secondaryButton,
+} from "../../../components/admin/files/styles";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireAdmin } from "../../../lib/auth/guard";
+import { getDb } from "../../../lib/db";
+import { formatPostDate } from "../../../lib/listings";
+import { stateLabel, typeInfo } from "../../../lib/minecraft/catalog";
+import { javaVersions } from "../../../lib/minecraft/game-versions";
+import { editPath, projectPath } from "../../../lib/minecraft/paths";
+import { openProjectReports } from "../../../lib/minecraft/service";
+import { adminCounts, adminProjects } from "../../../lib/minecraft/store";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const params = Astro.url.searchParams;
+const tab = params.get("tab") === "reports" ? "reports" : "projects";
+const q = params.get("q")?.trim().slice(0, 100) ?? "";
+const filterParam = params.get("filter") ?? "all";
+const filter =
+  (["all", "hidden", "featured", "reported"] as const).find(
+    (value) => value === filterParam,
+  ) ?? "all";
+const done = params.get("done");
+const error = params.get("error");
+
+const counts = await adminCounts(db);
+const rows = tab === "projects" ? await adminProjects(db, { q, filter }) : [];
+const reports = tab === "reports" ? await openProjectReports({ db }) : [];
+const versionList = javaVersions().status();
+const here = Astro.url.pathname + Astro.url.search;
+
+// One card per reported project, with its reports.
+const reported = new Map<number, typeof reports>();
+for (const report of reports) {
+  const list = reported.get(report.project.id) ?? [];
+  list.push(report);
+  reported.set(report.project.id, list);
+}
+
+const DONE: Record<string, string> = {
+  feature: "Featured on the front page.",
+  unfeature: "No longer featured.",
+  hide: "Hidden.",
+  unhide: "Shown again.",
+  dismiss: "Reports dismissed.",
+};
+const row =
+  "grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6";
+const filters = [
+  { value: "all", label: "All" },
+  { value: "reported", label: "Reported" },
+  { value: "hidden", label: "Hidden" },
+  { value: "featured", label: "Featured" },
+] as const;
+const actionForm = "/admin/minecraft/action";
+---
+
+<BaseLayout title="Minecraft · Admin" noindex>
+  <section
+    aria-labelledby="admin-mc-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="minecraft" />
+
+    <DisplayTitle id="admin-mc-title" fit={4.75}>
+      Minecraft
+    </DisplayTitle>
+
+    <div class={row}>
+      <p class="type-label col-span-4 md:col-span-2 xl:col-span-2">Overview</p>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
+        <p class="type-label flex flex-wrap gap-x-6 gap-y-1">
+          <span>{counts.projects} projects</span>
+          <span>{counts.featured} featured</span>
+          <span>{counts.hidden} hidden</span>
+          <span
+            class:list={[
+              counts.reports > 0 && "bg-accent px-1.5 text-on-accent",
+            ]}
+          >
+            {counts.reports} open reports
+          </span>
+          <span class="text-muted">
+            Versions from{" "}
+            {versionList.source === "mojang"
+              ? `Mojang (${versionList.fetchedAt ? formatPostDate(versionList.fetchedAt) : ""})`
+              : "the list in the code"}
+          </span>
+        </p>
+        <nav
+          aria-label="Minecraft admin"
+          class="type-label flex flex-wrap gap-x-6 gap-y-2"
+        >
+          {[
+            { key: "projects", label: "Projects", count: 0 },
+            { key: "reports", label: "Reports", count: counts.reports },
+          ].map((item) => (
+            <a
+              href={`/admin/minecraft/?tab=${item.key}`}
+              class="group inline-flex items-center gap-2"
+              aria-current={item.key === tab ? "page" : undefined}
+            >
+              <span
+                class:list={[
+                  "size-2",
+                  item.key === tab ? "bg-accent" : "bg-transparent",
+                ]}
+                aria-hidden="true"
+              />
+              <span class="link-wipe">{item.label}</span>
+              {item.count > 0 && (
+                <span class="bg-accent px-1.5 text-on-accent">
+                  {item.count}
+                </span>
+              )}
+            </a>
+          ))}
+          <a href="/admin/files/review" class="group">
+            <span class="link-wipe">Files to review</span>
+          </a>
+        </nav>
+        {done && DONE[done] && (
+          <p role="status" class="type-lead border-l-2 border-accent pl-4">
+            {DONE[done]}
+          </p>
+        )}
+        {error && (
+          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+            {error}
+          </p>
+        )}
+      </div>
+    </div>
+
+    {tab === "projects" ? (
+      <>
+        <form
+          method="get"
+          action="/admin/minecraft/"
+          role="search"
+          class="mt-10 flex flex-wrap items-end gap-3"
+        >
+          <input type="hidden" name="tab" value="projects" />
+          <label class="flex min-w-60 flex-1 flex-col gap-1.5">
+            <span class="type-label text-muted">Name, address or @creator</span>
+            <input
+              type="search"
+              name="q"
+              value={q}
+              class="type-row h-11 w-full border-b border-ink bg-transparent focus:outline-none focus-visible:border-accent"
+            />
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="type-label text-muted">Show</span>
+            <select
+              name="filter"
+              class="type-label h-11 border border-ink bg-paper px-3"
+            >
+              {filters.map((option) => (
+                <option value={option.value} selected={filter === option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="submit" class={primaryButton}>
+            Find
+          </button>
+        </form>
+
+        {rows.length === 0 ? (
+          <p class="mt-8 text-muted">No projects.</p>
+        ) : (
+          <ol class="mt-8 border-b border-ink" data-testid="admin-projects">
+            {rows.map(({ project, ownerLogin, downloads, openReports }) => (
+              <li
+                id={`project-${String(project.id)}`}
+                class="grid scroll-mt-6 gap-3 border-t border-ink py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start"
+              >
+                <div class="flex min-w-0 flex-col gap-1">
+                  <p class="flex flex-wrap items-baseline gap-x-3">
+                    <a href={projectPath(project)} class="group type-row">
+                      <span class="link-wipe">{project.name}</span>
+                    </a>
+                    {project.featuredAt && (
+                      <span class="type-label bg-accent px-1.5 text-on-accent">
+                        Featured
+                      </span>
+                    )}
+                    {project.hiddenAt && (
+                      <span class="type-label bg-ink px-1.5 text-paper">
+                        Hidden
+                      </span>
+                    )}
+                    {openReports > 0 && (
+                      <a
+                        href="/admin/minecraft/?tab=reports"
+                        class="type-label bg-accent px-1.5 text-on-accent underline"
+                      >
+                        {openReports} {openReports === 1 ? "report" : "reports"}
+                      </a>
+                    )}
+                  </p>
+                  <p class="type-label flex flex-wrap gap-x-4 gap-y-1 text-muted">
+                    <span>{typeInfo(project.type).label}</span>
+                    <a
+                      href={`/admin/files/?owner=${encodeURIComponent(ownerLogin)}`}
+                      class="underline"
+                    >
+                      @{ownerLogin}
+                    </a>
+                    <span>{stateLabel(project.state)}</span>
+                    <span>
+                      {project.lastReleasedAt
+                        ? `Out since ${formatPostDate(project.firstReleasedAt)}`
+                        : "Not out"}
+                    </span>
+                    <span>{downloads.toLocaleString("en")} downloads</span>
+                    <span>Made {formatPostDate(project.createdAt)}</span>
+                  </p>
+                  {project.hiddenReason && (
+                    <p class="border-l-2 border-accent pl-3 text-sm">
+                      {project.hiddenReason}
+                    </p>
+                  )}
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <a href={editPath(project.id)} class={secondaryButton}>
+                    Edit
+                  </a>
+                  <form method="post" action={actionForm}>
+                    <input
+                      type="hidden"
+                      name="project"
+                      value={String(project.id)}
+                    />
+                    <input
+                      type="hidden"
+                      name="back"
+                      value={`${here}#project-${String(project.id)}`}
+                    />
+                    <input
+                      type="hidden"
+                      name="action"
+                      value={project.featuredAt ? "unfeature" : "feature"}
+                    />
+                    <button
+                      type="submit"
+                      class={secondaryButton}
+                      aria-label={`${project.featuredAt ? "Unfeature" : "Feature"} ${project.name}`}
+                    >
+                      {project.featuredAt ? "Unfeature" : "Feature"}
+                    </button>
+                  </form>
+                  {project.hiddenAt ? (
+                    <form method="post" action={actionForm}>
+                      <input
+                        type="hidden"
+                        name="project"
+                        value={String(project.id)}
+                      />
+                      <input
+                        type="hidden"
+                        name="back"
+                        value={`${here}#project-${String(project.id)}`}
+                      />
+                      <input type="hidden" name="action" value="unhide" />
+                      <button
+                        type="submit"
+                        class={primaryButton}
+                        aria-label={`Show ${project.name} again`}
+                      >
+                        Show again
+                      </button>
+                    </form>
+                  ) : (
+                    <ReasonForm
+                      label="Hide"
+                      subject={project.name}
+                      action="hide"
+                      back={`${here}#project-${String(project.id)}`}
+                      fields={{ project: String(project.id) }}
+                      prompt="Why? (shown to the creator)"
+                      endpoint={actionForm}
+                    />
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </>
+    ) : reported.size === 0 ? (
+      <p class="mt-10 text-muted">No open reports about projects.</p>
+    ) : (
+      <div class="mt-10 border-b border-ink" data-testid="project-reports">
+        {[...reported.values()].map((list) => {
+          const project = list[0]?.project;
+          if (!project) return null;
+          return (
+            <article
+              class="grid-swiss gap-y-4 border-t border-ink py-6"
+              aria-labelledby={`reported-${String(project.id)}`}
+            >
+              <p class="type-label col-span-4 text-muted md:col-span-2 xl:col-span-2">
+                {list.length} {list.length === 1 ? "report" : "reports"}
+              </p>
+              <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
+                <h2 id={`reported-${String(project.id)}`} class="type-row">
+                  <a href={projectPath(project)} class="group">
+                    <span class="link-wipe">{project.name}</span>
+                  </a>
+                  <span class="type-label ml-2 text-muted">
+                    {typeInfo(project.type).label}
+                  </span>
+                </h2>
+                <ul class="flex flex-col gap-2">
+                  {list.map((report) => (
+                    <li class="border-l-2 border-hair pl-3">
+                      <p>
+                        {REPORT_REASON_LABELS[report.reason as ReportReason] ??
+                          report.reason}
+                      </p>
+                      {report.details && (
+                        <p class="text-muted">“{report.details}”</p>
+                      )}
+                      <p class="type-label text-muted">
+                        {report.reporterLogin
+                          ? `@${report.reporterLogin}`
+                          : "A deleted account"}{" "}
+                        · {formatPostDate(report.createdAt)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+                <div class="flex flex-wrap gap-2">
+                  <form method="post" action={actionForm}>
+                    <input
+                      type="hidden"
+                      name="project"
+                      value={String(project.id)}
+                    />
+                    <input type="hidden" name="back" value={here} />
+                    <input type="hidden" name="action" value="dismiss" />
+                    <button
+                      type="submit"
+                      class={primaryButton}
+                      aria-label={`Dismiss reports about ${project.name}`}
+                    >
+                      Looks fine
+                    </button>
+                  </form>
+                  <ReasonForm
+                    label="Hide"
+                    subject={project.name}
+                    action="hide"
+                    back={here}
+                    fields={{ project: String(project.id) }}
+                    prompt="Why? (shown to the creator)"
+                    endpoint={actionForm}
+                  />
+                  <a href={editPath(project.id)} class={secondaryButton}>
+                    Edit
+                  </a>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    )}
+  </section>
+</BaseLayout>

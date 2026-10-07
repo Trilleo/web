@@ -34,6 +34,11 @@ import {
 } from "./service";
 import {
   ANONYMOUS,
+  adminCounts,
+  adminProjects,
+  fileUses,
+  setFeatured,
+  setHidden,
   attachGalleryImage,
   attachReleaseFile,
   canSee,
@@ -679,5 +684,68 @@ describe("reports, deletion and export", () => {
       (await listProjects(handle.db, { sort: "downloads" })).cards[0]
         ?.downloads,
     ).toBe(7);
+  });
+});
+
+describe("admin", () => {
+  it("says which project a file belongs to", async () => {
+    const mod = await newProject(alice);
+    const v1 = await newRelease(alice, mod);
+    const main = await releaseFile(alice, mod, v1);
+    const image = await upload(
+      alice,
+      "minecraft-media",
+      "shot.png",
+      PNG,
+      async (fileId) =>
+        attachGalleryImage(
+          handle.db,
+          await fresh(mod.id),
+          viewer(alice),
+          fileId,
+          "",
+          clock,
+        ),
+    );
+    const uses = await fileUses(handle.db, [main.id, image.id, "nope"]);
+    expect(uses.get(main.id)).toMatchObject({
+      name: "Better Redstone",
+      version: "1.0.0",
+      role: "main file",
+    });
+    expect(uses.get(image.id)).toMatchObject({
+      version: null,
+      role: "gallery image",
+    });
+    expect(uses.has("nope")).toBe(false);
+  });
+
+  it("lists every project with filters and counts", async () => {
+    const mod = await newProject(alice);
+    await newProject(bob, { slug: "other", name: "Other Thing" });
+    await setFeatured(handle.db, mod.id, true, clock);
+    await setHidden(handle.db, mod.id, "Spam", clock);
+    const all = await adminProjects(handle.db);
+    expect(all.map((row) => row.project.slug).sort()).toEqual([
+      "better-redstone",
+      "other",
+    ]);
+    expect(
+      (await adminProjects(handle.db, { q: "bob" })).map(
+        (row) => row.project.slug,
+      ),
+    ).toEqual(["other"]);
+    expect(
+      (await adminProjects(handle.db, { filter: "hidden" })).map(
+        (row) => row.project.slug,
+      ),
+    ).toEqual(["better-redstone"]);
+    expect(await adminProjects(handle.db, { q: "100%_" })).toEqual([]);
+    expect(await adminCounts(handle.db)).toEqual({
+      projects: 2,
+      hidden: 1,
+      featured: 1,
+      reports: 0,
+    });
   });
 });

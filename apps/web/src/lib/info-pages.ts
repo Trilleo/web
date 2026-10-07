@@ -41,7 +41,13 @@ export const INFO_PAGES: readonly InfoPage[] = [
     description:
       "The rules for using Trilleo Network: accounts, comments, uploads, tools and games.",
     group: "legal",
-    changes: FIRST,
+    changes: [
+      {
+        date: "2026-10-07",
+        note: "Added Minecraft creations: anyone signed in can share them, under a licence they choose.",
+      },
+      ...FIRST,
+    ],
   },
   {
     path: "/legal/privacy/",
@@ -50,7 +56,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     description:
       "What Trilleo Network keeps about you, why, for how long, and how to see or delete it.",
     group: "legal",
-    changes: FIRST,
+    changes: [
+      { date: "2026-10-07", note: "Added what’s kept for Minecraft projects." },
+      ...FIRST,
+    ],
   },
   {
     path: "/legal/cookies/",
@@ -68,7 +77,13 @@ export const INFO_PAGES: readonly InfoPage[] = [
     description:
       "How to take part in comments and uploads, and what happens when rules are broken.",
     group: "legal",
-    changes: FIRST,
+    changes: [
+      {
+        date: "2026-10-07",
+        note: "Added the rules for Minecraft projects, and their reports.",
+      },
+      ...FIRST,
+    ],
   },
   {
     path: "/legal/copyright/",
@@ -77,7 +92,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     description:
       "Who owns what on Trilleo Network, how to report infringing content, and how to appeal.",
     group: "legal",
-    changes: FIRST,
+    changes: [
+      { date: "2026-10-07", note: "Mentioned reporting Minecraft projects." },
+      ...FIRST,
+    ],
   },
   {
     path: "/contact/",
@@ -95,7 +113,13 @@ export const INFO_PAGES: readonly InfoPage[] = [
     description:
       "Short answers about accounts, your data, the tools, the games and comments.",
     group: "help",
-    changes: FIRST,
+    changes: [
+      {
+        date: "2026-10-07",
+        note: "Added questions about sharing Minecraft creations.",
+      },
+      ...FIRST,
+    ],
   },
   {
     path: "/accessibility/",

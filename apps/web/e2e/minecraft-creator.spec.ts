@@ -140,6 +140,9 @@ test("a creator makes a project, adds a picture and releases a mod", async ({
   const admin = await adminPage(browser, baseURL);
   await admin.goto("/admin/files/review?tab=waiting");
   const jarName = `${slug}-2.0.0.jar`;
+  await expect(
+    admin.locator("article", { hasText: jarName }).getByTestId("file-use"),
+  ).toContainText("The main file of Test Mod 2.0.0");
   await admin
     .getByRole("button", { name: `Approve ${jarName}`, exact: true })
     .click();

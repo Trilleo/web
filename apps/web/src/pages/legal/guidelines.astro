@@ -8,12 +8,17 @@ import {
 } from "@trilleo/storage";
 import InfoLayout from "../../layouts/InfoLayout.astro";
 import { COMMENT_MAX_LENGTH, LIMITS } from "../../lib/comments/store";
+import {
+  MC_LIMITS,
+  PROJECT_REPORTS_TO_HIDE,
+} from "../../lib/minecraft/catalog";
 
 const sections = [
   { slug: "spirit", text: "The spirit" },
   { slug: "not-allowed", text: "Not allowed" },
   { slug: "comments", text: "Comments" },
   { slug: "uploads", text: "Uploads" },
+  { slug: "minecraft", text: "Minecraft projects" },
   { slug: "reporting", text: "Reporting" },
   { slug: "consequences", text: "What happens when rules are broken" },
   { slug: "appeals", text: "Appeals" },
@@ -82,9 +87,10 @@ const sections = [
   <h2 id="uploads">Uploads</h2>
   <ul>
     <li>
-      Uploading is open only to some accounts for now. Where it is open, every
-      file is checked for malware, and public files are reviewed before anyone
-      else sees them, until you are trusted.
+      Anyone signed in can share Minecraft creations; other kinds of upload are
+      open only to some accounts for now. Every file is checked for malware, and
+      public files are reviewed before anyone else sees them, until you are
+      trusted.
     </li>
     <li>
       You become trusted automatically after {TRUST_AFTER_APPROVALS} approved
@@ -92,8 +98,40 @@ const sections = [
       their files are still spot-checked and can be reported.
     </li>
     <li>
+      Mods and plugins (.jar files) are always looked at before they go out,
+      however trusted you are, because people run them.
+    </li>
+    <li>
       Web pages, scripts and other active files are only offered as downloads,
       never opened in the browser.
+    </li>
+  </ul>
+
+  <h2 id="minecraft">Minecraft projects</h2>
+  <ul>
+    <li>
+      Describe it honestly: a name and summary that say what it is, pictures
+      that show it, and the Minecraft versions and loaders it really works with.
+    </li>
+    <li>
+      Share your own work, or work its licence lets you share. No re-uploads of
+      other people’s projects, even with credit, unless their licence allows it.
+    </li>
+    <li>
+      Nothing hidden: no code obfuscated to hide what it does, no backdoors
+      (such as a plugin that gives its author operator rights), no miners, and
+      no data collection or network calls a player wouldn’t expect unless the
+      description says so plainly.
+    </li>
+    <li>
+      No cheats for servers that aren’t yours, and nothing made to grief or
+      crash other people’s worlds.
+    </li>
+    <li>
+      Keep it tidy: up to {MC_LIMITS.projectsPerAccount} projects per account,{" "}
+      {MC_LIMITS.gallery} pictures per project and {MC_LIMITS.releasesPerDay}{" "}
+      releases a day. Put new versions in new releases of the same project,
+      rather than new projects.
     </li>
   </ul>
 
@@ -103,7 +141,9 @@ const sections = [
     file’s page, or <a href="/contact/">get in touch</a> about a comment or
     profile. Reports are read by a person. A public file reported by{" "}
     {REPORTS_TO_HIDE} different people whose accounts are at least{" "}
-    {REPORTER_MIN_AGE_DAYS} days old is hidden until it’s been reviewed. Please
+    {REPORTER_MIN_AGE_DAYS} days old is hidden until it’s been reviewed. For a
+    Minecraft project’s page (its description or pictures), use “Report this
+    project”; {PROJECT_REPORTS_TO_HIDE} reports hide it the same way. Please
     don’t report things only because you disagree with them: false reports slow
     everything down.
   </p>
@@ -122,6 +162,11 @@ const sections = [
       Malware is refused automatically.
     </li>
     <li>
+      <strong>Minecraft projects</strong> whose pages break the rules can be
+      hidden; the creator sees why on their dashboard. Their files follow the
+      rules for files above.
+    </li>
+    <li>
       Serious or illegal content may be removed at once, without a warning, and
       reported to the authorities where the law requires it.
     </li>
@@ -132,7 +177,7 @@ const sections = [
     If you think a decision about your file was wrong, appeal it from{" "}
     <a href="/account/files/">your files</a> (once per file). While an appeal is
     open, the file isn’t deleted. An accepted appeal restores the file and
-    removes the strike. For anything else, such as a hidden comment or a blocked
-    account, <a href="/contact/">write to me</a>.
+    removes the strike. For anything else, such as a hidden comment, a hidden
+    project or a blocked account, <a href="/contact/">write to me</a>.
   </p>
 </InfoLayout>
