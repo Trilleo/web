@@ -18,9 +18,13 @@ const { id, fit } = Astro.props;
 const word = (await Astro.slots.render("default")).trim();
 // The animated pieces are inline-blocks, which browsers join with a space when
 // naming the heading ("Tools ."); name it explicitly instead.
-const label = `${word.replace(/<[^>]*>/g, "")}.`;
+const text = word.replace(/<[^>]*>/g, "");
+const label = `${text}.`;
+// The display line-height is tighter than the font's descent: a g, j, p, q or y
+// would reach the rule below the title, so those words get room under them.
+const descends = /[gjpqy]/.test(text);
 ---
 
 <!-- No whitespace between the word and the period: it would show as a space. -->
 <!-- prettier-ignore -->
-<h1 {id} aria-label={label} class:list={[fit ? "type-display-fit whitespace-nowrap" : "type-display", "mt-5 -ml-[0.03em] xl:mt-7"]} style={fit ? `--fit: ${String(fit)}` : undefined}><span class="inline-block animate-mask-up" set:html={word} /><span class="inline-block origin-[50%_80%] animate-pop text-accent [animation-delay:450ms]">.</span></h1>
+<h1 {id} aria-label={label} class:list={[fit ? "type-display-fit whitespace-nowrap" : "type-display", "mt-5 -ml-[0.03em] xl:mt-7", descends && "pb-[0.12em]"]} style={fit ? `--fit: ${String(fit)}` : undefined}><span class="inline-block animate-mask-up" set:html={word} /><span class="inline-block origin-[50%_80%] animate-pop text-accent [animation-delay:450ms]">.</span></h1>

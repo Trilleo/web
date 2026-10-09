@@ -95,6 +95,27 @@
   ancestors are links, the current page is plain text with aria-current.
 - Astro scoped styles don't reach child components: wrap a child in an element
   you own if the parent's CSS must place it.
+- Use the width. Content starts at column 3 only when something hangs in columns
+  1–2 beside it (a label, a section number, the contents list, an info page's
+  facts); a row with nothing there starts at column 1. A page's description
+  (`type-lead` under the display title) spans the full width, or columns 1–9 when
+  an aside takes 10–12; a label for it ("About", "Index") goes on its own line
+  above it, not beside it. Reading text keeps a measure (7 columns, or a
+  max-width), so it may leave the right side open.
+- Tailwind v4's `col-span-*` sets the whole `grid-column`, so a wider breakpoint's
+  `xl:col-span-*` drops an inherited `md:col-start-*`: repeat the start
+  (`xl:col-start-3`).
+- Card lists (ToolList) fill their last row on desktop: two leftover cards share
+  it, a lone card runs the full width, sideways. DisplayTitle leaves room under
+  words with descenders (g, j, p, q, y) so they don't touch the rule.
+- Information pages and posts: on desktop with a contents list, text in columns
+  3–9; without one, and on iPad (where it's hidden), columns 1–7. Without an
+  aside, tables run on past the text, ten columns wide (`.prose-wide`). On phones,
+  tables with a header row stack, one block per row, each cell under its heading
+  (`stackTables` in src/lib/post-html.ts adds the labels). Prose tables don't use
+  tabular figures: in the grotesk they widen commas, periods and colons too.
+- The footer: the name, three labelled link groups (Sections, Information,
+  Elsewhere), and the site's line with "Back to top" in columns 9–12.
 
 ## Motion
 
@@ -476,6 +497,8 @@
   scenery (`Island.tiles`), whatever letters they hold. Each cell is 1ch wide.
 - The accent is only a background in the grid (dark text on orange): orange text
   on the light paper is too faint.
+- On touch screens (`pointer-coarse`) the Use button and arrow pad sit in a strip
+  under the map, never over it, and the map is a little shorter to make room.
 - Server-rendered game content must be visible without JavaScript: don't start it
   at opacity 0 for an entrance animation (axe also flags it mid-fade).
 

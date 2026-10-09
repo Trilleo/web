@@ -14,7 +14,11 @@ const { posts, emptyMessage = "No posts yet.", headings = true } = Astro.props;
 ---
 
 {posts.length === 0 ? (
-  <p class="type-row border-y border-ink py-6 text-muted">{emptyMessage}</p>
+  <div class="grid-swiss border-y border-ink py-6">
+    <p class="type-row col-span-4 md:col-span-8 xl:col-span-12 text-muted">
+      {emptyMessage}
+    </p>
+  </div>
 ) : (
   <>
     {headings && (

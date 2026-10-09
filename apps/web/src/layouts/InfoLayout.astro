@@ -13,6 +13,7 @@ import {
   infoPage,
   lastUpdated,
 } from "../lib/info-pages";
+import { stackTables } from "../lib/post-html";
 import { breadcrumbJsonLd, type JsonLd } from "../lib/seo";
 import BaseLayout from "./BaseLayout.astro";
 
@@ -33,6 +34,13 @@ const contents = history
   : sections;
 const updated = lastUpdated(page);
 const isLegal = page.group === "legal";
+// Without an aside, wide things (tables) may use its columns too (.prose-wide).
+const hasAside = Astro.slots.has("aside");
+// The contents list fills the left columns on desktop; without it (and below
+// desktop, where it's hidden) the text starts at column 1.
+const hasContents = contents.length > 1;
+// Rendered here so tables can be labelled for stacking on phones (stackTables).
+const body = stackTables(await Astro.slots.render("default"));
 
 const crumbs: Crumb[] = isLegal
   ? [{ label: "Legal", href: LEGAL_HUB.path }, { label: page.label }]
@@ -91,13 +99,19 @@ const trail = isLegal
 
     <div class="mx-page h-0.5 origin-left animate-draw bg-ink [animation-delay:150ms]"></div>
     <div class="grid-swiss mx-page pt-10 pb-16 md:pt-12 md:pb-24">
-      {contents.length > 1 && (
+      {hasContents && (
         <div class="hidden xl:col-span-2 xl:block">
           <TableOfContents headings={contents} />
         </div>
       )}
-      <div class="prose col-span-4 md:col-span-8 md:max-w-[40rem] xl:col-span-7 xl:col-start-3 xl:max-w-none">
-        <slot />
+      <div
+        class:list={[
+          "prose col-span-4 md:col-span-7",
+          hasContents ? "xl:col-span-7 xl:col-start-3" : "xl:col-span-7",
+          !hasAside && "prose-wide",
+        ]}
+      >
+        <Fragment set:html={body} />
         {history && (
           <>
             <h2 id="changes">Changes to this page</h2>
@@ -119,9 +133,11 @@ const trail = isLegal
           </>
         )}
       </div>
-      <div class="col-span-4 md:col-span-8 xl:col-span-3 xl:col-start-10">
-        <slot name="aside" />
-      </div>
+      {hasAside && (
+        <div class="col-span-4 md:col-span-7 xl:col-span-3 xl:col-start-10">
+          <slot name="aside" />
+        </div>
+      )}
     </div>
   </article>
 </BaseLayout>

@@ -86,9 +86,13 @@ export const INFO_PAGES: readonly InfoPage[] = [
     title: "Cookies and local storage",
     label: "Cookies",
     description:
-      "The one sign-in cookie and the browser storage the site uses. No tracking, no banner.",
+      "The cookies and browser storage the site uses, what each is for, and how to choose what’s kept.",
     group: "legal",
     changes: [
+      {
+        date: "2026-10-09",
+        note: "Corrected the summary, which still said there was one cookie and no banner.",
+      },
       {
         date: "2026-10-09",
         note: "Added the cookie used while adding or using a passkey.",

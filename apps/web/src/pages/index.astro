@@ -77,15 +77,18 @@ const pageArrowClass =
       class="grid-swiss gap-y-4 pt-4 pb-10 md:gap-y-7 md:pt-5 md:pb-14 xl:pt-6 xl:pb-16"
       data-reveal
     >
-      <p class="type-label col-span-4 flex items-start gap-2 md:col-span-2 xl:col-span-2">
-        <span
-          class="mt-0.5 size-2 bg-accent xl:size-2.5"
-          aria-hidden="true"
-        ></span>
-        About
-      </p>
-      <p class="type-lead col-span-4 md:col-span-6">{SITE_DESCRIPTION}</p>
-      <div class="col-span-4 grid gap-6 md:col-span-6 md:col-start-3 md:grid-cols-2 md:gap-5 xl:col-span-3 xl:col-start-10 xl:row-start-1 xl:grid-cols-1 xl:gap-6">
+      <!-- The label sits on its own line above the description. -->
+      <div class="col-span-4 flex flex-col gap-3 md:col-span-8 md:gap-4 xl:col-span-9">
+        <p class="type-label flex items-start gap-2">
+          <span
+            class="mt-0.5 size-2 bg-accent xl:size-2.5"
+            aria-hidden="true"
+          ></span>
+          About
+        </p>
+        <p class="type-lead">{SITE_DESCRIPTION}</p>
+      </div>
+      <div class="col-span-4 grid gap-6 md:col-span-8 md:grid-cols-2 md:gap-5 xl:col-span-3 xl:col-start-10 xl:row-start-1 xl:grid-cols-1 xl:gap-6">
         <p class="text-[15px] leading-[1.55] text-muted xl:text-base">
           {SITE_BIO}
         </p>
@@ -172,13 +175,15 @@ const pageArrowClass =
       {creations.cards.length > 0 ? (
         <ProjectCards cards={creations.cards} />
       ) : (
-        <p class="type-lead border-t border-ink pt-6 text-muted">
-          {MINECRAFT_DESCRIPTION}{" "}
-          <a href="/minecraft/" class="link-wipe text-ink">
-            Have a look
-          </a>
-          .
-        </p>
+        <div class="grid-swiss border-t border-ink pt-6">
+          <p class="type-lead col-span-4 md:col-span-8 xl:col-span-12 text-muted">
+            {MINECRAFT_DESCRIPTION}{" "}
+            <a href="/minecraft/" class="link-wipe text-ink">
+              Have a look
+            </a>
+            .
+          </p>
+        </div>
       )}
     </div>
   </section>

@@ -439,6 +439,7 @@ html[data-theme-switching]::view-transition-new(root) {
   font-weight: 500;
   line-height: 1.06;
   letter-spacing: -0.03em;
+  text-wrap: pretty;
   @media (width >= 48rem) {
     font-size: 2.5rem;
     line-height: 1.05;

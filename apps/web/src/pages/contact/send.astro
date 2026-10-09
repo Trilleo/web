@@ -59,7 +59,7 @@ const title = result.ok ? "Sent" : "Not sent";
     <DisplayTitle id="contact-result-title">{title}</DisplayTitle>
 
     <div class="grid-swiss mt-7 gap-y-8 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
-      <div class="col-span-4 flex flex-col gap-8 md:col-span-6 md:col-start-3 xl:col-start-3">
+      <div class="col-span-4 flex flex-col gap-8 md:col-span-8 xl:col-span-9">
         {result.ok ? (
           <p role="status" class="type-lead">
             Thanks{input.name.trim() ? `, ${input.name.trim()}` : ""}: your

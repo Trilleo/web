@@ -162,12 +162,13 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
   @media (width >= 48rem) {
     .tool {
       grid-template-columns: repeat(8, minmax(0, 1fr));
-      /* The tall mark spans both rows; give the extra height to the second row so the
-         text stays right under the meta line. */
-      grid-template-rows: auto 1fr;
+      /* The tall mark spans all three rows; the extra height goes to the second row
+         so the text stays right under the meta line. */
+      grid-template-rows: auto 1fr auto;
       grid-template-areas:
-        "shape shape meta meta meta meta . ."
-        "shape shape body body body body path path";
+        "shape shape meta meta meta meta meta meta"
+        "shape shape body body body body body ."
+        "shape shape path path path path path path";
       gap: 0.625rem 1.25rem;
       padding: 1.5rem 1.25rem;
     }
@@ -177,14 +178,25 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
     .tool-path {
       margin-top: 0;
       align-self: end;
-      justify-self: end;
     }
   }
 
-  /* Desktop: three tall cards, mark in the middle, status with a dot. */
+  /* Desktop: three tall cards, mark in the middle, status with a dot. The list
+     has six tracks, two per card, so a short last row can stretch to fill it:
+     two cards take three tracks each, a lone card all six (laid out sideways). */
   @media (width >= 80rem) {
     .tools {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+    .tool {
+      grid-column: span 2;
+    }
+    .tool:nth-child(3n + 1):nth-last-child(2),
+    .tool:nth-child(3n + 2):last-child {
+      grid-column: span 3;
+    }
+    .tool:nth-child(3n + 1):last-child {
+      grid-column: span 6;
     }
     /* The icon gets a fixed band and the text takes what's left, so every card's
        title starts at the same height whatever its description's length. Cards
@@ -235,6 +247,22 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
     .tool-path {
       justify-self: start;
       padding-top: 0.5rem;
+    }
+    /* The lone card: the mark in a band as wide as the page's two label columns
+       (the card's padding is one gap), so the text starts at column 3. */
+    .tool:nth-child(3n + 1):last-child {
+      grid-template-columns: calc((100% - 13.5rem) / 6) minmax(0, 1fr);
+      grid-template-rows: auto 1fr auto;
+      grid-template-areas:
+        "meta meta"
+        "shape body"
+        "shape path";
+      column-gap: 1.5rem;
+      min-height: 20rem;
+    }
+    .tool:nth-child(3n + 1):last-child .tool-body {
+      align-self: end;
+      max-width: 40rem;
     }
   }
 
