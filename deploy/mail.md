@@ -9,6 +9,10 @@ What it sends:
 
 - **Codes**: to sign in (/sign-in; an account is its email address) and to confirm a
   new address (/account/email/). Always sent.
+- **Address changed**: to the old address after a change, with a link that undoes it.
+  Always sent; its body is cleared once sent, like codes.
+- **New sign-in** alerts (a browser the account hasn't used lately), which people can
+  switch off ("Sign-in alerts").
 - **Notifications** people can switch off: replies to their comments, their comments'
   review, decisions on their uploads and Minecraft projects. Each has a one-click
   unsubscribe link (`List-Unsubscribe` + `List-Unsubscribe-Post`).

@@ -54,7 +54,10 @@ async function userById(db: Database, id: string): Promise<User | undefined> {
 export async function notifyUser(
   db: Database,
   user: User | undefined,
-  kind: Exclude<MailKind, "email-code" | "contact-reply" | "test">,
+  kind: Exclude<
+    MailKind,
+    "email-code" | "email-changed" | "contact-reply" | "test"
+  >,
   message: { subject: string; body: NotificationBody; ref?: string },
   now = new Date(),
 ): Promise<boolean> {

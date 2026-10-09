@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { logEvent } from "../../lib/auth/activity";
 import { clearSessionCookie, readSessionToken } from "../../lib/auth/cookies";
 import { noStoreRedirect } from "../../lib/auth/redirect";
 import {
@@ -18,6 +19,9 @@ export const POST: APIRoute = async ({ request, locals, cookies, url }) => {
   const token = readSessionToken(cookies, url);
   if (locals.user && form.get("everywhere") === "1") {
     await invalidateUserSessions(await getDb(), locals.user.id);
+    await logEvent(await getDb(), locals.user.id, "signed-out-everywhere", {
+      userAgent: request.headers.get("user-agent"),
+    });
   } else if (token) {
     await invalidateSession(await getDb(), token);
   }

@@ -87,8 +87,13 @@ const sections = [
     </li>
     <li>
       No passwords: one-time email codes (stored as hashes, limited guesses,
-      short-lived) or GitHub sign-in with PKCE. An address alone never links an
-      outside account. Session tokens are stored only as hashes.
+      short-lived), passkeys (WebAuthn, user verification required) or GitHub
+      sign-in with PKCE. An address alone never links an outside account.
+      Session tokens are stored only as hashes.
+    </li>
+    <li>
+      Account owners are told about sign-ins from new browsers, and an address
+      change can be undone from the old address, which also signs everyone out.
     </li>
     <li>
       Every change that alters data is a POST form with an origin check; pages

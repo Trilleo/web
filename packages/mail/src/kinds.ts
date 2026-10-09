@@ -6,6 +6,7 @@
 
 /** The switches on /account/email/: one per kind of notification. */
 export const NOTIFICATION_TOPICS = [
+  "security",
   "replies",
   "comments",
   "reviews",
@@ -17,6 +18,7 @@ export type NotificationSettings = Record<NotificationTopic, boolean>;
 
 /** Everything on: adding an address is the opt-in. */
 export const DEFAULT_NOTIFICATIONS: Readonly<NotificationSettings> = {
+  security: true,
   replies: true,
   comments: true,
   reviews: true,
@@ -26,6 +28,10 @@ export const DEFAULT_NOTIFICATIONS: Readonly<NotificationSettings> = {
 export const NOTIFICATION_LABELS: Readonly<
   Record<NotificationTopic, { label: string; hint: string }>
 > = {
+  security: {
+    label: "Sign-in alerts",
+    hint: "Your account was signed in to from a browser it hasn’t used before.",
+  },
   replies: {
     label: "Replies to your comments",
     hint: "Someone replied in a thread you started or joined.",
@@ -73,6 +79,9 @@ export function isNotificationTopic(
  */
 export const MAIL_KINDS = {
   "email-code": { label: "Email code", topic: null, secret: true },
+  /** To the old address after a change, with a link to undo it. */
+  "email-changed": { label: "Address changed", topic: null, secret: true },
+  "new-sign-in": { label: "New sign-in", topic: "security", secret: false },
   "comment-reply": { label: "Comment reply", topic: "replies", secret: false },
   "comment-review": {
     label: "Comment review",

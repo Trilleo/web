@@ -473,6 +473,7 @@ describe("email addresses", () => {
     });
     [row] = await db.select().from(users).where(eq(users.id, ada.id));
     expect(row?.emailNotifications).toEqual({
+      security: false,
       replies: false,
       comments: false,
       reviews: false,

@@ -6,6 +6,7 @@
 import { buttonClasses } from "@trilleo/ui";
 import DisplayTitle from "../../components/DisplayTitle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import { logEvent } from "../../lib/auth/activity";
 import { describeUserAgent } from "../../lib/auth/devices";
 import { requireUser } from "../../lib/auth/guard";
 import { noStoreRedirect } from "../../lib/auth/redirect";
@@ -33,6 +34,9 @@ if (Astro.request.method === "POST" && current) {
   const form = await Astro.request.formData();
   if (field(form, "others") === "1") {
     await invalidateOtherSessions(db, user.id, current.id);
+    await logEvent(db, user.id, "signed-out-others", {
+      userAgent: Astro.request.headers.get("user-agent"),
+    });
     return noStoreRedirect("/account/sessions/?done=others", 303);
   }
   const id = field(form, "session");

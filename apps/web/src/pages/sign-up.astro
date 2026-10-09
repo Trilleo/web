@@ -61,12 +61,11 @@ if (Astro.request.method === "POST" && pending?.ticket && ticket) {
   const result = await completeSignUp(db, pending.ticket, { username, agreed });
   if (result.ok) {
     clearPendingCookie(Astro.cookies, Astro.url);
-    const session = await startSession(
-      db,
-      result.user,
-      new Date(),
-      Astro.request.headers.get("user-agent"),
-    );
+    const session = await startSession(db, result.user, {
+      method: "email",
+      created: true,
+      userAgent: Astro.request.headers.get("user-agent"),
+    });
     setSessionCookie(
       Astro.cookies,
       Astro.url,

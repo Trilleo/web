@@ -10,13 +10,14 @@
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import { emailCodes, users, type Database, type User } from "@trilleo/db";
 import {
+  NOTIFICATION_TOPICS,
   isNotificationTopic,
   normalizeEmail,
   parseNotificationSettings,
   type NotificationSettings,
   type NotificationTopic,
 } from "@trilleo/mail";
-import { and, count, desc, eq, gt, isNull, lt, ne } from "drizzle-orm";
+import { and, count, desc, eq, gt, isNull, lt, ne, or } from "drizzle-orm";
 import { randomToken } from "../auth/crypto";
 import { SITE_NAME } from "../site";
 import { composeDirect } from "./compose";
@@ -41,7 +42,10 @@ export const CODE_LIMITS = {
   perAddressDaily: 5,
 } as const;
 
-/** Codes (only their hashes) are deleted this long after they were made. */
+/**
+ * Codes (only their hashes) are deleted this long after they were made; undo links
+ * (lib/auth/email-change.ts) once they've also expired.
+ */
 export const CODE_RETENTION_DAYS = 2;
 
 /** Deletes codes past CODE_RETENTION_DAYS (the daily limits only look back one day). */
@@ -52,9 +56,13 @@ export async function purgeCodes(
   const gone = await db
     .delete(emailCodes)
     .where(
-      lt(
-        emailCodes.createdAt,
-        new Date(now.getTime() - CODE_RETENTION_DAYS * DAY_MS),
+      and(
+        lt(
+          emailCodes.createdAt,
+          new Date(now.getTime() - CODE_RETENTION_DAYS * DAY_MS),
+        ),
+        // Undo links live longer (UNDO_EMAIL_DAYS): kept until they expire.
+        or(ne(emailCodes.purpose, "undo-email"), lt(emailCodes.expiresAt, now)),
       ),
     )
     .returning({ id: emailCodes.id });
@@ -346,7 +354,9 @@ export async function unsubscribe(
   const current = notificationsOf(user);
   const next: NotificationSettings = isNotificationTopic(topic)
     ? { ...current, [topic]: false }
-    : { replies: false, comments: false, reviews: false, admin: false };
+    : (Object.fromEntries(
+        NOTIFICATION_TOPICS.map((name) => [name, false]),
+      ) as NotificationSettings);
   await saveNotifications(db, user.id, next);
   return { ok: true, topic: isNotificationTopic(topic) ? topic : "all", user };
 }

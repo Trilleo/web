@@ -1,4 +1,5 @@
 import type { Database, User } from "@trilleo/db";
+import { maskEmail } from "@trilleo/mail";
 import {
   adoptVerifiedEmail,
   createFromProvider,
@@ -8,6 +9,12 @@ import {
   userByEmail,
   type ProviderProfile,
 } from "./accounts";
+import {
+  logEvent,
+  purgeSecurityEvents,
+  recordSignIn,
+  type SignInMethod,
+} from "./activity";
 import type { GitHubConfig } from "./config";
 import type { OAuthState } from "./cookies";
 import { exchangeCode, fetchGitHubEmail, fetchGitHubUser } from "./github";
@@ -37,15 +44,31 @@ export type SignInResult =
   | { ok: true; kind: "linked"; next: string }
   | { ok: false; error: SignInError };
 
-/** Starts a session for `user` (the end of every way of signing in). */
+/**
+ * Starts a session for `user`: the end of every way of signing in. Logs it (and
+ * alerts the owner about a browser the account hasn't used lately); `created` for
+ * the sign-in that made the account.
+ */
 export async function startSession(
   db: Database,
   user: User,
-  now: Date,
-  userAgent: string | null,
+  input: {
+    method: SignInMethod;
+    created?: boolean;
+    userAgent: string | null;
+    now?: Date;
+  },
 ): Promise<{ token: string; expiresAt: Date }> {
+  const now = input.now ?? new Date();
   await deleteExpiredSessions(db, now);
-  const { token, session } = await createSession(db, user.id, now, userAgent);
+  await purgeSecurityEvents(db, now);
+  const { token, session } = await createSession(
+    db,
+    user.id,
+    now,
+    input.userAgent,
+  );
+  await recordSignIn(db, user, { ...input, now });
   return { token, expiresAt: session.expiresAt };
 }
 
@@ -128,13 +151,18 @@ export async function completeSignIn(input: {
 
   if (saved.linkUserId && currentUser) {
     const linked = await linkIdentity(db, currentUser.id, profile, now);
-    return linked.ok
-      ? { ok: true, kind: "linked", next: saved.next }
-      : { ok: false, error: linked.error };
+    if (!linked.ok) return { ok: false, error: linked.error };
+    await logEvent(db, currentUser.id, "linked", {
+      detail: `GitHub @${profile.login}`,
+      userAgent,
+      now,
+    });
+    return { ok: true, kind: "linked", next: saved.next };
   }
 
   let user: User;
   let adopted = false;
+  let created = false;
   const found = await findIdentity(db, "github", profile.id);
   if (found) {
     if (found.user.blockedAt) return { ok: false, error: "not-allowed" };
@@ -148,14 +176,25 @@ export async function completeSignIn(input: {
     if (moved) {
       user = moved;
       adopted = true;
+      await logEvent(db, user.id, "email-changed", {
+        detail: `${maskEmail(moved.email ?? "")}, from GitHub`,
+        userAgent,
+        now,
+      });
     }
   } else {
     if (profile.verifiedEmail && (await userByEmail(db, profile.verifiedEmail)))
       return { ok: false, error: "email-taken" };
     user = await createFromProvider(db, profile, now);
+    created = true;
   }
 
-  const session = await startSession(db, user, now, userAgent);
+  const session = await startSession(db, user, {
+    method: "github",
+    created,
+    userAgent,
+    now,
+  });
   return { ok: true, kind: "session", ...session, next: saved.next, adopted };
 }
 

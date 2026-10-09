@@ -63,6 +63,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-09",
+        note: "Added passkeys, the security log, sign-in alerts and undoing an address change.",
+      },
+      {
+        date: "2026-10-09",
         note: "Accounts are now their email address: signing in by code, usernames chosen on the site, GitHub as a linked account (and reading its verified address).",
       },
       {
@@ -81,6 +85,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "The one sign-in cookie and the browser storage the site uses. No tracking, no banner.",
     group: "legal",
     changes: [
+      {
+        date: "2026-10-09",
+        note: "Added the cookie used while adding or using a passkey.",
+      },
       {
         date: "2026-10-09",
         note: "Added the cookie used while signing in by email.",
@@ -132,6 +140,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "Short answers about accounts, your data, the tools, the games and comments.",
     group: "help",
     changes: [
+      {
+        date: "2026-10-09",
+        note: "Passkeys, and how you’d know about someone else signing in.",
+      },
       {
         date: "2026-10-09",
         note: "Signing in by email, what changed for GitHub accounts, and usernames.",

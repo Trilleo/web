@@ -1,6 +1,8 @@
 ---
 import { RETENTION_DAYS } from "@trilleo/storage";
 import InfoLayout from "../../layouts/InfoLayout.astro";
+import { NEW_DEVICE_DAYS, SECURITY_LOG_DAYS } from "../../lib/auth/activity";
+import { UNDO_EMAIL_DAYS } from "../../lib/auth/email-change";
 import { SIGN_IN_LIMITS } from "../../lib/auth/email-sign-in";
 import { SESSION_TTL_MS } from "../../lib/auth/sessions";
 import { USERNAME_HOLD_DAYS } from "../../lib/auth/usernames";
@@ -106,6 +108,27 @@ const sections = [
         </td>
         <td>You fill it in (all optional)</td>
         <td>To show your profile the way you chose</td>
+      </tr>
+      <tr>
+        <td>
+          Passkeys: each one’s public key (its private half never leaves your
+          device or password manager), a name, and when it was added and last
+          used
+        </td>
+        <td>You add a passkey</td>
+        <td>To let you sign in with it</td>
+      </tr>
+      <tr>
+        <td>
+          A security log: sign-ins and how, address changes, passkeys and linked
+          accounts added or removed, and sign-outs, each with a rough browser
+          name (such as “Firefox on Windows”) and the time
+        </td>
+        <td>Those things happen to your account</td>
+        <td>
+          To show you what happened, and to warn you about a sign-in from a
+          browser your account hasn’t used in {NEW_DEVICE_DAYS} days
+        </td>
       </tr>
       <tr>
         <td>
@@ -242,10 +265,12 @@ const sections = [
   <p>
     With an address, you get the notifications you leave switched on: replies to
     your comments, your comments’ review, and decisions about your uploads and
-    Minecraft projects. Each email has a one-click unsubscribe link, and the
-    email page lets you switch each kind off. Since it’s how you sign in, the
-    address can be changed but not removed, except by deleting your account.
-    Codes you ask for always arrive.
+    Minecraft projects, and sign-in alerts. Each email has a one-click
+    unsubscribe link, and the email page lets you switch each kind off. Since
+    it’s how you sign in, the address can be changed but not removed, except by
+    deleting your account. Codes you ask for always arrive, and so does a
+    message to your old address when it changes, with a link that undoes the
+    change for {UNDO_EMAIL_DAYS} days.
   </p>
   <p>
     The site keeps a record of each email it sends: to whom, the subject, what
@@ -315,6 +340,10 @@ const sections = [
       stop the same file being uploaded again.
     </li>
     <li>Contact messages: at most {CONTACT_RETENTION_DAYS} days.</li>
+    <li>
+      The security log: {SECURITY_LOG_DAYS} days. Passkeys: until you remove
+      them or delete your account.
+    </li>
     <li>
       Your email address and username: until you change them or delete your
       account (an old username: {USERNAME_HOLD_DAYS} days). The text of emails

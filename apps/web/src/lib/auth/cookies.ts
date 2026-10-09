@@ -3,10 +3,13 @@ import type { AstroCookies } from "astro";
 const SESSION_COOKIE = "trilleo_session";
 const OAUTH_COOKIE = "trilleo_oauth";
 const PENDING_COOKIE = "trilleo_sign_in";
+const WEBAUTHN_COOKIE = "trilleo_webauthn";
 /** Time allowed to finish signing in on GitHub. */
 export const OAUTH_MAX_AGE_S = 10 * 60;
 /** Time allowed to type a code and choose a username. */
 export const PENDING_MAX_AGE_S = 30 * 60;
+/** Time allowed to use a passkey (PASSKEY_TIMEOUT_MS). */
+export const WEBAUTHN_MAX_AGE_S = 5 * 60;
 
 /** What the sign-in flow remembers between leaving for GitHub and coming back. */
 export interface OAuthState {
@@ -160,4 +163,55 @@ export function readPendingCookie(
 
 export function clearPendingCookie(cookies: AstroCookies, url: URL): void {
   cookies.delete(cookieName(PENDING_COOKIE, url), options(url));
+}
+
+/** A passkey ceremony under way: its challenge, and what it's for. */
+export interface WebAuthnState {
+  challenge: string;
+  purpose: "register" | "authenticate";
+  /** For "register": the account adding it. */
+  userId?: string;
+}
+
+export function setWebAuthnCookie(
+  cookies: AstroCookies,
+  url: URL,
+  value: WebAuthnState,
+): void {
+  cookies.set(cookieName(WEBAUTHN_COOKIE, url), JSON.stringify(value), {
+    ...options(url),
+    maxAge: WEBAUTHN_MAX_AGE_S,
+  });
+}
+
+/** The ceremony's state, read once: the cookie is cleared, so a challenge works once. */
+export function takeWebAuthnCookie(
+  cookies: AstroCookies,
+  url: URL,
+): WebAuthnState | null {
+  const name = cookieName(WEBAUTHN_COOKIE, url);
+  const raw = cookies.get(name)?.value;
+  cookies.delete(name, options(url));
+  if (!raw) return null;
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (
+      typeof value === "object" &&
+      value !== null &&
+      "challenge" in value &&
+      "purpose" in value &&
+      typeof value.challenge === "string" &&
+      (value.purpose === "register" || value.purpose === "authenticate")
+    ) {
+      return {
+        challenge: value.challenge,
+        purpose: value.purpose,
+        ...("userId" in value &&
+          typeof value.userId === "string" && { userId: value.userId }),
+      };
+    }
+  } catch {
+    // A mangled cookie is the same as none.
+  }
+  return null;
 }

@@ -162,6 +162,57 @@ export const usernameHistory = pgTable(
   (table) => [index("username_history_user_idx").on(table.userId)],
 );
 
+/**
+ * A passkey (WebAuthn credential) someone added to sign in with. `id` is the
+ * credential ID (base64url); `publicKey` the COSE key the authenticator gave, kept
+ * to check its signatures (apps/web/src/lib/auth/webauthn.ts).
+ */
+export const passkeys = pgTable(
+  "passkeys",
+  {
+    id: text("id").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** The COSE_Key, base64url. */
+    publicKey: text("public_key").notNull(),
+    /** Its COSE algorithm: -7 ES256, -8 EdDSA, -257 RS256. */
+    algorithm: integer("algorithm").notNull(),
+    /** The authenticator's counter (0 for most synced passkeys). */
+    signCount: bigint("sign_count", { mode: "number" }).notNull().default(0),
+    transports: jsonb("transports").$type<string[]>().notNull().default([]),
+    /** Shown on /account/security/; they can rename it. */
+    name: text("name").notNull(),
+    /** Synced between devices (the backup-state flag). */
+    backedUp: boolean("backed_up").notNull().default(false),
+    createdAt: createdAt(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (table) => [index("passkeys_user_idx").on(table.userId)],
+);
+
+/**
+ * What happened to an account's security, for /account/security/ and the export:
+ * sign-ins (and how), address changes, linked accounts, passkeys, sign-outs.
+ * `device` is a rough browser name (never the IP). Purged after
+ * SECURITY_LOG_DAYS (apps/web/src/lib/auth/activity.ts).
+ */
+export const securityEvents = pgTable(
+  "security_events",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    /** What else there is to say: the method, a provider, a masked address… */
+    detail: text("detail"),
+    device: text("device"),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("security_events_user_idx").on(table.userId, table.at)],
+);
+
 /** A signed-in browser. `id` is the SHA-256 of the cookie's token, never the token. */
 export const sessions = pgTable(
   "sessions",
@@ -700,7 +751,9 @@ export const contactMessages = pgTable(
  * kept; it expires, allows a few guesses, and works once. Purposes: "verify-email"
  * (a signed-in account adds or changes its address), "sign-in" (`userId` empty when
  * the address has no account yet), and "sign-up" (not a code: the hash of the
- * ticket that lets a proved, new address finish creating its account).
+ * ticket that lets a proved, new address finish creating its account), and
+ * "undo-email" (not a code: the hash of the link sent to an old address after a
+ * change; `email` is that old address, kept until it expires).
  */
 export const emailCodes = pgTable(
   "email_codes",
@@ -709,7 +762,7 @@ export const emailCodes = pgTable(
     userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
     purpose: text("purpose", {
-      enum: ["verify-email", "sign-in", "sign-up"],
+      enum: ["verify-email", "sign-in", "sign-up", "undo-email"],
     }).notNull(),
     codeHash: text("code_hash").notNull(),
     attempts: integer("attempts").notNull().default(0),
@@ -1067,6 +1120,8 @@ export const mcPreviews = pgTable("mc_previews", {
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type UserIdentity = typeof userIdentities.$inferSelect;
+export type Passkey = typeof passkeys.$inferSelect;
+export type SecurityEvent = typeof securityEvents.$inferSelect;
 export type IdentityProvider = UserIdentity["provider"];
 export type Comment = typeof comments.$inferSelect;
 export type CommentName = (typeof commentName.enumValues)[number];

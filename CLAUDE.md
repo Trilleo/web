@@ -232,6 +232,28 @@
   sign-in, visitors land on `next` (default /account). An address can be changed
   (a code to the new one) but not removed, and an identity can't be unlinked from
   an account without an address.
+- Passkeys (passkeys.ts, webauthn.ts): WebAuthn checked by hand on node:crypto (a
+  small CBOR reader, COSE keys ES256/EdDSA/RS256, no attestation, user verification
+  required, a counter that goes backwards is refused). Discoverable credentials, so
+  /sign-in needs no username: a "Sign in with a passkey" button plus autofill in the
+  email field (`autocomplete="email webauthn"`; its errors stay quiet). JSON routes
+  under /api/auth/passkeys/ (options, register, sign-in), same-origin only; each
+  ceremony's challenge lives in the `trilleo_webauthn` cookie, read once. The RP ID
+  is the request's hostname: WebAuthn refuses IP addresses, so e2e passkey tests use
+  localhost and Chromium's virtual authenticator (e2e/security.spec.ts). Unit tests
+  use webauthn-testing.ts's `FakeAuthenticator`. Up to MAX_PASSKEYS per account;
+  rename and remove on /account/security/.
+- The security log (activity.ts, security_events): sign-ins and how, sign-ups,
+  address changes and undos, linked accounts, passkeys, usernames, sign-outs, with a
+  rough browser name (never the IP); shown on /account/security/, in the export,
+  purged after SECURITY_LOG_DAYS. `startSession` records every sign-in, and one from
+  a browser the account hasn't used in NEW_DEVICE_DAYS emails a "new sign-in" alert
+  (topic "security"; never for a new account or the first sign-in on record).
+- Changing the address (email-change.ts): the old address gets an "email-changed"
+  message with an undo link (/account/email/undo/<token>/, an email_codes row with
+  purpose "undo-email", UNDO_EMAIL_DAYS, kept past the usual code purge). Undoing
+  restores the address, signs every browser out, and removes passkeys and linked
+  accounts added since the change.
 - src/middleware.ts sets `Astro.locals.user` / `session` on server-rendered
   requests. Guarded pages start with
   `const user = requireUser(Astro); if (user instanceof Response) return user;`
@@ -261,8 +283,8 @@
   line, a bio (comment Markdown) and up to 5 links, whether the profile is public, and
   whether comments show their name or just @username. Pages: /account/profile/
   (edit, username included), /people/<username>/ (public, noindex; 404 when private
-  or blocked, except to its owner), /account/security/ (address, linked accounts,
-  link to sessions), /account/sessions/ (sign other browsers out; sessions keep
+  or blocked, except to its owner), /account/security/ (address, passkeys, linked
+  accounts, a link to sessions, recent activity), /account/sessions/ (sign other browsers out; sessions keep
   last_used_at, written at most every 5 minutes, and the User-Agent),
   /account/export.json (everything we keep, as JSON).
 

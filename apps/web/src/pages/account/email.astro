@@ -16,6 +16,7 @@ import {
 import { buttonClasses } from "@trilleo/ui";
 import DisplayTitle from "../../components/DisplayTitle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import { afterEmailChange } from "../../lib/auth/email-change";
 import { isAdmin, requireUser } from "../../lib/auth/guard";
 import { noStoreRedirect, safeNextPath } from "../../lib/auth/redirect";
 import { field } from "../../lib/comments/form";
@@ -77,7 +78,13 @@ if (Astro.request.method === "POST") {
     error = CODE_REQUEST_ERRORS[result.error];
   } else if (intent === "verify") {
     const result = await verifyEmailCode(db, user, field(form, "code"));
-    if (result.ok) return noStoreRedirect(setup ? next : done("verified"), 303);
+    if (result.ok) {
+      // The old address hears about it, with a link to undo it.
+      await afterEmailChange(db, user, result.email, {
+        userAgent: Astro.request.headers.get("user-agent"),
+      });
+      return noStoreRedirect(setup ? next : done("verified"), 303);
+    }
     error = VERIFY_ERRORS[result.error];
   } else if (intent === "notifications") {
     await saveNotifications(

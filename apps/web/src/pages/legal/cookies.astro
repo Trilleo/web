@@ -1,7 +1,11 @@
 ---
 import { THEME_STORAGE_KEY } from "@trilleo/ui/theme";
 import InfoLayout from "../../layouts/InfoLayout.astro";
-import { OAUTH_MAX_AGE_S, PENDING_MAX_AGE_S } from "../../lib/auth/cookies";
+import {
+  OAUTH_MAX_AGE_S,
+  PENDING_MAX_AGE_S,
+  WEBAUTHN_MAX_AGE_S,
+} from "../../lib/auth/cookies";
 import { SESSION_TTL_MS } from "../../lib/auth/sessions";
 
 const sessionDays = SESSION_TTL_MS / (24 * 60 * 60 * 1000);
@@ -68,6 +72,16 @@ const sections = [
           username.
         </td>
         <td>{PENDING_MAX_AGE_S / 60} minutes, or until you’re signed in</td>
+      </tr>
+      <tr>
+        <td>
+          <code>__Host-trilleo_webauthn</code>
+        </td>
+        <td>
+          While you add or use a passkey: the one-time challenge your device
+          signs.
+        </td>
+        <td>{WEBAUTHN_MAX_AGE_S / 60} minutes, or until it’s used</td>
       </tr>
     </tbody>
   </table>

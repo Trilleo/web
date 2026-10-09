@@ -1,0 +1,99 @@
+---
+/**
+ * The link sent to an old address after a change (lib/auth/email-change.ts). GET
+ * asks (link scanners open links); POST undoes it. The token is the authority: the
+ * old owner may well be signed out.
+ */
+import { maskEmail } from "@trilleo/mail";
+import { buttonClasses } from "@trilleo/ui";
+import AuthCard from "../../../../components/account/AuthCard.astro";
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import { clearSessionCookie } from "../../../../lib/auth/cookies";
+import {
+  UNDO_ERRORS,
+  undoEmailChange,
+  undoTicket,
+} from "../../../../lib/auth/email-change";
+import { getDb } from "../../../../lib/db";
+
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+// The token stays off other sites; same-origin keeps the form's Origin header.
+Astro.response.headers.set("Referrer-Policy", "same-origin");
+
+const token = Astro.params.token ?? "";
+const db = await getDb();
+let error: string | null = null;
+let restored: string | null = null;
+
+if (Astro.request.method === "POST") {
+  const result = await undoEmailChange(db, token);
+  if (result.ok) {
+    restored = result.email;
+    // Every browser was signed out, this one included.
+    clearSessionCookie(Astro.cookies, Astro.url);
+  } else {
+    error = UNDO_ERRORS[result.error];
+    Astro.response.status = 410;
+  }
+}
+const ticket = restored || error ? null : await undoTicket(db, token);
+if (!restored && !error && !ticket) {
+  error = UNDO_ERRORS.expired;
+  Astro.response.status = 404;
+}
+---
+
+<BaseLayout title="Undo an address change" noindex>
+  <AuthCard
+    id="undo-title"
+    title={restored ? "Your address is back" : "Undo the change?"}
+    description={
+      restored
+        ? `${restored} signs in again. Every browser was signed out, and passkeys and linked accounts added since the change were removed.`
+        : ticket
+          ? `@${ticket.user.username} was moved from ${maskEmail(ticket.email)} to ${maskEmail(ticket.user.email ?? "")}. Undoing puts ${maskEmail(ticket.email)} back, signs every browser out, and removes passkeys and linked accounts added since.`
+          : undefined
+    }
+  >
+    {error && (
+      <p slot="notice" role="alert" class="border-l-2 border-accent pl-3">
+        {error}
+      </p>
+    )}
+    {restored && (
+      <p slot="notice" role="status" class="border-l-2 border-accent pl-3">
+        Done.
+      </p>
+    )}
+
+    {ticket && (
+      <form method="post" class="flex flex-col gap-3">
+        <button
+          type="submit"
+          class={buttonClasses({ hover: "plain", className: "w-full" })}
+        >
+          Undo the change
+        </button>
+      </form>
+    )}
+    {restored && (
+      <a
+        href="/sign-in"
+        class={buttonClasses({ hover: "plain", className: "w-full" })}
+      >
+        Sign in
+      </a>
+    )}
+
+    <p slot="footer">
+      Need help?{" "}
+      <a href="/contact/" class="text-ink underline">
+        Get in touch
+      </a>
+      .
+    </p>
+  </AuthCard>
+</BaseLayout>

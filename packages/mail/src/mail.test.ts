@@ -84,12 +84,14 @@ describe("notification settings", () => {
     ).toEqual({ ...DEFAULT_NOTIFICATIONS, replies: false });
   });
 
-  it("only codes are secret, and only notifications can be switched off", () => {
+  it("only codes and undo links are secret, and only notifications can be switched off", () => {
     const secret = Object.entries(MAIL_KINDS)
       .filter(([, kind]) => kind.secret)
       .map(([name]) => name);
-    expect(secret).toEqual(["email-code"]);
+    expect(secret).toEqual(["email-code", "email-changed"]);
     expect(MAIL_KINDS["email-code"].topic).toBeNull();
+    expect(MAIL_KINDS["email-changed"].topic).toBeNull();
+    expect(MAIL_KINDS["new-sign-in"].topic).toBe("security");
     expect(MAIL_KINDS["comment-reply"].topic).toBe("replies");
   });
 });

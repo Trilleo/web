@@ -10,6 +10,7 @@ import Monogram from "../../components/account/Monogram.astro";
 import DisplayTitle from "../../components/DisplayTitle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { requireUser } from "../../lib/auth/guard";
+import { logEvent } from "../../lib/auth/activity";
 import { noStoreRedirect } from "../../lib/auth/redirect";
 import {
   USERNAME_HOLD_DAYS,
@@ -62,6 +63,11 @@ if (Astro.request.method === "POST") {
     if (renamed && !renamed.ok) {
       usernameError = USERNAME_PROBLEMS[renamed.problem];
     } else {
+      if (renamed)
+        await logEvent(db, user.id, "username-changed", {
+          detail: `@${user.username} → @${renamed.username}`,
+          userAgent: Astro.request.headers.get("user-agent"),
+        });
       await updateProfile(db, user.id, result.profile);
       return noStoreRedirect("/account/profile/?saved=1", 303);
     }

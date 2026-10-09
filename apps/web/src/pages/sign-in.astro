@@ -4,7 +4,12 @@
  * get a code (POST here, then /sign-in/code), or continue with GitHub. Works without
  * JavaScript; looks the same whether or not the address has an account.
  */
-import { ArrowRightIcon, GitHubIcon, buttonClasses } from "@trilleo/ui";
+import {
+  ArrowRightIcon,
+  GitHubIcon,
+  KeyIcon,
+  buttonClasses,
+} from "@trilleo/ui";
 import AuthCard from "../components/account/AuthCard.astro";
 import EmailStep from "../components/account/EmailStep.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
@@ -118,11 +123,30 @@ const notice = signedOut
           invalid={error !== null && typed !== ""}
           disabled={!emailWorks}
         />
-        {github && (
-          <>
-            <p class="type-label flex items-center gap-3 text-muted before:h-px before:flex-1 before:bg-ink after:h-px after:flex-1 after:bg-ink">
-              Or
-            </p>
+        {/* Shown when there's GitHub, or (by the script) when passkeys work here. */}
+        <div
+          class="flex flex-col gap-3"
+          hidden={!github}
+          data-alternatives
+          data-next={next}
+        >
+          <p class="type-label flex items-center gap-3 text-muted before:h-px before:flex-1 before:bg-ink after:h-px after:flex-1 after:bg-ink">
+            Or
+          </p>
+          <button
+            type="button"
+            hidden
+            data-passkey-sign-in
+            class={buttonClasses({
+              hover: "plain",
+              variant: "secondary",
+              className: "w-full",
+            })}
+          >
+            <KeyIcon size={16} />
+            Sign in with a passkey
+          </button>
+          {github && (
             <a
               href={`/auth/github?next=${encodeURIComponent(next)}`}
               class={buttonClasses({
@@ -134,8 +158,9 @@ const notice = signedOut
               <GitHubIcon size={16} />
               Sign in with GitHub
             </a>
-          </>
-        )}
+          )}
+          <p role="alert" class="text-sm" hidden data-passkey-error></p>
+        </div>
       </>
     )}
 
@@ -154,3 +179,61 @@ const notice = signedOut
     )}
   </AuthCard>
 </BaseLayout>
+
+<script>
+  import {
+    autofillSupported,
+    passkeysSupported,
+    problemMessage,
+    signInWithPasskey,
+    wasCancelled,
+  } from "../lib/auth/passkey-client";
+
+  // Passkeys: a button, and (where browsers allow) suggestions in the email field.
+  const alternatives = document.querySelector<HTMLElement>(
+    "[data-alternatives]",
+  );
+  const button = document.querySelector<HTMLButtonElement>(
+    "[data-passkey-sign-in]",
+  );
+  const problem = document.querySelector<HTMLElement>("[data-passkey-error]");
+  if (alternatives && button && problem && passkeysSupported()) {
+    const next = alternatives.dataset.next ?? "/account";
+    alternatives.hidden = false;
+    button.hidden = false;
+    let autofill: AbortController | null = null;
+
+    const go = async (options: {
+      autofill?: boolean;
+      signal?: AbortSignal;
+    }) => {
+      try {
+        problem.textContent = "";
+        problem.hidden = true;
+        location.assign(await signInWithPasskey(next, options));
+      } catch (error) {
+        // Autofill is a background nicety: its failures stay quiet.
+        if (!options.autofill && !wasCancelled(error)) {
+          problem.textContent = problemMessage(error);
+          problem.hidden = false;
+        }
+      }
+    };
+
+    void autofillSupported().then((available) => {
+      if (!available) return;
+      autofill = new AbortController();
+      void go({ autofill: true, signal: autofill.signal });
+    });
+
+    button.addEventListener("click", () => {
+      // Only one request at a time: the button's replaces the autofill one.
+      autofill?.abort();
+      autofill = null;
+      button.disabled = true;
+      void go({}).finally(() => {
+        button.disabled = false;
+      });
+    });
+  }
+</script>

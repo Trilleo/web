@@ -1,5 +1,7 @@
 import type { APIRoute } from "astro";
+import { eventsOf } from "../../lib/auth/activity";
 import { requireUser } from "../../lib/auth/guard";
+import { listPasskeys } from "../../lib/auth/passkeys";
 import { getDb } from "../../lib/db";
 import { notificationsOf } from "../../lib/mail/addresses";
 import { mailOf } from "../../lib/mail/outbox";
@@ -21,6 +23,16 @@ export const GET: APIRoute = async (context) => {
     ...profile,
     storage: await storageExport(db, user.id),
     minecraft: await minecraftExport({ db }, user.id),
+    // Passkeys by name (their keys are only useful to check signatures), and the log.
+    security: {
+      passkeys: (await listPasskeys(db, user.id)).map((key) => ({
+        name: key.name,
+        createdAt: key.createdAt,
+        lastUsedAt: key.lastUsedAt,
+        synced: key.backedUp,
+      })),
+      activity: await eventsOf(db, user.id),
+    },
     // The address, its switches, and what was sent (bodies while they’re kept).
     email: {
       address: user.email,

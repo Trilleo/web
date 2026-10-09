@@ -22,6 +22,7 @@ export {
   CloseIcon,
   ContrastIcon,
   GitHubIcon,
+  KeyIcon,
   MenuIcon,
 } from "./icons";
 export type { IconProps } from "./icons";

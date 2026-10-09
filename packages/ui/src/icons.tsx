@@ -38,6 +38,18 @@ export function ArrowRightIcon(props: IconProps) {
   );
 }
 
+/** A key: passkeys. */
+export function KeyIcon(props: IconProps) {
+  return (
+    <StrokeIcon {...props}>
+      <circle cx="8" cy="15" r="4" />
+      <path d="M11 12l9-9" />
+      <path d="M16 7l3 3" />
+      <path d="M14 9l2 2" />
+    </StrokeIcon>
+  );
+}
+
 export function ArrowLeftIcon(props: IconProps) {
   return (
     <StrokeIcon {...props}>

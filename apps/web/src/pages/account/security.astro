@@ -1,11 +1,13 @@
 ---
 /**
- * How you sign in: your email address (always a way in), accounts elsewhere linked
- * to it (link one with a POST to /auth/github, unlink here), and your signed-in
- * browsers. POST `intent=unlink` with `provider`.
+ * How you sign in: your email address (always a way in), passkeys (added by the
+ * script below, through /api/auth/passkeys/), accounts elsewhere linked to it (link
+ * one with a POST to /auth/github), your signed-in browsers, and recent activity.
+ * POST `intent`: unlink (`provider`), rename-passkey (`id`, `name`) or
+ * remove-passkey (`id`).
  */
 import type { IdentityProvider } from "@trilleo/db";
-import { GitHubIcon, buttonClasses } from "@trilleo/ui";
+import { GitHubIcon, KeyIcon, buttonClasses } from "@trilleo/ui";
 import DisplayTitle from "../../components/DisplayTitle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import {
@@ -13,7 +15,22 @@ import {
   identitiesOf,
   unlinkIdentity,
 } from "../../lib/auth/accounts";
+import {
+  SECURITY_EVENTS,
+  SIGN_IN_METHODS,
+  logEvent,
+  recentEvents,
+  type SecurityEventKind,
+  type SignInMethod,
+} from "../../lib/auth/activity";
 import { authConfig } from "../../lib/auth/config";
+import {
+  MAX_PASSKEYS,
+  PASSKEY_NAME_MAX,
+  listPasskeys,
+  removePasskey,
+  renamePasskey,
+} from "../../lib/auth/passkeys";
 import { requireUser } from "../../lib/auth/guard";
 import { noStoreRedirect, safeNextPath } from "../../lib/auth/redirect";
 import { SESSION_TTL_MS, listUserSessions } from "../../lib/auth/sessions";
@@ -39,12 +56,28 @@ let error: string | null = signInErrorMessage(
 if (Astro.request.method === "POST") {
   const form = await Astro.request.formData();
   const provider = field(form, "provider");
-  if (
-    field(form, "intent") === "unlink" &&
-    Object.hasOwn(PROVIDER_LABELS, provider)
-  ) {
+  const intent = field(form, "intent");
+  const userAgent = Astro.request.headers.get("user-agent");
+  if (intent === "remove-passkey") {
+    const name = await removePasskey(db, user.id, field(form, "id"));
+    if (name)
+      await logEvent(db, user.id, "passkey-removed", {
+        detail: name,
+        userAgent,
+      });
+    return noStoreRedirect(`${back}?done=passkey-removed#passkeys`, 303);
+  } else if (intent === "rename-passkey") {
+    await renamePasskey(db, user.id, field(form, "id"), field(form, "name"));
+    return noStoreRedirect(`${back}?done=passkey-renamed#passkeys`, 303);
+  } else if (intent === "unlink" && Object.hasOwn(PROVIDER_LABELS, provider)) {
     const result = await unlinkIdentity(db, user, provider as IdentityProvider);
-    if (result.ok) return noStoreRedirect(`${back}?done=unlinked`, 303);
+    if (result.ok) {
+      await logEvent(db, user.id, "unlinked", {
+        detail: PROVIDER_LABELS[provider as IdentityProvider],
+        userAgent,
+      });
+      return noStoreRedirect(`${back}?done=unlinked`, 303);
+    }
     error =
       result.error === "last-way-in"
         ? "Add an email address first: otherwise you’d have no way to sign in."
@@ -59,12 +92,34 @@ const identities = await identitiesOf(db, user.id);
 const github = identities.find((identity) => identity.provider === "github");
 const githubReady = authConfig().github !== null;
 const browsers = (await listUserSessions(db, user.id)).length;
+const keys = await listPasskeys(db, user.id);
+const events = await recentEvents(db, user.id);
+/** "Signed in with a passkey", "Passkey added: Chrome on Windows"… */
+function describe(event: { kind: string; detail: string | null }): string {
+  const label = Object.hasOwn(SECURITY_EVENTS, event.kind)
+    ? SECURITY_EVENTS[event.kind as SecurityEventKind]
+    : event.kind;
+  if (!event.detail) return label;
+  const isSignIn = event.kind === "sign-in" || event.kind === "sign-up";
+  if (isSignIn && Object.hasOwn(SIGN_IN_METHODS, event.detail))
+    return `${label} with ${SIGN_IN_METHODS[event.detail as SignInMethod]}`;
+  return `${label}: ${event.detail}`;
+}
+const dateTime = new Intl.DateTimeFormat("en-GB", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "UTC",
+});
 const done =
   Astro.request.method === "GET" ? Astro.url.searchParams.get("done") : null;
 const next = safeNextPath(Astro.url.searchParams.get("next"));
 const DONE: Record<string, string> = {
   linked: "GitHub is linked: you can sign in with it as well as your email.",
   unlinked: "GitHub is unlinked. You sign in with your email.",
+  "passkey-added":
+    "Passkey added. You can sign in with it from the sign-in page.",
+  "passkey-removed": "Passkey removed.",
+  "passkey-renamed": "Saved.",
   adopted: `Your account now signs in with ${user.email ?? "your email"}, the address GitHub has for you. Signing in with GitHub keeps working too.`,
 };
 
@@ -133,6 +188,108 @@ const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
               {user.email ? "Change address" : "Add an address"}
             </a>
           </div>
+        </div>
+      </div>
+
+      <div class:list={[row, "scroll-mt-6"]} id="passkeys">
+        <h2 class={heading}>Passkeys</h2>
+        <div class={body}>
+          <p>
+            A passkey signs you in with your fingerprint, face or screen lock,
+            with no code to wait for. Your device or password manager keeps it;
+            the site only keeps its public half.
+          </p>
+          {keys.length > 0 && (
+            <ul class="flex flex-col gap-3" data-passkey-list>
+              {keys.map((key) => (
+                <li class="flex flex-col gap-3 border border-ink p-4 md:p-5">
+                  <div class="flex items-start gap-3">
+                    <KeyIcon size={20} />
+                    <div class="min-w-0">
+                      <p class="font-medium break-words">{key.name}</p>
+                      <p class="text-sm text-muted">
+                        Added {formatPostDate(key.createdAt)}
+                        {key.lastUsedAt &&
+                          `; last used ${formatPostDate(key.lastUsedAt)}`}
+                        {key.backedUp && "; synced across your devices"}.
+                      </p>
+                    </div>
+                  </div>
+                  <div class="flex flex-wrap items-end gap-3">
+                    <form
+                      method="post"
+                      action={back}
+                      class="flex flex-wrap items-end gap-3"
+                    >
+                      <input
+                        type="hidden"
+                        name="intent"
+                        value="rename-passkey"
+                      />
+                      <input type="hidden" name="id" value={key.id} />
+                      <label class="flex flex-col gap-1 text-sm">
+                        <span>Name</span>
+                        <input
+                          name="name"
+                          value={key.name}
+                          maxlength={PASSKEY_NAME_MAX}
+                          required
+                          class="border border-ink bg-paper px-3 py-2 text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                        />
+                      </label>
+                      <button
+                        type="submit"
+                        class={buttonClasses({ variant: "secondary" })}
+                      >
+                        Rename
+                      </button>
+                    </form>
+                    <form method="post" action={back}>
+                      <input
+                        type="hidden"
+                        name="intent"
+                        value="remove-passkey"
+                      />
+                      <input type="hidden" name="id" value={key.id} />
+                      <button
+                        type="submit"
+                        class={buttonClasses({ variant: "secondary" })}
+                      >
+                        Remove<span class="sr-only"> {key.name}</span>
+                      </button>
+                    </form>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {keys.length < MAX_PASSKEYS ? (
+            <div class="flex flex-col gap-2">
+              <div>
+                <button
+                  type="button"
+                  class={buttonClasses()}
+                  hidden
+                  data-passkey-add
+                >
+                  Add a passkey
+                </button>
+              </div>
+              <p class="text-sm text-muted" data-passkey-unsupported>
+                Adding a passkey needs JavaScript and a browser that supports
+                passkeys.
+              </p>
+              <p role="alert" class="text-sm" hidden data-passkey-error></p>
+            </div>
+          ) : (
+            <p class="text-sm text-muted">
+              That’s {MAX_PASSKEYS}, the most an account can have.
+            </p>
+          )}
+          <p class="text-sm text-muted">
+            Removing a passkey here stops it working on this site; your device
+            may list it until you delete it there too.
+          </p>
         </div>
       </div>
 
@@ -215,6 +372,75 @@ const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
           </div>
         </div>
       </div>
+
+      <div class={row}>
+        <h2 class={heading}>Recent activity</h2>
+        <div class={body}>
+          {events.length === 0 ? (
+            <p class="text-muted">Nothing yet.</p>
+          ) : (
+            <ol
+              class="flex flex-col divide-y divide-ink border-y border-ink"
+              data-activity
+            >
+              {events.map((event) => (
+                <li class="flex flex-col gap-1 py-3 md:flex-row md:items-baseline md:justify-between md:gap-6">
+                  <span>{describe(event)}</span>
+                  <span class="type-label shrink-0 text-muted">
+                    {event.device && `${event.device} · `}
+                    <time datetime={event.at.toISOString()}>
+                      {dateTime.format(event.at)} UTC
+                    </time>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+          <p class="text-sm text-muted">
+            Sign-ins, address changes, passkeys and linked accounts, from the
+            last year. Anything you don’t recognise? Sign out everywhere, then
+            check the sections above.
+          </p>
+        </div>
+      </div>
     </div>
   </section>
 </BaseLayout>
+
+<script>
+  import {
+    addPasskey,
+    passkeysSupported,
+    problemMessage,
+    wasCancelled,
+  } from "../../lib/auth/passkey-client";
+
+  const button =
+    document.querySelector<HTMLButtonElement>("[data-passkey-add]");
+  const unsupported = document.querySelector<HTMLElement>(
+    "[data-passkey-unsupported]",
+  );
+  const problem = document.querySelector<HTMLElement>("[data-passkey-error]");
+  if (button && unsupported && problem && passkeysSupported()) {
+    button.hidden = false;
+    unsupported.hidden = true;
+    button.addEventListener("click", () => {
+      button.disabled = true;
+      problem.textContent = "";
+      problem.hidden = true;
+      addPasskey()
+        .then(() => {
+          location.assign("/account/security/?done=passkey-added#passkeys");
+        })
+        .catch((error: unknown) => {
+          if (!wasCancelled(error)) {
+            problem.textContent = problemMessage(error);
+            problem.hidden = false;
+          }
+        })
+        .finally(() => {
+          button.disabled = false;
+        });
+    });
+  }
+</script>
