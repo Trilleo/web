@@ -26,7 +26,14 @@ interface Profile {
  * Any other login also signs in (via /fake/approve?user=<login>), as an account with
  * an ID derived from the login. Tests use a fresh one per attempt, so a retry never
  * meets what an earlier attempt left in the database.
+ *
+ * Every account has a verified primary address, githubEmail(login), except logins
+ * starting with "legacy-": they stand in for accounts from before email sign-in.
  */
+export function githubEmail(login: string): string | null {
+  return login.startsWith("legacy-") ? null : `${login}@users.github.test`;
+}
+
 export function fakeUserId(login: string): number {
   let hash = 0;
   for (const char of login)
@@ -172,6 +179,17 @@ function user(req: IncomingMessage): Reply {
   return who ? json(who) : json({ message: "Bad credentials" }, 401);
 }
 
+/** Their addresses (the `user:email` scope). */
+function emails(req: IncomingMessage): Reply {
+  const token = req.headers.authorization?.replace(/^Bearer /, "") ?? "";
+  const who = tokens.get(token);
+  if (!who) return json({ message: "Bad credentials" }, 401);
+  const email = githubEmail(who.login);
+  return json(
+    email ? [{ email, primary: true, verified: true, visibility: null }] : [],
+  );
+}
+
 const routes: Record<
   string,
   (req: IncomingMessage, url: URL) => Reply | Promise<Reply>
@@ -182,6 +200,7 @@ const routes: Record<
   "GET /fake/deny": (_, url) => deny(url),
   "POST /login/oauth/access_token": (req) => accessToken(req),
   "GET /user": (req) => user(req),
+  "GET /user/emails": (req) => emails(req),
 };
 
 async function handle(req: IncomingMessage): Promise<Reply> {

@@ -1,0 +1,40 @@
+---
+/**
+ * The box the sign-in pages sit in (/sign-in, /sign-in/code, /sign-up): one
+ * centred card with a short heading and a line of explanation, like the sign-in
+ * pages people already know. Slots: default (the form), `notice` (an alert or
+ * status above it), `footer` (small print under a rule).
+ */
+interface Props {
+  id: string;
+  title: string;
+  /** One line under the heading. */
+  description?: string;
+  /** A small mono label above the heading, e.g. "Step 2 of 3". */
+  label?: string;
+}
+
+const { id, title, description, label = "Account" } = Astro.props;
+---
+
+<section
+  aria-labelledby={id}
+  class="flex justify-center px-page pt-10 pb-24 md:pt-16 xl:pt-20 xl:pb-32"
+>
+  <div class="flex w-full max-w-md animate-rise flex-col gap-6 border border-ink bg-paper p-6 md:p-8">
+    <div class="flex flex-col gap-3">
+      <p class="type-label text-muted">{label}</p>
+      <h1 id={id} class="type-card">
+        {title}
+      </h1>
+      {description && <p class="text-muted">{description}</p>}
+    </div>
+    <slot name="notice" />
+    <slot />
+    {Astro.slots.has("footer") && (
+      <div class="border-t border-ink pt-4 text-sm text-muted">
+        <slot name="footer" />
+      </div>
+    )}
+  </div>
+</section>

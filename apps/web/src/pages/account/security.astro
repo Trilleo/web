@@ -1,0 +1,220 @@
+---
+/**
+ * How you sign in: your email address (always a way in), accounts elsewhere linked
+ * to it (link one with a POST to /auth/github, unlink here), and your signed-in
+ * browsers. POST `intent=unlink` with `provider`.
+ */
+import type { IdentityProvider } from "@trilleo/db";
+import { GitHubIcon, buttonClasses } from "@trilleo/ui";
+import DisplayTitle from "../../components/DisplayTitle.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import {
+  PROVIDER_LABELS,
+  identitiesOf,
+  unlinkIdentity,
+} from "../../lib/auth/accounts";
+import { authConfig } from "../../lib/auth/config";
+import { requireUser } from "../../lib/auth/guard";
+import { noStoreRedirect, safeNextPath } from "../../lib/auth/redirect";
+import { SESSION_TTL_MS, listUserSessions } from "../../lib/auth/sessions";
+import { signInErrorMessage } from "../../lib/auth/sign-in";
+import { field } from "../../lib/comments/form";
+import { getDb } from "../../lib/db";
+import { formatPostDate } from "../../lib/listings";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const back = "/account/security/";
+let error: string | null = signInErrorMessage(
+  Astro.url.searchParams.get("error"),
+);
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const provider = field(form, "provider");
+  if (
+    field(form, "intent") === "unlink" &&
+    Object.hasOwn(PROVIDER_LABELS, provider)
+  ) {
+    const result = await unlinkIdentity(db, user, provider as IdentityProvider);
+    if (result.ok) return noStoreRedirect(`${back}?done=unlinked`, 303);
+    error =
+      result.error === "last-way-in"
+        ? "Add an email address first: otherwise you’d have no way to sign in."
+        : "That isn’t linked to your account.";
+    Astro.response.status = 422;
+  } else {
+    return noStoreRedirect(back, 303);
+  }
+}
+
+const identities = await identitiesOf(db, user.id);
+const github = identities.find((identity) => identity.provider === "github");
+const githubReady = authConfig().github !== null;
+const browsers = (await listUserSessions(db, user.id)).length;
+const done =
+  Astro.request.method === "GET" ? Astro.url.searchParams.get("done") : null;
+const next = safeNextPath(Astro.url.searchParams.get("next"));
+const DONE: Record<string, string> = {
+  linked: "GitHub is linked: you can sign in with it as well as your email.",
+  unlinked: "GitHub is unlinked. You sign in with your email.",
+  adopted: `Your account now signs in with ${user.email ?? "your email"}, the address GitHub has for you. Signing in with GitHub keeps working too.`,
+};
+
+const row = "grid-swiss gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6";
+const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
+---
+
+<BaseLayout title="Sign-in & security" noindex>
+  <section
+    aria-labelledby="security-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">
+      (Account){" "}
+      <a href="/account/" class="link-wipe">
+        @{user.username}
+      </a>
+    </p>
+
+    <DisplayTitle id="security-title" fit={4.3}>
+      Security
+    </DisplayTitle>
+
+    {(error || (done && DONE[done])) && (
+      <div
+        role={error ? "alert" : "status"}
+        class="mt-6 flex flex-col gap-3 border-l-2 border-accent pl-4"
+      >
+        <p class="type-lead">{error ?? (done ? DONE[done] : "")}</p>
+        {done === "adopted" && (
+          <p class="flex flex-wrap gap-3">
+            <a href={next} class={buttonClasses()}>
+              Continue
+            </a>
+            <a
+              href="/account/email/"
+              class={buttonClasses({ variant: "secondary" })}
+            >
+              Use another address
+            </a>
+          </p>
+        )}
+      </div>
+    )}
+
+    <div class="mt-7 flex flex-col gap-12 md:mt-8 xl:mt-12">
+      <div class={row}>
+        <h2 class={heading}>Email</h2>
+        <div class={body}>
+          {user.email ? (
+            <p class="text-lg">
+              You sign in with <strong data-email>{user.email}</strong>: we send
+              a code, and there’s no password.
+            </p>
+          ) : (
+            <p class="text-lg">
+              Your account has no email address yet. Add one to sign in with it.
+            </p>
+          )}
+          <div>
+            <a
+              href="/account/email/"
+              class={buttonClasses({ variant: "secondary" })}
+            >
+              {user.email ? "Change address" : "Add an address"}
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class={row}>
+        <h2 class={heading}>Linked accounts</h2>
+        <div class={body}>
+          <div class="flex flex-col gap-4 border border-ink p-4 md:flex-row md:items-center md:justify-between md:p-5">
+            <div class="flex items-start gap-3">
+              <GitHubIcon size={20} />
+              <div>
+                <p class="font-medium">GitHub</p>
+                {github ? (
+                  <p class="text-muted" data-linked="github">
+                    Linked as @{github.login} since{" "}
+                    {formatPostDate(github.linkedAt)}
+                    {github.lastUsedAt &&
+                      `; last used ${formatPostDate(github.lastUsedAt)}`}
+                    .
+                  </p>
+                ) : (
+                  <p class="text-muted">
+                    {githubReady
+                      ? "Not linked. Link it to sign in with GitHub too."
+                      : "Signing in with GitHub isn’t set up on this site."}
+                  </p>
+                )}
+              </div>
+            </div>
+            {github ? (
+              <form method="post" action={back}>
+                <input type="hidden" name="intent" value="unlink" />
+                <input type="hidden" name="provider" value="github" />
+                <button
+                  type="submit"
+                  class={buttonClasses({ variant: "secondary" })}
+                  aria-describedby={user.email ? undefined : "unlink-hint"}
+                >
+                  Unlink GitHub
+                </button>
+              </form>
+            ) : (
+              githubReady && (
+                <form method="post" action="/auth/github">
+                  <button type="submit" class={buttonClasses()}>
+                    Link GitHub
+                  </button>
+                </form>
+              )
+            )}
+          </div>
+          {github && !user.email && (
+            <p id="unlink-hint" class="text-sm text-muted">
+              Add an email address before unlinking: it’s your only way in.
+            </p>
+          )}
+          <p class="text-sm text-muted">
+            Linking only reads your GitHub account’s ID, username, name and
+            verified email address. Renaming yourself on GitHub doesn’t change
+            anything here.
+          </p>
+        </div>
+      </div>
+
+      <div class={row}>
+        <h2 class={heading}>Browsers</h2>
+        <div class={body}>
+          <p>
+            You’re signed in on {browsers}{" "}
+            {browsers === 1 ? "browser" : "browsers"}. Sign-ins last{" "}
+            {SESSION_TTL_MS / 86_400_000} days and are extended while you use
+            them.
+          </p>
+          <div>
+            <a
+              href="/account/sessions/"
+              class={buttonClasses({ variant: "secondary" })}
+            >
+              Manage browsers
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

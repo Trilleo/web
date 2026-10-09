@@ -270,8 +270,12 @@ ever needed again, make a new one and update the server's `authorized_keys`.
 
 ### 7. GitHub sign-in
 
-Sign-in uses a GitHub **OAuth App** (not a GitHub App). Each OAuth App allows one
-callback URL, so production and local development get one each.
+Accounts are their email address: people sign in with a code sent to it, which needs
+mail to work ([mail.md](mail.md)) and nothing here. "Sign in with GitHub" is an
+alternative, and this section sets it up, plus who the admin is. It uses a GitHub
+**OAuth App** (not a GitHub App), which asks for the `user:email` scope (to read the
+account's verified address). Each OAuth App allows one callback URL, so production and
+local development get one each.
 
 1. <https://github.com/settings/applications/new> (Settings → Developer settings → OAuth
    Apps → New OAuth App):
@@ -291,8 +295,13 @@ callback URL, so production and local development get one each.
    chown root:deploy app.env && chmod 640 app.env && ls -l app.env && grep -c . app.env
    ```
 
-   It should list `-rw-r----- root deploy` and count 3 lines. These accounts can use
-   /admin; anyone with a GitHub account can sign in to comment.
+   It should list `-rw-r----- root deploy` and count 3 lines. The accounts linked to
+   these GitHub IDs can use /admin; anyone can make an account to comment.
+
+   Then sign in once, and put your account's address in `ADMIN_EMAILS` too (/admin
+   reminds you), so admin access doesn't depend on GitHub:
+   `echo 'ADMIN_EMAILS=you@example.com' >> app.env` and recreate the app (below).
+   Either setting is enough; `ADMIN_GITHUB_IDS` can go once `ADMIN_EMAILS` works.
 
 4. For `pnpm dev`, optionally: a second OAuth App named `trilleo.net (local)`, homepage
    `http://localhost:4321`, callback `http://localhost:4321/auth/github/callback`; copy
@@ -391,7 +400,8 @@ a test send): [mail.md](mail.md).
   pictures) are at <https://www.trilleo.net/admin/minecraft/>. The Minecraft version
   list comes from Mojang (`piston-meta.mojang.com`, cached 6 hours); /admin/minecraft
   says whether it's live or the fallback list in the code.
-- **Change who is admin, or the OAuth secret:** edit `/srv/trilleo/app.env`, then
+- **Change who is admin (`ADMIN_EMAILS`, `ADMIN_GITHUB_IDS`), or the OAuth secret:**
+  edit `/srv/trilleo/app.env`, then
   `cd /srv/trilleo && docker compose up -d --force-recreate app` (a plain restart keeps
   the old values). Someone removed from the list keeps their account but loses /admin.
 - **Logs / status:** `cd /srv/trilleo && docker compose ps` and
@@ -440,9 +450,10 @@ a test send): [mail.md](mail.md).
 | Deploy fails at "Check the live site"                          | The site is up but not the new version: check `trilleo-deploy` output in the job log and `docker compose ps`.                                                                                                                                                                                                                     |
 | Deploy log: `env file … db.env not found`                      | §4c's `db.env` is missing.                                                                                                                                                                                                                                                                                                        |
 | Deploy log: `env file … app.env not found`                     | §7's `app.env` is missing.                                                                                                                                                                                                                                                                                                        |
-| `/sign-in` says sign-in isn't set up                           | `app.env` lacks a value, or the app hasn't been recreated since it changed (see "Change who is admin").                                                                                                                                                                                                                           |
+| `/sign-in` has no GitHub button, or says GitHub isn't set up   | `app.env` lacks a GitHub value, or the app hasn't been recreated since it changed (see "Change who is admin").                                                                                                                                                                                                                    |
+| `/sign-in` says codes can't be sent                            | Mail is off or broken: [mail.md](mail.md). GitHub sign-in still works.                                                                                                                                                                                                                                                            |
 | GitHub: "redirect_uri is not associated with this application" | The OAuth App's callback URL isn't exactly `https://www.trilleo.net/auth/github/callback`.                                                                                                                                                                                                                                        |
-| Sign-in ends at "That GitHub account can't sign in here"       | The account is blocked: unblock it under **Blocked accounts** on `/admin`.                                                                                                                                                                                                                                                        |
-| `/admin` says "Only the site owner can see this page"          | Your ID isn't in `ADMIN_GITHUB_IDS` (`gh api user --jq .id`), or the app wasn't recreated after changing it.                                                                                                                                                                                                                      |
+| Sign-in ends at "That account can't sign in here"              | The account is blocked: unblock it under **Blocked accounts** on `/admin`.                                                                                                                                                                                                                                                        |
+| `/admin` says "Only the site owner can see this page"          | Your account's address isn't in `ADMIN_EMAILS` and its linked GitHub ID isn't in `ADMIN_GITHUB_IDS` (`gh api user --jq .id`), or the app wasn't recreated after changing it.                                                                                                                                                      |
 | Deploy log: a container is `unhealthy`                         | The job log shows `docker compose ps` and the app's last log lines. Usually the app can't reach or migrate the database: `docker compose logs db app`. The static site keeps running meanwhile.                                                                                                                                   |
 | Cloudflare **502** on some pages only                          | Static pages work but the app is down or restarting: `docker compose ps`, `docker compose logs app`.                                                                                                                                                                                                                              |

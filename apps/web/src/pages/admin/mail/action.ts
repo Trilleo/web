@@ -49,7 +49,7 @@ export const POST: APIRoute = async (context) => {
             {
               type: "facts",
               rows: [
-                ["Sent by", `@${admin.githubLogin}`],
+                ["Sent by", `@${admin.username}`],
                 ["Written", new Date().toISOString()],
               ],
             },

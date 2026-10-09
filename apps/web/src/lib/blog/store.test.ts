@@ -8,7 +8,7 @@ import {
 } from "@trilleo/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { upsertGitHubUser } from "../auth/sessions";
+import { upsertGitHubUser } from "../auth/accounts";
 import {
   createComment,
   listThreads,

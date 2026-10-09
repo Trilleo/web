@@ -1,7 +1,9 @@
 ---
 import { RETENTION_DAYS } from "@trilleo/storage";
 import InfoLayout from "../../layouts/InfoLayout.astro";
+import { SIGN_IN_LIMITS } from "../../lib/auth/email-sign-in";
 import { SESSION_TTL_MS } from "../../lib/auth/sessions";
+import { USERNAME_HOLD_DAYS } from "../../lib/auth/usernames";
 import { CONTACT_RETENTION_DAYS } from "../../lib/contact/store";
 import { CODE_LIMITS, CODE_RETENTION_DAYS } from "../../lib/mail/addresses";
 import { MAIL_LOG_DAYS, MAIL_RETENTION_DAYS } from "../../lib/mail/outbox";
@@ -11,6 +13,7 @@ const sessionDays = SESSION_TTL_MS / (24 * 60 * 60 * 1000);
 // deploy/server/trilleo-backup keeps this many days of nightly dumps (KEEP_DAYS).
 const BACKUP_DAYS = 14;
 const codeMinutes = CODE_LIMITS.ttlMs / 60_000;
+const signInMinutes = SIGN_IN_LIMITS.ttlMs / 60_000;
 
 const sections = [
   { slug: "summary", text: "In short" },
@@ -37,13 +40,15 @@ const sections = [
       browser.
     </li>
     <li>
-      If you sign in with GitHub, the site keeps your public GitHub name and
-      username, what you choose to write or upload, and when you signed in.
+      An account is its email address: you sign in with it (a code, no
+      password), or with a GitHub account you link to it. The site keeps your
+      address, the username you choose, what you write or upload, and when you
+      signed in.
     </li>
     <li>
-      Adding an email address is optional. It’s only used for the notifications
-      you choose and the codes you ask for, never for newsletters, and every
-      notification has an unsubscribe link.
+      Your address is only used to sign you in, for the notifications you choose
+      and the codes you ask for, never for newsletters, and every notification
+      has an unsubscribe link.
     </li>
     <li>
       There are no ads and no tracking. Page views are counted by Cloudflare Web
@@ -79,11 +84,20 @@ const sections = [
     <tbody>
       <tr>
         <td>
-          Your GitHub user ID, username and public name (refreshed at each
-          sign-in)
+          Your email address and the username you choose (and, for{" "}
+          {USERNAME_HOLD_DAYS} days after you change it, the old one, so links
+          to it still work)
         </td>
-        <td>You sign in</td>
-        <td>To know it’s you, and to sign your comments</td>
+        <td>You make an account</td>
+        <td>To know it’s you, sign you in, and sign your comments</td>
+      </tr>
+      <tr>
+        <td>
+          A linked GitHub account: its user ID, username and public name
+          (refreshed when you use it), and when it was linked and last used
+        </td>
+        <td>You sign in with GitHub, or link it</td>
+        <td>To let you sign in with it</td>
       </tr>
       <tr>
         <td>
@@ -146,11 +160,11 @@ const sections = [
       </tr>
       <tr>
         <td>
-          Your email address, which notifications you want, and a record of the
-          email sent to you (address, subject, kind, when, and whether it went;
-          the text itself for a limited time)
+          Which notifications you want, and a record of the email sent to you
+          (address, subject, kind, when, and whether it went; the text itself
+          for a limited time)
         </td>
-        <td>You add an address on your account’s email page</td>
+        <td>You have an account</td>
         <td>
           To send the notifications you chose and the codes you ask for (see
           below)
@@ -180,9 +194,12 @@ const sections = [
       countries, browsers), never individual visitors.
     </li>
     <li>
-      No email address from GitHub: sign-in asks for no permissions (an address
-      is only kept if you add one yourself). GitHub’s access token is used once,
-      to read your public profile, and thrown away.
+      Nothing else from GitHub: sign-in asks only to read your public profile
+      and your addresses. If GitHub has verified your primary address, a new
+      account uses it (an account from before email sign-in takes it, if no
+      other account has it); otherwise you’re asked for one. GitHub’s access
+      token is used once and thrown away. An address alone never links a GitHub
+      account to an account here.
     </li>
     <li>
       No IP address is stored. To count a download once per visitor per day, a
@@ -214,17 +231,20 @@ const sections = [
 
   <h2 id="email">Email</h2>
   <p>
-    You can add an email address on your{" "}
-    <a href="/account/email/">account’s email page</a>. To prove it’s yours, the
-    site sends it a code that works once, for {codeMinutes} minutes; only a
-    fingerprint (SHA-256) of the code is stored, and it is deleted after{" "}
-    {CODE_RETENTION_DAYS} days. An address belongs to one account.
+    To sign in by email, the site sends your address a code that works once, for{" "}
+    {signInMinutes} minutes. To change your address (on your{" "}
+    <a href="/account/email/">account’s email page</a>), it sends the new one a
+    code that works for {codeMinutes} minutes. Only a fingerprint (SHA-256) of
+    each code is stored, and it is deleted after {CODE_RETENTION_DAYS} days. An
+    address belongs to one account. To limit abuse, a hash of your IP address is
+    held in the server’s memory for a day to count the codes asked for.
   </p>
   <p>
     With an address, you get the notifications you leave switched on: replies to
     your comments, your comments’ review, and decisions about your uploads and
     Minecraft projects. Each email has a one-click unsubscribe link, and the
-    email page lets you switch each kind off or remove the address entirely.
+    email page lets you switch each kind off. Since it’s how you sign in, the
+    address can be changed but not removed, except by deleting your account.
     Codes you ask for always arrive.
   </p>
   <p>
@@ -257,8 +277,8 @@ const sections = [
       and what it says.
     </li>
     <li>
-      <strong>GitHub</strong> handles sign-in. When you sign in, GitHub learns
-      that you used this site.
+      <strong>GitHub</strong> handles signing in with GitHub, if you use it.
+      Then GitHub learns that you used this site.
     </li>
   </ul>
   <p>
@@ -296,10 +316,11 @@ const sections = [
     </li>
     <li>Contact messages: at most {CONTACT_RETENTION_DAYS} days.</li>
     <li>
-      Your email address: until you remove it or delete your account. The text
-      of emails sent to you: {MAIL_RETENTION_DAYS} days (codes: until sent); the
-      record that an email was sent: {MAIL_LOG_DAYS} days. Codes:{" "}
-      {CODE_RETENTION_DAYS} days.
+      Your email address and username: until you change them or delete your
+      account (an old username: {USERNAME_HOLD_DAYS} days). The text of emails
+      sent to you: {MAIL_RETENTION_DAYS} days (codes: until sent); the record
+      that an email was sent: {MAIL_LOG_DAYS} days. Codes: {CODE_RETENTION_DAYS}{" "}
+      days.
     </li>
     <li>
       Backups of the database are kept for {BACKUP_DAYS} days, so deleted data
@@ -317,15 +338,17 @@ const sections = [
     </li>
     <li>
       <strong>Correct</strong> it: edit your{" "}
-      <a href="/account/profile/">profile</a>; your GitHub name and username
-      update when you next sign in.
+      <a href="/account/profile/">profile</a> and username, or your address on
+      your <a href="/account/email/">email page</a>; a linked GitHub account’s
+      name updates when you next use it.
     </li>
     <li>
       <strong>Delete</strong> it: delete comments or files one by one, sign
       other browsers out, or delete your whole account from your account page.
       That removes your profile, comments, tool data, saves, files, messages,
-      your email address and the record of email sent to you. You can also
-      remove just the address on your <a href="/account/email/">email page</a>.
+      your email address, linked accounts and the record of email sent to you.
+      You can also unlink GitHub on your{" "}
+      <a href="/account/security/">security page</a>.
     </li>
     <li>
       <strong>Withdraw consent, object, or restrict</strong> a use (for email:
@@ -354,7 +377,8 @@ const sections = [
 
   <h2 id="security">Keeping it safe</h2>
   <p>
-    Everything travels over HTTPS. The server keeps only a hash of your sign-in
+    Everything travels over HTTPS. There are no passwords to leak: sign-in is by
+    a one-time code or GitHub. The server keeps only a hash of your sign-in
     token, and the cookie that carries it is secure, HTTP-only and limited to
     this site. Uploaded files are kept in a private bucket unless they are
     published, and are checked for malware. Backups stay on the server. No

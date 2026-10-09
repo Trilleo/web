@@ -1,7 +1,7 @@
 import { openDatabase, type DatabaseHandle, type User } from "@trilleo/db";
 import { LocalDriver } from "@trilleo/storage/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { upsertGitHubUser } from "../auth/sessions";
+import { upsertGitHubUser } from "../auth/accounts";
 import { setStorageForTests } from "../storage/config";
 import { STORAGE_PURPOSES } from "../storage/purposes";
 import type { StorageDeps } from "../storage/service";

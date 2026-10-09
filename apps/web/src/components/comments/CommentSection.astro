@@ -128,25 +128,35 @@ const countLabel = (count: number) =>
     <div class="flex flex-col gap-4 border-t border-ink pt-6">
       <CommentForm postSlug={slug} reviewed={reviewed} />
       <p class="text-sm text-muted">
-        Signed in as @{user.githubLogin} ·{" "}
+        Signed in as @{user.username} ·{" "}
         <a href="/account" class="underline underline-offset-4">
           Your account
         </a>
       </p>
     </div>
   ) : (
-    authConfig() !== null && (
-      <div class="flex flex-col items-start gap-4 border-t border-ink pt-6">
-        <p>Sign in with GitHub to join the conversation.</p>
+    <div class="flex flex-col items-start gap-4 border-t border-ink pt-6">
+      <p>
+        Sign in, or make an account with your email, to join the conversation.
+      </p>
+      <div class="flex flex-wrap gap-3">
         <a
-          href={`/auth/github?next=${encodeURIComponent(back)}`}
+          href={`/sign-in?next=${encodeURIComponent(back)}`}
           class={buttonClasses()}
         >
-          <GitHubIcon size={16} />
           Sign in to comment
         </a>
+        {authConfig().github && (
+          <a
+            href={`/auth/github?next=${encodeURIComponent(back)}`}
+            class={buttonClasses({ variant: "secondary" })}
+          >
+            <GitHubIcon size={16} />
+            Sign in with GitHub
+          </a>
+        )}
       </div>
-    )
+    </div>
   )}
 </div>
 

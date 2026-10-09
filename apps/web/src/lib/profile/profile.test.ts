@@ -34,7 +34,7 @@ const draft = (changes: Partial<ProfileDraft>): ProfileDraft => ({
 
 const person = (changes: Partial<User> = {}) =>
   ({
-    githubLogin: "octo-cat",
+    username: "octo-cat",
     name: null,
     displayName: null,
     commentName: "display",

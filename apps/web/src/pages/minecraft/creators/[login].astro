@@ -19,6 +19,7 @@ import {
   countLabel,
   creditOf,
 } from "../../../lib/minecraft/public";
+import { movedUsername } from "../../../lib/auth/usernames";
 import { creatorByLogin, listProjects } from "../../../lib/minecraft/store";
 import { formatCount } from "../../../lib/minecraft/format";
 
@@ -26,9 +27,17 @@ export const prerender = false;
 
 const db = await getDb();
 const user = await creatorByLogin(db, Astro.params.login ?? "");
-if (!user) return Astro.rewrite("/404");
-if (user.githubLogin !== Astro.params.login)
-  return Astro.redirect(creatorPath(user.githubLogin), 301);
+if (!user) {
+  const moved = await movedUsername(
+    db,
+    Astro.params.login ?? "",
+    Astro.locals.user?.id ?? null,
+  );
+  if (moved) return Astro.redirect(creatorPath(moved), 301);
+  return Astro.rewrite("/404");
+}
+if (user.username !== Astro.params.login)
+  return Astro.redirect(creatorPath(user.username), 301);
 
 const own = Astro.locals.user?.id === user.id;
 const { cards, total } = await listProjects(db, {

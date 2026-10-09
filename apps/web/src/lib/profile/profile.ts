@@ -2,7 +2,7 @@ import type { CommentName, ProfileLink, User } from "@trilleo/db";
 
 /**
  * Profiles: what people fill in on /account/profile, and how their name is shown.
- * The username is GitHub's login and can't be changed here; everything else can.
+ * The username is changed separately (lib/auth/usernames.ts); everything else is here.
  */
 
 export const PROFILE_LIMITS = {
@@ -219,11 +219,11 @@ export function profileDraft(user: User): ProfileDraft {
   };
 }
 
-type Named = Pick<User, "githubLogin" | "name" | "displayName">;
+type Named = Pick<User, "username" | "name" | "displayName">;
 
-/** Their name: the one they chose, else GitHub's, else their username. */
+/** Their name: the one they chose, else a linked account's, else their username. */
 export function displayName(user: Named): string {
-  return user.displayName ?? user.name ?? user.githubLogin;
+  return user.displayName ?? user.name ?? user.username;
 }
 
 /** The name on their comments: their display name, or null to show only @username. */
@@ -240,7 +240,7 @@ export function monogram(user: Named): string {
     .map((word) => characters(word.replace(/[^\p{L}\p{N}\p{M}]/gu, "")))
     .filter((letters) => letters.length > 0);
   const [first, second] = words;
-  if (!first) return (characters(user.githubLogin)[0] ?? "?").toUpperCase();
+  if (!first) return (characters(user.username)[0] ?? "?").toUpperCase();
   return ((first[0] ?? "") + (second?.[0] ?? "")).toUpperCase();
 }
 

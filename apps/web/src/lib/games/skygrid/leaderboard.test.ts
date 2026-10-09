@@ -1,7 +1,7 @@
 import { openDatabase, type DatabaseHandle, type User } from "@trilleo/db";
 import { newGame } from "@trilleo/game-skygrid/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { upsertGitHubUser } from "../../auth/sessions";
+import { upsertGitHubUser } from "../../auth/accounts";
 import { blockUser } from "../../comments/store";
 import { updateProfile } from "../../profile/store";
 import { findIsland, islandHref, leaderboard } from "./leaderboard";
@@ -32,7 +32,7 @@ beforeEach(async () => {
   handle = await openDatabase("memory://");
   ada = await islander(1, "ada", { farming: 500, mining: 100 }, 40);
   bob = await islander(2, "bob", { farming: 50, combat: 900 }, 900);
-  cy = await islander(3, "cy", { mining: 10 });
+  cy = await islander(3, "cyd", { mining: 10 });
   await upsertGitHubUser(handle.db, { id: 4, login: "nobody", name: null });
 });
 afterEach(async () => {
@@ -49,7 +49,7 @@ describe("leaderboard", () => {
     ).toEqual([
       ["bob", 950],
       ["ada", 600],
-      ["cy", 10],
+      ["cyd", 10],
     ]);
     expect(
       (await leaderboard(handle.db, "farming")).map((row) => row.login),

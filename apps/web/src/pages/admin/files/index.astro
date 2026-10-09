@@ -75,7 +75,7 @@ const [owner] =
     ? await deps.db
         .select({ id: users.id })
         .from(users)
-        .where(eq(users.githubLogin, ownerLogin))
+        .where(eq(users.username, ownerLogin))
         .limit(1)
     : [];
 const uploader =

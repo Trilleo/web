@@ -92,7 +92,7 @@ export async function listThreads(
     .select({
       comment: comments,
       author: {
-        githubLogin: users.githubLogin,
+        username: users.username,
         name: users.name,
         displayName: users.displayName,
         commentName: users.commentName,
@@ -112,7 +112,7 @@ export async function listThreads(
       removed || row.author === null
         ? null
         : {
-            login: row.author.githubLogin,
+            login: row.author.username,
             name: commentName(row.author),
             profile: row.author.profilePublic,
           },
@@ -262,7 +262,7 @@ export async function createComment(
         db,
         {
           kind: "comment",
-          summary: `A comment from @${input.author.githubLogin} is waiting for approval`,
+          summary: `A comment from @${input.author.username} is waiting for approval`,
           path: "/admin#moderation",
         },
         now,
@@ -525,7 +525,7 @@ async function summaries(
     createdAt: comment.createdAt,
     author: author && {
       id: author.id,
-      login: author.githubLogin,
+      login: author.username,
       name: displayName(author),
       profile: author.profilePublic,
       trusted: author.trustedAt !== null,

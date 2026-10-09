@@ -49,6 +49,7 @@ import {
   RELEASE_EXTENSIONS,
   typeInfo,
 } from "./catalog";
+import { normalizeUsername } from "../auth/usernames";
 import { notifyProjectVisibility, safely } from "../mail/notify";
 import type { ProjectInput, ReleaseInput } from "./input";
 import { MC_RENDER_VERSION, renderMarkdown } from "./render";
@@ -1035,7 +1036,7 @@ export async function listProjects(
   const rows = await db
     .select({
       project: mcProjects,
-      ownerLogin: users.githubLogin,
+      ownerLogin: users.username,
       downloads: downloadsSql.mapWith(Number),
       cover: coverSql,
       gameVersions: liveTagsSql("game_versions"),
@@ -1111,7 +1112,7 @@ export async function projectsOf(
   const rows = await db
     .select({
       project: mcProjects,
-      ownerLogin: users.githubLogin,
+      ownerLogin: users.username,
       downloads: downloadsSql.mapWith(Number),
       cover: coverSql,
       gameVersions: liveTagsSql("game_versions"),
@@ -1183,7 +1184,7 @@ export async function creatorByLogin(
   const [user] = await db
     .select()
     .from(users)
-    .where(sql`lower(${users.githubLogin}) = ${login.toLowerCase()}`)
+    .where(eq(users.username, normalizeUsername(login)))
     .limit(1);
   return user && !user.blockedAt ? user : null;
 }
@@ -1281,7 +1282,7 @@ export async function adminProjects(
   const rows = await db
     .select({
       project: mcProjects,
-      ownerLogin: users.githubLogin,
+      ownerLogin: users.username,
       downloads: downloadsSql.mapWith(Number),
       openReports: openReports.mapWith(Number),
     })
@@ -1293,7 +1294,7 @@ export async function adminProjects(
           ? or(
               sql`${mcProjects.name} ilike ${like}`,
               sql`${mcProjects.slug} ilike ${like}`,
-              sql`${users.githubLogin} ilike ${like}`,
+              sql`${users.username} ilike ${like}`,
             )
           : undefined,
         options.filter === "hidden"

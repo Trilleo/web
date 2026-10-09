@@ -33,7 +33,7 @@ export const GET: APIRoute = async (context) => {
   return new Response(JSON.stringify(data, null, 2), {
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      "Content-Disposition": `attachment; filename="trilleo-${user.githubLogin}-${day}.json"`,
+      "Content-Disposition": `attachment; filename="trilleo-${user.username}-${day}.json"`,
       "Cache-Control": "private, no-store",
       "X-Robots-Tag": "noindex",
     },

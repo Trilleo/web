@@ -78,7 +78,7 @@ export async function appealFile(
       db,
       {
         kind: "appeal",
-        summary: `@${requester.user.githubLogin} appealed “${row.name}”`,
+        summary: `@${requester.user.username} appealed “${row.name}”`,
         path: "/admin/files/review?tab=appeals",
       },
       now,
@@ -177,7 +177,7 @@ export async function openAppeals(db: Database): Promise<AppealView[]> {
       fileId: fileAppeals.fileId,
       message: fileAppeals.message,
       createdAt: fileAppeals.createdAt,
-      userLogin: users.githubLogin,
+      userLogin: users.username,
     })
     .from(fileAppeals)
     .innerJoin(files, eq(files.id, fileAppeals.fileId))

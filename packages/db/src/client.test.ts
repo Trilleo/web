@@ -1,6 +1,13 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  cpSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { eq, sql, type SQL } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -10,7 +17,7 @@ import {
   type Database,
   type DatabaseHandle,
 } from "./client";
-import { comments, sessions, users } from "./schema";
+import { comments, sessions, userIdentities, users } from "./schema";
 
 const open: DatabaseHandle[] = [];
 const temporaryDirs: string[] = [];
@@ -91,6 +98,8 @@ describe("openDatabase", () => {
       "storage_events",
       "tool_data",
       "upload_strikes",
+      "user_identities",
+      "username_history",
       "users",
     ]);
   });
@@ -103,9 +112,7 @@ describe("openDatabase", () => {
     const dataDir = join(dir, "nested", "pglite");
 
     const first = await openDatabase(dataDir);
-    await first.db
-      .insert(users)
-      .values({ githubId: 1, githubLogin: "octocat" });
+    await first.db.insert(users).values({ githubId: 1, username: "octocat" });
     await first.close();
 
     const second = await openDatabase(dataDir);
@@ -125,12 +132,82 @@ describe("openDatabase", () => {
   });
 });
 
+describe("the accounts-by-email migration", () => {
+  it("turns existing GitHub accounts into usernames and linked identities", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "trilleo-db-"));
+    temporaryDirs.push(dir);
+    // The migrations as the previous release had them: everything before 0016.
+    const before = join(dir, "migrations");
+    const folder = fileURLToPath(new URL("../migrations", import.meta.url));
+    cpSync(folder, before, { recursive: true });
+    const old = JSON.parse(
+      readFileSync(join(before, "meta/_journal.json"), "utf8"),
+    ) as { entries: { tag: string }[] };
+    old.entries = old.entries.filter(
+      (entry) => entry.tag < "0016_accounts-by-email",
+    );
+    writeFileSync(join(before, "meta/_journal.json"), JSON.stringify(old));
+
+    const dataDir = join(dir, "pglite");
+    const first = await openDatabase(dataDir, { migrationsFolder: before });
+    // Raw SQL: the old table had no username column.
+    await first.db
+      .execute(sql`insert into users (github_id, github_login, name, last_sign_in_at)
+      values (1, 'Octo-Cat', 'Octo', now()),
+             (2, 'renamed', null, now() - interval '2 days'),
+             (3, 'RENAMED', null, now())`);
+    await first.close();
+
+    const second = await openDatabase(dataDir);
+    open.push(second);
+    const rows = await second.db
+      .select({ githubId: users.githubId, username: users.username })
+      .from(users)
+      .orderBy(users.githubId);
+    expect(rows[0]).toEqual({ githubId: 1, username: "octo-cat" });
+    // Two logins that differ only in case: the one used most recently keeps it.
+    expect(rows[2]?.username).toBe("renamed");
+    expect(rows[1]?.username).toMatch(/^renamed-[0-9a-f]{6}$/);
+    const identities = await second.db
+      .select({
+        provider: userIdentities.provider,
+        id: userIdentities.providerUserId,
+        login: userIdentities.login,
+      })
+      .from(userIdentities)
+      .orderBy(userIdentities.providerUserId);
+    expect(identities).toEqual([
+      { provider: "github", id: "1", login: "Octo-Cat" },
+      { provider: "github", id: "2", login: "renamed" },
+      { provider: "github", id: "3", login: "RENAMED" },
+    ]);
+  });
+});
+
 describe("schema", () => {
   it("keeps one user per GitHub account", async () => {
     const { db } = await memoryDb();
-    await db.insert(users).values({ githubId: 42, githubLogin: "a" });
+    await db.insert(users).values({ githubId: 42, username: "a" });
     await expect(
-      db.insert(users).values({ githubId: 42, githubLogin: "b" }),
+      db.insert(users).values({ githubId: 42, username: "b" }),
+    ).rejects.toThrow();
+  });
+
+  it("fills in a username for inserts from the previous release", async () => {
+    const { db } = await memoryDb();
+    // Raw SQL: the previous release's inserts had no username.
+    await db.execute(
+      sql`insert into users (github_id, github_login) values (5, 'Octo-Cat')`,
+    );
+    const [user] = await db.select().from(users);
+    expect(user?.username).toBe("octo-cat");
+  });
+
+  it("keeps usernames unique", async () => {
+    const { db } = await memoryDb();
+    await db.insert(users).values({ username: "taken" });
+    await expect(
+      db.insert(users).values({ username: "taken" }),
     ).rejects.toThrow();
   });
 
@@ -138,7 +215,7 @@ describe("schema", () => {
     const { db } = await memoryDb();
     const [user] = await db
       .insert(users)
-      .values({ githubId: 7, githubLogin: "seven" })
+      .values({ githubId: 7, username: "seven" })
       .returning();
     expect(user?.id).toMatch(/^[0-9a-f-]{36}$/);
     expect(user?.createdAt).toBeInstanceOf(Date);
@@ -150,7 +227,7 @@ describe("schema", () => {
     const { db } = await memoryDb();
     const [user] = await db
       .insert(users)
-      .values({ githubId: 9, githubLogin: "nine" })
+      .values({ githubId: 9, username: "nine" })
       .returning();
     if (!user) throw new Error("insert returned nothing");
     await db.insert(sessions).values({
@@ -180,7 +257,7 @@ describe("comments schema", () => {
     const handle = await memoryDb();
     const [author] = await handle.db
       .insert(users)
-      .values({ githubId: 11, githubLogin: "author" })
+      .values({ githubId: 11, username: "author" })
       .returning();
     if (!author) throw new Error("insert returned nothing");
     return { db: handle.db, author };

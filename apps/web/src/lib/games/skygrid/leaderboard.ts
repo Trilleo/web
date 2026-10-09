@@ -10,7 +10,8 @@ import {
   type GameState,
   type SkillId,
 } from "@trilleo/game-skygrid/core";
-import { and, desc, gt, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { normalizeUsername } from "../../auth/usernames";
 import { displayName } from "../../profile/profile";
 
 export const BOARDS = ["total", ...SKILLS, "coins"] as const;
@@ -46,7 +47,7 @@ export async function leaderboard(
   const rows = await db
     .select({
       value,
-      login: users.githubLogin,
+      login: users.username,
       name: users.name,
       displayName: users.displayName,
       profilePublic: users.profilePublic,
@@ -60,7 +61,7 @@ export async function leaderboard(
     rank: index + 1,
     name: row.profilePublic
       ? displayName({
-          githubLogin: row.login,
+          username: row.login,
           name: row.name,
           displayName: row.displayName,
         })
@@ -76,7 +77,7 @@ export interface IslandPage {
 }
 
 /**
- * Someone's island, by GitHub login: null if there's none to show (no island,
+ * Someone's island, by username: null if there's none to show (no island,
  * blocked, or a private profile, except to its owner).
  */
 export async function findIsland(
@@ -90,11 +91,10 @@ export async function findIsland(
     .innerJoin(skygridSaves, sql`${skygridSaves.userId} = ${users.id}`)
     .where(
       and(
-        sql`lower(${users.githubLogin}) = ${login.toLowerCase()}`,
+        eq(users.username, normalizeUsername(login)),
         isNull(users.blockedAt),
       ),
     )
-    .orderBy(desc(users.lastSignInAt))
     .limit(1);
   if (!row) return null;
   if (!row.user.profilePublic && row.user.id !== viewerId) return null;

@@ -1,7 +1,7 @@
 import { openDatabase, type DatabaseHandle, type User } from "@trilleo/db";
 import { ISLAND_MAPS, newGame } from "@trilleo/game-skygrid/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { upsertGitHubUser } from "../../auth/sessions";
+import { upsertGitHubUser } from "../../auth/accounts";
 import { handleBazaarRead, handleBazaarTrade } from "./bazaar-api";
 import { startSkygridSave } from "./store";
 

@@ -58,13 +58,13 @@ export interface Credit {
  * private profile shows only the username (the profile rules, see /account/profile).
  */
 export function creditOf(
-  owner: Pick<User, "githubLogin" | "name" | "displayName" | "profilePublic">,
+  owner: Pick<User, "username" | "name" | "displayName" | "profilePublic">,
 ): Credit {
   return {
-    login: owner.githubLogin,
+    login: owner.username,
     name: owner.profilePublic ? displayName(owner) : null,
-    profile: owner.profilePublic ? profileHref(owner.githubLogin) : null,
-    creations: creatorPath(owner.githubLogin),
+    profile: owner.profilePublic ? profileHref(owner.username) : null,
+    creations: creatorPath(owner.username),
   };
 }
 
@@ -183,10 +183,10 @@ export async function imageUrl(
 
 export function projectCard(
   project: Pick<McProject, "type" | "name">,
-  owner: Pick<User, "githubLogin">,
+  owner: Pick<User, "username">,
   gameVersions: readonly string[],
 ): OgCard {
-  const parts = [`@${owner.githubLogin}`];
+  const parts = [`@${owner.username}`];
   if (gameVersions.length > 0) parts.push(summarizeVersions(gameVersions));
   return {
     section: `${SECTION_LABEL} / ${typeInfo(project.type).label}`,

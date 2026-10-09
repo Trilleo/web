@@ -4,7 +4,7 @@ import { LocalDriver } from "@trilleo/storage/server";
 import { makeZip } from "@trilleo/storage/testing";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { upsertGitHubUser } from "../auth/sessions";
+import { upsertGitHubUser } from "../auth/accounts";
 import { deleteAccountFiles, storageExport } from "./account";
 import { appealFile, decideAppeal, openAppeals } from "./appeals";
 import { runMaintenance } from "./maintenance";

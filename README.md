@@ -76,8 +76,12 @@ The Minecraft platform lives under `/minecraft/` (public pages, a read-only JSON
 from Mojang's version manifest; set `MINECRAFT_VERSION_MANIFEST=off` in
 `apps/web/.env` to work offline with the list kept in the code.
 
-Sign-in (`/admin`) works in development once `apps/web/.env` has a localhost GitHub OAuth
-App's credentials: copy `apps/web/.env.example` and see
+Accounts are their email address: `/sign-in` sends a code (in development it lands in
+the outbox, and the dev server prints its subject, which holds the code) and a new
+address makes an account (`/sign-up`). To use `/admin` in
+development, put your account's address in `ADMIN_EMAILS` in `apps/web/.env` (copy
+`apps/web/.env.example`). "Sign in with GitHub" also works once `.env` has a localhost
+GitHub OAuth App's credentials: see
 [deploy/README.md §7](deploy/README.md#7-github-sign-in). The e2e tests use a fake GitHub
 and need nothing. Without an OAuth App, the `web-fake-signin` and `fake-github` entries
 in `.claude/launch.json` run a dev server (port 4331, in-memory database) that signs in

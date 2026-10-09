@@ -6,11 +6,14 @@ type GuardContext = Pick<APIContext, "locals" | "url">;
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
+/** ADMIN_EMAILS has their (proved) address, or ADMIN_GITHUB_IDS their GitHub account. */
 export function isAdmin(
-  user: User | null,
-  config: AuthConfig | null = authConfig(),
+  user: Pick<User, "email" | "githubId"> | null,
+  config: AuthConfig = authConfig(),
 ): boolean {
-  return user !== null && (config?.adminIds.has(user.githubId) ?? false);
+  if (!user) return false;
+  if (user.email !== null && config.adminEmails.has(user.email)) return true;
+  return user.githubId !== null && config.adminGithubIds.has(user.githubId);
 }
 
 /** Off to sign in, then back to this page. */
@@ -45,7 +48,7 @@ export function requireUser(context: GuardContext): User | Response {
  */
 export function requireAdmin(
   context: GuardContext,
-  config: AuthConfig | null = authConfig(),
+  config: AuthConfig = authConfig(),
 ): User | Response {
   const { user } = context.locals;
   if (!user) return signInFirst(context);

@@ -100,10 +100,13 @@ export function resolveMailConfig(env: Env, isDev: boolean): MailConfig {
   };
 }
 
-export function createMailDriver(config: MailConfig): MailDriver {
+export function createMailDriver(
+  config: MailConfig,
+  logCaptured?: (line: string) => void,
+): MailDriver {
   return config.transport.kind === "smtp"
     ? new SmtpDriver(config.transport.smtp)
-    : new CaptureDriver();
+    : new CaptureDriver(logCaptured);
 }
 
 let cached: { config: MailConfig; driver: MailDriver } | undefined;
@@ -118,7 +121,18 @@ export function mailSetup(): { config: MailConfig; driver: MailDriver } {
       !import.meta.env.DEV
     )
       console.warn(`Mail: ${config.problem}`);
-    cached = { config, driver: createMailDriver(config) };
+    // In `pnpm dev`, captured mail is also logged (sign-in codes are in subjects).
+    cached = {
+      config,
+      driver: createMailDriver(
+        config,
+        import.meta.env.DEV
+          ? (line) => {
+              console.info(line);
+            }
+          : undefined,
+      ),
+    };
   }
   return cached;
 }

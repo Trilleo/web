@@ -72,3 +72,12 @@ describe("ButtonLink", () => {
     );
   });
 });
+
+describe("buttonClasses' plain hover", () => {
+  it("changes color without the sliding panel", () => {
+    const plain = buttonClasses({ hover: "plain" });
+    expect(plain).toContain("hover:bg-accent");
+    expect(plain).not.toContain("before:");
+    expect(buttonClasses()).toContain("hover:before:scale-x-100");
+  });
+});

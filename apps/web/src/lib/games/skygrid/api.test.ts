@@ -7,7 +7,7 @@ import {
   type GameState,
 } from "@trilleo/game-skygrid/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { upsertGitHubUser } from "../../auth/sessions";
+import { upsertGitHubUser } from "../../auth/accounts";
 import { deleteAccount } from "../../comments/store";
 import { MAX_BODY_BYTES, handleSkygrid, type SkygridEndpoint } from "./api";
 import { CLOCK_SLACK_MS, loadSkygridSave } from "./store";

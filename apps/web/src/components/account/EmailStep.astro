@@ -1,0 +1,61 @@
+---
+/**
+ * The first step of signing in or up: an address to send a code to. A plain POST
+ * form (to /sign-in), so it works without JavaScript.
+ */
+import { buttonClasses } from "@trilleo/ui";
+
+interface Props {
+  action: string;
+  next: string;
+  value?: string;
+  invalid?: boolean;
+  /** Email can't be sent right now. */
+  disabled?: boolean;
+}
+
+const {
+  action,
+  next,
+  value = "",
+  invalid = false,
+  disabled = false,
+} = Astro.props;
+const input =
+  "w-full border border-ink bg-paper px-3 py-2.5 text-base text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-invalid:border-accent disabled:bg-chip disabled:text-muted";
+---
+
+<form method="post" action={action} class="flex flex-col gap-4" novalidate>
+  <input type="hidden" name="next" value={next} />
+  <div class="flex flex-col gap-2">
+    <label for="sign-in-email" class="font-medium">
+      Email address
+    </label>
+    <input
+      id="sign-in-email"
+      name="email"
+      type="email"
+      autocomplete="email"
+      inputmode="email"
+      maxlength={254}
+      required
+      {value}
+      {disabled}
+      aria-invalid={invalid ? "true" : undefined}
+      aria-describedby="sign-in-email-hint"
+      class={input}
+    />
+    <p id="sign-in-email-hint" class="text-sm text-muted">
+      {disabled
+        ? "Email isn’t set up on this site right now, so codes can’t be sent."
+        : "New here? The same code makes your account."}
+    </p>
+  </div>
+  <button
+    type="submit"
+    class={buttonClasses({ hover: "plain", className: "w-full" })}
+    {disabled}
+  >
+    Continue with email
+  </button>
+</form>

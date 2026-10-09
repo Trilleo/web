@@ -3,7 +3,7 @@ import { openDatabase, type DatabaseHandle, type User } from "@trilleo/db";
 import type { StoragePurpose, UploadRequest } from "@trilleo/storage";
 import { LocalDriver } from "@trilleo/storage/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { upsertGitHubUser } from "../auth/sessions";
+import { upsertGitHubUser } from "../auth/accounts";
 import { runMaintenance } from "./maintenance";
 import { STORAGE_PURPOSES } from "./purposes";
 import {

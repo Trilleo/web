@@ -39,11 +39,20 @@ export class MailError extends Error {
   }
 }
 
-/** Sends nothing: the outbox marks the message "captured" instead. */
+/**
+ * Sends nothing: the outbox marks the message "captured" instead. With `log` (only
+ * `pnpm dev`), each message's recipient and subject are passed to it: sign-in codes
+ * are in the subject, so a fresh dev database can sign in before anyone can read
+ * /admin/mail/.
+ */
 export class CaptureDriver implements MailDriver {
   readonly kind = "capture";
 
-  send(): Promise<{ messageId: string | null }> {
+  constructor(private readonly log?: (line: string) => void) {}
+
+  send(mail?: OutgoingMail): Promise<{ messageId: string | null }> {
+    if (mail && this.log)
+      this.log(`Mail captured for ${mail.to}: ${mail.subject}`);
     return Promise.resolve({ messageId: null });
   }
 

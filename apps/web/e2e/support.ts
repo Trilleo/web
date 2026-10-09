@@ -47,3 +47,35 @@ export async function adminPage(browser: Browser, baseURL: string | undefined) {
 export async function hydrated(page: Page) {
   await expect(page.locator("astro-island[ssr]")).toHaveCount(0);
 }
+
+/** The newest captured message to `address` (of a kind), opened on /admin/mail/. */
+export async function openMail(
+  admin: Page,
+  address: string,
+  kind: string,
+  subject?: RegExp,
+) {
+  await expect(async () => {
+    await admin.goto(
+      `/admin/mail/?to=${encodeURIComponent(address)}&kind=${kind}`,
+    );
+    const link = admin
+      .locator("[data-mail-list]")
+      .getByRole("link", subject ? { name: subject } : {})
+      .first();
+    await expect(link).toBeVisible({ timeout: 1000 });
+    await link.click();
+    await expect(admin.locator("[data-mail-text]")).toBeVisible({
+      timeout: 1000,
+    });
+  }).toPass({ timeout: 15_000 });
+  return (await admin.locator("[data-mail-text]").textContent()) ?? "";
+}
+
+/** The 6-digit code in the newest code email to `address`, read as the admin. */
+export async function codeSentTo(admin: Page, address: string) {
+  const text = await openMail(admin, address, "email-code");
+  const code = /\b(\d{6})\b/.exec(text)?.[1] ?? "";
+  expect(code).toMatch(/^\d{6}$/);
+  return code;
+}

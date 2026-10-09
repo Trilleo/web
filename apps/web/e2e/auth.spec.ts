@@ -41,9 +41,10 @@ test("the site owner signs in with GitHub and lands back on /admin", async ({
   expect(cookies.map((cookie) => cookie.name)).not.toContain("trilleo_oauth");
 
   await page.goto("/sign-in");
-  await expect(
-    page.getByText("You’re signed in as @site-owner."),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "You’re signed in",
+  );
+  await expect(page.getByText("As @site-owner.")).toBeVisible();
 });
 
 test("admin pages are never cached or indexed", async ({ page }) => {

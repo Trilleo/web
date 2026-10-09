@@ -1,7 +1,7 @@
 import { openDatabase, posts, type DatabaseHandle } from "@trilleo/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { upsertGitHubUser } from "./auth/sessions";
+import { upsertGitHubUser } from "./auth/accounts";
 import type { PostInput } from "./blog/input";
 import { createPost, updatePost } from "./blog/store";
 import {

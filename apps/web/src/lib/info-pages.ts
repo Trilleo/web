@@ -43,6 +43,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "legal",
     changes: [
       {
+        date: "2026-10-09",
+        note: "Accounts are now their email address, with GitHub as a linked account.",
+      },
+      {
         date: "2026-10-07",
         note: "Added Minecraft creations: anyone signed in can share them, under a licence they choose.",
       },
@@ -59,6 +63,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-09",
+        note: "Accounts are now their email address: signing in by code, usernames chosen on the site, GitHub as a linked account (and reading its verified address).",
+      },
+      {
+        date: "2026-10-09",
         note: "Added email: the address you can add, notifications, how long email is kept, and Tencent Cloud as the sender.",
       },
       { date: "2026-10-07", note: "Added what’s kept for Minecraft projects." },
@@ -72,7 +80,13 @@ export const INFO_PAGES: readonly InfoPage[] = [
     description:
       "The one sign-in cookie and the browser storage the site uses. No tracking, no banner.",
     group: "legal",
-    changes: FIRST,
+    changes: [
+      {
+        date: "2026-10-09",
+        note: "Added the cookie used while signing in by email.",
+      },
+      ...FIRST,
+    ],
   },
   {
     path: "/legal/guidelines/",
@@ -118,6 +132,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "Short answers about accounts, your data, the tools, the games and comments.",
     group: "help",
     changes: [
+      {
+        date: "2026-10-09",
+        note: "Signing in by email, what changed for GitHub accounts, and usernames.",
+      },
       { date: "2026-10-09", note: "Added a question about email." },
       {
         date: "2026-10-07",

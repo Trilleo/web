@@ -10,6 +10,7 @@ const PAGES = [
   "/does-not-exist",
   "/sign-in",
   "/sign-in?error=state",
+  "/sign-up",
   "/tools/",
   "/tools/notes/",
   "/tools/color/",

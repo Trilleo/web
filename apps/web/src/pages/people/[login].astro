@@ -10,8 +10,9 @@ import { renderComment } from "../../lib/comments/render";
 import { getDb } from "../../lib/db";
 import { formatPostDate } from "../../lib/listings";
 import { postHref } from "../../lib/posts";
-import { displayName } from "../../lib/profile/profile";
+import { displayName, profileHref } from "../../lib/profile/profile";
 import { findIsland, islandHref } from "../../lib/games/skygrid/leaderboard";
+import { movedUsername } from "../../lib/auth/usernames";
 import { findProfile } from "../../lib/profile/store";
 import { creatorPath } from "../../lib/minecraft/paths";
 import { listProjects } from "../../lib/minecraft/store";
@@ -21,7 +22,12 @@ export const prerender = false;
 const login = Astro.params.login ?? "";
 const viewer = Astro.locals.user;
 const found = await findProfile(await getDb(), login, viewer?.id ?? null);
-if (!found) return Astro.rewrite("/404");
+if (!found) {
+  // Someone who changed their username: the old one redirects for a while.
+  const moved = await movedUsername(await getDb(), login, viewer?.id ?? null);
+  if (moved) return Astro.redirect(profileHref(moved), 301);
+  return Astro.rewrite("/404");
+}
 
 // Depends on who's looking (own/private), so never shared from a cache.
 Astro.response.headers.set("Cache-Control", "private, no-store");
@@ -30,7 +36,7 @@ Astro.response.headers.set("X-Robots-Tag", "noindex");
 const { user, comments, commentCount } = found;
 const island = await findIsland(
   await getDb(),
-  user.githubLogin,
+  user.username,
   viewer?.id ?? null,
 );
 const own = viewer?.id === user.id;
@@ -50,12 +56,12 @@ const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
 const body = "col-span-4 md:col-span-6 xl:col-span-7";
 ---
 
-<BaseLayout title={name} description={`${name} (@${user.githubLogin})`} noindex>
+<BaseLayout title={name} description={`${name} (@${user.username})`} noindex>
   <section
     aria-labelledby="profile-name"
     class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
   >
-    <p class="type-label text-ink">(Profile) @{user.githubLogin}</p>
+    <p class="type-label text-ink">(Profile) @{user.username}</p>
 
     {own && !user.profilePublic && (
       <p role="status" class="type-lead mt-6 border-l-2 border-accent pl-4">
@@ -76,17 +82,17 @@ const body = "col-span-4 md:col-span-6 xl:col-span-7";
           {name}
         </h1>
         <p class="type-label flex flex-wrap gap-x-4 gap-y-1 text-muted">
-          <span class="text-ink">@{user.githubLogin}</span>
+          <span class="text-ink">@{user.username}</span>
           {facts.map((fact) => (
             <span>{fact}</span>
           ))}
           {island && (
-            <a href={islandHref(user.githubLogin)} class="text-ink underline">
+            <a href={islandHref(user.username)} class="text-ink underline">
               Skygrid island
             </a>
           )}
           {creations > 0 && (
-            <a href={creatorPath(user.githubLogin)} class="text-ink underline">
+            <a href={creatorPath(user.username)} class="text-ink underline">
               Minecraft projects ({creations})
             </a>
           )}

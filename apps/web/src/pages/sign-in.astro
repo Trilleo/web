@@ -1,10 +1,25 @@
 ---
-import DisplayTitle from "../components/DisplayTitle.astro";
+/**
+ * Signing in, and creating an account: the same first step. Type your address and
+ * get a code (POST here, then /sign-in/code), or continue with GitHub. Works without
+ * JavaScript; looks the same whether or not the address has an account.
+ */
 import { ArrowRightIcon, GitHubIcon, buttonClasses } from "@trilleo/ui";
+import AuthCard from "../components/account/AuthCard.astro";
+import EmailStep from "../components/account/EmailStep.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { authConfig } from "../lib/auth/config";
-import { safeNextPath } from "../lib/auth/redirect";
+import { setPendingCookie } from "../lib/auth/cookies";
+import {
+  SIGN_IN_CODE_ERRORS,
+  requestSignInCode,
+} from "../lib/auth/email-sign-in";
+import { noStoreRedirect, safeNextPath } from "../lib/auth/redirect";
 import { signInErrorMessage } from "../lib/auth/sign-in";
+import { field } from "../lib/comments/form";
+import { getDb } from "../lib/db";
+import { mailSetup } from "../lib/mail/config";
+import { sendNow } from "../lib/mail/delivery";
 
 export const prerender = false;
 
@@ -13,97 +28,129 @@ Astro.response.headers.set("X-Robots-Tag", "noindex");
 
 const { user } = Astro.locals;
 const params = Astro.url.searchParams;
-const configured = authConfig() !== null;
-const next = safeNextPath(params.get("next"));
-const error = signInErrorMessage(
-  configured ? params.get("error") : "not-configured",
-);
+const github = authConfig().github !== null;
+const emailWorks = mailSetup().config.available;
+let next = safeNextPath(params.get("next"));
+let error = signInErrorMessage(params.get("error"));
+let typed = "";
+
+if (Astro.request.method === "POST" && !user) {
+  const form = await Astro.request.formData();
+  next = safeNextPath(field(form, "next"));
+  typed = field(form, "email");
+  let ip = "";
+  try {
+    ip = Astro.clientAddress;
+  } catch {
+    // Not available (some test setups): everyone shares one limit.
+  }
+  const result = await requestSignInCode(await getDb(), typed, {
+    available: emailWorks,
+    ip,
+  });
+  if (result.ok) {
+    setPendingCookie(Astro.cookies, Astro.url, { email: result.email, next });
+    const sent = await sendNow(result.messageId);
+    const went = sent?.status === "sent" || sent?.status === "captured";
+    return noStoreRedirect(`/sign-in/code${went ? "" : "?delayed=1"}`, 303);
+  }
+  error = SIGN_IN_CODE_ERRORS[result.error];
+  Astro.response.status = result.error === "invalid" ? 422 : 429;
+}
+
 const signedOut = params.has("signed-out") && !user;
 const accountDeleted = params.has("account-deleted") && !user;
+const notice = signedOut
+  ? "You’ve signed out."
+  : accountDeleted
+    ? "Your account and comments have been deleted."
+    : null;
 ---
 
 <BaseLayout title="Sign in" noindex>
-  <section
-    aria-labelledby="sign-in-title"
-    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  <AuthCard
+    id="sign-in-title"
+    title={user ? "You’re signed in" : "Sign in"}
+    description={
+      user
+        ? `As @${user.username}.`
+        : "Or make an account: it’s the same first step. We’ll email you a code, so there’s no password."
+    }
   >
-    <p class="type-label text-ink">(Account) Sign in</p>
+    {(error || notice) && (
+      <p
+        slot="notice"
+        role={error ? "alert" : "status"}
+        class="border-l-2 border-accent pl-3"
+      >
+        {error ?? notice}
+      </p>
+    )}
 
-    <DisplayTitle id="sign-in-title">Sign in</DisplayTitle>
-
-    <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
-      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 md:col-start-3 xl:col-start-3">
-        {error && (
-          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
-            {error}
-          </p>
-        )}
-        {signedOut && (
-          <p role="status" class="type-lead">
-            You’ve signed out.
-          </p>
-        )}
-        {accountDeleted && (
-          <p role="status" class="type-lead">
-            Your account and comments have been deleted.
-          </p>
-        )}
-        {user ? (
-          <p class="type-lead">
-            You’re signed in as <strong>@{user.githubLogin}</strong>.
-          </p>
-        ) : (
-          <p class="type-lead">
-            Sign in with your GitHub account to comment. Only your public name
-            and username are kept.
-          </p>
-        )}
+    {user ? (
+      <div class="flex flex-col gap-3">
+        <a
+          href={next}
+          class={buttonClasses({ hover: "plain", className: "w-full" })}
+        >
+          Continue
+          <ArrowRightIcon size={16} />
+        </a>
+        <form method="post" action="/auth/logout">
+          <button
+            type="submit"
+            class={buttonClasses({
+              hover: "plain",
+              variant: "secondary",
+              className: "w-full",
+            })}
+          >
+            Sign out
+          </button>
+        </form>
       </div>
-
-      <div class="col-span-4 flex flex-col gap-3 md:col-span-6 md:col-start-3 xl:col-span-3 xl:col-start-10">
-        {user ? (
+    ) : (
+      <>
+        <EmailStep
+          action="/sign-in"
+          next={next}
+          value={typed}
+          invalid={error !== null && typed !== ""}
+          disabled={!emailWorks}
+        />
+        {github && (
           <>
-            <a href={next} class={buttonClasses()}>
-              Continue
-              <ArrowRightIcon size={16} />
-            </a>
-            <form method="post" action="/auth/logout">
-              <button
-                type="submit"
-                class={buttonClasses({
-                  variant: "secondary",
-                  className: "w-full",
-                })}
-              >
-                Sign out
-              </button>
-            </form>
-          </>
-        ) : (
-          configured && (
+            <p class="type-label flex items-center gap-3 text-muted before:h-px before:flex-1 before:bg-ink after:h-px after:flex-1 after:bg-ink">
+              Or
+            </p>
             <a
               href={`/auth/github?next=${encodeURIComponent(next)}`}
-              class={buttonClasses()}
+              class={buttonClasses({
+                hover: "plain",
+                variant: "secondary",
+                className: "w-full",
+              })}
             >
               <GitHubIcon size={16} />
               Sign in with GitHub
             </a>
-          )
+          </>
         )}
-        {!user && configured && (
-          <p class="text-sm text-muted">
-            By signing in you agree to the{" "}
-            <a href="/legal/terms/" class="text-ink underline">
-              terms
-            </a>{" "}
-            and{" "}
-            <a href="/legal/privacy/" class="text-ink underline">
-              privacy policy
-            </a>
-            . You must be 14 or older.
-          </p>
-        )}
-      </div>
-    </div>
-  </section>
+      </>
+    )}
+
+    {!user && (
+      <p slot="footer">
+        By signing in you agree to the{" "}
+        <a href="/legal/terms/" class="text-ink underline">
+          terms
+        </a>{" "}
+        and{" "}
+        <a href="/legal/privacy/" class="text-ink underline">
+          privacy policy
+        </a>
+        . You must be 14 or older.
+      </p>
+    )}
+  </AuthCard>
 </BaseLayout>

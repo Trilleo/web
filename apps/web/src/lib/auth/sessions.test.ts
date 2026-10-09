@@ -6,6 +6,7 @@ import {
 } from "@trilleo/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { hashToken } from "./crypto";
+import { upsertGitHubUser } from "./accounts";
 import {
   SESSION_RENEW_MS,
   SESSION_TOUCH_MS,
@@ -17,7 +18,6 @@ import {
   invalidateUserSessions,
   listUserSessions,
   revokeUserSession,
-  upsertGitHubUser,
   validateSession,
 } from "./sessions";
 import { ADMIN_PROFILE, VISITOR_PROFILE } from "./testing";
@@ -39,7 +39,7 @@ describe("upsertGitHubUser", () => {
     const created = await upsertGitHubUser(handle.db, ADMIN_PROFILE, start);
     expect(created).toMatchObject({
       githubId: 1001,
-      githubLogin: "site-owner",
+      username: "site-owner",
       name: "Site Owner",
       lastSignInAt: start,
     });
@@ -48,8 +48,9 @@ describe("upsertGitHubUser", () => {
     const updated = await upsertGitHubUser(handle.db, renamed, later(DAY_MS));
     expect(updated.id).toBe(created.id);
     expect(updated.createdAt).toEqual(created.createdAt);
+    // The username is the site's: renaming yourself on GitHub doesn't touch it.
     expect(updated).toMatchObject({
-      githubLogin: "new-login",
+      username: "site-owner",
       name: null,
       lastSignInAt: later(DAY_MS),
     });

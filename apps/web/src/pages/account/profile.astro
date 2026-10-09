@@ -1,8 +1,9 @@
 ---
 /**
  * Editing your profile: GET shows the form, POST saves it and comes back here (or
- * shows the form again, with what was typed and what's wrong). The username is
- * GitHub's and can't be changed here.
+ * shows the form again, with what was typed and what's wrong). The username can be
+ * changed here too, every USERNAME_COOLDOWN_DAYS (lib/auth/usernames.ts); the old
+ * one redirects for a while.
  */
 import { buttonClasses } from "@trilleo/ui";
 import Monogram from "../../components/account/Monogram.astro";
@@ -10,6 +11,16 @@ import DisplayTitle from "../../components/DisplayTitle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { requireUser } from "../../lib/auth/guard";
 import { noStoreRedirect } from "../../lib/auth/redirect";
+import {
+  USERNAME_HOLD_DAYS,
+  USERNAME_LIMITS,
+  USERNAME_PROBLEMS,
+  changeUsername,
+  nextUsernameChange,
+  normalizeUsername,
+} from "../../lib/auth/usernames";
+import { field } from "../../lib/comments/form";
+import { formatPostDate } from "../../lib/listings";
 import { getDb } from "../../lib/db";
 import {
   PROFILE_LIMITS,
@@ -33,23 +44,42 @@ Astro.response.headers.set("X-Robots-Tag", "noindex");
 
 let values: ProfileDraft = profileDraft(user);
 let errors: Partial<Record<ProfileField, string>> = {};
+let username = user.username;
+let usernameError: string | null = null;
 
 if (Astro.request.method === "POST") {
-  const draft = readProfileForm(await Astro.request.formData());
+  const form = await Astro.request.formData();
+  const draft = readProfileForm(form);
+  username = normalizeUsername(field(form, "username")) || user.username;
   const result = validateProfile(draft);
   if (result.ok) {
-    await updateProfile(await getDb(), user.id, result.profile);
-    return noStoreRedirect("/account/profile/?saved=1", 303);
+    const db = await getDb();
+    // The username first: if it can't be had, nothing is saved.
+    const renamed =
+      username === user.username
+        ? null
+        : await changeUsername(db, user, username);
+    if (renamed && !renamed.ok) {
+      usernameError = USERNAME_PROBLEMS[renamed.problem];
+    } else {
+      await updateProfile(db, user.id, result.profile);
+      return noStoreRedirect("/account/profile/?saved=1", 303);
+    }
+  } else {
+    errors = result.errors;
   }
   values = draft;
-  errors = result.errors;
   Astro.response.status = 422;
 }
+const canRenameAt = nextUsernameChange(user);
 
 const saved =
   Astro.url.searchParams.has("saved") && Astro.request.method !== "POST";
-const hasErrors = Object.keys(errors).length > 0;
-const githubName = user.name ?? user.githubLogin;
+const hasErrors = Object.keys(errors).length > 0 || usernameError !== null;
+const githubName = user.name ?? user.username;
+const nameHint = user.name
+  ? `Shown on your profile and comments. Leave empty to use ${user.name}, the name on your linked GitHub account.`
+  : `Shown on your profile and comments. Leave empty to show just @${user.username}.`;
 
 // Field limits are in characters as people count them, checked on the server; the
 // browser counts UTF-16 units (an emoji is two), so its maxlength only stops pastes
@@ -64,7 +94,7 @@ const lines = [
   {
     name: "displayName",
     label: "Display name",
-    hint: `Shown on your profile and comments. Leave empty to use ${githubName} from GitHub.`,
+    hint: nameHint,
     placeholder: githubName,
     autocomplete: "nickname",
   },
@@ -100,7 +130,7 @@ const lines = [
     <p class="type-label text-ink">
       (Account){" "}
       <a href="/account/" class="link-wipe">
-        @{user.githubLogin}
+        @{user.username}
       </a>
     </p>
 
@@ -116,7 +146,7 @@ const lines = [
         ) : (
           <>
             Saved.{" "}
-            <a href={profileHref(user.githubLogin)} class="link-wipe">
+            <a href={profileHref(user.username)} class="link-wipe">
               See your profile
             </a>
             .
@@ -148,7 +178,7 @@ const lines = [
                 })}
               </p>
               <p class="type-label flex flex-wrap gap-x-3 text-muted">
-                <span>@{user.githubLogin}</span>
+                <span>@{user.username}</span>
                 <span data-preview-pronouns>{values.pronouns}</span>
               </p>
               <p class="truncate text-muted" data-preview-status>
@@ -160,11 +190,8 @@ const lines = [
             {values.profilePublic ? (
               <>
                 Your profile is public at{" "}
-                <a
-                  href={profileHref(user.githubLogin)}
-                  class="link-wipe text-ink"
-                >
-                  {profileHref(user.githubLogin)}
+                <a href={profileHref(user.username)} class="link-wipe text-ink">
+                  {profileHref(user.username)}
                 </a>
                 .
               </>
@@ -184,14 +211,36 @@ const lines = [
             </label>
             <input
               id="username"
-              value={user.githubLogin}
-              readonly
+              name="username"
+              value={username}
+              readonly={canRenameAt !== null}
+              autocomplete="username"
+              autocapitalize="none"
+              spellcheck="false"
+              minlength={USERNAME_LIMITS.min}
+              maxlength={USERNAME_LIMITS.max}
+              aria-invalid={usernameError ? "true" : undefined}
               aria-describedby="username-hint"
-              class:list={[input, "bg-chip text-muted"]}
+              class:list={[
+                input,
+                "font-mono",
+                canRenameAt !== null && "bg-chip text-muted",
+              ]}
             />
-            <p id="username-hint" class="text-sm text-muted">
-              Linked to your GitHub account. Change it on GitHub; it updates
-              here the next time you sign in.
+            <p
+              id="username-hint"
+              class:list={[
+                "text-sm",
+                usernameError ? "text-ink" : "text-muted",
+              ]}
+            >
+              {usernameError ? (
+                <strong class="font-medium">{usernameError}</strong>
+              ) : canRenameAt ? (
+                `You changed it recently. You can change it again on ${formatPostDate(canRenameAt)}.`
+              ) : (
+                `In your profile’s address and next to your comments. Lower-case letters, digits and hyphens. Links to the old one keep working for ${String(USERNAME_HOLD_DAYS)} days.`
+              )}
             </p>
           </div>
 
@@ -364,7 +413,7 @@ const lines = [
                 checked={values.commentName === "display"}
                 class="mt-1 size-4 shrink-0 accent-accent"
               />
-              <span>Your display name, with @{user.githubLogin} beside it</span>
+              <span>Your display name, with @{user.username} beside it</span>
             </label>
             <label class="flex items-start gap-3">
               <input
@@ -374,7 +423,7 @@ const lines = [
                 checked={values.commentName === "username"}
                 class="mt-1 size-4 shrink-0 accent-accent"
               />
-              <span>Just @{user.githubLogin}</span>
+              <span>Just @{user.username}</span>
             </label>
           </div>
         </div>
@@ -386,7 +435,7 @@ const lines = [
             Save profile
           </button>
           <a
-            href={profileHref(user.githubLogin)}
+            href={profileHref(user.username)}
             class={buttonClasses({ variant: "secondary" })}
           >
             View profile
@@ -419,7 +468,7 @@ const lines = [
     };
     const update = () => {
       const person = {
-        githubLogin: login,
+        username: login,
         name: githubName,
         displayName: value("displayName") || null,
       };

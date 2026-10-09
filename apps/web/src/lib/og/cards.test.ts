@@ -1,6 +1,6 @@
 import { openDatabase, type DatabaseHandle } from "@trilleo/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { upsertGitHubUser } from "../auth/sessions";
+import { upsertGitHubUser } from "../auth/accounts";
 import { createPost } from "../blog/store";
 import { SITE_CARD } from "../seo";
 import { resolveCard } from "./cards";

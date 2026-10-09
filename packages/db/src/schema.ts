@@ -35,15 +35,32 @@ export interface ProfileLink {
 export const commentName = pgEnum("comment_name", ["display", "username"]);
 
 /**
- * Someone who has signed in with GitHub: their public GitHub profile, plus the
- * profile they fill in themselves (/account/profile).
+ * An account. People are known by their email address (`email`, proved with a
+ * code) and sign in with it, or with an account elsewhere linked to it
+ * (user_identities). `username` is the site's own handle, used in URLs.
  */
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
-  // GitHub's numeric user ID never changes; the login (username) can.
-  githubId: bigint("github_id", { mode: "number" }).notNull().unique(),
-  githubLogin: text("github_login").notNull(),
-  /** GitHub's display name, refreshed on every sign-in; displayName wins over it. */
+  /**
+   * The linked GitHub account's numeric ID (also in user_identities), kept on the
+   * row so ADMIN_GITHUB_IDS can be checked without a lookup. Null: none linked.
+   */
+  githubId: bigint("github_id", { mode: "number" }).unique(),
+  /**
+   * Deprecated: the username before the site had its own. Still written (a copy of
+   * `username`) so the previous release keeps working after a rollback; never read.
+   * Drop it in a later release.
+   */
+  githubLogin: text("github_login"),
+  /**
+   * The handle in /people/<username>/ and @mentions: lower-case letters, digits and
+   * hyphens (apps/web/src/lib/auth/usernames.ts). Old ones redirect for a while
+   * (username_history).
+   */
+  username: text("username").notNull().unique(),
+  /** When they last chose a new username (for the cooldown). */
+  usernameChangedAt: timestamp("username_changed_at", { withTimezone: true }),
+  /** The name a linked account gave (GitHub's display name); displayName wins over it. */
   name: text("name"),
   /** Chosen on the site. Null: GitHub's name, then the login. */
   displayName: text("display_name"),
@@ -81,8 +98,10 @@ export const users = pgTable("users", {
   /** "strikes" for an automatic ban, else the admin's reason. */
   uploadBanReason: text("upload_ban_reason"),
   /**
-   * Where notifications go: always an address they proved with a code
-   * (/account/email/). Lower-cased; one account per address.
+   * Who they are: the address they sign in with and notifications go to. Always one
+   * they proved (a code, or a linked account that vouched for it). Lower-cased; one
+   * account per address. Null only for accounts from before email sign-in, which are
+   * asked for one the next time they sign in.
    */
   email: text("email").unique(),
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
@@ -94,6 +113,54 @@ export const users = pgTable("users", {
   /** The secret in their unsubscribe links. Replaced when the address changes. */
   emailToken: text("email_token").unique(),
 });
+
+/**
+ * A way to sign in to an account other than email: an account elsewhere (for now
+ * only GitHub), by the ID that provider never changes. One per provider per account.
+ */
+export const userIdentities = pgTable(
+  "user_identities",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: text("provider", { enum: ["github"] }).notNull(),
+    providerUserId: text("provider_user_id").notNull(),
+    /** Its username there (shown in account settings), refreshed when used. */
+    login: text("login"),
+    linkedAt: timestamp("linked_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("user_identities_provider_idx").on(
+      table.provider,
+      table.providerUserId,
+    ),
+    uniqueIndex("user_identities_user_provider_idx").on(
+      table.userId,
+      table.provider,
+    ),
+  ],
+);
+
+/**
+ * Usernames someone gave up: /people/<old>/ and the like redirect to their new one,
+ * and nobody else can take it, until USERNAME_HOLD_DAYS after `releasedAt`.
+ */
+export const usernameHistory = pgTable(
+  "username_history",
+  {
+    username: text("username").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    releasedAt: timestamp("released_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [index("username_history_user_idx").on(table.userId)],
+);
 
 /** A signed-in browser. `id` is the SHA-256 of the cookie's token, never the token. */
 export const sessions = pgTable(
@@ -630,8 +697,10 @@ export const contactMessages = pgTable(
 
 /**
  * A one-time code sent to an address, to prove it's theirs. Only its SHA-256 is
- * kept; it expires, allows a few guesses, and works once. `purpose` leaves room for
- * signing in by email later (then `userId` may be empty).
+ * kept; it expires, allows a few guesses, and works once. Purposes: "verify-email"
+ * (a signed-in account adds or changes its address), "sign-in" (`userId` empty when
+ * the address has no account yet), and "sign-up" (not a code: the hash of the
+ * ticket that lets a proved, new address finish creating its account).
  */
 export const emailCodes = pgTable(
   "email_codes",
@@ -639,7 +708,9 @@ export const emailCodes = pgTable(
     id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
     userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
-    purpose: text("purpose", { enum: ["verify-email"] }).notNull(),
+    purpose: text("purpose", {
+      enum: ["verify-email", "sign-in", "sign-up"],
+    }).notNull(),
     codeHash: text("code_hash").notNull(),
     attempts: integer("attempts").notNull().default(0),
     createdAt: createdAt(),
@@ -995,6 +1066,8 @@ export const mcPreviews = pgTable("mc_previews", {
 
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
+export type UserIdentity = typeof userIdentities.$inferSelect;
+export type IdentityProvider = UserIdentity["provider"];
 export type Comment = typeof comments.$inferSelect;
 export type CommentName = (typeof commentName.enumValues)[number];
 export type CommentStatus = (typeof commentStatus.enumValues)[number];

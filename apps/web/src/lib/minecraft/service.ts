@@ -290,7 +290,7 @@ export async function openProjectReports(
   const rows = await deps.db
     .select({
       report: mcProjectReports,
-      reporterLogin: users.githubLogin,
+      reporterLogin: users.username,
       project: {
         id: mcProjects.id,
         slug: mcProjects.slug,

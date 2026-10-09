@@ -255,7 +255,7 @@ export async function purgeOldMessages(
 }
 
 export interface InboxMessage extends ContactMessage {
-  /** The sender's GitHub login, when they were signed in. */
+  /** The sender's username, when they were signed in. */
   login: string | null;
 }
 
@@ -269,7 +269,7 @@ export async function listMessages(
   limit = 100,
 ): Promise<InboxMessage[]> {
   const rows = await db
-    .select({ message: contactMessages, login: users.githubLogin })
+    .select({ message: contactMessages, login: users.username })
     .from(contactMessages)
     .leftJoin(users, eq(users.id, contactMessages.userId))
     .where(eq(contactMessages.status, view))

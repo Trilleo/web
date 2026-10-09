@@ -17,7 +17,7 @@ import {
   isNotNull,
   isNull,
 } from "drizzle-orm";
-import { authConfig } from "../auth/config";
+import { isAdmin } from "../auth/guard";
 import { openAppeals, type AppealView } from "./appeals";
 import { openReports, reportedFileIds, type ReportView } from "./reports";
 import { standingOf, type Standing } from "./standing";
@@ -63,7 +63,7 @@ async function withOwners(
   ];
   const owners = ownerIds.length
     ? await db
-        .select({ id: users.id, login: users.githubLogin })
+        .select({ id: users.id, login: users.username })
         .from(users)
         .where(inArray(users.id, ownerIds))
     : [];
@@ -103,15 +103,12 @@ export async function reviewCounts(
 /** Published files by people other than the admin that nobody has looked at. */
 async function spotCheckRows(db: Database): Promise<StoredFile[]> {
   const rows = await db
-    .select({ file: files, githubId: users.githubId })
+    .select({ file: files, owner: users })
     .from(files)
     .innerJoin(users, eq(users.id, files.ownerId))
     .where(and(eq(files.status, "published"), isNull(files.reviewedAt)))
     .orderBy(desc(files.publishedAt));
-  const adminIds = authConfig()?.adminIds;
-  return rows
-    .filter((row) => !adminIds?.has(row.githubId))
-    .map((row) => row.file);
+  return rows.filter((row) => !isAdmin(row.owner)).map((row) => row.file);
 }
 
 export async function uploaderSummaries(
@@ -122,7 +119,7 @@ export async function uploaderSummaries(
   const unique = [...new Set(ownerIds)];
   if (unique.length === 0) return new Map();
   const people = await db
-    .select({ id: users.id, login: users.githubLogin })
+    .select({ id: users.id, login: users.username })
     .from(users)
     .where(inArray(users.id, unique));
   const counts = await db

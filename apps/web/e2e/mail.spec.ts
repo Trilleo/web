@@ -1,10 +1,11 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { adminPage, continueAs, freshLogin } from "./support";
+import { adminPage, continueAs, freshLogin, openMail } from "./support";
 
 // The e2e server captures mail (MAIL_CAPTURE=1): nothing is sent, and the admin
-// reads every message at /admin/mail/. Each test uses fresh accounts and addresses;
-// the shared admin never adds an address of their own.
+// reads every message at /admin/mail/. Each test uses fresh accounts and addresses
+// (the fake GitHub gives each one an address; see githubEmail); the shared admin
+// never changes theirs.
 
 // Several pages, two browsers and accessibility scans per test.
 test.describe.configure({ timeout: 60_000 });
@@ -27,34 +28,10 @@ async function signIn(page: Page, login: string, next: string) {
   await expect(page).toHaveURL(next);
 }
 
-/** The newest captured message to `address` (of a kind), opened on /admin/mail/. */
-async function openMail(
-  admin: Page,
-  address: string,
-  kind: string,
-  subject?: RegExp,
-) {
-  await expect(async () => {
-    await admin.goto(
-      `/admin/mail/?to=${encodeURIComponent(address)}&kind=${kind}`,
-    );
-    const link = admin
-      .locator("[data-mail-list]")
-      .getByRole("link", subject ? { name: subject } : {})
-      .first();
-    await expect(link).toBeVisible({ timeout: 1000 });
-    await link.click();
-    await expect(admin.locator("[data-mail-text]")).toBeVisible({
-      timeout: 1000,
-    });
-  }).toPass({ timeout: 15_000 });
-  return (await admin.locator("[data-mail-text]").textContent()) ?? "";
-}
-
-/** Adds and proves an address for the signed-in `page`, reading the code as the admin. */
+/** Moves the signed-in `page` to a new address, reading the code as the admin. */
 async function addAddress(page: Page, admin: Page, address: string) {
   await page.goto("/account/email/");
-  await page.getByLabel("Email address").fill(address);
+  await page.getByLabel("Change to").fill(address);
   await page.getByRole("button", { name: "Send code" }).click();
   await expect(page.getByRole("status")).toContainText("Code sent");
 
@@ -68,7 +45,7 @@ async function addAddress(page: Page, admin: Page, address: string) {
   await expect(page.locator("[data-email]")).toHaveText(address);
 }
 
-test("an address is proved with a code, switched and removed", async ({
+test("a new address is proved with a code, and switches save", async ({
   page,
   browser,
   baseURL,
@@ -76,10 +53,14 @@ test("an address is proved with a code, switched and removed", async ({
   const login = freshLogin("mailer");
   const address = `${login}@example.com`;
   await signIn(page, login, "/account/email/");
+  // GitHub's verified address came with the account.
+  await expect(page.locator("[data-email]")).toHaveText(
+    `${login}@users.github.test`,
+  );
   await noViolations(page);
 
   // A wrong code is refused.
-  await page.getByLabel("Email address").fill(address);
+  await page.getByLabel("Change to").fill(address);
   await page.getByRole("button", { name: "Send code" }).click();
   await page.getByLabel(/^Code sent to/).fill("000000");
   await page.getByRole("button", { name: "Confirm" }).click();
@@ -96,6 +77,7 @@ test("an address is proved with a code, switched and removed", async ({
   await page.getByLabel(/^Code sent to/).fill(code);
   await page.getByRole("button", { name: "Confirm" }).click();
   await expect(page.getByRole("status")).toContainText("Address confirmed");
+  await expect(page.locator("[data-email]")).toHaveText(address);
 
   // Switches save.
   const replies = page.getByLabel("Replies to your comments");
@@ -116,10 +98,10 @@ test("an address is proved with a code, switched and removed", async ({
   expect(data.email.address).toBe(address);
   expect(data.email.sent.map((m) => m.kind)).toContain("email-code");
 
-  // Removing it.
-  await page.getByRole("button", { name: "Remove my address" }).click();
-  await expect(page.getByRole("status")).toContainText("Address removed");
-  await expect(page.locator("[data-email]")).toHaveCount(0);
+  // It's what they sign in with, so it can be changed but not removed.
+  await expect(
+    page.getByRole("button", { name: "Remove my address" }),
+  ).toHaveCount(0);
   await admin.context().close();
 });
 

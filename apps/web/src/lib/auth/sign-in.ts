@@ -1,35 +1,75 @@
-import { users, type Database } from "@trilleo/db";
-import { eq } from "drizzle-orm";
-import type { AuthConfig } from "./config";
-import type { OAuthState } from "./cookies";
-import { exchangeCode, fetchGitHubUser, type GitHubProfile } from "./github";
+import type { Database, User } from "@trilleo/db";
 import {
-  createSession,
-  deleteExpiredSessions,
-  upsertGitHubUser,
-} from "./sessions";
+  adoptVerifiedEmail,
+  createFromProvider,
+  findIdentity,
+  linkIdentity,
+  touchIdentity,
+  userByEmail,
+  type ProviderProfile,
+} from "./accounts";
+import type { GitHubConfig } from "./config";
+import type { OAuthState } from "./cookies";
+import { exchangeCode, fetchGitHubEmail, fetchGitHubUser } from "./github";
+import { createSession, deleteExpiredSessions } from "./sessions";
 
 /** Why a sign-in didn't happen; /sign-in explains each one. */
 export type SignInError =
-  "state" | "denied" | "failed" | "not-allowed" | "not-configured";
+  | "state"
+  | "denied"
+  | "failed"
+  | "not-allowed"
+  | "not-configured"
+  | "email-taken"
+  | "linked-elsewhere"
+  | "already-linked";
 
 export type SignInResult =
-  | { ok: true; token: string; expiresAt: Date; next: string }
+  | {
+      ok: true;
+      kind: "session";
+      token: string;
+      expiresAt: Date;
+      next: string;
+      /** An account from before email sign-in took GitHub's verified address. */
+      adopted: boolean;
+    }
+  | { ok: true; kind: "linked"; next: string }
   | { ok: false; error: SignInError };
 
+/** Starts a session for `user` (the end of every way of signing in). */
+export async function startSession(
+  db: Database,
+  user: User,
+  now: Date,
+  userAgent: string | null,
+): Promise<{ token: string; expiresAt: Date }> {
+  await deleteExpiredSessions(db, now);
+  const { token, session } = await createSession(db, user.id, now, userAgent);
+  return { token, expiresAt: session.expiresAt };
+}
+
 /**
- * Finishes a sign-in when GitHub sends the visitor back to /auth/github/callback.
- * Nothing is stored unless the state matches, GitHub vouches for the account, and
- * the admin hasn't blocked it. Any GitHub account may sign in (to comment); only
- * ADMIN_GITHUB_IDS may use /admin.
+ * Finishes a GitHub sign-in (or a link from account settings) when GitHub sends the
+ * visitor back to /auth/github/callback. Nothing is stored unless the state
+ * matches and GitHub vouches for the account. Then:
+ *
+ * - a GitHub account linked here signs in to its account (an account from before
+ *   email sign-in takes GitHub's verified address, if no other account has it);
+ * - linking (`saved.linkUserId`) adds it to the signed-in account;
+ * - otherwise a new account is made, with GitHub's verified address. If an account
+ *   here already has that address, nothing is linked: they sign in by email first
+ *   and link GitHub from there, so a GitHub account can't take over an account.
  */
 export async function completeSignIn(input: {
   db: Database;
-  config: AuthConfig;
+  config: GitHubConfig;
   /** The callback's query string: code, state, or error. */
   params: URLSearchParams;
   /** From the cookie set when the visitor left for GitHub. */
   saved: OAuthState | null;
+  /** Who's signed in in this browser, if anyone. */
+  currentUser?: User | null;
   redirectUri: string;
   fetchImpl?: typeof fetch;
   now?: Date;
@@ -41,6 +81,7 @@ export async function completeSignIn(input: {
     config,
     params,
     saved,
+    currentUser = null,
     redirectUri,
     fetchImpl,
     now = new Date(),
@@ -50,6 +91,9 @@ export async function completeSignIn(input: {
   // Only a callback for the sign-in this browser started (CSRF protection).
   const state = params.get("state");
   if (!saved || !state || state !== saved.state)
+    return { ok: false, error: "state" };
+  // A link belongs to the account that asked for it.
+  if (saved.linkUserId && saved.linkUserId !== currentUser?.id)
     return { ok: false, error: "state" };
 
   const githubError = params.get("error");
@@ -62,38 +106,71 @@ export async function completeSignIn(input: {
   const code = params.get("code");
   if (!code) return { ok: false, error: "failed" };
 
-  let profile: GitHubProfile;
+  let profile: ProviderProfile;
   try {
     const accessToken = await exchangeCode(
       config,
       { code, codeVerifier: saved.codeVerifier, redirectUri },
       fetchImpl,
     );
-    profile = await fetchGitHubUser(config, accessToken, fetchImpl);
+    const account = await fetchGitHubUser(config, accessToken, fetchImpl);
+    profile = {
+      provider: "github",
+      id: String(account.id),
+      login: account.login,
+      name: account.name,
+      verifiedEmail: await fetchGitHubEmail(config, accessToken, fetchImpl),
+    };
   } catch (error) {
     console.error("GitHub sign-in failed:", error);
     return { ok: false, error: "failed" };
   }
 
-  const [existing] = await db
-    .select({ blockedAt: users.blockedAt })
-    .from(users)
-    .where(eq(users.githubId, profile.id))
-    .limit(1);
-  if (existing?.blockedAt) return { ok: false, error: "not-allowed" };
+  if (saved.linkUserId && currentUser) {
+    const linked = await linkIdentity(db, currentUser.id, profile, now);
+    return linked.ok
+      ? { ok: true, kind: "linked", next: saved.next }
+      : { ok: false, error: linked.error };
+  }
 
-  const user = await upsertGitHubUser(db, profile, now);
-  await deleteExpiredSessions(db, now);
-  const { token, session } = await createSession(db, user.id, now, userAgent);
-  return { ok: true, token, expiresAt: session.expiresAt, next: saved.next };
+  let user: User;
+  let adopted = false;
+  const found = await findIdentity(db, "github", profile.id);
+  if (found) {
+    if (found.user.blockedAt) return { ok: false, error: "not-allowed" };
+    user = await touchIdentity(db, found.user, found.identity, profile, now);
+    const moved = await adoptVerifiedEmail(
+      db,
+      user,
+      profile.verifiedEmail,
+      now,
+    );
+    if (moved) {
+      user = moved;
+      adopted = true;
+    }
+  } else {
+    if (profile.verifiedEmail && (await userByEmail(db, profile.verifiedEmail)))
+      return { ok: false, error: "email-taken" };
+    user = await createFromProvider(db, profile, now);
+  }
+
+  const session = await startSession(db, user, now, userAgent);
+  return { ok: true, kind: "session", ...session, next: saved.next, adopted };
 }
 
 const MESSAGES: Record<SignInError, string> = {
   state: "That sign-in expired or didn’t start here. Please try again.",
   denied: "Sign-in was cancelled on GitHub.",
   failed: "GitHub didn’t complete the sign-in. Please try again in a moment.",
-  "not-allowed": "That GitHub account can’t sign in here.",
-  "not-configured": "Sign-in isn’t set up on this server yet.",
+  "not-allowed": "That account can’t sign in here.",
+  "not-configured": "Signing in with GitHub isn’t set up on this server.",
+  "email-taken":
+    "An account here already uses that GitHub account’s email address. Sign in with your email below, then link GitHub from your account’s security page.",
+  "linked-elsewhere":
+    "That GitHub account is linked to another account here. Sign in to that one and unlink it first.",
+  "already-linked":
+    "Your account already has a GitHub account linked. Unlink it first to link another.",
 };
 
 /** The explanation for `/sign-in?error=…`, or null for anything unrecognised. */

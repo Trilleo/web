@@ -27,6 +27,7 @@ async function openComments(page: Page, slug: string) {
 async function signInToComment(page: Page, slug: string, user: string) {
   await openComments(page, slug);
   await page.getByRole("link", { name: "Sign in to comment" }).click();
+  await page.getByRole("link", { name: "Sign in with GitHub" }).click();
   await continueAs(page, user);
   await expect(page).toHaveURL(`${postPath(slug)}#comments`);
   await expect(page.getByLabel("Your comment")).toBeVisible();
@@ -200,9 +201,10 @@ test("blocking an account hides its comments and keeps it out", async ({
   await openComments(page, slug);
   await expect(page.getByText(spam)).toHaveCount(0);
   await page.getByRole("link", { name: "Sign in to comment" }).click();
+  await page.getByRole("link", { name: "Sign in with GitHub" }).click();
   await continueAs(page, me);
   await expect(page.getByRole("alert")).toHaveText(
-    "That GitHub account can’t sign in here.",
+    "That account can’t sign in here.",
   );
 
   await adminEntry(admin, /^Blocked accounts/, `@${me}`)

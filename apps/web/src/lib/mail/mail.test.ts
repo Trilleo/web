@@ -13,13 +13,12 @@ import { CaptureDriver } from "@trilleo/mail/server";
 import { RecordingDriver } from "@trilleo/mail/testing";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { upsertGitHubUser } from "../auth/sessions";
+import { upsertGitHubUser } from "../auth/accounts";
 import { createComment, moderateComment } from "../comments/store";
 import {
   CODE_LIMITS,
   CODE_RETENTION_DAYS,
   purgeCodes,
-  removeEmail,
   requestEmailCode,
   unsubscribe,
   userForToken,
@@ -71,7 +70,7 @@ async function withAddress(user: User, email: string): Promise<User> {
     .set({
       email,
       emailVerifiedAt: start,
-      emailToken: `token-${user.githubLogin}-0123456789abcdef`,
+      emailToken: `token-${user.username}-0123456789abcdef`,
     })
     .where(eq(users.id, user.id))
     .returning();
@@ -455,26 +454,6 @@ describe("email addresses", () => {
     });
   });
 
-  it("removing the address stops what's queued for it", async () => {
-    const withEmail = await withAddress(ada, "ada@example.com");
-    const queued = await queueMail(
-      db,
-      {
-        kind: "test",
-        to: "ada@example.com",
-        userId: ada.id,
-        subject: "s",
-        text: "t",
-        html: null,
-      },
-      start,
-    );
-    await removeEmail(db, withEmail);
-    expect((await getMail(db, queued.id))?.status).toBe("cancelled");
-    const [row] = await db.select().from(users).where(eq(users.id, ada.id));
-    expect(row).toMatchObject({ email: null, emailToken: null });
-  });
-
   it("unsubscribes by link, one topic or all", async () => {
     const withEmail = await withAddress(ada, "ada@example.com");
     const token = withEmail.emailToken ?? "";
@@ -766,7 +745,13 @@ describe("admin alerts", () => {
       },
       start,
     );
-    const input = { adminTo: [], adminGithubIds: [ADMIN_ID] };
+    const input = {
+      adminTo: [],
+      admins: {
+        adminEmails: new Set<string>(),
+        adminGithubIds: new Set([ADMIN_ID]),
+      },
+    };
     expect(await flushAdminAlerts(db, input, start)).toBe(2);
     let sent = (await allMail()).filter((m) => m.kind === "admin-alert");
     expect(sent).toHaveLength(1);
@@ -803,7 +788,13 @@ describe("admin alerts", () => {
     expect(
       await flushAdminAlerts(
         db,
-        { adminTo: ["ops@example.com"], adminGithubIds: [] },
+        {
+          adminTo: ["ops@example.com"],
+          admins: {
+            adminEmails: new Set<string>(),
+            adminGithubIds: new Set<number>(),
+          },
+        },
         start,
       ),
     ).toBe(1);
@@ -820,7 +811,13 @@ describe("admin alerts", () => {
     expect(
       await flushAdminAlerts(
         db,
-        { adminTo: [], adminGithubIds: [ADMIN_ID] },
+        {
+          adminTo: [],
+          admins: {
+            adminEmails: new Set<string>(),
+            adminGithubIds: new Set([ADMIN_ID]),
+          },
+        },
         minutes(30),
       ),
     ).toBe(1);

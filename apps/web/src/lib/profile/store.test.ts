@@ -8,7 +8,8 @@ import {
   type User,
 } from "@trilleo/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createSession, upsertGitHubUser } from "../auth/sessions";
+import { upsertGitHubUser } from "../auth/accounts";
+import { createSession } from "../auth/sessions";
 import { blockUser, deleteAccount } from "../comments/store";
 import type { ProfileInput } from "./profile";
 import {
@@ -183,7 +184,12 @@ describe("exportUserData", () => {
     const data = await exportUserData(handle.db, ada.id, now);
     expect(data).toMatchObject({
       exportedAt: now.toISOString(),
-      account: { username: "Ada-L", githubId: 10, githubName: "Augusta Ada" },
+      account: {
+        username: "ada-l",
+        linkedName: "Augusta Ada",
+        linkedAccounts: [{ provider: "github", id: "10", username: "Ada-L" }],
+        previousUsernames: [],
+      },
       profile: { displayName: "Ada", public: true, links: PROFILE.links },
       sessions: [{ userAgent: "Firefox", createdAt: now }],
       comments: [{ body: "mine", status: "pending", post: "live" }],

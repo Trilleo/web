@@ -7,7 +7,6 @@ import {
 } from "@trilleo/db";
 import { and, desc, eq, lte, ne } from "drizzle-orm";
 import { hashToken, randomToken } from "./crypto";
-import type { GitHubProfile } from "./github";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -25,33 +24,6 @@ export interface ValidSession {
   session: Session;
   /** The expiry moved, so the cookie needs sending again. */
   renewed: boolean;
-}
-
-/** Records a GitHub sign-in: the user row is created or refreshed from their profile. */
-export async function upsertGitHubUser(
-  db: Database,
-  profile: GitHubProfile,
-  now = new Date(),
-): Promise<User> {
-  const [user] = await db
-    .insert(users)
-    .values({
-      githubId: profile.id,
-      githubLogin: profile.login,
-      name: profile.name,
-      lastSignInAt: now,
-    })
-    .onConflictDoUpdate({
-      target: users.githubId,
-      set: {
-        githubLogin: profile.login,
-        name: profile.name,
-        lastSignInAt: now,
-      },
-    })
-    .returning();
-  if (!user) throw new Error("Saving the user returned nothing");
-  return user;
 }
 
 /** Starts a session. The token goes in the cookie; only its hash is stored. */

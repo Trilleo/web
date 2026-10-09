@@ -159,7 +159,7 @@ export async function openReports(
       reason: fileReports.reason,
       details: fileReports.details,
       createdAt: fileReports.createdAt,
-      reporterLogin: users.githubLogin,
+      reporterLogin: users.username,
     })
     .from(fileReports)
     .leftJoin(users, eq(users.id, fileReports.reporterId))

@@ -12,7 +12,7 @@ import {
 } from "./public";
 
 const owner = {
-  githubLogin: "alice",
+  username: "alice",
   name: "Alice A.",
   displayName: null,
   profilePublic: true,

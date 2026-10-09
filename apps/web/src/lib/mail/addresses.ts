@@ -1,10 +1,11 @@
 /**
- * People's email addresses: adding one (a 6-digit code sent to it, typed back on
- * /account/email/), removing it, choosing notifications, and unsubscribing from a
- * link. An account's `email` is only ever an address it proved.
+ * People's email addresses: adding or changing one (a 6-digit code sent to it,
+ * typed back on /account/email/), choosing notifications, and unsubscribing from a
+ * link. An account's `email` is only ever an address it proved, and it's what they
+ * sign in with, so it can be changed but not removed (deleting the account does).
  *
- * The code machinery (emailCodes, purpose "verify-email") is written so a future
- * "sign in by email" can reuse it with its own purpose.
+ * The code machinery (generateCode, hashCode, sameHash) is shared with signing in
+ * by email (src/lib/auth/email-sign-in.ts), which uses its own purposes.
  */
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import { emailCodes, users, type Database, type User } from "@trilleo/db";
@@ -70,7 +71,7 @@ export function hashCode(purpose: string, email: string, code: string): string {
     .digest("hex");
 }
 
-function sameHash(a: string, b: string): boolean {
+export function sameHash(a: string, b: string): boolean {
   const left = Buffer.from(a, "hex");
   const right = Buffer.from(b, "hex");
   return left.length === right.length && timingSafeEqual(left, right);
@@ -142,6 +143,7 @@ export async function requestEmailCode(
     .where(
       and(
         eq(emailCodes.userId, user.id),
+        eq(emailCodes.purpose, "verify-email"),
         gt(emailCodes.createdAt, since(DAY_MS)),
       ),
     );
@@ -192,7 +194,7 @@ export async function requestEmailCode(
       blocks: [
         {
           type: "text",
-          text: `@${user.githubLogin} asked to get ${SITE_NAME} notifications at this address. To confirm it’s yours, type this code on the page where you asked:`,
+          text: `@${user.username} asked to use this address for their ${SITE_NAME} account: to sign in, and for any notifications they turn on. To confirm it’s yours, type this code on the page where you asked:`,
         },
         { type: "code", text: code },
         {
@@ -286,22 +288,6 @@ export async function verifyEmailCode(
   if (user.email && user.email !== row.email)
     await cancelMailTo(db, { userId: user.id, address: user.email });
   return { ok: true, email: row.email };
-}
-
-/** Removes the address: no more email, and anything still queued for it stops. */
-export async function removeEmail(db: Database, user: User): Promise<void> {
-  await db
-    .update(users)
-    .set({ email: null, emailVerifiedAt: null, emailToken: null })
-    .where(eq(users.id, user.id));
-  await cancelMailTo(db, {
-    userId: user.id,
-    ...(user.email ? { address: user.email } : {}),
-  });
-  await db
-    .update(emailCodes)
-    .set({ expiresAt: new Date() })
-    .where(and(eq(emailCodes.userId, user.id), isNull(emailCodes.usedAt)));
 }
 
 export function notificationsOf(user: User): NotificationSettings {

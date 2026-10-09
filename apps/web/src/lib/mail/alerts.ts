@@ -15,7 +15,8 @@ import {
   type AdminAlert,
   type Database,
 } from "@trilleo/db";
-import { and, asc, desc, eq, gt, inArray, isNull, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, lt, or } from "drizzle-orm";
+import type { AuthConfig } from "../auth/config";
 import { SITE_NAME } from "../site";
 import { notificationsOf } from "./addresses";
 import { absoluteUrl, composeDirect, composeNotification } from "./compose";
@@ -62,20 +63,31 @@ export async function alertAdmin(
   afterAlert?.();
 }
 
+/** The accounts that count as the admin (see lib/auth/config.ts). */
+type AdminAccounts = Pick<AuthConfig, "adminEmails" | "adminGithubIds">;
+
 /** Who gets alerts, with each one's unsubscribe token (null for MAIL_ADMIN_TO). */
 async function recipients(
   db: Database,
   adminTo: readonly string[],
-  adminGithubIds: readonly number[],
+  admins: AdminAccounts,
 ): Promise<{ address: string; userId: string | null; token: string | null }[]> {
   if (adminTo.length > 0)
     return adminTo.map((address) => ({ address, userId: null, token: null }));
-  if (adminGithubIds.length === 0) return [];
-  const admins = await db
+  const who = [
+    ...(admins.adminEmails.size > 0
+      ? [inArray(users.email, [...admins.adminEmails])]
+      : []),
+    ...(admins.adminGithubIds.size > 0
+      ? [inArray(users.githubId, [...admins.adminGithubIds])]
+      : []),
+  ];
+  if (who.length === 0) return [];
+  const found = await db
     .select()
     .from(users)
-    .where(inArray(users.githubId, [...adminGithubIds]));
-  return admins
+    .where(or(...who));
+  return found
     .filter(
       (admin) =>
         admin.email && admin.emailToken && notificationsOf(admin).admin,
@@ -99,7 +111,7 @@ function subjectFor(alerts: readonly AdminAlert[]): string {
  */
 export async function flushAdminAlerts(
   db: Database,
-  input: { adminTo: readonly string[]; adminGithubIds: readonly number[] },
+  input: { adminTo: readonly string[]; admins: AdminAccounts },
   now = new Date(),
 ): Promise<number> {
   const waiting = await db
@@ -140,7 +152,7 @@ export async function flushAdminAlerts(
   if (claimed.length === 0) return 0;
   claimed.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
-  const people = await recipients(db, input.adminTo, input.adminGithubIds);
+  const people = await recipients(db, input.adminTo, input.admins);
   if (people.length === 0) return claimed.length;
 
   const kinds = new Map<string, number>();

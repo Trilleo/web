@@ -94,7 +94,7 @@ async function postTitle(db: Database, slug: string): Promise<string> {
 function signature(author: User | undefined): string {
   if (!author) return "Someone";
   const name = commentName(author);
-  return name ? `${name} (@${author.githubLogin})` : `@${author.githubLogin}`;
+  return name ? `${name} (@${author.username})` : `@${author.username}`;
 }
 
 function commentUrl(comment: Pick<Comment, "postSlug" | "id">): string {

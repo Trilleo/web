@@ -3,9 +3,10 @@ import {
   GitHubError,
   authorizationUrl,
   exchangeCode,
+  fetchGitHubEmail,
   fetchGitHubUser,
 } from "./github";
-import { TEST_CONFIG, fakeGitHubFetch } from "./testing";
+import { TEST_GITHUB, fakeGitHubFetch } from "./testing";
 
 const request = {
   code: "the-code",
@@ -14,9 +15,9 @@ const request = {
 };
 
 describe("authorizationUrl", () => {
-  it("asks GitHub for no scopes, with state and an S256 PKCE challenge", () => {
+  it("asks GitHub for the email scope, with state and an S256 PKCE challenge", () => {
     const url = new URL(
-      authorizationUrl(TEST_CONFIG, {
+      authorizationUrl(TEST_GITHUB, {
         state: "the-state",
         codeChallenge: "the-challenge",
         redirectUri: request.redirectUri,
@@ -28,6 +29,7 @@ describe("authorizationUrl", () => {
     expect(Object.fromEntries(url.searchParams)).toEqual({
       client_id: "client-id",
       redirect_uri: request.redirectUri,
+      scope: "user:email",
       state: "the-state",
       code_challenge: "the-challenge",
       code_challenge_method: "S256",
@@ -38,7 +40,7 @@ describe("authorizationUrl", () => {
 describe("exchangeCode", () => {
   it("posts the code, verifier and credentials, and returns the token", async () => {
     const { fetchImpl, calls } = fakeGitHubFetch();
-    await expect(exchangeCode(TEST_CONFIG, request, fetchImpl)).resolves.toBe(
+    await expect(exchangeCode(TEST_GITHUB, request, fetchImpl)).resolves.toBe(
       "gho_test",
     );
 
@@ -63,14 +65,14 @@ describe("exchangeCode", () => {
     const { fetchImpl } = fakeGitHubFetch({
       token: { error: "bad_verification_code" },
     });
-    await expect(exchangeCode(TEST_CONFIG, request, fetchImpl)).rejects.toThrow(
+    await expect(exchangeCode(TEST_GITHUB, request, fetchImpl)).rejects.toThrow(
       new GitHubError("Token exchange failed: bad_verification_code"),
     );
   });
 
   it("fails on an HTTP error", async () => {
     const { fetchImpl } = fakeGitHubFetch({ tokenStatus: 502 });
-    await expect(exchangeCode(TEST_CONFIG, request, fetchImpl)).rejects.toThrow(
+    await expect(exchangeCode(TEST_GITHUB, request, fetchImpl)).rejects.toThrow(
       /HTTP 502/,
     );
   });
@@ -80,7 +82,7 @@ describe("fetchGitHubUser", () => {
   it("reads the profile with the token", async () => {
     const { fetchImpl, calls } = fakeGitHubFetch();
     await expect(
-      fetchGitHubUser(TEST_CONFIG, "gho_test", fetchImpl),
+      fetchGitHubUser(TEST_GITHUB, "gho_test", fetchImpl),
     ).resolves.toEqual({
       id: 1001,
       login: "site-owner",
@@ -96,7 +98,7 @@ describe("fetchGitHubUser", () => {
     const { fetchImpl } = fakeGitHubFetch({
       user: { id: 5, login: "x", name: "" },
     });
-    const profile = await fetchGitHubUser(TEST_CONFIG, "t", fetchImpl);
+    const profile = await fetchGitHubUser(TEST_GITHUB, "t", fetchImpl);
     expect(profile.name).toBeNull();
   });
 
@@ -107,15 +109,47 @@ describe("fetchGitHubUser", () => {
     [["not", "an", "object"]],
   ])("rejects an unexpected profile %j", async (user) => {
     const { fetchImpl } = fakeGitHubFetch({ user });
-    await expect(fetchGitHubUser(TEST_CONFIG, "t", fetchImpl)).rejects.toThrow(
+    await expect(fetchGitHubUser(TEST_GITHUB, "t", fetchImpl)).rejects.toThrow(
       GitHubError,
     );
   });
 
   it("fails on an HTTP error", async () => {
     const { fetchImpl } = fakeGitHubFetch({ userStatus: 401 });
-    await expect(fetchGitHubUser(TEST_CONFIG, "t", fetchImpl)).rejects.toThrow(
+    await expect(fetchGitHubUser(TEST_GITHUB, "t", fetchImpl)).rejects.toThrow(
       /HTTP 401/,
     );
+  });
+});
+
+describe("fetchGitHubEmail", () => {
+  it("returns the verified primary address, lower-cased", async () => {
+    const { fetchImpl, calls } = fakeGitHubFetch({
+      emails: [
+        { email: "old@example.com", primary: false, verified: true },
+        { email: "Me@Example.com", primary: true, verified: true },
+      ],
+    });
+    await expect(
+      fetchGitHubEmail(TEST_GITHUB, "gho_test", fetchImpl),
+    ).resolves.toBe("me@example.com");
+    expect(calls[0]?.url).toBe("https://api.github.test/user/emails");
+  });
+
+  it("is null for an unverified primary, a refusal, or nonsense", async () => {
+    const unverified = fakeGitHubFetch({
+      emails: [{ email: "me@example.com", primary: true, verified: false }],
+    });
+    await expect(
+      fetchGitHubEmail(TEST_GITHUB, "t", unverified.fetchImpl),
+    ).resolves.toBeNull();
+    const refused = fakeGitHubFetch({ emailsStatus: 403 });
+    await expect(
+      fetchGitHubEmail(TEST_GITHUB, "t", refused.fetchImpl),
+    ).resolves.toBeNull();
+    const odd = fakeGitHubFetch({ emails: { email: "x" } });
+    await expect(
+      fetchGitHubEmail(TEST_GITHUB, "t", odd.fetchImpl),
+    ).resolves.toBeNull();
   });
 });

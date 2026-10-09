@@ -59,7 +59,7 @@ const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
     aria-labelledby="creator-title"
     class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
   >
-    <CreatorHeader login={user.githubLogin} title="Projects" />
+    <CreatorHeader login={user.username} title="Projects" />
 
     {done && DONE[done] && (
       <p role="status" class="type-lead mt-6 border-l-2 border-accent pl-4">

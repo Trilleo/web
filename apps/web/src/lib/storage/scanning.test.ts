@@ -6,7 +6,7 @@ import {
   type Scanner,
 } from "@trilleo/storage/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { upsertGitHubUser } from "../auth/sessions";
+import { upsertGitHubUser } from "../auth/accounts";
 import { resolveScanning } from "./config";
 import {
   dailyDownloads,

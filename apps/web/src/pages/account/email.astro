@@ -1,9 +1,11 @@
 ---
 /**
- * Your email address and notifications. GET shows where you are (no address, a
- * code on its way, or a proved address with its switches); POST does one thing
- * (`intent`) and comes back here with ?done=, or shows the form again with the
- * problem. Works without JavaScript.
+ * Your email address (what you sign in with) and notifications. GET shows where you
+ * are (no address, a code on its way, or a proved address with its switches); POST
+ * does one thing (`intent`) and comes back here with ?done=, or shows the form
+ * again with the problem. Works without JavaScript. With ?setup=1, it's the step
+ * accounts from before email sign-in must take (src/lib/auth/setup.ts), and a
+ * confirmed address carries on to `next`.
  */
 import {
   NOTIFICATION_LABELS,
@@ -15,7 +17,7 @@ import { buttonClasses } from "@trilleo/ui";
 import DisplayTitle from "../../components/DisplayTitle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { isAdmin, requireUser } from "../../lib/auth/guard";
-import { noStoreRedirect } from "../../lib/auth/redirect";
+import { noStoreRedirect, safeNextPath } from "../../lib/auth/redirect";
 import { field } from "../../lib/comments/form";
 import { getDb } from "../../lib/db";
 import {
@@ -26,7 +28,6 @@ import {
   notificationsOf,
   pendingCode,
   readNotificationForm,
-  removeEmail,
   requestEmailCode,
   saveNotifications,
   verifyEmailCode,
@@ -48,7 +49,12 @@ const admin = isAdmin(user);
 const topics: readonly NotificationTopic[] = NOTIFICATION_TOPICS.filter(
   (topic) => topic !== "admin" || admin,
 );
-const back = "/account/email/";
+const setup = Astro.url.searchParams.has("setup") && !user.email;
+const next = safeNextPath(Astro.url.searchParams.get("next"));
+const back = setup
+  ? `/account/email/?setup=1&next=${encodeURIComponent(next)}`
+  : "/account/email/";
+const done = (what: string) => `${back}${setup ? "&" : "?"}done=${what}`;
 
 let error: string | null = null;
 let typedAddress = "";
@@ -66,23 +72,20 @@ if (Astro.request.method === "POST") {
     if (result.ok) {
       const sent = await sendNow(result.messageId);
       const went = sent?.status === "sent" || sent?.status === "captured";
-      return noStoreRedirect(`${back}?done=${went ? "sent" : "delayed"}`, 303);
+      return noStoreRedirect(done(went ? "sent" : "delayed"), 303);
     }
     error = CODE_REQUEST_ERRORS[result.error];
   } else if (intent === "verify") {
     const result = await verifyEmailCode(db, user, field(form, "code"));
-    if (result.ok) return noStoreRedirect(`${back}?done=verified`, 303);
+    if (result.ok) return noStoreRedirect(setup ? next : done("verified"), 303);
     error = VERIFY_ERRORS[result.error];
-  } else if (intent === "remove") {
-    await removeEmail(db, user);
-    return noStoreRedirect(`${back}?done=removed`, 303);
   } else if (intent === "notifications") {
     await saveNotifications(
       db,
       user.id,
       readNotificationForm(form, notificationsOf(user), topics),
     );
-    return noStoreRedirect(`${back}?done=saved#notifications`, 303);
+    return noStoreRedirect(`${done("saved")}#notifications`, 303);
   } else {
     return noStoreRedirect(back, 303);
   }
@@ -91,14 +94,14 @@ if (Astro.request.method === "POST") {
 
 const pending = await pendingCode(db, user.id);
 const settings = notificationsOf(user);
-const done =
+const doneParam =
   Astro.request.method === "GET" ? Astro.url.searchParams.get("done") : null;
 const DONE: Record<string, string> = {
   sent: "Code sent. Check your inbox (and the spam folder).",
   delayed:
     "The code couldn’t be sent just now; the site keeps trying for a while. If nothing arrives in a few minutes, ask for a new one.",
-  verified: "Address confirmed. Notifications go there from now on.",
-  removed: "Address removed. The site won’t email you any more.",
+  verified:
+    "Address confirmed. You sign in with it from now on, and notifications go there.",
   saved: "Saved.",
 };
 const minutes = String(CODE_LIMITS.ttlMs / 60_000);
@@ -118,18 +121,32 @@ const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
     <p class="type-label text-ink">
       (Account){" "}
       <a href="/account/" class="link-wipe">
-        @{user.githubLogin}
+        @{user.username}
       </a>
     </p>
 
     <DisplayTitle id="email-title">Email</DisplayTitle>
 
-    {(error || (done && DONE[done])) && (
+    {setup && !error && !doneParam && (
+      <div
+        role="status"
+        class="mt-6 flex flex-col gap-2 border-l-2 border-accent pl-4"
+      >
+        <p class="type-lead">One more step: add your email address.</p>
+        <p class="text-muted md:max-w-2xl">
+          Accounts here are now known by their email address: you sign in with
+          it (a code, no password), and it keeps your account yours even if you
+          rename yourself on GitHub. Signing in with GitHub keeps working too.
+        </p>
+      </div>
+    )}
+
+    {(error || (doneParam && DONE[doneParam])) && (
       <p
         role={error ? "alert" : "status"}
         class="type-lead mt-6 border-l-2 border-accent pl-4"
       >
-        {error ?? (done ? DONE[done] : "")}
+        {error ?? (doneParam ? DONE[doneParam] : "")}
       </p>
     )}
 
@@ -139,13 +156,14 @@ const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
         <div class={body}>
           {user.email ? (
             <p class="text-lg">
-              Notifications go to <strong data-email>{user.email}</strong>.
+              You sign in with <strong data-email>{user.email}</strong>, and
+              notifications go there.
             </p>
           ) : (
             <p class="text-lg">
-              Add an address to hear about replies to your comments and
-              decisions on your uploads. It’s only used for that: never shown,
-              shared or used for newsletters.
+              Add the address you’d like to sign in with. It’s also where
+              replies to your comments and decisions on your uploads go, if you
+              want them. It’s never shown, shared or used for newsletters.
             </p>
           )}
           {!config.available && (
@@ -222,7 +240,7 @@ const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
                 <p id="email-hint" class="text-muted">
                   We’ll send a code to it.{" "}
                   {user.email
-                    ? "Your current address stays until you confirm the new one."
+                    ? "Your current address keeps working until you confirm the new one."
                     : ""}
                 </p>
                 <input
@@ -247,18 +265,6 @@ const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
                   Send code
                 </button>
               </div>
-            </form>
-          )}
-
-          {user.email && (
-            <form method="post" action={back}>
-              <input type="hidden" name="intent" value="remove" />
-              <button
-                type="submit"
-                class="type-label link-wipe w-fit text-muted hover:text-ink"
-              >
-                Remove my address
-              </button>
             </form>
           )}
         </div>

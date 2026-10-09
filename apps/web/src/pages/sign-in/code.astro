@@ -1,0 +1,183 @@
+---
+/**
+ * The second step of signing in by email: type the code we sent. The right code
+ * signs in the address's account, or goes on to /sign-up for a new address.
+ * The address comes from the cookie /sign-in set.
+ */
+import { buttonClasses } from "@trilleo/ui";
+import AuthCard from "../../components/account/AuthCard.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import {
+  clearPendingCookie,
+  readPendingCookie,
+  setPendingCookie,
+  setSessionCookie,
+} from "../../lib/auth/cookies";
+import {
+  SIGN_IN_CODE_ERRORS,
+  SIGN_IN_LIMITS,
+  SIGN_IN_VERIFY_ERRORS,
+  requestSignInCode,
+  verifySignInCode,
+} from "../../lib/auth/email-sign-in";
+import { noStoreRedirect, safeNextPath } from "../../lib/auth/redirect";
+import { startSession } from "../../lib/auth/sign-in";
+import { field } from "../../lib/comments/form";
+import { getDb } from "../../lib/db";
+import { CODE_DIGITS } from "../../lib/mail/addresses";
+import { mailSetup } from "../../lib/mail/config";
+import { sendNow } from "../../lib/mail/delivery";
+
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const pending = readPendingCookie(Astro.cookies, Astro.url);
+if (!pending || Astro.locals.user) return noStoreRedirect("/sign-in");
+const next = safeNextPath(pending.next);
+const back = `/sign-in?next=${encodeURIComponent(next)}`;
+
+let error: string | null = null;
+let notice: string | null = Astro.url.searchParams.has("delayed")
+  ? "The code couldn’t be sent just now; the site keeps trying for a while. If nothing arrives in a few minutes, ask for a new one."
+  : null;
+
+if (Astro.request.method === "POST") {
+  const db = await getDb();
+  const form = await Astro.request.formData();
+  if (field(form, "intent") === "resend") {
+    let ip = "";
+    try {
+      ip = Astro.clientAddress;
+    } catch {
+      // Not available (some test setups): everyone shares one limit.
+    }
+    const result = await requestSignInCode(db, pending.email, {
+      available: mailSetup().config.available,
+      ip,
+    });
+    if (result.ok) {
+      const sent = await sendNow(result.messageId);
+      const went = sent?.status === "sent" || sent?.status === "captured";
+      return noStoreRedirect(
+        `/sign-in/code${went ? "?resent=1" : "?delayed=1"}`,
+        303,
+      );
+    }
+    error = SIGN_IN_CODE_ERRORS[result.error];
+  } else {
+    const result = await verifySignInCode(
+      db,
+      pending.email,
+      field(form, "code"),
+    );
+    if (result.ok && "user" in result) {
+      clearPendingCookie(Astro.cookies, Astro.url);
+      const session = await startSession(
+        db,
+        result.user,
+        new Date(),
+        Astro.request.headers.get("user-agent"),
+      );
+      setSessionCookie(
+        Astro.cookies,
+        Astro.url,
+        session.token,
+        session.expiresAt,
+      );
+      return noStoreRedirect(next, 303);
+    }
+    if (result.ok) {
+      setPendingCookie(Astro.cookies, Astro.url, {
+        ...pending,
+        ticket: result.ticket,
+      });
+      return noStoreRedirect("/sign-up", 303);
+    }
+    error = SIGN_IN_VERIFY_ERRORS[result.error];
+  }
+  notice = null;
+  Astro.response.status = 422;
+}
+if (Astro.url.searchParams.has("resent") && !error) notice = "New code sent.";
+
+const minutes = String(SIGN_IN_LIMITS.ttlMs / 60_000);
+const input =
+  "w-full border border-ink bg-paper px-3 py-2.5 text-base text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-invalid:border-accent";
+---
+
+<BaseLayout title="Check your email" noindex>
+  <AuthCard
+    id="code-title"
+    title="Check your email"
+    description={`Type the code we sent to ${pending.email}. It works for ${minutes} minutes.`}
+  >
+    {(error || notice) && (
+      <p
+        slot="notice"
+        role={error ? "alert" : "status"}
+        class="border-l-2 border-accent pl-3"
+      >
+        {error ?? notice}
+      </p>
+    )}
+
+    <form
+      method="post"
+      action="/sign-in/code"
+      class="flex flex-col gap-4"
+      novalidate
+    >
+      <div class="flex flex-col gap-2">
+        <label for="code" class="font-medium">
+          Code
+        </label>
+        <input
+          id="code"
+          name="code"
+          type="text"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          maxlength={CODE_DIGITS + 4}
+          required
+          aria-invalid={error ? "true" : undefined}
+          aria-describedby="code-hint"
+          class:list={[input, "font-mono tracking-[0.3em]"]}
+        />
+        <p id="code-hint" class="text-sm text-muted">
+          {CODE_DIGITS} digits. Not there? Check the spam folder.
+        </p>
+      </div>
+      <button
+        type="submit"
+        name="intent"
+        value="verify"
+        class={buttonClasses({ hover: "plain", className: "w-full" })}
+      >
+        Continue
+      </button>
+      <button
+        type="submit"
+        formnovalidate
+        name="intent"
+        value="resend"
+        class={buttonClasses({
+          hover: "plain",
+          variant: "secondary",
+          className: "w-full",
+        })}
+      >
+        Send a new code
+      </button>
+    </form>
+
+    <p slot="footer">
+      Wrong address?{" "}
+      <a href={back} class="text-ink underline">
+        Use another one
+      </a>
+      .
+    </p>
+  </AuthCard>
+</BaseLayout>

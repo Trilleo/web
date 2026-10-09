@@ -3,12 +3,14 @@ import { describe, expect, it } from "vitest";
 import { isAdmin, requireAdmin, requireUser } from "./guard";
 import { TEST_CONFIG } from "./testing";
 
-function user(githubId: number): User {
+function user(githubId: number | null, email: string | null = null): User {
   const date = new Date("2026-01-01T00:00:00Z");
   return {
     id: "00000000-0000-4000-8000-000000000001",
     githubId,
     githubLogin: "someone",
+    username: "someone",
+    usernameChangedAt: null,
     name: null,
     displayName: null,
     bio: null,
@@ -28,7 +30,7 @@ function user(githubId: number): User {
     uploadTrustedAt: null,
     uploadBannedAt: null,
     uploadBanReason: null,
-    email: null,
+    email,
     emailVerifiedAt: null,
     emailNotifications: {},
     emailToken: null,
@@ -65,8 +67,16 @@ describe("requireAdmin", () => {
     expect(requireAdmin(context(admin), TEST_CONFIG)).toBe(admin);
   });
 
-  it("lets nobody through while sign-in isn't set up", () => {
-    const response = requireAdmin(context(user(1001)), null);
+  it("lets nobody through when no admin is configured", () => {
+    const none = {
+      github: null,
+      adminEmails: new Set<string>(),
+      adminGithubIds: new Set<number>(),
+    };
+    const response = requireAdmin(
+      context(user(1001, "owner@example.com")),
+      none,
+    );
     expect(response).toBeInstanceOf(Response);
   });
 });
@@ -89,10 +99,15 @@ describe("requireUser", () => {
 });
 
 describe("isAdmin", () => {
-  it("goes by GitHub ID", () => {
+  it("goes by the linked GitHub account's ID", () => {
     expect(isAdmin(user(1001), TEST_CONFIG)).toBe(true);
     expect(isAdmin(user(2002), TEST_CONFIG)).toBe(false);
     expect(isAdmin(null, TEST_CONFIG)).toBe(false);
-    expect(isAdmin(user(1001), null)).toBe(false);
+  });
+
+  it("or by the account's (proved) address", () => {
+    expect(isAdmin(user(null, "owner@example.com"), TEST_CONFIG)).toBe(true);
+    expect(isAdmin(user(null, "someone@example.com"), TEST_CONFIG)).toBe(false);
+    expect(isAdmin(user(null), TEST_CONFIG)).toBe(false);
   });
 });

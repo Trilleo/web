@@ -21,10 +21,10 @@ const { user } = Astro.locals;
 const name = user ? displayName(user) : "";
 const links = user
   ? [
-      { label: "Your profile", href: profileHref(user.githubLogin) },
+      { label: "Your profile", href: profileHref(user.username) },
       { label: "Edit profile", href: "/account/profile/" },
       { label: "Account", href: "/account/" },
-      { label: "Sessions", href: "/account/sessions/" },
+      { label: "Security", href: "/account/security/" },
       ...(isAdmin(user) ? [{ label: "Admin", href: "/admin/" }] : []),
     ]
   : [];
@@ -50,7 +50,7 @@ const item =
     <div class="account-panel absolute top-full right-0 z-50 mt-2 w-64 animate-rise border border-ink bg-paper">
       <p class="flex flex-col gap-0.5 border-b border-ink px-4 py-3">
         <span class="truncate font-medium">{name}</span>
-        <span class="type-label truncate text-muted">@{user.githubLogin}</span>
+        <span class="type-label truncate text-muted">@{user.username}</span>
       </p>
       <ul class="py-1">
         {links.map((link) => (

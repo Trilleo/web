@@ -5,7 +5,11 @@ import AdminNav from "../../components/admin/AdminNav.astro";
 import Moderation from "../../components/admin/Moderation.astro";
 import SeoChecklist from "../../components/admin/SeoChecklist.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import { authConfig } from "../../lib/auth/config";
 import { requireAdmin } from "../../lib/auth/guard";
+import { MIGRATION_LIST, accountMigration } from "../../lib/auth/migration";
+import { formatPostDate } from "../../lib/listings";
+import { profileHref } from "../../lib/profile/profile";
 import {
   listOldSlugs,
   listPublicPosts,
@@ -43,6 +47,7 @@ const known = knownPages(
     "/rss.xml",
     "/llms.txt",
     "/sign-in/",
+    "/sign-up/",
     "/sitemap/",
     ...infoPaths(),
     ...publicPosts.map((post) => postHref(post.slug)),
@@ -82,12 +87,23 @@ const dateTime = new Intl.DateTimeFormat("en-GB", {
 });
 const expiresAt = Astro.locals.session?.expiresAt;
 
+const migration = await accountMigration(db, admin, authConfig());
+
 type Fact = { term: string; value: string } | { term: string; date: Date };
 const facts: Fact[] = [
-  { term: "GitHub", value: `@${admin.githubLogin}` },
-  { term: "Name", value: admin.name ?? "—" },
-  { term: "GitHub ID", value: String(admin.githubId) },
+  { term: "Username", value: `@${admin.username}` },
   { term: "Email", value: admin.email ?? "—" },
+  {
+    term: "Admin by",
+    value:
+      admin.email && authConfig().adminEmails.has(admin.email)
+        ? "ADMIN_EMAILS"
+        : "ADMIN_GITHUB_IDS",
+  },
+  {
+    term: "GitHub ID",
+    value: admin.githubId === null ? "—" : String(admin.githubId),
+  },
   { term: "First signed in", date: admin.createdAt },
   ...(expiresAt ? [{ term: "Signed in until", date: expiresAt }] : []),
 ];
@@ -144,6 +160,64 @@ const facts: Fact[] = [
             Your email
           </a>
         </div>
+      </div>
+    </div>
+
+    <div
+      class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6"
+      data-account-migration
+    >
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
+        Accounts
+      </h2>
+      <div class="col-span-4 flex flex-col gap-3 md:col-span-6 xl:col-span-7">
+        <p>
+          {migration.withEmail} of {migration.total}{" "}
+          {migration.total === 1 ? "account has" : "accounts have"} an email
+          address.{" "}
+          {migration.waiting > 0
+            ? `${String(migration.waiting)} from before email sign-in will be asked for one when they next sign in (GitHub’s verified address is used when it’s free).`
+            : "Every active account has moved to email sign-in."}
+        </p>
+        {migration.admin === "add-email" && (
+          <p class="border-l-2 border-accent pl-4">
+            Your account has no address yet.{" "}
+            <a href="/account/email/" class="underline">
+              Add one
+            </a>
+            , then put it in ADMIN_EMAILS (app.env) so admin access doesn’t
+            depend on GitHub.
+          </p>
+        )}
+        {migration.admin === "set-admin-emails" && (
+          <p class="border-l-2 border-accent pl-4">
+            You’re the admin through ADMIN_GITHUB_IDS. Add{" "}
+            <code class="font-mono">ADMIN_EMAILS={admin.email}</code> to app.env
+            so it works by email too; ADMIN_GITHUB_IDS can then go.
+          </p>
+        )}
+        {migration.recent.length > 0 && (
+          <>
+            <p class="type-label text-muted">
+              Waiting
+              {migration.waiting > MIGRATION_LIST
+                ? ` (latest ${String(MIGRATION_LIST)})`
+                : ""}
+            </p>
+            <ul class="flex flex-col gap-1">
+              {migration.recent.map((account) => (
+                <li>
+                  <a href={profileHref(account.username)} class="link-wipe">
+                    @{account.username}
+                  </a>{" "}
+                  <span class="text-muted">
+                    · last signed in {formatPostDate(account.lastSignInAt)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </div>
     </div>
 

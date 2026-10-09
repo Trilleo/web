@@ -55,7 +55,7 @@ test("signed in, the header's menu has the account's links and signs out", async
     "Your profile",
     "Edit profile",
     "Account",
-    "Sessions",
+    "Security",
   ]);
   await expect(menu.getByRole("link", { name: "Admin" })).toHaveCount(0);
 
@@ -104,7 +104,8 @@ test("people edit their profile, and others see it", async ({
   await expect(page).toHaveURL("/account/profile/");
 
   await expect(page.getByLabel("Username")).toHaveValue(me);
-  await expect(page.getByLabel("Username")).toHaveAttribute("readonly", "");
+  // The site's own username, so it can be changed here (e2e/sign-in.spec.ts).
+  await expect(page.getByLabel("Username")).toBeEditable();
 
   await page.getByLabel("Display name", { exact: true }).fill("Ada Lovelace");
   // The preview follows along.

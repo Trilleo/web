@@ -4,7 +4,9 @@ import {
   readSessionToken,
   setSessionCookie,
 } from "./lib/auth/cookies";
+import { noStoreRedirect } from "./lib/auth/redirect";
 import { validateSession } from "./lib/auth/sessions";
+import { emailSetupRedirect } from "./lib/auth/setup";
 import { getDb } from "./lib/db";
 import { announceInBackground } from "./lib/indexnow";
 import { deliverInBackground, startMailDelivery } from "./lib/mail/delivery";
@@ -51,5 +53,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
       clearSessionCookie(cookies, url);
     }
   }
+  // Accounts from before email sign-in add an address before anything else.
+  const setup = emailSetupRedirect(
+    context.locals.user,
+    context.request.method,
+    url,
+  );
+  if (setup) return noStoreRedirect(setup);
   return next();
 });

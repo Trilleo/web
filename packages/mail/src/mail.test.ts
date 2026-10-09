@@ -184,6 +184,12 @@ describe("drivers", () => {
     });
   });
 
+  it("capture can log what it kept (for pnpm dev)", async () => {
+    const lines: string[] = [];
+    await new CaptureDriver((line) => lines.push(line)).send(mail);
+    expect(lines).toEqual([`Mail captured for ${mail.to}: ${mail.subject}`]);
+  });
+
   it("the recording driver records and fails on demand", async () => {
     const driver = new RecordingDriver().failNext("down");
     await expect(driver.send(mail)).rejects.toThrow("down");

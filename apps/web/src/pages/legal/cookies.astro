@@ -1,6 +1,7 @@
 ---
 import { THEME_STORAGE_KEY } from "@trilleo/ui/theme";
 import InfoLayout from "../../layouts/InfoLayout.astro";
+import { OAUTH_MAX_AGE_S, PENDING_MAX_AGE_S } from "../../lib/auth/cookies";
 import { SESSION_TTL_MS } from "../../lib/auth/sessions";
 
 const sessionDays = SESSION_TTL_MS / (24 * 60 * 60 * 1000);
@@ -16,12 +17,12 @@ const sections = [
 <InfoLayout path="/legal/cookies/" sections={sections} history>
   <h2 id="short">In short</h2>
   <p>
-    The site sets one cookie, and only once you sign in. It keeps a few things
-    in your browser’s own storage so the site works the way you left it. None of
-    it tracks you, none of it is shared, and there are no advertising or
-    analytics cookies (page views are counted without any). That’s why there is
-    no cookie banner: everything here is strictly necessary for something you
-    asked for.
+    The site sets cookies only to sign you in: one while you’re signed in, and a
+    short-lived one while you’re signing in. It keeps a few things in your
+    browser’s own storage so the site works the way you left it. None of it
+    tracks you, none of it is shared, and there are no advertising or analytics
+    cookies (page views are counted without any). That’s why there is no cookie
+    banner: everything here is strictly necessary for something you asked for.
   </p>
 
   <h2 id="cookies">Cookies</h2>
@@ -55,7 +56,18 @@ const sections = [
           Protects the trip to GitHub and back while you sign in (a one-time
           check value).
         </td>
-        <td>10 minutes, or until you’re back</td>
+        <td>{OAUTH_MAX_AGE_S / 60} minutes, or until you’re back</td>
+      </tr>
+      <tr>
+        <td>
+          <code>__Host-trilleo_sign_in</code>
+        </td>
+        <td>
+          While you sign in by email: the address the code went to, and once
+          it’s confirmed for a new account, a one-time value for choosing your
+          username.
+        </td>
+        <td>{PENDING_MAX_AGE_S / 60} minutes, or until you’re signed in</td>
       </tr>
     </tbody>
   </table>

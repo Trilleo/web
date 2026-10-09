@@ -1,0 +1,224 @@
+---
+/**
+ * Creating an account. Without a proved address it starts like signing in (an
+ * address, then a code); once /sign-in/code has proved a new address, it asks for a
+ * username and the terms, and makes the account.
+ */
+import { GitHubIcon, buttonClasses } from "@trilleo/ui";
+import AuthCard from "../components/account/AuthCard.astro";
+import EmailStep from "../components/account/EmailStep.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { authConfig } from "../lib/auth/config";
+import {
+  clearPendingCookie,
+  readPendingCookie,
+  setSessionCookie,
+} from "../lib/auth/cookies";
+import {
+  SIGN_UP_ERRORS,
+  completeSignUp,
+  signUpTicket,
+} from "../lib/auth/email-sign-in";
+import {
+  DEFAULT_NEXT,
+  noStoreRedirect,
+  safeNextPath,
+} from "../lib/auth/redirect";
+import { startSession } from "../lib/auth/sign-in";
+import {
+  USERNAME_LIMITS,
+  USERNAME_PROBLEMS,
+  suggestUsername,
+  type UsernameProblem,
+} from "../lib/auth/usernames";
+import { field } from "../lib/comments/form";
+import { getDb } from "../lib/db";
+import { mailSetup } from "../lib/mail/config";
+
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+if (Astro.locals.user) return noStoreRedirect("/account/");
+
+const db = await getDb();
+const pending = readPendingCookie(Astro.cookies, Astro.url);
+const ticket = pending?.ticket
+  ? await signUpTicket(db, pending.ticket)
+  : undefined;
+const next = safeNextPath(pending?.next ?? Astro.url.searchParams.get("next"));
+
+let username = "";
+let usernameError: string | null = null;
+let error: string | null = null;
+let agreed = false;
+
+if (Astro.request.method === "POST" && pending?.ticket && ticket) {
+  const form = await Astro.request.formData();
+  username = field(form, "username");
+  agreed = form.get("agree") === "on";
+  const result = await completeSignUp(db, pending.ticket, { username, agreed });
+  if (result.ok) {
+    clearPendingCookie(Astro.cookies, Astro.url);
+    const session = await startSession(
+      db,
+      result.user,
+      new Date(),
+      Astro.request.headers.get("user-agent"),
+    );
+    setSessionCookie(
+      Astro.cookies,
+      Astro.url,
+      session.token,
+      session.expiresAt,
+    );
+    return noStoreRedirect(
+      next === DEFAULT_NEXT ? "/account/?welcome=1" : next,
+      303,
+    );
+  }
+  if (Object.hasOwn(USERNAME_PROBLEMS, result.error))
+    usernameError = USERNAME_PROBLEMS[result.error as UsernameProblem];
+  else
+    error = SIGN_UP_ERRORS[result.error as "expired" | "terms" | "email-taken"];
+  Astro.response.status = 422;
+} else if (ticket) {
+  username = await suggestUsername(db, ticket.email.split("@")[0] ?? "");
+} else if (pending?.ticket) {
+  error = SIGN_UP_ERRORS.expired;
+}
+
+const github = authConfig().github !== null;
+const input =
+  "w-full border border-ink bg-paper px-3 py-2.5 text-base text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-invalid:border-accent";
+---
+
+<BaseLayout title="Create an account" noindex>
+  <AuthCard
+    id="sign-up-title"
+    title={ticket ? "Choose a username" : "Create an account"}
+    description={
+      ticket
+        ? `${ticket.email} is confirmed. One last thing.`
+        : "Comment, keep your tool data and game saves, and share Minecraft creations. Start with your email: we’ll send a code to confirm it."
+    }
+  >
+    {error && (
+      <p slot="notice" role="alert" class="border-l-2 border-accent pl-3">
+        {error}
+      </p>
+    )}
+
+    {ticket ? (
+      <form
+        method="post"
+        action="/sign-up"
+        class="flex flex-col gap-5"
+        novalidate
+      >
+        <div class="flex flex-col gap-2">
+          <label for="username" class="font-medium">
+            Username
+          </label>
+          <input
+            id="username"
+            name="username"
+            type="text"
+            autocomplete="username"
+            autocapitalize="none"
+            spellcheck="false"
+            minlength={USERNAME_LIMITS.min}
+            maxlength={USERNAME_LIMITS.max}
+            required
+            value={username}
+            aria-invalid={usernameError ? "true" : undefined}
+            aria-describedby="username-hint"
+            class:list={[input, "font-mono"]}
+          />
+          <p id="username-hint" class="text-sm text-muted">
+            {usernameError ??
+              `Your profile is /people/<username>/. Lower-case letters, digits and hyphens, ${String(USERNAME_LIMITS.min)}–${String(USERNAME_LIMITS.max)} characters. You can change it later.`}
+          </p>
+        </div>
+        <div class="flex items-start gap-3">
+          <input
+            id="agree"
+            name="agree"
+            type="checkbox"
+            required
+            checked={agreed}
+            class="mt-1 size-4 shrink-0 accent-accent"
+          />
+          <label for="agree">
+            I agree to the{" "}
+            <a href="/legal/terms/" class="underline">
+              terms
+            </a>{" "}
+            and{" "}
+            <a href="/legal/privacy/" class="underline">
+              privacy policy
+            </a>
+            , and I’m 14 or older.
+          </label>
+        </div>
+        <button
+          type="submit"
+          class={buttonClasses({ hover: "plain", className: "w-full" })}
+        >
+          Create account
+        </button>
+      </form>
+    ) : (
+      <>
+        <EmailStep
+          action="/sign-in"
+          {next}
+          disabled={!mailSetup().config.available}
+        />
+        {github && (
+          <>
+            <p class="type-label flex items-center gap-3 text-muted before:h-px before:flex-1 before:bg-ink after:h-px after:flex-1 after:bg-ink">
+              Or
+            </p>
+            <a
+              href={`/auth/github?next=${encodeURIComponent(next)}`}
+              class={buttonClasses({
+                hover: "plain",
+                variant: "secondary",
+                className: "w-full",
+              })}
+            >
+              <GitHubIcon size={16} />
+              Sign up with GitHub
+            </a>
+          </>
+        )}
+      </>
+    )}
+
+    <p slot="footer">
+      {!ticket && github && (
+        <>
+          Signing up with GitHub means agreeing to the{" "}
+          <a href="/legal/terms/" class="text-ink underline">
+            terms
+          </a>{" "}
+          and{" "}
+          <a href="/legal/privacy/" class="text-ink underline">
+            privacy policy
+          </a>
+          , and being 14 or older.{" "}
+        </>
+      )}
+      Already have an account?{" "}
+      <a
+        href={`/sign-in?next=${encodeURIComponent(next)}`}
+        class="text-ink underline"
+      >
+        Sign in
+      </a>
+      .
+    </p>
+  </AuthCard>
+</BaseLayout>

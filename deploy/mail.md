@@ -7,7 +7,8 @@ sender domain is **automail.trilleo.net**; messages come from
 
 What it sends:
 
-- **Codes** people ask for to confirm their address (/account/email/). Always sent.
+- **Codes**: to sign in (/sign-in; an account is its email address) and to confirm a
+  new address (/account/email/). Always sent.
 - **Notifications** people can switch off: replies to their comments, their comments'
   review, decisions on their uploads and Minecraft projects. Each has a one-click
   unsubscribe link (`List-Unsubscribe` + `List-Unsubscribe-Post`).
@@ -23,8 +24,9 @@ bodies after 30 days; the rows after 180 days. Everything is on
 <https://www.trilleo.net/admin/mail/>.
 
 Code: `packages/mail` (template, drivers) and `apps/web/src/lib/mail` (outbox,
-addresses, notifications, alerts). Without the settings below the site still runs:
-/account/email/ says email isn't set up, and /admin/mail/ says why.
+addresses, notifications, alerts). Without the settings below the site still runs, but
+nobody can sign in by email (only with GitHub): /sign-in and /account/email/ say email
+isn't set up, and /admin/mail/ says why.
 
 ## One-time setup
 
@@ -137,8 +139,10 @@ docker compose up -d --force-recreate app
 
 ### 8. Your own address
 
-Sign in, open <https://www.trilleo.net/account/email/>, add your address and type the
-code. Keep **Admin alerts** ticked: that's where alerts go (unless `MAIL_ADMIN_TO` is
+Sign in (if your account is from before email sign-in, it takes GitHub's verified
+address or asks for one). To use another address, open
+<https://www.trilleo.net/account/email/>, enter it and type the code. Then add
+`ADMIN_EMAILS=<that address>` to app.env ([README.md §7](README.md#7-github-sign-in)). Keep **Admin alerts** ticked: that's where alerts go (unless `MAIL_ADMIN_TO` is
 set). /admin's **Mail** section shows where alerts go.
 
 ## Day to day

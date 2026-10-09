@@ -242,7 +242,7 @@ export interface FileListItem extends StoredFile {
   ownerLogin: string | null;
 }
 
-/** Newest first, with the uploader's GitHub login. */
+/** Newest first, with the uploader's username. */
 export async function listFiles(
   db: Database,
   filter: FileFilter,
@@ -250,7 +250,7 @@ export async function listFiles(
 ): Promise<{ items: FileListItem[]; total: number }> {
   const where = filterWhere(filter);
   const rows = await db
-    .select({ file: files, ownerLogin: users.githubLogin })
+    .select({ file: files, ownerLogin: users.username })
     .from(files)
     .leftJoin(users, eq(users.id, files.ownerId))
     .where(where)
@@ -294,7 +294,7 @@ export async function fileEvents(db: Database, fileId: string) {
       toStatus: storageEvents.toStatus,
       reason: storageEvents.reason,
       createdAt: storageEvents.createdAt,
-      actorLogin: users.githubLogin,
+      actorLogin: users.username,
     })
     .from(storageEvents)
     .leftJoin(users, eq(users.id, storageEvents.actorId))
@@ -305,7 +305,7 @@ export async function fileEvents(db: Database, fileId: string) {
 /** Who uploaded a file, as the file page shows them. */
 export async function fileOwner(db: Database, ownerId: string) {
   const [owner] = await db
-    .select({ login: users.githubLogin, profilePublic: users.profilePublic })
+    .select({ login: users.username, profilePublic: users.profilePublic })
     .from(users)
     .where(and(eq(users.id, ownerId), isNull(users.blockedAt)))
     .limit(1);

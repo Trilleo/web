@@ -8,7 +8,8 @@ import {
 } from "@trilleo/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createSession, upsertGitHubUser } from "../auth/sessions";
+import { upsertGitHubUser } from "../auth/accounts";
+import { createSession } from "../auth/sessions";
 import {
   COMMENT_MAX_LENGTH,
   LIMITS,
@@ -295,7 +296,7 @@ describe("moderation", () => {
       ["Live", "published"],
       ["Waiting 2", "hidden"],
     ]);
-    expect(overview.blocked.map((user) => user.githubLogin)).toEqual(["bob"]);
+    expect(overview.blocked.map((user) => user.username)).toEqual(["bob"]);
   });
 });
 

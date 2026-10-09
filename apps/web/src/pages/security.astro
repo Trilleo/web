@@ -86,8 +86,9 @@ const sections = [
       from Cloudflare.
     </li>
     <li>
-      No passwords: GitHub sign-in with PKCE and no permissions. Session tokens
-      are stored only as hashes.
+      No passwords: one-time email codes (stored as hashes, limited guesses,
+      short-lived) or GitHub sign-in with PKCE. An address alone never links an
+      outside account. Session tokens are stored only as hashes.
     </li>
     <li>
       Every change that alters data is a POST form with an origin check; pages

@@ -1,5 +1,10 @@
 export { Button, ButtonLink, buttonClasses } from "./Button";
-export type { ButtonLinkProps, ButtonProps, ButtonVariant } from "./Button";
+export type {
+  ButtonHover,
+  ButtonLinkProps,
+  ButtonProps,
+  ButtonVariant,
+} from "./Button";
 export { Choice, Field } from "./controls";
 export type { ChoiceProps } from "./controls";
 export { COPIED_MS, CopyButton } from "./CopyButton";

@@ -61,7 +61,9 @@
   the domain is ICP-filed. Cloudflare proxies it with an Origin certificate
   ("Full (strict)"). Canonical URL: https://www.trilleo.net (apex redirects).
 - English only. React for islands and tools.
-- Accounts (comments, per-user tool data, admin): GitHub OAuth only.
+- Accounts (comments, per-user tool data, admin): an account is its email address,
+  signed in with a one-time code (no passwords); GitHub is a linked alternative.
+  Google was left out: its OAuth endpoints are blocked from the mainland server.
 - Tools are served at /tools/<name> by default; a subdomain only when a tool
   needs its own server.
 - New domain, fresh start: no WordPress content or URLs carried over.
@@ -104,7 +106,8 @@
   it reacts to the enclosing link/button/`group`), `press` (click press-in; owns
   the element's transitions), `animate-rise|fade|mask-up|pop|draw` (entrances,
   `backwards` fill so hover transforms still work afterwards). `buttonClasses`
-  gives buttons a sliding fill.
+  gives buttons a sliding fill (`hover: "plain"`: a plain colour change, used on the
+  sign-in pages).
 - Scroll reveals: add `data-reveal` (or `="rule"` / `="fade"`); reveal.ts staggers
   whatever arrives together. Content is only hidden while `<html data-motion>`
   is set (JS on, motion allowed), with a CSS failsafe. Don't nest reveals or put
@@ -168,7 +171,10 @@
 - Schema: packages/db/src/schema.ts. After changing it, run
   `pnpm --filter @trilleo/db db:generate` and commit the migration; CI fails if
   they don't match. Migrations must stay compatible with the previous release
-  (add, then remove in a later release), because rollbacks don't undo them.
+  (add, then remove in a later release), because rollbacks don't undo them. A new
+  NOT NULL column on existing rows: add it nullable, backfill, then SET NOT NULL in
+  the same hand-edited migration, and keep the previous release's inserts working
+  (0016_accounts-by-email does both).
 - Server code gets the database from `getDb()` (apps/web/src/lib/db.ts), which
   connects and applies pending migrations on first use; the health route
   (/api/health) triggers that when the container starts.
@@ -182,14 +188,50 @@
 
 ## Auth
 
-- GitHub OAuth, hand-written in apps/web/src/lib/auth/: /auth/github → GitHub
-  (state + PKCE, no scopes) → /auth/github/callback → a session. Sessions live in
+- Hand-written in apps/web/src/lib/auth/. An account is its email address
+  (users.email, always proved); `users.username` is the site's own handle (URLs,
+  @mentions). Other ways in are rows in user_identities (provider + the provider's
+  permanent ID; only GitHub so far), so renaming yourself on GitHub changes nothing.
+  Every way of signing in ends in `startSession` (sign-in.ts). Sessions live in
   Postgres as the SHA-256 of the cookie's token; 30 days, extended when used in
   the last 15. Cookie `__Host-trilleo_session` over HTTPS, `trilleo_session` on
-  plain-HTTP dev/e2e. GitHub's access token is used once and never stored.
-- Anyone with a GitHub account can sign in (to comment); blocked accounts can't,
-  and their sessions stop working. ADMIN_GITHUB_IDS only decides who can use
-  /admin. After sign-in, visitors land on `next` (default /account).
+  plain-HTTP dev/e2e.
+- Email sign-in (email-sign-in.ts): /sign-in (POST: the address) → a code (purpose
+  "sign-in", SIGN_IN_LIMITS: 10 minutes, per-address and per-IP limits, the IP only
+  as an in-memory hash) → /sign-in/code → a session; for an address without an
+  account, a sign-up ticket (an email_codes row, purpose "sign-up", holding the
+  ticket's hash) → /sign-up (username + terms) → the account. The address and ticket
+  ride in the `trilleo_sign_in` cookie; the pages look the same whether or not an
+  address has an account. Needs mail to be available (mailSetup); GitHub doesn't.
+  These pages are one centred box (components/account/AuthCard.astro), not the
+  usual display title and grid.
+- GitHub (sign-in.ts `completeSignIn`): /auth/github → GitHub (state + PKCE, scope
+  `user:email` for the verified primary address) → /auth/github/callback. A linked
+  identity signs in; an unknown one makes an account with GitHub's verified address,
+  but if an account already has that address it's refused ("email-taken"): an
+  address alone never links accounts. Linking from /account/security/ is a POST to
+  /auth/github (`linkUserId` in the state cookie). GitHub's token is used once.
+- Usernames (usernames.ts): `a-z0-9` and single hyphens, 3–30, a reserved list;
+  changed on /account/profile/ every USERNAME_COOLDOWN_DAYS. The old one goes to
+  username_history: it redirects (`movedUsername`, 301 from /people/, creator and
+  island pages, not for private or blocked accounts) and nobody else can take it for
+  USERNAME_HOLD_DAYS. Look accounts up with
+  `eq(users.username, normalizeUsername(x))`.
+- Accounts from before email sign-in (migration 0016 turned their GitHub accounts
+  into identities and their logins into usernames) have no address. At their next
+  GitHub sign-in they take GitHub's verified address if it's free
+  (`adoptVerifiedEmail`; /account/security/?done=adopted says so); otherwise
+  src/lib/auth/setup.ts sends every server-rendered GET to
+  /account/email/?setup=1&next= until they add one. /admin shows how many are left
+  (migration.ts). `users.github_login` (a copy of the username) and the
+  `users_fill_username` trigger exist only for the previous release: drop both in a
+  later one. `users.github_id` mirrors the GitHub identity for ADMIN_GITHUB_IDS.
+- Anyone can make an account (to comment); blocked accounts can't sign in, and
+  their sessions stop working. /admin is for accounts whose address is in
+  ADMIN_EMAILS or whose linked GitHub ID is in ADMIN_GITHUB_IDS (`isAdmin`). After
+  sign-in, visitors land on `next` (default /account). An address can be changed
+  (a code to the new one) but not removed, and an identity can't be unlinked from
+  an account without an address.
 - src/middleware.ts sets `Astro.locals.user` / `session` on server-rendered
   requests. Guarded pages start with
   `const user = requireUser(Astro); if (user instanceof Response) return user;`
@@ -201,24 +243,28 @@
 - astro.config's `security.allowedDomains` must list every host the server is
   reached as; otherwise Astro sees `localhost`, and redirect URIs, cookies and the
   origin check all break (the smoke test checks this behind Caddy).
-- Settings: GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, ADMIN_GITHUB_IDS. Production:
-  /srv/trilleo/app.env. Dev: apps/web/.env (from .env.example, loaded in
-  astro.config), with a separate localhost OAuth App. E2E signs in against
-  e2e/fake-github.ts.
+- Settings: ADMIN_EMAILS, ADMIN_GITHUB_IDS, and (optional) GITHUB_CLIENT_ID,
+  GITHUB_CLIENT_SECRET. Production: /srv/trilleo/app.env. Dev: apps/web/.env (from
+  .env.example, loaded in astro.config), with a separate localhost OAuth App; the dev
+  server prints captured mail's subjects, so email codes work with no setup. E2E
+  signs in against e2e/fake-github.ts, which gives every login a verified address
+  (`githubEmail`) except "legacy-" ones (accounts from before email sign-in). Email
+  sign-ins in e2e share 127.0.0.1's per-IP limit: keep them few (e2e/sign-in.spec.ts).
 - New private pages: add their prefix to PRIVATE_PATHS (src/lib/site.ts) to keep
   them out of robots.txt and the sitemap.
 - The header's account slot (components/account/HeaderAccount.astro) is a server
   island, so pre-built pages show who's signed in too: "Sign in" (back to this
-  page), or a menu (profile, account, sessions, Admin for the admin, sign out). Its
+  page), or a menu (profile, account, security, Admin for the admin, sign out). Its
   Escape/click-away behaviour lives in SiteHeader's script (islands bring none).
-- Profiles (src/lib/profile/): the username is GitHub's login, re-synced at sign-in;
-  people choose a display name (falls back to GitHub's name, then the login),
-  pronouns, location, a "currently" line, a bio (comment Markdown) and up to 5 links,
-  whether the profile is public, and whether comments show their name or just
-  @login. Pages: /account/profile/ (edit), /people/<login>/ (public, noindex; 404
-  when private or blocked, except to its owner), /account/sessions/ (sign other
-  browsers out; sessions keep last_used_at, written at most every 5 minutes, and
-  the User-Agent), /account/export.json (everything we keep, as JSON).
+- Profiles (src/lib/profile/): people choose a username, a display name (falls back
+  to a linked account's name, then the username), pronouns, location, a "currently"
+  line, a bio (comment Markdown) and up to 5 links, whether the profile is public, and
+  whether comments show their name or just @username. Pages: /account/profile/
+  (edit, username included), /people/<username>/ (public, noindex; 404 when private
+  or blocked, except to its owner), /account/security/ (address, linked accounts,
+  link to sessions), /account/sessions/ (sign other browsers out; sessions keep
+  last_used_at, written at most every 5 minutes, and the User-Agent),
+  /account/export.json (everything we keep, as JSON).
 
 ## Comments
 
@@ -469,8 +515,9 @@
   MAIL_RETENTION_DAYS, rows after MAIL_LOG_DAYS. Never send mail any other way.
 - Addresses (src/lib/mail/addresses.ts): users.email is only ever an address proved
   with a 6-digit code (email_codes keeps its SHA-256; 15 minutes, 5 guesses, newest code
-  only, per-account and per-address limits; purged after CODE_RETENTION_DAYS). The
-  "verify-email" purpose is meant to sit next to a sign-in-by-email purpose later.
+  only, per-account and per-address limits; purged after CODE_RETENTION_DAYS), or one
+  GitHub verified. It's what people sign in with (see Auth), so it can be changed but
+  not removed. Its purpose is "verify-email"; signing in uses "sign-in" and "sign-up".
   Changing the address replaces users.email_token, the secret in unsubscribe links.
 - Notifications (src/lib/mail/notify.ts) respect the topic switches
   (users.email_notifications, NOTIFICATION_TOPICS in @trilleo/mail), skip blocked
@@ -492,8 +539,9 @@
 - Templates are written in code with `composeNotification` / `composeDirect`
   (src/lib/mail/compose.ts) on top of `renderEmail`: blocks, no images or tracking,
   hex colours from the light theme (email clients can't use CSS variables).
-- E2E reads codes and messages from /admin/mail/ as the admin; the shared admin never
-  adds an address. axe can't run inside the sandboxed preview frame: exclude it.
+- E2E reads codes and messages from /admin/mail/ as the admin (`openMail`,
+  `codeSentTo` in e2e/support.ts); the shared admin never
+  changes their address. axe can't run inside the sandboxed preview frame: exclude it.
 
 ## Storage
 

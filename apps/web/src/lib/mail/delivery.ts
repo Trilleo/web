@@ -37,7 +37,7 @@ async function pass(): Promise<void> {
     deps.db,
     {
       adminTo: deps.config.adminTo,
-      adminGithubIds: [...(authConfig()?.adminIds ?? [])],
+      admins: authConfig(),
     },
     now,
   );

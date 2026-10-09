@@ -1,14 +1,19 @@
 /**
  * Test helpers for the auth code (imported only by *.test.ts files, so never bundled).
  */
-import type { AuthConfig } from "./config";
+import type { AuthConfig, GitHubConfig } from "./config";
 
-export const TEST_CONFIG: AuthConfig = {
+export const TEST_GITHUB: GitHubConfig = {
   clientId: "client-id",
   clientSecret: "client-secret",
-  adminIds: new Set([1001]),
   githubWebUrl: "https://github.test",
   githubApiUrl: "https://api.github.test",
+};
+
+export const TEST_CONFIG: AuthConfig = {
+  github: TEST_GITHUB,
+  adminEmails: new Set(["owner@example.com"]),
+  adminGithubIds: new Set([1001]),
 };
 
 export const ADMIN_PROFILE = {
@@ -30,6 +35,9 @@ export function fakeGitHubFetch(
     tokenStatus?: number;
     user?: unknown;
     userStatus?: number;
+    /** /user/emails' answer; by default none. */
+    emails?: unknown;
+    emailsStatus?: number;
   } = {},
 ): { fetchImpl: typeof fetch; calls: FakeGitHubCall[] } {
   const calls: FakeGitHubCall[] = [];
@@ -49,6 +57,13 @@ export function fakeGitHubFetch(
             status: options.tokenStatus ?? 200,
           },
         ),
+      );
+    }
+    if (url.endsWith("/user/emails")) {
+      return Promise.resolve(
+        Response.json(options.emails ?? [], {
+          status: options.emailsStatus ?? 200,
+        }),
       );
     }
     if (url.endsWith("/user")) {

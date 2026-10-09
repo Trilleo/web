@@ -5,7 +5,7 @@ import {
   type ToolMeta,
 } from "@trilleo/tool-kit";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { upsertGitHubUser } from "../auth/sessions";
+import { upsertGitHubUser } from "../auth/accounts";
 import { handleToolData, type ToolDataRequest } from "./api";
 import { putToolData } from "./store";
 

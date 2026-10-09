@@ -10,6 +10,8 @@ import {
 } from "@trilleo/db";
 import { and, asc, desc, eq, isNull, lte, sql } from "drizzle-orm";
 import { messagesFrom } from "../contact/store";
+import { identitiesOf, usernameHistoryOf } from "../auth/accounts";
+import { normalizeUsername } from "../auth/usernames";
 import type { ProfileInput } from "./profile";
 
 /** Saves someone's profile. Returns the updated user. */
@@ -47,9 +49,8 @@ export interface ProfilePage {
 
 /**
  * The profile at /people/<login>, as the viewer may see it: null for an unknown or
- * blocked account, or a private profile that isn't the viewer's own. Logins are
- * matched without case, as GitHub does; if an old login is still on an account that
- * hasn't signed in since, the most recent sign-in wins.
+ * blocked account, or a private profile that isn't the viewer's own. Usernames are
+ * lower-case, so any case matches.
  */
 export async function findProfile(
   db: Database,
@@ -62,11 +63,10 @@ export async function findProfile(
     .from(users)
     .where(
       and(
-        sql`lower(${users.githubLogin}) = ${login.toLowerCase()}`,
+        eq(users.username, normalizeUsername(login)),
         isNull(users.blockedAt),
       ),
     )
-    .orderBy(desc(users.lastSignInAt))
     .limit(1);
   if (!user) return null;
   if (!user.profilePublic && user.id !== viewerId) return null;
@@ -113,57 +113,70 @@ export async function exportUserData(
 ) {
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) return null;
-  const [browsers, own, tools, skygrid, messages] = await Promise.all([
-    db
-      .select({
-        createdAt: sessions.createdAt,
-        lastUsedAt: sessions.lastUsedAt,
-        expiresAt: sessions.expiresAt,
-        userAgent: sessions.userAgent,
-      })
-      .from(sessions)
-      .where(eq(sessions.userId, userId))
-      .orderBy(desc(sessions.lastUsedAt)),
-    db
-      .select({
-        id: comments.id,
-        post: comments.postSlug,
-        parentId: comments.parentId,
-        body: comments.body,
-        status: comments.status,
-        createdAt: comments.createdAt,
-      })
-      .from(comments)
-      .where(and(eq(comments.authorId, userId), isNull(comments.deletedAt)))
-      .orderBy(asc(comments.createdAt), asc(comments.id)),
-    db
-      .select({
-        tool: toolData.tool,
-        key: toolData.key,
-        value: toolData.value,
-        updatedAt: toolData.updatedAt,
-      })
-      .from(toolData)
-      .where(eq(toolData.userId, userId))
-      .orderBy(asc(toolData.tool), asc(toolData.key)),
-    db
-      .select({
-        state: skygridSaves.state,
-        version: skygridSaves.version,
-        createdAt: skygridSaves.createdAt,
-        updatedAt: skygridSaves.updatedAt,
-      })
-      .from(skygridSaves)
-      .where(eq(skygridSaves.userId, userId)),
-    messagesFrom(db, userId),
-  ]);
+  const [browsers, own, tools, skygrid, messages, linked, oldNames] =
+    await Promise.all([
+      db
+        .select({
+          createdAt: sessions.createdAt,
+          lastUsedAt: sessions.lastUsedAt,
+          expiresAt: sessions.expiresAt,
+          userAgent: sessions.userAgent,
+        })
+        .from(sessions)
+        .where(eq(sessions.userId, userId))
+        .orderBy(desc(sessions.lastUsedAt)),
+      db
+        .select({
+          id: comments.id,
+          post: comments.postSlug,
+          parentId: comments.parentId,
+          body: comments.body,
+          status: comments.status,
+          createdAt: comments.createdAt,
+        })
+        .from(comments)
+        .where(and(eq(comments.authorId, userId), isNull(comments.deletedAt)))
+        .orderBy(asc(comments.createdAt), asc(comments.id)),
+      db
+        .select({
+          tool: toolData.tool,
+          key: toolData.key,
+          value: toolData.value,
+          updatedAt: toolData.updatedAt,
+        })
+        .from(toolData)
+        .where(eq(toolData.userId, userId))
+        .orderBy(asc(toolData.tool), asc(toolData.key)),
+      db
+        .select({
+          state: skygridSaves.state,
+          version: skygridSaves.version,
+          createdAt: skygridSaves.createdAt,
+          updatedAt: skygridSaves.updatedAt,
+        })
+        .from(skygridSaves)
+        .where(eq(skygridSaves.userId, userId)),
+      messagesFrom(db, userId),
+      identitiesOf(db, userId),
+      usernameHistoryOf(db, userId),
+    ]);
   return {
     exportedAt: now.toISOString(),
     account: {
       id: user.id,
-      githubId: user.githubId,
-      username: user.githubLogin,
-      githubName: user.name,
+      username: user.username,
+      usernameChangedAt: user.usernameChangedAt,
+      /** Usernames given up that still redirect here. */
+      previousUsernames: oldNames,
+      /** The name a linked account gave. */
+      linkedName: user.name,
+      linkedAccounts: linked.map((identity) => ({
+        provider: identity.provider,
+        id: identity.providerUserId,
+        username: identity.login,
+        linkedAt: identity.linkedAt,
+        lastUsedAt: identity.lastUsedAt,
+      })),
       createdAt: user.createdAt,
       lastSignInAt: user.lastSignInAt,
       trusted: user.trustedAt !== null,

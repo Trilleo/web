@@ -4,7 +4,7 @@ import type { User } from "@trilleo/db";
 import { monogram } from "../../lib/profile/profile";
 
 interface Props {
-  user: Pick<User, "githubLogin" | "name" | "displayName">;
+  user: Pick<User, "username" | "name" | "displayName">;
   size?: "sm" | "md" | "lg";
   class?: string;
 }

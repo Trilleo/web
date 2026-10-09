@@ -23,7 +23,11 @@ import IslandPicture from "../../../../components/games/IslandPicture.astro";
 import BaseLayout from "../../../../layouts/BaseLayout.astro";
 import { getDb } from "../../../../lib/db";
 import { gamePath } from "../../../../lib/games/registry";
-import { findIsland } from "../../../../lib/games/skygrid/leaderboard";
+import { movedUsername } from "../../../../lib/auth/usernames";
+import {
+  findIsland,
+  islandHref,
+} from "../../../../lib/games/skygrid/leaderboard";
 import { displayName, profileHref } from "../../../../lib/profile/profile";
 
 export const prerender = false;
@@ -34,7 +38,15 @@ const found = await findIsland(
   Astro.params.login ?? "",
   viewer?.id ?? null,
 );
-if (!found) return Astro.rewrite("/404");
+if (!found) {
+  const moved = await movedUsername(
+    await getDb(),
+    Astro.params.login ?? "",
+    viewer?.id ?? null,
+  );
+  if (moved) return Astro.redirect(islandHref(moved), 301);
+  return Astro.rewrite("/404");
+}
 
 // Depends on who's looking (own/private), so never shared from a cache.
 Astro.response.headers.set("Cache-Control", "private, no-store");
@@ -104,8 +116,8 @@ const body = "col-span-4 md:col-span-6 xl:col-span-7";
       {`${name}’s island`}
     </h1>
     <p class="mt-4 text-muted">
-      <a href={profileHref(user.githubLogin)} class="text-ink underline">
-        @{user.githubLogin}
+      <a href={profileHref(user.username)} class="text-ink underline">
+        @{user.username}
       </a>
       {own &&
         !user.profilePublic &&
