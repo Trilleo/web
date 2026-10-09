@@ -97,7 +97,7 @@ export function GameScreen({ session, saveNote, bazaar }: GameScreenProps) {
   return (
     // eslint-disable-next-line jsx-a11y-x/no-static-element-interactions -- keys bubble up from anywhere in the game (the map is the focus target)
     <div
-      className="grid border-y border-ink md:h-[calc(100svh-7.5rem)] md:min-h-[36rem] md:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_26rem]"
+      className="grid grid-cols-[minmax(0,1fr)] border-y border-ink md:h-[calc(100svh-7.5rem)] md:min-h-[36rem] md:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_26rem]"
       onKeyDown={onKeyDown}
       onKeyUp={onKeyUp}
     >
@@ -110,7 +110,7 @@ export function GameScreen({ session, saveNote, bazaar }: GameScreenProps) {
           role="application"
           aria-label={`${ISLAND_MAPS[view.state.pos.island].name}. Arrow keys or WASD to walk; walk into things to use them; E to use what you face or reel in.`}
           aria-describedby="skygrid-log"
-          className="relative h-[58svh] min-h-80 bg-fig focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent md:h-auto md:min-h-0 md:flex-1"
+          className="relative h-[58svh] min-h-80 bg-fig focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent md:h-auto md:min-h-0 md:flex-1 pointer-coarse:h-[46svh] pointer-coarse:md:h-auto"
         >
           <WorldView
             view={view}
@@ -120,8 +120,8 @@ export function GameScreen({ session, saveNote, bazaar }: GameScreenProps) {
               controller.clickTile(x, y);
             }}
           />
-          <TouchPad controller={controller} />
         </div>
+        <TouchPad controller={controller} />
         <Log view={view} />
       </div>
       <aside
@@ -303,7 +303,8 @@ function TouchPad({ controller }: { controller: Controller }) {
   const padButton =
     "grid size-12 place-items-center border border-ink bg-paper text-lg select-none active:bg-ink active:text-paper";
   return (
-    <div className="absolute right-3 bottom-3 hidden items-end gap-3 pointer-coarse:flex">
+    // Under the map, not over it, so the controls never hide the island.
+    <div className="hidden shrink-0 items-center justify-between gap-3 border-t border-ink px-4 py-3 md:px-5 pointer-coarse:flex">
       <button
         type="button"
         className={`${padButton} w-16 font-mono text-xs uppercase`}

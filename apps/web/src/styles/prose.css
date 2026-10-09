@@ -192,7 +192,9 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 1rem;
-  font-variant-numeric: tabular-nums;
+  /* Not tabular-nums: in Schibsted Grotesk it also widens commas, periods and
+     colons, which then read as "you , sign". */
+  font-variant-numeric: lining-nums;
 }
 
 .prose th {
@@ -209,6 +211,55 @@
 .prose td {
   padding-block: 0.75rem;
   border-top: 1px solid var(--tr-ink);
+}
+
+/* Pages with no aside (InfoLayout): on desktop, tables run on past the text into
+   the empty columns. The box is 7 columns wide (1.5rem gaps), so one column is
+   (100cqw - 9rem) / 7, and ten columns with their nine gaps are this wide. */
+@media (width >= 80rem) {
+  .prose-wide table {
+    width: calc(10 * (100cqw - 9rem) / 7 + 13.5rem);
+    max-width: none;
+  }
+}
+
+/* Phones: columns this narrow hold a few words a line, so a labelled table
+   (stackTables) becomes one block per row, each cell under its heading. */
+@media (width < 48rem) {
+  .prose table[data-stack],
+  .prose table[data-stack] :is(tbody, tr, td) {
+    display: block;
+  }
+
+  .prose table[data-stack] thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .prose table[data-stack] tr {
+    padding-block: 0.75rem;
+    border-top: 1px solid var(--tr-ink);
+  }
+
+  .prose table[data-stack] td {
+    padding-block: 0.25rem;
+    border-top: 0;
+  }
+
+  .prose table[data-stack] td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.125rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--tr-muted);
+  }
 }
 
 /* Footnote references: small mono numbers. */

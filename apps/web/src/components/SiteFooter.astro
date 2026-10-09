@@ -6,6 +6,7 @@ import {
   ICP_FILING,
   NAV_ITEMS,
   PSB_FILING,
+  SITE_DESCRIPTION,
   SITE_NAME,
 } from "../lib/site";
 
@@ -22,11 +23,26 @@ const showNotice = path === "/" || path.startsWith("/minecraft");
 const linkClass = "group type-label inline-flex min-h-9 items-center";
 const smallLink = "group inline-flex min-h-6 items-center";
 
-const information = [
-  { label: "Contact", href: "/contact/" },
-  { label: "FAQ", href: "/faq/" },
-  { label: "Legal", href: "/legal/" },
-  { label: "Accessibility", href: "/accessibility/" },
+const groups = [
+  { id: "sections", label: "Sections", links: sections },
+  {
+    id: "information",
+    label: "Information",
+    links: [
+      { label: "Contact", href: "/contact/" },
+      { label: "FAQ", href: "/faq/" },
+      { label: "Legal", href: "/legal/" },
+      { label: "Accessibility", href: "/accessibility/" },
+    ],
+  },
+  {
+    id: "elsewhere",
+    label: "Elsewhere",
+    links: [
+      { label: "RSS", href: "/rss.xml" },
+      { label: "GitHub", href: GITHUB_URL },
+    ],
+  },
 ] as const;
 const fine = [
   { label: "Terms", href: "/legal/terms/" },
@@ -40,7 +56,10 @@ const fine = [
 const psbCode = PSB_FILING?.match(/\d+/)?.[0];
 ---
 
-<footer class="grid-swiss px-page gap-y-6 pt-7 pb-8 md:pt-8 md:pb-10">
+<!-- Desktop: name (columns 1–2), three link groups (3–8), the site's line and
+     "Back to top" (9–12). iPad: the same row of four, the line below them. Phone:
+     the name, then the groups two by two. -->
+<footer class="grid-swiss px-page gap-y-6 pt-7 pb-8 md:gap-y-8 md:pt-8 md:pb-10">
   <div class="col-span-4 flex items-baseline justify-between md:col-span-2 md:flex-col md:justify-start md:gap-2 xl:col-span-2">
     <span class="text-xl font-bold tracking-[-0.03em]">{SITE_NAME}</span>
     <span class="type-label whitespace-nowrap text-muted">
@@ -48,50 +67,32 @@ const psbCode = PSB_FILING?.match(/\d+/)?.[0];
     </span>
   </div>
 
-  <nav
-    aria-label="Sections"
-    class="col-span-2 flex flex-col md:col-span-2 xl:col-span-2"
-  >
-    {sections.map((item) => (
-      <a href={item.href} class={linkClass}>
-        <span class="link-wipe">{item.label}</span>
-      </a>
-    ))}
-  </nav>
+  {groups.map((group) => (
+    <nav
+      aria-labelledby={`footer-${group.id}`}
+      class="col-span-2 flex flex-col md:col-span-2 xl:col-span-2"
+    >
+      <p id={`footer-${group.id}`} class="type-label mb-1 text-muted">
+        {group.label}
+      </p>
+      {group.links.map((item) => (
+        <a href={item.href} class={linkClass}>
+          <span class="link-wipe">{item.label}</span>
+        </a>
+      ))}
+    </nav>
+  ))}
 
-  <nav
-    aria-label="Information"
-    class="col-span-2 flex flex-col md:col-span-2 xl:col-span-2"
-  >
-    {information.map((item) => (
-      <a href={item.href} class={linkClass}>
-        <span class="link-wipe">{item.label}</span>
-      </a>
-    ))}
-  </nav>
-
-  <nav
-    aria-label="Elsewhere"
-    class="col-span-2 flex flex-col md:col-span-2 xl:col-span-2"
-  >
-    <a href="/rss.xml" class={linkClass}>
-      <span class="link-wipe">RSS</span>
+  <div class="col-span-4 flex flex-col items-start gap-5 border-t border-ink pt-4 md:col-span-8 md:flex-row md:items-end md:justify-between md:gap-8 xl:col-span-4 xl:col-start-9 xl:row-start-1 xl:flex-col xl:items-start xl:justify-between">
+    <p class="type-row max-w-[22ch]">{SITE_DESCRIPTION}</p>
+    <a href="#top" class={`${linkClass} shrink-0 gap-2`}>
+      <span class="link-wipe">Back to top</span>
+      <ArrowUpIcon
+        size={16}
+        className="transition-transform duration-(--tr-dur-fast) ease-swiss group-hover:-translate-y-0.5"
+      />
     </a>
-    <a href={GITHUB_URL} class={linkClass}>
-      <span class="link-wipe">GitHub</span>
-    </a>
-  </nav>
-
-  <a
-    href="#top"
-    class={`${linkClass} col-span-2 gap-2 self-start md:col-span-8 md:justify-self-start xl:col-span-4 xl:justify-self-end`}
-  >
-    <span class="link-wipe">Back to top</span>
-    <ArrowUpIcon
-      size={16}
-      className="transition-transform duration-(--tr-dur-fast) ease-swiss group-hover:-translate-y-0.5"
-    />
-  </a>
+  </div>
 
   {showNotice && (
     <p class="type-label col-span-4 text-muted md:col-span-8 xl:col-span-12">

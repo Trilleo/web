@@ -6,7 +6,7 @@
 import { ArrowLeftIcon, ArrowRightIcon } from "@trilleo/ui";
 import type { BlogPost } from "../lib/blog/store";
 import { formatPostDate } from "../lib/listings";
-import { addSidenotes } from "../lib/post-html";
+import { addSidenotes, stackTables } from "../lib/post-html";
 import { postHref, readingMinutes } from "../lib/posts";
 import Breadcrumb from "./Breadcrumb.astro";
 import TableOfContents from "./TableOfContents.astro";
@@ -107,8 +107,15 @@ const status = statusLabel ?? (draft ? "Draft" : "Published");
         <TableOfContents headings={sections} />
       </div>
     )}
-    <div class="prose col-span-4 md:col-span-8 md:max-w-[40rem] xl:col-span-7 xl:col-start-3 xl:max-w-none">
-      <Fragment set:html={addSidenotes(post.row.html)} />
+    <!-- The contents list fills the left columns on desktop; without it (and
+         below desktop) the text starts at column 1. -->
+    <div
+      class:list={[
+        "prose col-span-4 md:col-span-7 xl:col-span-7",
+        sections.length > 1 && "xl:col-start-3",
+      ]}
+    >
+      <Fragment set:html={stackTables(addSidenotes(post.row.html))} />
     </div>
   </div>
 </article>

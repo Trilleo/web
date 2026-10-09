@@ -107,3 +107,44 @@ export function absolutizeUrls(html: string, site: string | URL): string {
   });
   return toHtml(tree);
 }
+
+/**
+ * Lets tables stack on phones: a table with a header row gets `data-stack`, and each
+ * body cell a `data-label` with its column's heading, which .prose shows above the
+ * cell when the columns are too narrow to sit side by side.
+ */
+export function stackTables(html: string): string {
+  if (!html.includes("<table")) return html;
+  const tree = fromHtml(html, { fragment: true });
+  visit(tree, "element", (table) => {
+    if (table.tagName !== "table") return;
+    const headings: string[] = [];
+    visit(table, "element", (node) => {
+      if (node.tagName === "thead") {
+        visit(node, "element", (cell) => {
+          if (cell.tagName === "th") headings.push(toString(cell).trim());
+        });
+        return SKIP;
+      }
+      return undefined;
+    });
+    if (headings.length === 0) return SKIP;
+    table.properties.dataStack = "";
+    visit(table, "element", (node) => {
+      if (node.tagName === "thead") return SKIP;
+      if (node.tagName !== "tr") return undefined;
+      node.children
+        .filter(
+          (cell): cell is Element =>
+            isElement(cell, "td") || isElement(cell, "th"),
+        )
+        .forEach((cell, column) => {
+          const label = headings[column];
+          if (label) cell.properties.dataLabel = label;
+        });
+      return SKIP;
+    });
+    return SKIP;
+  });
+  return toHtml(tree);
+}

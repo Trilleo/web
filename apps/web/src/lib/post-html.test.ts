@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { absolutizeUrls, addSidenotes } from "./post-html";
+import { absolutizeUrls, addSidenotes, stackTables } from "./post-html";
 
 // The footnote markup Astro's Markdown processor (Sätteri, GFM footnotes) produces.
 const withFootnotes = `<p>Cached.<sup><a href="#user-content-fn-cache" id="user-content-fnref-cache" data-footnote-ref aria-describedby="footnote-label">1</a></sup> Done.</p>
@@ -87,5 +87,28 @@ describe("absolutizeUrls", () => {
     const html =
       '<a href="https://a.test/">a</a><a href="//cdn.test/x">b</a><a href="#fn-1">c</a>';
     expect(absolutizeUrls(html, "https://trilleo.example")).toBe(html);
+  });
+});
+
+describe("stackTables", () => {
+  it("labels each body cell with its column's heading", () => {
+    const html = stackTables(
+      "<table><thead><tr><th>What</th><th>Why</th></tr></thead>" +
+        "<tbody><tr><td>Email</td><td>To sign in</td></tr></tbody></table>",
+    );
+    expect(html).toContain("<table data-stack");
+    expect(html).toContain('<td data-label="What">Email</td>');
+    expect(html).toContain('<td data-label="Why">To sign in</td>');
+    expect(html).toContain("<th>What</th>");
+  });
+
+  it("leaves tables without a header row alone", () => {
+    const html = "<table><tbody><tr><td>a</td></tr></tbody></table>";
+    expect(stackTables(html)).not.toContain("data-");
+  });
+
+  it("returns HTML without tables unchanged", () => {
+    const html = "<p>No tables <em>here</em>.</p>";
+    expect(stackTables(html)).toBe(html);
   });
 });
