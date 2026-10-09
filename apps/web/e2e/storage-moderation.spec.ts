@@ -6,8 +6,8 @@ import { adminPage, continueAs, freshLogin, newPage } from "./support";
 // upload button: these tests upload through the storage API, as a feature would.
 // e2e switches the purpose on (STORAGE_ENABLE_PURPOSES in playwright.config.ts).
 
-const unique = (base: string) =>
-  `${base}-${Math.random().toString(36).slice(2, 8)}`;
+/** A name for this attempt only (see freshLogin). */
+const unique = freshLogin;
 
 async function signIn(page: Page, login: string) {
   await page.goto("/sign-in");

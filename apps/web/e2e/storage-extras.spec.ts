@@ -10,8 +10,8 @@ import {
 
 // Malware scanning goes to e2e/fake-clamd.ts, which "finds" FAKE_MALWARE.
 
-const unique = (base: string) =>
-  `${base}-${Math.random().toString(36).slice(2, 8)}`;
+/** A name for this attempt only (see freshLogin). */
+const unique = freshLogin;
 
 /** A 2×2 PNG, so the browser can make a thumbnail of it. */
 const PNG = Buffer.from(

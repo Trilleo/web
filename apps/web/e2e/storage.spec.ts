@@ -17,8 +17,8 @@ const PNG = Buffer.from(
   "base64",
 );
 
-const unique = (base: string) =>
-  `${base}-${Math.random().toString(36).slice(2, 8)}`;
+/** A name for this attempt only (see freshLogin). */
+const unique = freshLogin;
 
 async function uploadAsAdmin(page: Page, name: string, buffer: Buffer) {
   await page.goto("/admin/files/");

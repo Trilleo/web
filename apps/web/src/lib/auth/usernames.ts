@@ -5,6 +5,7 @@
  * every USERNAME_COOLDOWN_DAYS; the old one redirects, and stays theirs, for
  * USERNAME_HOLD_DAYS.
  */
+import { randomBytes } from "node:crypto";
 import { usernameHistory, users, type Database, type User } from "@trilleo/db";
 import { and, eq, gt, ne } from "drizzle-orm";
 
@@ -145,7 +146,7 @@ export async function suggestUsername(
     const candidate = `${base}-${String(n)}`;
     if (await usernameAvailable(db, candidate, null, now)) return candidate;
   }
-  return `${base}-${Math.random().toString(36).slice(2, 7)}`;
+  return `${base}-${randomBytes(3).toString("hex")}`;
 }
 
 /** A new username for a new account: its shape, then whether it's free. */

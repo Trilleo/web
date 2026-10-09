@@ -1,9 +1,10 @@
+import { randomBytes } from "node:crypto";
 import { expect, type Browser, type Page } from "@playwright/test";
 import { FAKE_USERS, type FakeUser } from "./fake-github";
 
-/** A login for this test attempt only (e.g. "newcomer-k3x9q1"); see fakeUserId. */
+/** A login for this test attempt only (e.g. "newcomer-3fa9c1"); see fakeUserId. */
 export function freshLogin(base: string): string {
-  return `${base}-${Math.random().toString(36).slice(2, 8)}`;
+  return `${base}-${randomBytes(3).toString("hex")}`;
 }
 
 /** On the fake GitHub's sign-in page: carry on as a FAKE_USERS key or any other login. */
