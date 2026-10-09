@@ -3,11 +3,14 @@ import { RETENTION_DAYS } from "@trilleo/storage";
 import InfoLayout from "../../layouts/InfoLayout.astro";
 import { SESSION_TTL_MS } from "../../lib/auth/sessions";
 import { CONTACT_RETENTION_DAYS } from "../../lib/contact/store";
+import { CODE_LIMITS, CODE_RETENTION_DAYS } from "../../lib/mail/addresses";
+import { MAIL_LOG_DAYS, MAIL_RETENTION_DAYS } from "../../lib/mail/outbox";
 import { CONTACT_EMAIL, SITE_NAME } from "../../lib/site";
 
 const sessionDays = SESSION_TTL_MS / (24 * 60 * 60 * 1000);
 // deploy/server/trilleo-backup keeps this many days of nightly dumps (KEEP_DAYS).
 const BACKUP_DAYS = 14;
+const codeMinutes = CODE_LIMITS.ttlMs / 60_000;
 
 const sections = [
   { slug: "summary", text: "In short" },
@@ -15,6 +18,7 @@ const sections = [
   { slug: "what", text: "What is kept, and why" },
   { slug: "not-kept", text: "What isn’t collected" },
   { slug: "contact-messages", text: "Contact messages" },
+  { slug: "email", text: "Email" },
   { slug: "sharing", text: "Who else handles it" },
   { slug: "where", text: "Where it is stored" },
   { slug: "retention", text: "How long it is kept" },
@@ -35,6 +39,11 @@ const sections = [
     <li>
       If you sign in with GitHub, the site keeps your public GitHub name and
       username, what you choose to write or upload, and when you signed in.
+    </li>
+    <li>
+      Adding an email address is optional. It’s only used for the notifications
+      you choose and the codes you ask for, never for newsletters, and every
+      notification has an unsubscribe link.
     </li>
     <li>
       There are no ads and no tracking. Page views are counted by Cloudflare Web
@@ -136,6 +145,18 @@ const sections = [
         </td>
       </tr>
       <tr>
+        <td>
+          Your email address, which notifications you want, and a record of the
+          email sent to you (address, subject, kind, when, and whether it went;
+          the text itself for a limited time)
+        </td>
+        <td>You add an address on your account’s email page</td>
+        <td>
+          To send the notifications you chose and the codes you ask for (see
+          below)
+        </td>
+      </tr>
+      <tr>
         <td>Messages from the contact form</td>
         <td>You write one</td>
         <td>To read and answer it (see below)</td>
@@ -159,14 +180,19 @@ const sections = [
       countries, browsers), never individual visitors.
     </li>
     <li>
-      No email address from GitHub: sign-in asks for no permissions. GitHub’s
-      access token is used once, to read your public profile, and thrown away.
+      No email address from GitHub: sign-in asks for no permissions (an address
+      is only kept if you add one yourself). GitHub’s access token is used once,
+      to read your public profile, and thrown away.
     </li>
     <li>
       No IP address is stored. To count a download once per visitor per day, a
       hash of your address and browser is held in the server’s memory for that
       day only; the contact form keeps a similar hash in memory for a day to
       limit spam.
+    </li>
+    <li>
+      Emails carry no tracking pixels or tracked links: nobody learns whether
+      you opened one.
     </li>
     <li>
       Files are scanned for malware on the server, but nothing in them is used
@@ -182,7 +208,31 @@ const sections = [
     is also linked to your account and appears in your data export. Messages are
     read only by me, are never used for marketing, and are deleted{" "}
     {CONTACT_RETENTION_DAYS} days after they arrive at the latest, or sooner if
-    you ask.
+    you ask. If you left an address, I may answer by email; the answer is kept
+    like any other email (below).
+  </p>
+
+  <h2 id="email">Email</h2>
+  <p>
+    You can add an email address on your{" "}
+    <a href="/account/email/">account’s email page</a>. To prove it’s yours, the
+    site sends it a code that works once, for {codeMinutes} minutes; only a
+    fingerprint (SHA-256) of the code is stored, and it is deleted after{" "}
+    {CODE_RETENTION_DAYS} days. An address belongs to one account.
+  </p>
+  <p>
+    With an address, you get the notifications you leave switched on: replies to
+    your comments, your comments’ review, and decisions about your uploads and
+    Minecraft projects. Each email has a one-click unsubscribe link, and the
+    email page lets you switch each kind off or remove the address entirely.
+    Codes you ask for always arrive.
+  </p>
+  <p>
+    The site keeps a record of each email it sends: to whom, the subject, what
+    kind it was, when, and whether it was delivered. The text is deleted{" "}
+    {MAIL_RETENTION_DAYS} days after sending (a code’s text as soon as it has
+    gone), and the rest of the record after {MAIL_LOG_DAYS} days. It appears in
+    your data export.
   </p>
 
   <h2 id="sharing">Who else handles it</h2>
@@ -202,6 +252,11 @@ const sections = [
       Cloudflare’s own privacy policy.
     </li>
     <li>
+      <strong>Tencent Cloud</strong> sends the site’s email (its Simple Email
+      Service, in Hong Kong). It receives each message: the address it goes to
+      and what it says.
+    </li>
+    <li>
       <strong>GitHub</strong> handles sign-in. When you sign in, GitHub learns
       that you used this site.
     </li>
@@ -217,9 +272,9 @@ const sections = [
   <p>
     The server, database and files are in mainland China. If you use the site
     from elsewhere, what you send is transferred there; Cloudflare may process
-    requests in the data centre nearest to you. By signing in or sending a
-    message you agree to this transfer, and you can withdraw that by deleting
-    your account.
+    requests in the data centre nearest to you. Email goes out through Tencent
+    Cloud in Hong Kong. By signing in or sending a message you agree to this
+    transfer, and you can withdraw that by deleting your account.
   </p>
 
   <h2 id="retention">How long it is kept</h2>
@@ -240,6 +295,12 @@ const sections = [
       stop the same file being uploaded again.
     </li>
     <li>Contact messages: at most {CONTACT_RETENTION_DAYS} days.</li>
+    <li>
+      Your email address: until you remove it or delete your account. The text
+      of emails sent to you: {MAIL_RETENTION_DAYS} days (codes: until sent); the
+      record that an email was sent: {MAIL_LOG_DAYS} days. Codes:{" "}
+      {CODE_RETENTION_DAYS} days.
+    </li>
     <li>
       Backups of the database are kept for {BACKUP_DAYS} days, so deleted data
       disappears from them within that time.
@@ -262,13 +323,15 @@ const sections = [
     <li>
       <strong>Delete</strong> it: delete comments or files one by one, sign
       other browsers out, or delete your whole account from your account page.
-      That removes your profile, comments, tool data, saves, files and messages.
+      That removes your profile, comments, tool data, saves, files, messages,
+      your email address and the record of email sent to you. You can also
+      remove just the address on your <a href="/account/email/">email page</a>.
     </li>
     <li>
-      <strong>Withdraw consent, object, or restrict</strong> a use, and ask how
-      a decision about you was made. Nothing here is decided about you
-      automatically, except spam limits and malware checks, which a person can
-      review.
+      <strong>Withdraw consent, object, or restrict</strong> a use (for email:
+      unsubscribe, or switch notifications off), and ask how a decision about
+      you was made. Nothing here is decided about you automatically, except spam
+      limits and malware checks, which a person can review.
     </li>
     <li>
       <strong>Complain</strong> to a regulator: in China, the Cyberspace

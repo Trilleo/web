@@ -33,6 +33,9 @@ if (existsSync(".env")) process.loadEnvFile(".env");
 export default defineConfig({
   site: SITE_URL,
   security: {
+    // The same check runs in src/middleware.ts (src/lib/origin-check.ts), which lets
+    // one-click unsubscribes through; Astro's own can't make that exception.
+    checkOrigin: false,
     // Hosts the server believes in requests (Host, and X-Forwarded-* from Caddy), so
     // URLs, cookies and the same-origin check on form posts see the real address.
     // Anything else shows up as "localhost". Caddy only ever forwards www.trilleo.net.

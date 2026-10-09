@@ -20,6 +20,8 @@ import {
   type Result,
   type StorageDeps,
 } from "./service";
+import { alertAdmin } from "../mail/alerts";
+import { safely } from "../mail/notify";
 import { changeStatus, getFile } from "./store";
 
 export const HIDDEN_BY_REPORTS =
@@ -87,6 +89,17 @@ export async function reportFile(
     createdAt: now,
   });
   await hideIfReported(deps, row.id, now);
+  await safely("admin alert", () =>
+    alertAdmin(
+      db,
+      {
+        kind: "file-report",
+        summary: `“${row.name}” was reported (${input.reason})`,
+        path: "/admin/files/review?tab=reports",
+      },
+      now,
+    ),
+  );
   return { ok: true, value: "reported" };
 }
 

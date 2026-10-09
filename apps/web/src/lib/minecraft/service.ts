@@ -33,6 +33,8 @@ import {
 } from "../storage/service";
 import { PROJECT_REPORTS_TO_HIDE } from "./catalog";
 import { isVisible, projectOwner, setHidden, type Result } from "./store";
+import { alertAdmin } from "../mail/alerts";
+import { safely } from "../mail/notify";
 import { syncProject } from "./sync";
 
 const ok = <T>(value: T): Result<T> => ({ ok: true, value });
@@ -214,6 +216,17 @@ export async function reportProject(
     createdAt: now,
   });
 
+  await safely("admin alert", () =>
+    alertAdmin(
+      db,
+      {
+        kind: "project-report",
+        summary: `“${project.name}” was reported (${input.reason})`,
+        path: "/admin/minecraft/?tab=reports",
+      },
+      now,
+    ),
+  );
   // Enough established reporters hide it until the admin looks (never the admin's).
   if ((await deps.isAdminId?.(project.ownerId)) !== true) {
     const reporters = await db

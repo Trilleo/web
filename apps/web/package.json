@@ -25,6 +25,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@trilleo/db": "workspace:*",
     "@trilleo/game-skygrid": "workspace:*",
+    "@trilleo/mail": "workspace:*",
     "@trilleo/mc-files": "workspace:*",
     "@trilleo/storage": "workspace:*",
     "@trilleo/tool-color": "workspace:*",

@@ -1,0 +1,377 @@
+---
+/**
+ * The outbox, for the admin: how mail is set up, every message the site wrote
+ * (filter by status, kind, recipient; ?page=), a test send, and recent admin
+ * alerts. Captured messages (dev, e2e, mail off) are read here in full.
+ */
+import {
+  MAIL_KINDS,
+  MAIL_KIND_NAMES,
+  MAIL_STATUSES,
+  isMailKind,
+  type MailStatus,
+} from "@trilleo/mail";
+import { buttonClasses } from "@trilleo/ui";
+import AdminNav from "../../../components/admin/AdminNav.astro";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireAdmin } from "../../../lib/auth/guard";
+import { getDb } from "../../../lib/db";
+import {
+  ADMIN_ALERT_GAP_MS,
+  alertKindLabel,
+  recentAlerts,
+} from "../../../lib/mail/alerts";
+import { mailSetup } from "../../../lib/mail/config";
+import {
+  MAIL_LOG_DAYS,
+  MAIL_PAGE,
+  MAIL_RETENTION_DAYS,
+  listMail,
+  mailCounts,
+} from "../../../lib/mail/outbox";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const params = Astro.url.searchParams;
+const statusParam = params.get("status");
+const status = (MAIL_STATUSES as readonly string[]).includes(statusParam ?? "")
+  ? (statusParam as MailStatus)
+  : null;
+const kindParam = params.get("kind");
+const kind = isMailKind(kindParam) ? kindParam : null;
+const to = (params.get("to") ?? "").trim().slice(0, 254);
+const page = Math.max(
+  0,
+  Math.min(1000, Number.parseInt(params.get("page") ?? "0", 10) || 0),
+);
+const done = params.get("done");
+const problem = params.get("error");
+
+const db = await getDb();
+const { config } = mailSetup();
+const counts = await mailCounts(db);
+const rows = await listMail(db, { status, kind, to: to || null }, page);
+const more = rows.length > MAIL_PAGE;
+const messages = rows.slice(0, MAIL_PAGE);
+const alerts = await recentAlerts(db);
+
+const STATUS_LABELS: Record<MailStatus, string> = {
+  queued: "Queued",
+  sending: "Sending",
+  sent: "Sent",
+  failed: "Failed",
+  captured: "Captured",
+  cancelled: "Cancelled",
+};
+const DONE: Record<string, string> = {
+  test: "Test email queued. Its row is at the top of the list.",
+  verified: "The SMTP server accepted the connection and the login.",
+  retried: "Queued again.",
+  cancelled: "Cancelled.",
+};
+const when = (date: Date) =>
+  date.toISOString().slice(0, 16).replace("T", " ") + " UTC";
+const link = (changes: Record<string, string | null>) => {
+  const next = new URLSearchParams();
+  const merged = {
+    status,
+    kind,
+    to: to || null,
+    ...changes,
+  };
+  for (const [key, value] of Object.entries(merged))
+    if (value) next.set(key, value);
+  const query = next.toString();
+  return `/admin/mail/${query ? `?${query}` : ""}`;
+};
+const transport =
+  config.transport.kind === "smtp"
+    ? `SMTP: ${config.transport.smtp.user} at ${config.transport.smtp.host}:${String(config.transport.smtp.port)}`
+    : config.available
+      ? "Capture: messages are kept here, not sent"
+      : "Off: messages are kept here, not sent";
+const input =
+  "w-full border border-ink bg-paper px-3 py-2 text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+const testTo = config.adminTo[0] ?? admin.email ?? "";
+---
+
+<BaseLayout title="Mail · Admin" noindex>
+  <section
+    aria-labelledby="mail-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="mail" />
+
+    <DisplayTitle id="mail-title">Mail</DisplayTitle>
+
+    {(done && DONE[done]) || problem ? (
+      <p
+        role={problem ? "alert" : "status"}
+        class="type-lead mt-6 border-l-2 border-accent pl-4"
+      >
+        {problem ?? (done ? DONE[done] : "")}
+      </p>
+    ) : null}
+
+    <div class="grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">Setup</h2>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-7">
+        <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2">
+          <dt class="type-label text-muted">Sending</dt>
+          <dd data-transport>{transport}</dd>
+          <dt class="type-label text-muted">From</dt>
+          <dd>{config.from}</dd>
+          <dt class="type-label text-muted">Replies to</dt>
+          <dd>
+            {config.replyTo ??
+              "Not set (MAIL_REPLY_TO): contact replies say answers aren’t read"}
+          </dd>
+          <dt class="type-label text-muted">Alerts to</dt>
+          <dd>
+            {config.adminTo.length > 0
+              ? config.adminTo.join(", ")
+              : admin.email
+                ? `Your address, ${admin.email}`
+                : "Nobody yet: add your address in your account, or set MAIL_ADMIN_TO"}
+          </dd>
+        </dl>
+        {config.problem && (
+          <p class="border-l-2 border-accent pl-4">{config.problem}</p>
+        )}
+        <p class="text-muted">
+          Bodies are cleared {MAIL_RETENTION_DAYS} days after a message is
+          written (codes as soon as they’re sent); the rest of the row goes
+          after {MAIL_LOG_DAYS} days.
+        </p>
+        <div class="flex flex-wrap items-end gap-3">
+          <form
+            method="post"
+            action="/admin/mail/action"
+            class="flex flex-wrap items-end gap-3"
+          >
+            <input type="hidden" name="intent" value="test" />
+            <div class="flex flex-col gap-1">
+              <label for="test-to" class="type-label">
+                Send a test to
+              </label>
+              <input
+                id="test-to"
+                name="to"
+                type="email"
+                required
+                value={testTo}
+                class:list={[input, "md:w-72"]}
+              />
+            </div>
+            <button type="submit" class={buttonClasses()}>
+              Send test
+            </button>
+          </form>
+          {config.transport.kind === "smtp" && (
+            <form method="post" action="/admin/mail/action">
+              <input type="hidden" name="intent" value="verify" />
+              <button
+                type="submit"
+                class={buttonClasses({ variant: "secondary" })}
+              >
+                Check connection
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-swiss mt-12 gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">Outbox</h2>
+      <div class="col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-10">
+        <nav
+          aria-label="Status"
+          class="type-label flex flex-wrap gap-x-6 gap-y-2"
+        >
+          <a
+            href={link({ status: null, page: null })}
+            class="group inline-flex items-center gap-2"
+            aria-current={status === null ? "page" : undefined}
+          >
+            <span
+              class:list={[
+                "size-2",
+                status === null ? "bg-accent" : "bg-transparent",
+              ]}
+              aria-hidden="true"
+            />
+            <span class="link-wipe">All</span>
+          </a>
+          {MAIL_STATUSES.map((key) => (
+            <a
+              href={link({ status: key, page: null })}
+              class="group inline-flex items-center gap-2"
+              aria-current={key === status ? "page" : undefined}
+            >
+              <span
+                class:list={[
+                  "size-2",
+                  key === status ? "bg-accent" : "bg-transparent",
+                ]}
+                aria-hidden="true"
+              />
+              <span class="link-wipe">{STATUS_LABELS[key]}</span>
+              {key === "failed" && counts.failed > 0 ? (
+                <span class="bg-accent px-1.5 text-on-accent">
+                  {counts.failed}
+                </span>
+              ) : (
+                <span class="text-muted">{counts[key]}</span>
+              )}
+            </a>
+          ))}
+        </nav>
+
+        <form
+          method="get"
+          action="/admin/mail/"
+          class="flex flex-wrap items-end gap-3"
+        >
+          {status && <input type="hidden" name="status" value={status} />}
+          <div class="flex flex-col gap-1">
+            <label for="filter-kind" class="type-label">
+              Kind
+            </label>
+            <select
+              id="filter-kind"
+              name="kind"
+              class:list={[input, "md:w-56"]}
+            >
+              <option value="">Any</option>
+              {MAIL_KIND_NAMES.map((name) => (
+                <option value={name} selected={name === kind}>
+                  {MAIL_KINDS[name].label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label for="filter-to" class="type-label">
+              To
+            </label>
+            <input
+              id="filter-to"
+              name="to"
+              type="search"
+              value={to}
+              class:list={[input, "md:w-64"]}
+            />
+          </div>
+          <button type="submit" class={buttonClasses({ variant: "secondary" })}>
+            Filter
+          </button>
+        </form>
+      </div>
+    </div>
+
+    {messages.length === 0 ? (
+      <p class="mt-10 text-muted">
+        No messages{status || kind || to ? " match" : " yet"}.
+      </p>
+    ) : (
+      <ol class="mt-10 border-b border-ink" data-mail-list>
+        {messages.map((message) => (
+          <li class="grid-swiss gap-y-2 border-t border-ink py-4">
+            <p class="type-label col-span-4 flex flex-col gap-1 md:col-span-2 xl:col-span-2">
+              <time datetime={message.createdAt.toISOString()}>
+                {when(message.createdAt)}
+              </time>
+              <span class="text-muted">
+                {isMailKind(message.kind)
+                  ? MAIL_KINDS[message.kind].label
+                  : message.kind}
+              </span>
+            </p>
+            <div class="col-span-4 flex flex-col gap-1 md:col-span-4 xl:col-span-8">
+              <a
+                href={`/admin/mail/${String(message.id)}/`}
+                class="group w-fit font-semibold"
+              >
+                <span class="link-wipe">{message.subject}</span>
+              </a>
+              <p class="text-muted">To {message.toAddress}</p>
+              {message.lastError && message.status !== "sent" && (
+                <p class="text-sm">{message.lastError}</p>
+              )}
+            </div>
+            <p class="type-label col-span-4 md:col-span-2 md:text-right xl:col-span-2">
+              <span
+                class:list={[
+                  message.status === "failed" &&
+                    "bg-accent px-1.5 text-on-accent",
+                ]}
+              >
+                {STATUS_LABELS[message.status]}
+              </span>
+              {message.attempts > 1 && (
+                <span class="text-muted"> · {message.attempts} tries</span>
+              )}
+            </p>
+          </li>
+        ))}
+      </ol>
+    )}
+    {(page > 0 || more) && (
+      <nav aria-label="Pages" class="type-label mt-6 flex gap-6">
+        {page > 0 && (
+          <a
+            href={link({ page: page > 1 ? String(page - 1) : null })}
+            class="link-wipe"
+          >
+            Newer
+          </a>
+        )}
+        {more && (
+          <a href={link({ page: String(page + 1) })} class="link-wipe">
+            Older
+          </a>
+        )}
+      </nav>
+    )}
+
+    <div class="grid-swiss mt-12 gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
+        Recent alerts
+      </h2>
+      <div class="col-span-4 md:col-span-6 xl:col-span-10">
+        {alerts.length === 0 ? (
+          <p class="text-muted">Nothing to report.</p>
+        ) : (
+          <ul class="flex flex-col">
+            {alerts.map((alert) => (
+              <li class="flex flex-col gap-0.5 border-t border-hair py-3 first:border-t-0 first:pt-0 md:flex-row md:gap-6">
+                <span class="type-label shrink-0 text-muted md:w-44">
+                  {when(alert.createdAt)}
+                </span>
+                <a href={alert.path} class="group">
+                  <span class="link-wipe">{alert.summary}</span>
+                </a>
+                <span class="type-label text-muted md:ml-auto">
+                  {alertKindLabel(alert.kind)} ·{" "}
+                  {alert.mailedAt ? "mailed" : "waiting"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p class="mt-4 text-muted">
+          Alerts are bundled: at most one email every{" "}
+          {String(ADMIN_ALERT_GAP_MS / 60_000)} minutes.
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

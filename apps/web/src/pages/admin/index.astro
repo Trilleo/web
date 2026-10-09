@@ -15,6 +15,8 @@ import { moderationOverview } from "../../lib/comments/store";
 import { getDb } from "../../lib/db";
 import { indexNowKey } from "../../lib/indexnow";
 import { infoPaths } from "../../lib/info-pages";
+import { mailSetup } from "../../lib/mail/config";
+import { mailCounts } from "../../lib/mail/outbox";
 import { postHref } from "../../lib/posts";
 import { auditPosts, knownPages, tagPaths } from "../../lib/seo-audit";
 import { toolPath, TOOLS } from "../../lib/tools/registry";
@@ -62,6 +64,16 @@ const known = knownPages(
   ],
 );
 const seoIssues = auditPosts(publicPosts, known);
+const mail = mailSetup().config;
+const mailed = await mailCounts(db);
+const mailState =
+  mail.transport.kind === "smtp"
+    ? `Sending through ${mail.transport.smtp.host}.`
+    : mail.available
+      ? "Capturing: messages are kept on /admin/mail/, not sent."
+      : "Off: nothing is sent.";
+const alertsTo =
+  mail.adminTo.length > 0 ? mail.adminTo.join(", ") : (admin.email ?? null);
 
 const dateTime = new Intl.DateTimeFormat("en-GB", {
   dateStyle: "long",
@@ -75,6 +87,7 @@ const facts: Fact[] = [
   { term: "GitHub", value: `@${admin.githubLogin}` },
   { term: "Name", value: admin.name ?? "—" },
   { term: "GitHub ID", value: String(admin.githubId) },
+  { term: "Email", value: admin.email ?? "—" },
   { term: "First signed in", date: admin.createdAt },
   ...(expiresAt ? [{ term: "Signed in until", date: expiresAt }] : []),
 ];
@@ -99,6 +112,39 @@ const facts: Fact[] = [
         checked={publicPosts.length}
         indexNow={indexNowKey() !== undefined}
       />
+    </div>
+
+    <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">Mail</h2>
+      <div class="col-span-4 flex flex-col gap-3 md:col-span-6 xl:col-span-7">
+        <p>
+          {mailState}{" "}
+          {mailed.failed > 0 && <strong>{mailed.failed} failed.</strong>}{" "}
+          {mailed.queued > 0 && <span>{mailed.queued} waiting.</span>}
+        </p>
+        {mail.problem && (
+          <p class="border-l-2 border-accent pl-4">{mail.problem}</p>
+        )}
+        <p class="text-muted">
+          {alertsTo
+            ? `Alerts go to ${alertsTo}.`
+            : "Alerts go nowhere yet: add your address in your account."}
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <a
+            href="/admin/mail/"
+            class={buttonClasses({ variant: "secondary" })}
+          >
+            Outbox
+          </a>
+          <a
+            href="/account/email/"
+            class={buttonClasses({ variant: "secondary" })}
+          >
+            Your email
+          </a>
+        </div>
+      </div>
     </div>
 
     <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">

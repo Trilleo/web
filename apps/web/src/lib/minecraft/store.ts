@@ -49,6 +49,7 @@ import {
   RELEASE_EXTENSIONS,
   typeInfo,
 } from "./catalog";
+import { notifyProjectVisibility, safely } from "../mail/notify";
 import type { ProjectInput, ReleaseInput } from "./input";
 import { MC_RENDER_VERSION, renderMarkdown } from "./render";
 import { galleryUrls, syncRelease } from "./sync";
@@ -285,14 +286,25 @@ export async function setHidden(
   reason: string | null,
   now = new Date(),
 ): Promise<void> {
-  await db
+  const [before] = await db
+    .select({ hiddenReason: mcProjects.hiddenReason })
+    .from(mcProjects)
+    .where(eq(mcProjects.id, projectId))
+    .limit(1);
+  const [project] = await db
     .update(mcProjects)
     .set(
       reason === null
         ? { hiddenAt: null, hiddenReason: null }
         : { hiddenAt: now, hiddenReason: reason },
     )
-    .where(eq(mcProjects.id, projectId));
+    .where(eq(mcProjects.id, projectId))
+    .returning();
+  // The creator hears when it goes out of sight (or why changes) and when it’s back.
+  if (project && before && before.hiddenReason !== reason)
+    await safely("project", () =>
+      notifyProjectVisibility(db, project, reason, now),
+    );
 }
 
 /** Admin: feature a project on the landing page, or stop. */

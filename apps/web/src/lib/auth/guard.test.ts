@@ -28,6 +28,10 @@ function user(githubId: number): User {
     uploadTrustedAt: null,
     uploadBannedAt: null,
     uploadBanReason: null,
+    email: null,
+    emailVerifiedAt: null,
+    emailNotifications: {},
+    emailToken: null,
   };
 }
 

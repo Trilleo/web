@@ -25,6 +25,7 @@ export const PRIVATE_PATHS = [
   "/comments",
   "/contact/send",
   "/d/",
+  "/mail/",
   "/minecraft/report",
   "/sign-in",
   "/writing/preview/",

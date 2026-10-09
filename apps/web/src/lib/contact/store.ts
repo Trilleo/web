@@ -16,6 +16,8 @@ import {
   type User,
 } from "@trilleo/db";
 import { and, count, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
+import { alertAdmin } from "../mail/alerts";
+import { safely } from "../mail/notify";
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -223,6 +225,18 @@ export async function sendContactMessage(
     .insert(contactMessages)
     .values({ ...check.draft, userId: from.user?.id ?? null, createdAt: now })
     .returning();
+  if (message)
+    await safely("admin alert", () =>
+      alertAdmin(
+        db,
+        {
+          kind: "contact",
+          summary: `Message from ${message.name}: ${CONTACT_TOPIC_LABELS[message.topic as ContactTopic]}`,
+          path: `/admin/messages/#message-${String(message.id)}`,
+        },
+        now,
+      ),
+    );
   await purgeOldMessages(db, now);
   return { ok: true, message: message ?? null };
 }

@@ -12,6 +12,8 @@ import {
   type Result,
   type StorageDeps,
 } from "./service";
+import { alertAdmin } from "../mail/alerts";
+import { notifyAppealDecision, safely } from "../mail/notify";
 import { clearFileStrikes } from "./standing";
 import { getFile, logEvent, unblockFile } from "./store";
 
@@ -71,6 +73,17 @@ export async function appealFile(
     reason: message,
     createdAt: now,
   });
+  await safely("admin alert", () =>
+    alertAdmin(
+      db,
+      {
+        kind: "appeal",
+        summary: `@${requester.user.githubLogin} appealed “${row.name}”`,
+        path: "/admin/files/review?tab=appeals",
+      },
+      now,
+    ),
+  );
   return { ok: true, value: true };
 }
 
@@ -96,7 +109,17 @@ export async function decideAppeal(
 
   const now = deps.now?.() ?? new Date();
   if (input.accept) {
-    const restored = await actOnFile(deps, admin, appeal.fileId, "restore");
+    // The appeal’s own email says it’s restored: no second one about the file.
+    const restored = await actOnFile(
+      deps,
+      admin,
+      appeal.fileId,
+      "restore",
+      null,
+      {
+        notify: false,
+      },
+    );
     if (!restored.ok) return restored;
     await clearFileStrikes(db, {
       userId: appeal.userId,
@@ -123,6 +146,18 @@ export async function decideAppeal(
     reason: response || null,
     createdAt: now,
   });
+  await safely("appeal", async () =>
+    notifyAppealDecision(
+      db,
+      {
+        userId: appeal.userId,
+        file: await getFile(db, appeal.fileId),
+        accepted: input.accept,
+        response,
+      },
+      now,
+    ),
+  );
   return { ok: true, value: true };
 }
 

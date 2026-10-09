@@ -8,7 +8,7 @@
 - Keep changes scoped to one task. Summarize what changed and why at the end.
 - Keep the documentation current: after every change, check what it affects and
   update it in the same change. That means this file, README.md, deploy/README.md,
-  deploy/storage.md, apps/web/.env.example, and the information pages (legal, FAQ,
+  deploy/storage.md, deploy/mail.md, apps/web/.env.example, and the information pages (legal, FAQ,
   accessibility, security, colophon, about), which state facts about the code. A
   change to a legal page's substance also gets an entry in its `changes`.
 
@@ -42,6 +42,10 @@
 - packages/storage (@trilleo/storage): file storage. `.` the shared rules (names,
   types, limits, the moderation state machine, API shapes), `./server` the drivers
   (OBS, local), `./client` `uploadFile()`, `./react` `<FileUpload>`. Source-only.
+- packages/mail (@trilleo/mail): email. `.` the shared rules (addresses, kinds of
+  message, notification topics) and the HTML/text template (`renderEmail`), `./server`
+  the drivers (SMTP via Nodemailer, capture), `./testing` a recording driver.
+  Source-only.
 - packages/mc-files (@trilleo/mc-files): reading Minecraft files in the browser: NBT
   (Java and Bedrock), version ranges/pack formats/data versions, and `readHints`
   (what a mod, plugin, pack, world or schematic says about itself); builds' blocks
@@ -190,8 +194,10 @@
   requests. Guarded pages start with
   `const user = requireUser(Astro); if (user instanceof Response) return user;`
   (or `requireAdmin`) and send `Cache-Control: private, no-store`. Anything that
-  changes state is a POST form (Astro's origin check blocks cross-site posts),
-  never a GET.
+  changes state is a POST form (the same-origin check blocks cross-site posts),
+  never a GET. That check is Astro's, done in src/middleware.ts
+  (src/lib/origin-check.ts, `checkOrigin: false` in astro.config) so that one-click
+  unsubscribes (/mail/unsubscribe/) can get through; keep CROSS_SITE_POST_PATHS short.
 - astro.config's `security.allowedDomains` must list every host the server is
   reached as; otherwise Astro sees `localhost`, and redirect URIs, cookies and the
   origin check all break (the smoke test checks this behind Caddy).
@@ -446,6 +452,48 @@
   charts on their dashboard and each project's releases page.
 - Mojang's usage guidelines: pages about the platform carry MOJANG_NOTICE ("Not an
   official Minecraft product…"); never use Mojang's textures or logo.
+
+## Mail
+
+- Runbook: deploy/mail.md. Production sends through Tencent Cloud SES (Hong Kong) over
+  SMTP (smtp.qcloudmail.com:465), from no-reply@automail.trilleo.net. Settings:
+  SMTP_HOST/PORT/USER/PASSWORD, MAIL_FROM, MAIL_REPLY_TO, MAIL_ADMIN_TO
+  (apps/web/src/lib/mail/config.ts). Without SMTP, `pnpm dev` and e2e
+  (MAIL_CAPTURE=1) capture: messages are kept, not sent, and read at /admin/mail/;
+  production without SMTP is "off" (kept, and /account/email/ says it isn't set up).
+- Everything goes through the outbox (mail_messages, src/lib/mail/outbox.ts):
+  `queueMail` writes the row, delivery sends in the background (src/lib/mail/
+  delivery.ts: started when something is queued, plus a middleware tick at most every
+  minute), retries with RETRY_DELAYS_MS, and fails at once on a permanent (5xx)
+  refusal. Secret kinds (codes) have their bodies cleared once sent; bodies go after
+  MAIL_RETENTION_DAYS, rows after MAIL_LOG_DAYS. Never send mail any other way.
+- Addresses (src/lib/mail/addresses.ts): users.email is only ever an address proved
+  with a 6-digit code (email_codes keeps its SHA-256; 15 minutes, 5 guesses, newest code
+  only, per-account and per-address limits; purged after CODE_RETENTION_DAYS). The
+  "verify-email" purpose is meant to sit next to a sign-in-by-email purpose later.
+  Changing the address replaces users.email_token, the secret in unsubscribe links.
+- Notifications (src/lib/mail/notify.ts) respect the topic switches
+  (users.email_notifications, NOTIFICATION_TOPICS in @trilleo/mail), skip blocked
+  accounts, people's own actions and the admin's own content, and carry
+  List-Unsubscribe + List-Unsubscribe-Post. They're called through `safely()` where
+  things happen: comments (createComment, moderateComment), storage's changeStatus
+  (file decisions; `notify: false` when the caller sends its own, like appeals),
+  decideAppeal, and Minecraft's setHidden. notify.ts reads tables directly, so those
+  services can import it without cycles.
+- Admin alerts (src/lib/mail/alerts.ts): `alertAdmin` adds an admin_alerts row
+  (contact messages, files waiting, file and project reports, appeals, comments
+  waiting); delivery bundles them into one email per ADMIN_ALERT_GAP_MS, to
+  MAIL_ADMIN_TO or the admins' own verified addresses with "Admin alerts" on.
+- Pages: /account/email/ (address, code, switches; one page, POST with `intent`),
+  /mail/unsubscribe/<token>/ (GET asks, POST does it; no sign-in), /admin/mail/ (setup,
+  outbox with filters, test send, connection check, recent alerts) and
+  /admin/mail/<id>/ (the HTML in a sandboxed iframe), and replies to contact messages
+  from /admin/messages/ (src/lib/contact/reply.ts, ref "contact:<id>").
+- Templates are written in code with `composeNotification` / `composeDirect`
+  (src/lib/mail/compose.ts) on top of `renderEmail`: blocks, no images or tracking,
+  hex colours from the light theme (email clients can't use CSS variables).
+- E2E reads codes and messages from /admin/mail/ as the admin; the shared admin never
+  adds an address. axe can't run inside the sandboxed preview frame: exclude it.
 
 ## Storage
 

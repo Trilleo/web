@@ -1,0 +1,179 @@
+---
+/**
+ * One message from the outbox: who, what, how its sending went, its headers, and
+ * both parts while they're kept. The HTML part shows in a sandboxed frame (no
+ * scripts, no same-origin access): it's our own template, but a reply quotes
+ * whatever people typed.
+ */
+import { MAIL_KINDS, isMailKind } from "@trilleo/mail";
+import { buttonClasses } from "@trilleo/ui";
+import AdminNav from "../../../components/admin/AdminNav.astro";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireAdmin } from "../../../lib/auth/guard";
+import { parseId } from "../../../lib/comments/form";
+import { getDb } from "../../../lib/db";
+import { mailSetup } from "../../../lib/mail/config";
+import { getMail } from "../../../lib/mail/outbox";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const id = parseId(Astro.params.id ?? "");
+const message = id === null ? undefined : await getMail(await getDb(), id);
+if (!message) return Astro.rewrite("/404");
+
+const { config } = mailSetup();
+const done = Astro.url.searchParams.get("done");
+const problem = Astro.url.searchParams.get("error");
+const DONE: Record<string, string> = {
+  retried: "Queued again.",
+  cancelled: "Cancelled.",
+};
+const when = (date: Date | null) =>
+  date ? date.toISOString().slice(0, 19).replace("T", " ") + " UTC" : "—";
+const kindLabel = isMailKind(message.kind)
+  ? MAIL_KINDS[message.kind].label
+  : message.kind;
+const secret = isMailKind(message.kind) && MAIL_KINDS[message.kind].secret;
+const canRetry =
+  (message.status === "failed" || message.status === "cancelled") &&
+  message.bodyPurgedAt === null;
+const back = `/admin/mail/${String(message.id)}/`;
+const facts: [string, string][] = [
+  ["Kind", kindLabel],
+  ["Status", message.status],
+  ["From", config.from],
+  ["To", message.toAddress],
+  ["Reply-To", message.replyTo ?? "—"],
+  ["Written", when(message.createdAt)],
+  ["Sent", when(message.sentAt)],
+  ["Tries", String(message.attempts)],
+  ...(message.status === "queued"
+    ? ([["Next try", when(message.nextAttemptAt)]] as [string, string][])
+    : []),
+  ["Provider id", message.providerMessageId ?? "—"],
+  ...(message.ref ? ([["About", message.ref]] as [string, string][]) : []),
+];
+---
+
+<BaseLayout title={`${message.subject} · Mail · Admin`} noindex>
+  <section
+    aria-labelledby="message-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="mail" />
+
+    <p class="type-label mt-6">
+      <a href="/admin/mail/" class="link-wipe">
+        Mail
+      </a>{" "}
+      / #{message.id}
+    </p>
+
+    <DisplayTitle id="message-title">Message</DisplayTitle>
+
+    <p class="type-lead mt-6 max-w-3xl break-words" data-mail-subject>
+      {message.subject}
+    </p>
+
+    {(done && DONE[done]) || problem ? (
+      <p
+        role={problem ? "alert" : "status"}
+        class="type-lead mt-6 border-l-2 border-accent pl-4"
+      >
+        {problem ?? (done ? DONE[done] : "")}
+      </p>
+    ) : null}
+
+    <div class="grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">Details</h2>
+      <div class="col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7">
+        <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2">
+          {facts.map(([label, value]) => (
+            <>
+              <dt class="type-label text-muted">{label}</dt>
+              <dd class="break-words">{value}</dd>
+            </>
+          ))}
+        </dl>
+        {message.lastError && (
+          <p class="border-l-2 border-accent pl-4">{message.lastError}</p>
+        )}
+        <div class="flex flex-wrap gap-3">
+          {canRetry && (
+            <form method="post" action="/admin/mail/action">
+              <input type="hidden" name="intent" value="retry" />
+              <input type="hidden" name="id" value={String(message.id)} />
+              <input type="hidden" name="back" value={back} />
+              <button type="submit" class={buttonClasses()}>
+                Send again
+              </button>
+            </form>
+          )}
+          {message.status === "queued" && (
+            <form method="post" action="/admin/mail/action">
+              <input type="hidden" name="intent" value="cancel" />
+              <input type="hidden" name="id" value={String(message.id)} />
+              <input type="hidden" name="back" value={back} />
+              <button
+                type="submit"
+                class={buttonClasses({ variant: "secondary" })}
+              >
+                Cancel
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+
+    {Object.keys(message.headers).length > 0 && (
+      <div class="grid-swiss mt-12 gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+        <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
+          Headers
+        </h2>
+        <pre class="col-span-4 overflow-x-auto font-mono text-sm md:col-span-6 xl:col-span-10">{Object.entries(message.headers).map(([key, value]) => `${key}: ${value}`).join("\n")}</pre>
+      </div>
+    )}
+
+    <div class="grid-swiss mt-12 gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">Message</h2>
+      <div class="col-span-4 flex flex-col gap-8 md:col-span-6 xl:col-span-10">
+        {message.textBody === null ? (
+          <p class="text-muted">
+            {secret
+              ? "Cleared once it was sent: it held a code."
+              : "Cleared: bodies are kept for a limited time."}
+          </p>
+        ) : (
+          <>
+            <div class="flex flex-col gap-2">
+              <h3 class="type-label text-muted">Plain text</h3>
+              <pre
+                class="overflow-x-auto border border-hair p-4 font-mono text-sm whitespace-pre-wrap"
+                data-mail-text
+              >{message.textBody}</pre>
+            </div>
+            {message.htmlBody && (
+              <div class="flex flex-col gap-2">
+                <h3 class="type-label text-muted">HTML</h3>
+                <iframe
+                  title="The HTML version of this email"
+                  sandbox=""
+                  srcdoc={message.htmlBody}
+                  class="h-[36rem] w-full border border-hair bg-paper"
+                ></iframe>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

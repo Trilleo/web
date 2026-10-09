@@ -31,6 +31,8 @@ import {
   sum,
   type SQL,
 } from "drizzle-orm";
+import { alertAdmin } from "../mail/alerts";
+import { notifyFileChange, safely } from "../mail/notify";
 import { isMinecraftPurpose, syncFile } from "../minecraft/sync";
 
 export async function getFile(
@@ -81,6 +83,8 @@ export async function changeStatus(
     /** Other columns to set at the same time. */
     set?: Partial<typeof files.$inferInsert>;
     now?: Date;
+    /** False: don’t email the uploader (the caller sends its own message). */
+    notify?: boolean;
   },
 ): Promise<StoredFile | undefined> {
   const now = input.now ?? new Date();
@@ -119,6 +123,33 @@ export async function changeStatus(
       console.error("Couldn’t update the Minecraft project for a file:", error);
     }
   }
+  if (input.notify !== false)
+    await safely("file", () =>
+      notifyFileChange(
+        db,
+        row,
+        {
+          action: input.action,
+          from: input.from,
+          to: input.to,
+          reason: input.reason ?? null,
+          actorId: input.actorId,
+        },
+        now,
+      ),
+    );
+  if (input.action === "processed" && input.to === "pending_review")
+    await safely("admin alert", () =>
+      alertAdmin(
+        db,
+        {
+          kind: "file-review",
+          summary: `“${row.name}” is waiting for review`,
+          path: "/admin/files/review?tab=waiting",
+        },
+        now,
+      ),
+    );
   return row;
 }
 

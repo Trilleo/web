@@ -1,6 +1,8 @@
 import type { APIRoute } from "astro";
 import { requireUser } from "../../lib/auth/guard";
 import { getDb } from "../../lib/db";
+import { notificationsOf } from "../../lib/mail/addresses";
+import { mailOf } from "../../lib/mail/outbox";
 import { minecraftExport } from "../../lib/minecraft/service";
 import { exportUserData } from "../../lib/profile/store";
 import { storageExport } from "../../lib/storage/account";
@@ -19,6 +21,13 @@ export const GET: APIRoute = async (context) => {
     ...profile,
     storage: await storageExport(db, user.id),
     minecraft: await minecraftExport({ db }, user.id),
+    // The address, its switches, and what was sent (bodies while they’re kept).
+    email: {
+      address: user.email,
+      verifiedAt: user.emailVerifiedAt,
+      notifications: notificationsOf(user),
+      sent: await mailOf(db, user.id),
+    },
   };
   const day = new Date().toISOString().slice(0, 10);
   return new Response(JSON.stringify(data, null, 2), {

@@ -47,6 +47,7 @@ packages/db         @trilleo/db: Drizzle schema, migrations, and database client
 packages/tool-kit   @trilleo/tool-kit: what tools share (storage, data hook, file helpers)
 packages/storage    @trilleo/storage: file storage (OBS and local drivers, upload client,
                     moderation rules, ClamAV client)
+packages/mail       @trilleo/mail: email (template, address rules, SMTP and capture drivers)
 packages/mc-files   @trilleo/mc-files: reads Minecraft files in the browser (NBT, mod and
                     pack metadata, builds' blocks, 3D preview format and mesher)
 deploy/             Caddy config, server compose file, deploy and backup scripts, runbooks
@@ -63,6 +64,11 @@ File storage needs no setup either: `pnpm dev` keeps uploads in `apps/web/.data/
 tests run a fake ClamAV. Uploading happens at `/admin/files` (admin), on the Minecraft
 creator pages (`/account/minecraft/`, anyone signed in), and for other features through
 `@trilleo/storage`'s `uploadFile()` or `<FileUpload>`.
+
+Email needs no setup for development either: `pnpm dev` keeps every message in the
+outbox instead of sending it, and the admin reads them at `/admin/mail/` (the e2e tests
+read codes there too). People add an address at `/account/email/` to get notifications;
+production sends through Tencent Cloud SES over SMTP.
 
 The Minecraft platform lives under `/minecraft/` (public pages, a read-only JSON API at
 `/api/minecraft/v1/`) and `/account/minecraft/` (creators); the admin moderates it at
@@ -85,7 +91,8 @@ Lint, format, and TypeScript base configs live at the repo root (`eslint.config.
 Pushing to `main` deploys to <https://www.trilleo.net> once CI passes. Setup, rollback,
 and troubleshooting: [deploy/README.md](deploy/README.md). File storage (the OBS bucket,
 `files.trilleo.net`, its certificate, ClamAV and moderation):
-[deploy/storage.md](deploy/storage.md).
+[deploy/storage.md](deploy/storage.md). Email (Tencent Cloud SES, the sender domain,
+SMTP settings): [deploy/mail.md](deploy/mail.md).
 
 Conventions and architecture notes for contributors (and AI assistants) are in
 [CLAUDE.md](CLAUDE.md). Keep these documents current: update them in the same change as

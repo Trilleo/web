@@ -1,0 +1,116 @@
+---
+/**
+ * Unsubscribe links from notification emails: /mail/unsubscribe/<token>/?topic=.
+ * GET asks (link scanners open links; they mustn't unsubscribe anyone); POST does
+ * it: the button here, or a mail provider's one-click request (RFC 8058, body
+ * "List-Unsubscribe=One-Click", sent from its own servers, so the origin check lets
+ * this path through). The token alone is the authority: no sign-in needed.
+ */
+import {
+  NOTIFICATION_LABELS,
+  isNotificationTopic,
+  maskEmail,
+} from "@trilleo/mail";
+import { buttonClasses } from "@trilleo/ui";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { getDb } from "../../../lib/db";
+import { unsubscribe, userForToken } from "../../../lib/mail/addresses";
+
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+Astro.response.headers.set("Referrer-Policy", "no-referrer");
+
+const token = Astro.params.token ?? "";
+const topicParam = Astro.url.searchParams.get("topic") ?? "all";
+const topic = isNotificationTopic(topicParam) ? topicParam : "all";
+const what =
+  topic === "all"
+    ? "all notifications"
+    : `“${NOTIFICATION_LABELS[topic].label.toLowerCase()}”`;
+
+const db = await getDb();
+let done = false;
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData().catch(() => new FormData());
+  const formTopic = form.get("topic");
+  const result = await unsubscribe(
+    db,
+    token,
+    typeof formTopic === "string" ? formTopic : topic,
+  );
+  if (!result.ok) {
+    return new Response("That unsubscribe link doesn’t work any more.", {
+      status: 404,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+  done = true;
+}
+const user = done ? undefined : await userForToken(db, token);
+if (!done && !user) Astro.response.status = 404;
+---
+
+<BaseLayout title="Unsubscribe" noindex>
+  <section
+    aria-labelledby="unsubscribe-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">(Email) Unsubscribe</p>
+
+    <DisplayTitle id="unsubscribe-title">
+      {done ? "Unsubscribed" : "Unsubscribe"}
+    </DisplayTitle>
+
+    <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <div class="col-span-4 flex flex-col gap-5 md:col-span-6 md:col-start-3 xl:col-span-7 xl:col-start-3">
+        {done ? (
+          <>
+            <p role="status" class="type-lead border-l-2 border-accent pl-4">
+              Done: no more emails for {what}.
+            </p>
+            <p>
+              Change your mind, or turn others off, in your{" "}
+              <a href="/account/email/" class="link-wipe">
+                email settings
+              </a>
+              .
+            </p>
+          </>
+        ) : user?.email ? (
+          <form method="post" class="flex flex-col gap-5">
+            <input type="hidden" name="topic" value={topic} />
+            <p class="type-lead">
+              Stop emails for {what} to {maskEmail(user.email)}?
+            </p>
+            <div class="flex flex-wrap gap-3">
+              <button type="submit" class={buttonClasses()}>
+                Unsubscribe
+              </button>
+              <a
+                href="/account/email/"
+                class={buttonClasses({ variant: "secondary" })}
+              >
+                Email settings
+              </a>
+            </div>
+          </form>
+        ) : (
+          <p class="type-lead">
+            This link doesn’t work any more: the address was changed or removed.
+            Manage email in your{" "}
+            <a href="/account/email/" class="link-wipe">
+              account
+            </a>
+            .
+          </p>
+        )}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

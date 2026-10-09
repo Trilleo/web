@@ -116,6 +116,22 @@ const STATUS = {
     </div>
 
     <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">Email</h2>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-7">
+        <p>
+          {user.email
+            ? `Notifications go to ${user.email}: replies to your comments and decisions on your uploads.`
+            : "Add an email address to hear about replies to your comments and decisions on your uploads."}
+        </p>
+        <div>
+          <a href="/account/email/" class={buttonClasses()}>
+            {user.email ? "Email settings" : "Add an address"}
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
       <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
         Minecraft
       </h2>
@@ -165,8 +181,8 @@ const STATUS = {
           >
             <span class="link-wipe type-nav w-fit">Download your data</span>
             <span class="text-muted">
-              Your account, profile, sessions, comments, tool data, files and
-              Minecraft projects, as JSON.
+              Your account, profile, sessions, comments, tool data, files,
+              Minecraft projects and the email we sent you, as JSON.
             </span>
           </a>
         </li>

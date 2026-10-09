@@ -57,6 +57,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "What Trilleo Network keeps about you, why, for how long, and how to see or delete it.",
     group: "legal",
     changes: [
+      {
+        date: "2026-10-09",
+        note: "Added email: the address you can add, notifications, how long email is kept, and Tencent Cloud as the sender.",
+      },
       { date: "2026-10-07", note: "Added what’s kept for Minecraft projects." },
       ...FIRST,
     ],
@@ -114,6 +118,7 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "Short answers about accounts, your data, the tools, the games and comments.",
     group: "help",
     changes: [
+      { date: "2026-10-09", note: "Added a question about email." },
       {
         date: "2026-10-07",
         note: "Added questions about sharing Minecraft creations.",
@@ -145,6 +150,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "help",
     changes: [
       {
+        date: "2026-10-09",
+        note: "Added email addresses, codes and unsubscribe links to what’s in scope.",
+      },
+      {
         date: "2026-10-07",
         note: "Added the Minecraft platform to what’s in scope.",
       },
@@ -159,6 +168,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "How Trilleo Network is built and hosted, its typefaces, and the open-source work it stands on.",
     group: "site",
     changes: [
+      {
+        date: "2026-10-09",
+        note: "Mentioned how email is sent, and credited Nodemailer.",
+      },
       {
         date: "2026-10-07",
         note: "Mentioned how Minecraft files are read and drawn.",

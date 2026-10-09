@@ -80,6 +80,19 @@ export const users = pgTable("users", {
   uploadBannedAt: timestamp("upload_banned_at", { withTimezone: true }),
   /** "strikes" for an automatic ban, else the admin's reason. */
   uploadBanReason: text("upload_ban_reason"),
+  /**
+   * Where notifications go: always an address they proved with a code
+   * (/account/email/). Lower-cased; one account per address.
+   */
+  email: text("email").unique(),
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+  /** Which notifications they want, by topic (@trilleo/mail); missing: on. */
+  emailNotifications: jsonb("email_notifications")
+    .$type<Record<string, boolean>>()
+    .notNull()
+    .default({}),
+  /** The secret in their unsubscribe links. Replaced when the address changes. */
+  emailToken: text("email_token").unique(),
 });
 
 /** A signed-in browser. `id` is the SHA-256 of the cookie's token, never the token. */
@@ -606,10 +619,108 @@ export const contactMessages = pgTable(
       .notNull()
       .default("new"),
     createdAt: createdAt(),
+    /** When the admin last answered it by email (/admin/messages/). */
+    repliedAt: timestamp("replied_at", { withTimezone: true }),
   },
   (table) => [
     index("contact_messages_status_idx").on(table.status, table.createdAt),
     index("contact_messages_user_idx").on(table.userId, table.createdAt),
+  ],
+);
+
+/**
+ * A one-time code sent to an address, to prove it's theirs. Only its SHA-256 is
+ * kept; it expires, allows a few guesses, and works once. `purpose` leaves room for
+ * signing in by email later (then `userId` may be empty).
+ */
+export const emailCodes = pgTable(
+  "email_codes",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    purpose: text("purpose", { enum: ["verify-email"] }).notNull(),
+    codeHash: text("code_hash").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    createdAt: createdAt(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("email_codes_user_idx").on(table.userId, table.createdAt),
+    index("email_codes_email_idx").on(table.email, table.createdAt),
+  ],
+);
+
+/** See MAIL_STATUSES in @trilleo/mail. */
+export const mailStatus = pgEnum("mail_status", [
+  "queued",
+  "sending",
+  "sent",
+  "failed",
+  "captured",
+  "cancelled",
+]);
+
+/**
+ * The outbox: every email the site sends, written here first and sent in the
+ * background (retried with backoff). Also the log the admin reads at /admin/mail/.
+ * Bodies are cleared after MAIL_RETENTION_DAYS (and right after sending, for codes);
+ * the row itself goes after MAIL_LOG_DAYS. `ref` ties a message to what it's about
+ * (e.g. "contact:12").
+ */
+export const mailMessages = pgTable(
+  "mail_messages",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    toAddress: text("to_address").notNull(),
+    replyTo: text("reply_to"),
+    subject: text("subject").notNull(),
+    textBody: text("text_body"),
+    htmlBody: text("html_body"),
+    headers: jsonb("headers")
+      .$type<Record<string, string>>()
+      .notNull()
+      .default({}),
+    ref: text("ref"),
+    status: mailStatus("status").notNull().default("queued"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastError: text("last_error"),
+    providerMessageId: text("provider_message_id"),
+    createdAt: createdAt(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    bodyPurgedAt: timestamp("body_purged_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("mail_messages_due_idx").on(table.status, table.nextAttemptAt),
+    index("mail_messages_user_idx").on(table.userId, table.createdAt),
+    index("mail_messages_created_idx").on(table.createdAt),
+    index("mail_messages_ref_idx").on(table.ref),
+  ],
+);
+
+/**
+ * Something the admin should hear about (a message, a file waiting, a report).
+ * Collected here and mailed in batches, at most one email per ADMIN_ALERT_GAP.
+ */
+export const adminAlerts = pgTable(
+  "admin_alerts",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    kind: text("kind").notNull(),
+    summary: text("summary").notNull(),
+    /** Where to deal with it, site-relative. */
+    path: text("path").notNull(),
+    createdAt: createdAt(),
+    mailedAt: timestamp("mailed_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("admin_alerts_mailed_idx").on(table.mailedAt, table.createdAt),
   ],
 );
 
@@ -912,3 +1023,7 @@ export type McDependency = typeof mcDependencies.$inferSelect;
 export type McDependencyKind = (typeof mcDependencyKind.enumValues)[number];
 export type McProjectReport = typeof mcProjectReports.$inferSelect;
 export type McPreview = typeof mcPreviews.$inferSelect;
+export type EmailCode = typeof emailCodes.$inferSelect;
+export type MailMessage = typeof mailMessages.$inferSelect;
+export type MailMessageStatus = (typeof mailStatus.enumValues)[number];
+export type AdminAlert = typeof adminAlerts.$inferSelect;

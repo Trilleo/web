@@ -358,6 +358,12 @@ one by pasting a post's URL into a chat app, or at <https://www.opengraph.xyz>.
 Uploads live in a Huawei OBS bucket served from `files.trilleo.net`. Setup (bucket,
 IAM users, DNS, certificate workflow, `app.env`): [storage.md](storage.md).
 
+### 11. Email (any time after the first deploy)
+
+Codes, notifications, contact replies and admin alerts go out through Tencent Cloud SES
+(Hong Kong) over SMTP. Setup (sender address, SMTP password, DNS records, `app.env`,
+a test send): [mail.md](mail.md).
+
 ## Day to day
 
 - **Deploy:** push to `main`. CI runs, then Deploy. Nothing else to do.

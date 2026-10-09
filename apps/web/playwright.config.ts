@@ -26,6 +26,8 @@ const e2eEnv = {
   STORAGE_ENABLE_PURPOSES: "shared",
   // Malware scanning goes to e2e/fake-clamd.ts.
   CLAMAV_ADDRESS: `127.0.0.1:${String(FAKE_CLAMD_PORT)}`,
+  // Mail is kept in the outbox, never sent: specs read it at /admin/mail/.
+  MAIL_CAPTURE: "1",
   // Minecraft versions: the list kept in the code, never Mojang's manifest.
   MINECRAFT_VERSION_MANIFEST: "off",
   MIGRATIONS_DIR: fileURLToPath(

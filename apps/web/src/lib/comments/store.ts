@@ -19,6 +19,8 @@ import {
   isNull,
   sql,
 } from "drizzle-orm";
+import { alertAdmin } from "../mail/alerts";
+import { notifyCommentReview, notifyReply, safely } from "../mail/notify";
 import { commentName, displayName } from "../profile/profile";
 
 export const COMMENT_MAX_LENGTH = 4000;
@@ -252,6 +254,21 @@ export async function createComment(
     })
     .returning();
   if (!comment) throw new Error("Saving the comment returned nothing");
+  if (comment.status === "published") {
+    await safely("reply", () => notifyReply(db, comment, now));
+  } else {
+    await safely("admin alert", () =>
+      alertAdmin(
+        db,
+        {
+          kind: "comment",
+          summary: `A comment from @${input.author.githubLogin} is waiting for approval`,
+          path: "/admin#moderation",
+        },
+        now,
+      ),
+    );
+  }
   return { ok: true, comment };
 }
 
@@ -347,7 +364,7 @@ export async function moderateComment(
       .update(comments)
       .set({ status: to })
       .where(and(live, inArray(comments.status, from)))
-      .returning({ authorId: comments.authorId });
+      .returning();
 
   switch (action) {
     case "approve": {
@@ -358,11 +375,21 @@ export async function moderateComment(
           .set({ trustedAt: now })
           .where(and(eq(users.id, approved.authorId), isNull(users.trustedAt)));
       }
+      if (approved) {
+        await safely("comment review", () =>
+          notifyCommentReview(db, approved, "approved", now),
+        );
+        await safely("reply", () => notifyReply(db, approved, now));
+      }
       return approved !== undefined;
     }
     case "hide": {
       const hidden = await setStatus(["pending", "published"], "hidden");
       if (hidden.length > 0) await unpinComment(db, id);
+      for (const comment of hidden)
+        await safely("comment review", () =>
+          notifyCommentReview(db, comment, "hidden", now),
+        );
       return hidden.length > 0;
     }
     case "unhide":
@@ -371,6 +398,9 @@ export async function moderateComment(
       const [comment] = await db.select().from(comments).where(live).limit(1);
       if (!comment) return false;
       await removeComment(db, comment, now);
+      await safely("comment review", () =>
+        notifyCommentReview(db, comment, "removed", now),
+      );
       return true;
     }
   }

@@ -106,6 +106,13 @@
       "when": 1791343276202,
       "tag": "0014_minecraft-previews",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1791509359891,
+      "tag": "0015_mail",
+      "breakpoints": true
     }
   ]
 }

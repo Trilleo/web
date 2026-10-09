@@ -60,6 +60,12 @@ const credits = [
     href: "https://github.com/markdown-it/markdown-it",
   },
   {
+    name: "Nodemailer",
+    use: "sending email",
+    license: "MIT-0",
+    href: "https://nodemailer.com",
+  },
+  {
     name: "Shiki",
     use: "code highlighting",
     license: "MIT",
@@ -179,8 +185,9 @@ const credits = [
   <h2 id="hosting">Hosting</h2>
   <p>
     One small Huawei Cloud server in mainland China runs everything in Docker:
-    Caddy, the Astro server, Postgres and ClamAV. Cloudflare sits in front.
-    Every change is tested, built into images by GitHub Actions, and deployed
+    Caddy, the Astro server, Postgres and ClamAV. Cloudflare sits in front, and
+    email goes out through Tencent Cloud’s mail service in Hong Kong. Every
+    change is tested, built into images by GitHub Actions, and deployed
     automatically; the database is backed up every night.
   </p>
 

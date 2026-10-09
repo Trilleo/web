@@ -18,7 +18,10 @@ import {
   type ContactTopic,
   type InboxView,
 } from "../../../lib/contact/store";
+import { REPLY_MAX_LENGTH, contactRef } from "../../../lib/contact/reply";
 import { getDb } from "../../../lib/db";
+import { mailSetup } from "../../../lib/mail/config";
+import { mailAbout } from "../../../lib/mail/outbox";
 
 export const prerender = false;
 
@@ -33,12 +36,24 @@ const view: InboxView = INBOX_VIEWS.includes(param as InboxView)
   ? (param as InboxView)
   : "new";
 const done = Astro.url.searchParams.get("done");
+const problem = Astro.url.searchParams.get("error");
 
 const db = await getDb();
 await purgeOldMessages(db);
 const counts = await inboxCounts(db);
 const messages = await listMessages(db, view);
 const back = `/admin/messages/?view=${view}`;
+const { config } = mailSetup();
+// What was already sent back to each message, oldest first.
+const replies = new Map<string, Awaited<ReturnType<typeof mailAbout>>>();
+for (const reply of await mailAbout(
+  db,
+  messages.map((message) => contactRef(message.id)),
+)) {
+  const list = replies.get(reply.ref ?? "") ?? [];
+  list.push(reply);
+  replies.set(reply.ref ?? "", list);
+}
 
 const VIEW_LABELS: Record<InboxView, string> = {
   new: "New",
@@ -50,6 +65,7 @@ const DONE_LABELS: Record<string, string> = {
   new: "Marked as new.",
   archived: "Archived.",
   deleted: "Deleted.",
+  replied: "Reply queued. It shows under the message.",
 };
 const topicLabel = (topic: string) =>
   (CONTACT_TOPICS as readonly string[]).includes(topic)
@@ -124,6 +140,11 @@ const actions: Record<InboxView, readonly { status: string; label: string }[]> =
             {DONE_LABELS[done]}
           </p>
         )}
+        {problem && (
+          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+            {problem}
+          </p>
+        )}
       </div>
     </div>
 
@@ -179,6 +200,60 @@ const actions: Record<InboxView, readonly { status: string; label: string }[]> =
                 )}
               </p>
               <p class="whitespace-pre-wrap">{message.body}</p>
+              {(replies.get(contactRef(message.id)) ?? []).map((reply) => (
+                <div class="border-l-2 border-hair pl-4" data-contact-reply>
+                  <p class="type-label text-muted">
+                    You replied{" "}
+                    <time datetime={reply.createdAt.toISOString()}>
+                      {when(reply.createdAt)}
+                    </time>{" "}
+                    ·{" "}
+                    <a
+                      href={`/admin/mail/${String(reply.id)}/`}
+                      class="link-wipe"
+                    >
+                      {reply.status}
+                    </a>
+                  </p>
+                </div>
+              ))}
+              {message.email && config.available && (
+                <details>
+                  <summary class="type-label link-wipe w-fit cursor-pointer">
+                    Reply by email
+                  </summary>
+                  <form
+                    method="post"
+                    action="/admin/messages/reply"
+                    class="mt-3 flex flex-col gap-3"
+                  >
+                    <input type="hidden" name="id" value={String(message.id)} />
+                    <input type="hidden" name="back" value={back} />
+                    <label
+                      for={`reply-${String(message.id)}`}
+                      class="type-label text-muted"
+                    >
+                      To {message.email}
+                      {config.replyTo
+                        ? ` · answers go to ${config.replyTo}`
+                        : ""}
+                    </label>
+                    <textarea
+                      id={`reply-${String(message.id)}`}
+                      name="body"
+                      rows="6"
+                      required
+                      maxlength={REPLY_MAX_LENGTH}
+                      class="w-full border border-ink bg-paper px-3 py-2.5 text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    ></textarea>
+                    <div>
+                      <button type="submit" class={smallButton}>
+                        Send reply
+                      </button>
+                    </div>
+                  </form>
+                </details>
+              )}
             </div>
             <div class="col-span-4 flex flex-wrap content-start gap-2 md:col-span-6 md:col-start-3 xl:col-span-3 xl:col-start-10 xl:justify-end">
               {actions[view].map((action) => (

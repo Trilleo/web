@@ -819,6 +819,8 @@ export interface ActOptions {
   strike?: boolean;
   /** approve: also trust the uploader from now on. */
   trust?: boolean;
+  /** False: don’t email the uploader about it (the caller sends its own). */
+  notify?: boolean;
 }
 
 export async function actOnFile(
@@ -873,6 +875,7 @@ export async function actOnFile(
           ? { publishedAt: row.publishedAt ?? now }
           : {},
     now,
+    notify: options.notify,
   });
   if (!moved) {
     // Someone else got there first: put access back as it was.

@@ -63,13 +63,16 @@ describe("openDatabase", () => {
           where table_schema = 'public' order by table_name`,
     );
     expect(tables.map((row) => row.table_name)).toEqual([
+      "admin_alerts",
       "blocked_hashes",
       "comments",
       "contact_messages",
+      "email_codes",
       "file_appeals",
       "file_downloads",
       "file_reports",
       "files",
+      "mail_messages",
       "mc_dependencies",
       "mc_gallery",
       "mc_previews",

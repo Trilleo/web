@@ -1,0 +1,317 @@
+---
+/**
+ * Your email address and notifications. GET shows where you are (no address, a
+ * code on its way, or a proved address with its switches); POST does one thing
+ * (`intent`) and comes back here with ?done=, or shows the form again with the
+ * problem. Works without JavaScript.
+ */
+import {
+  NOTIFICATION_LABELS,
+  NOTIFICATION_TOPICS,
+  maskEmail,
+  type NotificationTopic,
+} from "@trilleo/mail";
+import { buttonClasses } from "@trilleo/ui";
+import DisplayTitle from "../../components/DisplayTitle.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { isAdmin, requireUser } from "../../lib/auth/guard";
+import { noStoreRedirect } from "../../lib/auth/redirect";
+import { field } from "../../lib/comments/form";
+import { getDb } from "../../lib/db";
+import {
+  CODE_DIGITS,
+  CODE_LIMITS,
+  CODE_REQUEST_ERRORS,
+  VERIFY_ERRORS,
+  notificationsOf,
+  pendingCode,
+  readNotificationForm,
+  removeEmail,
+  requestEmailCode,
+  saveNotifications,
+  verifyEmailCode,
+} from "../../lib/mail/addresses";
+import { mailSetup } from "../../lib/mail/config";
+import { sendNow } from "../../lib/mail/delivery";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const { config } = mailSetup();
+const admin = isAdmin(user);
+const topics: readonly NotificationTopic[] = NOTIFICATION_TOPICS.filter(
+  (topic) => topic !== "admin" || admin,
+);
+const back = "/account/email/";
+
+let error: string | null = null;
+let typedAddress = "";
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const intent = field(form, "intent");
+  if (intent === "send" || intent === "resend") {
+    const pending = await pendingCode(db, user.id);
+    typedAddress =
+      intent === "resend" ? (pending?.email ?? "") : field(form, "email");
+    const result = await requestEmailCode(db, user, typedAddress, {
+      available: config.available,
+    });
+    if (result.ok) {
+      const sent = await sendNow(result.messageId);
+      const went = sent?.status === "sent" || sent?.status === "captured";
+      return noStoreRedirect(`${back}?done=${went ? "sent" : "delayed"}`, 303);
+    }
+    error = CODE_REQUEST_ERRORS[result.error];
+  } else if (intent === "verify") {
+    const result = await verifyEmailCode(db, user, field(form, "code"));
+    if (result.ok) return noStoreRedirect(`${back}?done=verified`, 303);
+    error = VERIFY_ERRORS[result.error];
+  } else if (intent === "remove") {
+    await removeEmail(db, user);
+    return noStoreRedirect(`${back}?done=removed`, 303);
+  } else if (intent === "notifications") {
+    await saveNotifications(
+      db,
+      user.id,
+      readNotificationForm(form, notificationsOf(user), topics),
+    );
+    return noStoreRedirect(`${back}?done=saved#notifications`, 303);
+  } else {
+    return noStoreRedirect(back, 303);
+  }
+  Astro.response.status = 422;
+}
+
+const pending = await pendingCode(db, user.id);
+const settings = notificationsOf(user);
+const done =
+  Astro.request.method === "GET" ? Astro.url.searchParams.get("done") : null;
+const DONE: Record<string, string> = {
+  sent: "Code sent. Check your inbox (and the spam folder).",
+  delayed:
+    "The code couldn’t be sent just now; the site keeps trying for a while. If nothing arrives in a few minutes, ask for a new one.",
+  verified: "Address confirmed. Notifications go there from now on.",
+  removed: "Address removed. The site won’t email you any more.",
+  saved: "Saved.",
+};
+const minutes = String(CODE_LIMITS.ttlMs / 60_000);
+
+const input =
+  "w-full border border-ink bg-paper px-3 py-2.5 text-base text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-invalid:border-accent";
+const row = "grid-swiss gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6";
+const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
+---
+
+<BaseLayout title="Email" noindex>
+  <section
+    aria-labelledby="email-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">
+      (Account){" "}
+      <a href="/account/" class="link-wipe">
+        @{user.githubLogin}
+      </a>
+    </p>
+
+    <DisplayTitle id="email-title">Email</DisplayTitle>
+
+    {(error || (done && DONE[done])) && (
+      <p
+        role={error ? "alert" : "status"}
+        class="type-lead mt-6 border-l-2 border-accent pl-4"
+      >
+        {error ?? (done ? DONE[done] : "")}
+      </p>
+    )}
+
+    <div class="mt-7 flex flex-col gap-12 md:mt-8 xl:mt-12">
+      <div class={row}>
+        <h2 class={heading}>Address</h2>
+        <div class={body}>
+          {user.email ? (
+            <p class="text-lg">
+              Notifications go to <strong data-email>{user.email}</strong>.
+            </p>
+          ) : (
+            <p class="text-lg">
+              Add an address to hear about replies to your comments and
+              decisions on your uploads. It’s only used for that: never shown,
+              shared or used for newsletters.
+            </p>
+          )}
+          {!config.available && (
+            <p class="border-l-2 border-accent pl-4 text-muted">
+              Email isn’t set up on this site yet, so no codes can be sent.
+            </p>
+          )}
+
+          {pending && (
+            <form
+              method="post"
+              action={back}
+              class="flex flex-col gap-4 border border-ink p-4 md:p-5"
+              novalidate
+            >
+              <div class="flex flex-col gap-2">
+                <label for="code" class="font-medium">
+                  Code sent to {maskEmail(pending.email)}
+                </label>
+                <p id="code-hint" class="text-muted">
+                  {CODE_DIGITS} digits, valid for {minutes} minutes from when it
+                  was sent.
+                </p>
+                <input
+                  id="code"
+                  name="code"
+                  type="text"
+                  inputmode="numeric"
+                  autocomplete="one-time-code"
+                  maxlength={CODE_DIGITS + 4}
+                  required
+                  aria-describedby="code-hint"
+                  class:list={[input, "font-mono tracking-[0.3em] md:max-w-60"]}
+                />
+              </div>
+              <div class="flex flex-wrap gap-3">
+                <button
+                  type="submit"
+                  name="intent"
+                  value="verify"
+                  class={buttonClasses()}
+                >
+                  Confirm
+                </button>
+                <button
+                  type="submit"
+                  formnovalidate
+                  name="intent"
+                  value="resend"
+                  class={buttonClasses({ variant: "secondary" })}
+                >
+                  Send a new code
+                </button>
+              </div>
+            </form>
+          )}
+
+          {config.available && (
+            <form
+              method="post"
+              action={back}
+              class="flex flex-col gap-4"
+              novalidate
+            >
+              <input type="hidden" name="intent" value="send" />
+              <div class="flex flex-col gap-2">
+                <label for="email" class="font-medium">
+                  {user.email
+                    ? "Change to"
+                    : pending
+                      ? "Or use another address"
+                      : "Email address"}
+                </label>
+                <p id="email-hint" class="text-muted">
+                  We’ll send a code to it.{" "}
+                  {user.email
+                    ? "Your current address stays until you confirm the new one."
+                    : ""}
+                </p>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autocomplete="email"
+                  maxlength={254}
+                  required
+                  value={typedAddress}
+                  aria-describedby="email-hint"
+                  class:list={[input, "md:max-w-md"]}
+                />
+              </div>
+              <div>
+                <button
+                  type="submit"
+                  class={buttonClasses({
+                    variant: pending ? "secondary" : "primary",
+                  })}
+                >
+                  Send code
+                </button>
+              </div>
+            </form>
+          )}
+
+          {user.email && (
+            <form method="post" action={back}>
+              <input type="hidden" name="intent" value="remove" />
+              <button
+                type="submit"
+                class="type-label link-wipe w-fit text-muted hover:text-ink"
+              >
+                Remove my address
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+
+      <form
+        method="post"
+        action={back}
+        id="notifications"
+        class:list={[row, "scroll-mt-6"]}
+        aria-labelledby="notifications-heading"
+      >
+        <h2 id="notifications-heading" class={heading}>
+          Notifications
+        </h2>
+        <div class={body}>
+          <input type="hidden" name="intent" value="notifications" />
+          {!user.email && (
+            <p class="text-muted">These apply once you’ve added an address.</p>
+          )}
+          <ul class="flex flex-col gap-4">
+            {topics.map((topic) => (
+              <li class="flex items-start gap-3">
+                <input
+                  id={`notify-${topic}`}
+                  type="checkbox"
+                  name={`notify-${topic}`}
+                  checked={settings[topic]}
+                  aria-describedby={`notify-${topic}-hint`}
+                  class="mt-1 size-4 shrink-0 accent-accent"
+                />
+                <div>
+                  <label for={`notify-${topic}`} class="font-medium">
+                    {NOTIFICATION_LABELS[topic].label}
+                  </label>
+                  <p id={`notify-${topic}-hint`} class="text-muted">
+                    {NOTIFICATION_LABELS[topic].hint}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p class="text-muted">
+            Codes you ask for always arrive. Every notification has an
+            unsubscribe link, too.
+          </p>
+          <div>
+            <button type="submit" class={buttonClasses()}>
+              Save notifications
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </section>
+</BaseLayout>
