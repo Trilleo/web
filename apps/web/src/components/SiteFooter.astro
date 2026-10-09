@@ -106,6 +106,10 @@ const psbCode = PSB_FILING?.match(/\d+/)?.[0];
           <span class="link-wipe">{item.label}</span>
         </a>
       ))}
+      {/* Opens the cookie manager (CookieConsent.astro); without JS, the policy. */}
+      <a href="/legal/cookies/#control" class={smallLink} data-cookie-settings>
+        <span class="link-wipe">Cookie settings</span>
+      </a>
     </nav>
     {(ICP_FILING || PSB_FILING) && (
       <p

@@ -67,6 +67,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       },
       {
         date: "2026-10-09",
+        note: "Web Analytics now only runs if you allow it in the cookie settings.",
+      },
+      {
+        date: "2026-10-09",
         note: "Accounts are now their email address: signing in by code, usernames chosen on the site, GitHub as a linked account (and reading its verified address).",
       },
       {
@@ -88,6 +92,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       {
         date: "2026-10-09",
         note: "Added the cookie used while adding or using a passkey.",
+      },
+      {
+        date: "2026-10-09",
+        note: "Added cookie settings: preferences (on unless you turn them off) and analytics (only if you allow it).",
       },
       {
         date: "2026-10-09",

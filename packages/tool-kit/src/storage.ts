@@ -45,22 +45,42 @@ function attempt<R>(work: () => R): Promise<R> {
   });
 }
 
-function localStorageOrNull(): Storage | null {
+/**
+ * Where signed-out tool data lives: localStorage, or this tab's sessionStorage when
+ * the visitor turned "preferences" off in the cookie settings. Mirrors
+ * preferenceStorage() in @trilleo/ui's consent.ts (tool-kit doesn't depend on ui):
+ * keep the key and the rule the same.
+ */
+export const CONSENT_STORAGE_KEY = "trilleo:consent";
+
+export function preferenceStore(): Storage | null {
   try {
     // Throws in some privacy modes; missing outside browsers.
-    return typeof localStorage === "undefined" ? null : localStorage;
+    if (typeof localStorage === "undefined") return null;
+    let off = false;
+    try {
+      const raw = localStorage.getItem(CONSENT_STORAGE_KEY);
+      const consent: unknown = raw ? JSON.parse(raw) : null;
+      off =
+        typeof consent === "object" &&
+        consent !== null &&
+        (consent as { preferences?: unknown }).preferences === false;
+    } catch {
+      // A broken record is no choice: preferences stay on, as in consent.ts.
+    }
+    return off ? sessionStorage : localStorage;
   } catch {
     return null;
   }
 }
 
 /**
- * Keeps a tool's things in this browser (localStorage, one entry per tool). Used when
- * nobody is signed in. Unreadable or corrupt data counts as empty.
+ * Keeps a tool's things in this browser (one entry per tool, where preferenceStore
+ * says). Used when nobody is signed in. Unreadable or corrupt data counts as empty.
  */
 export function browserStorage<T>(
   slug: string,
-  getStore: () => Storage | null = localStorageOrNull,
+  getStore: () => Storage | null = preferenceStore,
 ): ToolStorage<T> {
   const name = `trilleo:tool:${slug}`;
 

@@ -1,4 +1,5 @@
 ---
+import { CONSENT_STORAGE_KEY } from "@trilleo/ui/consent";
 import { THEME_STORAGE_KEY } from "@trilleo/ui/theme";
 import InfoLayout from "../../layouts/InfoLayout.astro";
 import {
@@ -21,12 +22,29 @@ const sections = [
 <InfoLayout path="/legal/cookies/" sections={sections} history>
   <h2 id="short">In short</h2>
   <p>
-    The site sets cookies only to sign you in: one while you’re signed in, and a
-    short-lived one while you’re signing in. It keeps a few things in your
-    browser’s own storage so the site works the way you left it. None of it
-    tracks you, none of it is shared, and there are no advertising or analytics
-    cookies (page views are counted without any). That’s why there is no cookie
-    banner: everything here is strictly necessary for something you asked for.
+    The site sets cookies only to sign you in: one while you’re signed in, and
+    short-lived ones while you’re signing in. Those are necessary and always on.
+    Two things are your choice, from the card you see on your first visit or
+    “Cookie settings” at the bottom of every page:
+  </p>
+
+  <ul>
+    <li>
+      <strong>Preferences</strong> (on unless you turn them off): remembering
+      light or dark mode, and keeping tool data and game saves in this browser
+      while you’re signed out. Off, they last until you close the tab, and
+      turning them off deletes what this browser kept.
+    </li>
+    <li>
+      <strong>Analytics</strong> (off unless you allow it): Cloudflare Web
+      Analytics counts page views. It sets no cookies and doesn’t identify you;
+      it only loads if you say yes, and never when your browser sends Global
+      Privacy Control.
+    </li>
+  </ul>
+  <p>
+    None of it tracks you across sites, none of it is shared, and there are no
+    advertising cookies.
   </p>
 
   <h2 id="cookies">Cookies</h2>
@@ -93,8 +111,9 @@ const sections = [
 
   <h2 id="storage">Browser storage</h2>
   <p>
-    These stay in your browser (localStorage) and are never sent to the server
-    by themselves:
+    These stay in your browser and are never sent to the server by themselves.
+    With preferences off, the ones that remember things go in the tab’s own
+    storage (sessionStorage) and vanish when you close it.
   </p>
   <table>
     <thead>
@@ -104,6 +123,15 @@ const sections = [
       </tr>
     </thead>
     <tbody>
+      <tr>
+        <td>
+          <code>{CONSENT_STORAGE_KEY}</code>
+        </td>
+        <td>
+          Your cookie choices and when you made them (necessary: it’s how the
+          site remembers them).
+        </td>
+      </tr>
       <tr>
         <td>
           <code>{THEME_STORAGE_KEY}</code>
@@ -134,9 +162,13 @@ const sections = [
 
   <h2 id="control">Your choices</h2>
   <p>
-    You can clear cookies and site data in your browser’s settings at any time.
-    You’ll be signed out, and anything kept only in your browser (tool data and
-    game saves from while you were signed out) will be lost, so move it to an
-    account or export it first.
+    <a href="/legal/cookies/#control" data-cookie-settings>
+      Open cookie settings
+    </a>{" "}
+    to change what you allowed (it needs JavaScript; without it, nothing
+    optional runs). You can also clear cookies and site data in your browser’s
+    settings at any time. You’ll be signed out, and anything kept only in your
+    browser (tool data and game saves from while you were signed out) will be
+    lost, so move it to an account or export it first.
   </p>
 </InfoLayout>

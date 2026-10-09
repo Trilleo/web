@@ -1,4 +1,5 @@
 import { Button } from "@trilleo/ui";
+import { preferenceStorage } from "@trilleo/ui/consent";
 import { MotionConfig } from "motion/react";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { GameState } from "./core";
@@ -25,12 +26,9 @@ export interface SkygridAppProps {
 
 export const IMPORT_URL = "/api/games/skygrid/import";
 
+/** localStorage, or this tab's sessionStorage with "preferences" off (consent.ts). */
 function safeStorage(): Storage | null {
-  try {
-    return localStorage;
-  } catch {
-    return null;
-  }
+  return typeof window === "undefined" ? null : preferenceStorage(window);
 }
 
 function noSubscription(): () => void {

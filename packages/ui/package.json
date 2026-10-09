@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./theme": "./src/theme.ts",
+    "./consent": "./src/consent.ts",
     "./motion": "./src/motion.ts",
     "./reveal": "./src/reveal.ts",
     "./page-transition": "./src/page-transition.ts",

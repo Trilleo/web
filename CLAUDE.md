@@ -372,6 +372,18 @@
   length, cookie keys) rather than copying them, and update the text when behaviour
   changes. Operator: Trilleo, an individual in mainland China (PRC law, PIPL, GDPR
   rights offered to all); accounts are 14+.
+- Cookie manager (components/CookieConsent.astro, in BaseLayout; rules in
+  @trilleo/ui's consent.ts): a corner card until a visitor chooses, and a settings
+  dialog from it or any `[data-cookie-settings]` link (the footer's "Cookie
+  settings"). Necessary (sign-in, the choice itself) is always on; "preferences"
+  (theme, signed-out tool data and game saves) is on by default, and off keeps them
+  in sessionStorage (`preferenceStorage`; tool-kit mirrors the rule in
+  `preferenceStore`) after deleting what was kept; "analytics" is off until allowed
+  and never with Global Privacy Control. Cloudflare Web Analytics loads only through
+  it: CF_ANALYTICS_TOKEN (src/lib/site.ts, or PUBLIC_CF_ANALYTICS_TOKEN at build;
+  e2e uses a fake one and stubs the beacon), with Cloudflare's automatic injection
+  off. Anything new kept in the browser belongs to a category: add its key to
+  consent.ts and the cookie policy.
 - Mainland filing numbers (`ICP_FILING`, `PSB_FILING` in src/lib/site.ts) show in the
   footer, set in `font-cjk` (Latin in the grotesk, Han characters in the system's
   Chinese sans; no CJK webfont).

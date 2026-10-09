@@ -3,6 +3,7 @@ import "../styles/global.css";
 import { morphGuardScript } from "@trilleo/ui/page-transition";
 import { motionInitScript } from "@trilleo/ui/reveal";
 import { THEME_COLORS, themeInitScript } from "@trilleo/ui/theme";
+import CookieConsent from "../components/CookieConsent.astro";
 import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import {
@@ -155,6 +156,7 @@ const verification = Astro.isPrerendered
       <slot />
     </main>
     <SiteFooter />
+    <CookieConsent />
     <script>
       import { bindReveal } from "@trilleo/ui/reveal";
 

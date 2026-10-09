@@ -7,6 +7,7 @@
  */
 
 import { prefersReducedMotion } from "./motion";
+import { preferenceStorage } from "./consent";
 import { scriptLiteral } from "./script";
 
 export type Theme = "light" | "dark";
@@ -46,20 +47,31 @@ export function nextThemeChoice(
   return { theme, stored: theme === system ? null : theme };
 }
 
-/** Reads the stored override. Storage can throw (private mode, blocked cookies). */
+/**
+ * Reads the stored override: localStorage, or this tab's sessionStorage when the
+ * visitor turned "preferences" off (consent.ts). Storage can throw (private mode,
+ * blocked cookies).
+ */
 export function readStoredTheme(win: Window): Theme | null {
-  try {
-    const value = win.localStorage.getItem(THEME_STORAGE_KEY);
-    return isTheme(value) ? value : null;
-  } catch {
-    return null;
+  for (const read of [
+    () => win.localStorage.getItem(THEME_STORAGE_KEY),
+    () => win.sessionStorage.getItem(THEME_STORAGE_KEY),
+  ]) {
+    try {
+      const value = read();
+      if (isTheme(value)) return value;
+    } catch {
+      // That storage is unavailable; try the other.
+    }
   }
+  return null;
 }
 
 export function writeStoredTheme(win: Window, value: Theme | null): void {
+  const store = preferenceStorage(win);
   try {
-    if (value === null) win.localStorage.removeItem(THEME_STORAGE_KEY);
-    else win.localStorage.setItem(THEME_STORAGE_KEY, value);
+    if (value === null) store?.removeItem(THEME_STORAGE_KEY);
+    else store?.setItem(THEME_STORAGE_KEY, value);
   } catch {
     // Storage unavailable: the choice lasts for this page view only.
   }
@@ -79,9 +91,9 @@ export function applyTheme(doc: Document, theme: Theme): void {
  * never see a light flash. Mirrors resolveTheme() + applyTheme(); theme.test.ts keeps
  * them in step. It must stay dependency-free: it runs before any bundle loads.
  */
-export const themeInitScript = `(function(){var s=null;try{s=localStorage.getItem(${scriptLiteral(
+export const themeInitScript = `(function(){var s=null,k=${scriptLiteral(
   THEME_STORAGE_KEY,
-)})}catch(e){}var t=s==="light"||s==="dark"?s:matchMedia(${scriptLiteral(
+)};try{s=localStorage.getItem(k)}catch(e){}if(s!=="light"&&s!=="dark")try{s=sessionStorage.getItem(k)}catch(e){}var t=s==="light"||s==="dark"?s:matchMedia(${scriptLiteral(
   DARK_QUERY,
 )}).matches?"dark":"light";var d=document;d.documentElement.dataset.theme=t;var c=t==="dark"?${scriptLiteral(
   THEME_COLORS.dark,

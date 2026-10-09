@@ -3,6 +3,7 @@
  * now. Actions go through the engine; nothing changes the state any other way.
  * Components read it with useSyncExternalStore (see useSession).
  */
+import { preferenceStorage } from "@trilleo/ui/consent";
 import {
   GameRuleError,
   ISLAND_MAPS,
@@ -80,12 +81,9 @@ export interface SessionOptions {
   onAction?: (action: Action) => void;
 }
 
+/** localStorage, or this tab's sessionStorage with "preferences" off (consent.ts). */
 function defaultStorage(): Storage | null {
-  try {
-    return typeof localStorage === "undefined" ? null : localStorage;
-  } catch {
-    return null;
-  }
+  return typeof window === "undefined" ? null : preferenceStorage(window);
 }
 
 /** Loads this browser's save, or null (missing, broken, or storage blocked). */

@@ -74,6 +74,8 @@ jobs:
         timeout-minutes: 5
         env:
           ASTRO_OUT_DIR: ./dist-e2e
+          # As in playwright.config.ts: a fake token, so consent-gated analytics loads.
+          PUBLIC_CF_ANALYTICS_TOKEN: e2e-analytics-token
       - name: E2E tests
         run: pnpm --filter @trilleo/web exec playwright test
         timeout-minutes: 12

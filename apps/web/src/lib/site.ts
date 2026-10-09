@@ -5,6 +5,19 @@ export const SITE_DESCRIPTION = "Writing, tools, and experiments on the web.";
 export const SITE_BIO =
   "Trilleo's corner of the web: Minecraft creations, code, and learning resources, plus small tools you can use in the browser. Sign in with your email or GitHub to join the conversation in the comments.";
 export const GITHUB_URL = "https://github.com/Trilleo";
+/**
+ * Cloudflare Web Analytics' site token (public: it's in every page that loads the
+ * beacon). Empty: no analytics, whatever visitors allow. The beacon is loaded by
+ * components/CookieConsent.astro only with consent, so Cloudflare's own automatic
+ * injection must stay off for this site. PUBLIC_CF_ANALYTICS_TOKEN at build time
+ * replaces it (e2e uses a fake one).
+ */
+const ANALYTICS_TOKEN = "3c0551cf35e8446da85d5cc2132e8778";
+const buildToken: unknown = import.meta.env.PUBLIC_CF_ANALYTICS_TOKEN;
+export const CF_ANALYTICS_TOKEN: string =
+  typeof buildToken === "string" && buildToken !== ""
+    ? buildToken
+    : ANALYTICS_TOKEN;
 /** Where people send takedown requests and other legal or safety reports. */
 export const CONTACT_EMAIL = "contact@trilleo.net";
 

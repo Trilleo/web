@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   ToolStorageError,
   accountStorage,
+  CONSENT_STORAGE_KEY,
   browserStorage,
   moveItems,
+  preferenceStore,
   type ToolStorage,
 } from "./storage";
 
@@ -226,3 +228,18 @@ function memoryStoreWith(count: number): Storage {
   store.setItem("trilleo:tool:notes", JSON.stringify(entries));
   return store;
 }
+
+describe("preferenceStore", () => {
+  it("is localStorage, or this tab's sessionStorage with preferences off", () => {
+    localStorage.removeItem(CONSENT_STORAGE_KEY);
+    expect(preferenceStore()).toBe(localStorage);
+    localStorage.setItem(
+      CONSENT_STORAGE_KEY,
+      JSON.stringify({ v: 1, analytics: false, preferences: false, at: "x" }),
+    );
+    expect(preferenceStore()).toBe(sessionStorage);
+    localStorage.setItem(CONSENT_STORAGE_KEY, "{broken");
+    expect(preferenceStore()).toBe(localStorage);
+    localStorage.removeItem(CONSENT_STORAGE_KEY);
+  });
+});

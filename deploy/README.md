@@ -373,6 +373,15 @@ Codes, notifications, contact replies and admin alerts go out through Tencent Cl
 (Hong Kong) over SMTP. Setup (sender address, SMTP password, DNS records, `app.env`,
 a test send): [mail.md](mail.md).
 
+### 12. Web Analytics (optional, any time after the first deploy)
+
+The site loads Cloudflare Web Analytics itself, and only for visitors who allow it in
+the cookie settings. In Cloudflare: **Analytics & Logs → Web Analytics → trilleo.net →
+Manage site**: turn **automatic setup** off (otherwise Cloudflare injects the beacon for
+everyone), then copy the token from the JS snippet into `CF_ANALYTICS_TOKEN` in
+`apps/web/src/lib/site.ts` and deploy. The token is public (every page that loads the
+beacon shows it), so it lives in the code. Empty: no analytics.
+
 ## Day to day
 
 - **Deploy:** push to `main`. CI runs, then Deploy. Nothing else to do.

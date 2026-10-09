@@ -1,0 +1,291 @@
+---
+/**
+ * The cookie manager (in BaseLayout): a card in the corner until a visitor chooses,
+ * and a settings dialog, opened from it or from any [data-cookie-settings] link (the
+ * footer's "Cookie settings", the cookie policy). Choices are kept by @trilleo/ui's
+ * consent.ts; this loads Cloudflare Web Analytics only when allowed. Without
+ * JavaScript nothing shows, nothing optional runs, and the links go to the policy.
+ */
+import { buttonClasses } from "@trilleo/ui";
+import { CF_ANALYTICS_TOKEN } from "../lib/site";
+
+const plain = { hover: "plain" } as const;
+---
+
+<div data-cookie-consent data-token={CF_ANALYTICS_TOKEN}>
+  <section
+    aria-labelledby="cookie-card-title"
+    hidden
+    data-cookie-card
+    class="fixed right-4 bottom-4 left-4 z-40 flex animate-rise flex-col gap-4 border border-ink bg-paper p-5 shadow-[0_0_0_1px_var(--tr-paper)] md:left-auto md:w-96"
+  >
+    <h2 id="cookie-card-title" class="type-label">
+      Cookies & storage
+    </h2>
+    <p class="text-[15px] leading-snug">
+      The site keeps you signed in and remembers your settings in this browser.
+      May it also count visits with Cloudflare Web Analytics? It sets no cookies
+      and doesn’t identify you.
+    </p>
+    <div class="flex flex-wrap gap-2">
+      <button
+        type="button"
+        data-cookie-allow
+        class={buttonClasses({ ...plain, className: "flex-1" })}
+      >
+        Allow analytics
+      </button>
+      <button
+        type="button"
+        data-cookie-refuse
+        class={buttonClasses({
+          ...plain,
+          variant: "secondary",
+          className: "flex-1",
+        })}
+      >
+        No thanks
+      </button>
+    </div>
+    <button
+      type="button"
+      data-cookie-open
+      class="type-label link-wipe w-fit text-muted hover:text-ink"
+    >
+      Settings
+    </button>
+  </section>
+
+  <dialog
+    aria-labelledby="cookie-settings-title"
+    data-cookie-dialog
+    class="m-auto w-[min(32rem,calc(100vw-2rem))] border border-ink bg-paper p-0 text-ink backdrop:bg-ink/40"
+  >
+    <form method="dialog" class="flex flex-col gap-5 p-6 md:p-8">
+      <div class="flex flex-col gap-2">
+        <p class="type-label text-muted">Cookies & storage</p>
+        <h2 id="cookie-settings-title" class="type-card">
+          Settings
+        </h2>
+        <p class="text-muted">
+          Choose what the site may keep or run. You can change this any time
+          from “Cookie settings” at the bottom of every page.
+        </p>
+      </div>
+
+      <fieldset class="flex flex-col gap-4 border-t border-ink pt-4">
+        <legend class="sr-only">Categories</legend>
+        <div class="flex items-start gap-3">
+          <input
+            id="cookie-necessary"
+            type="checkbox"
+            checked
+            disabled
+            aria-describedby="cookie-necessary-hint"
+            class="mt-1 size-4 shrink-0 accent-accent"
+          />
+          <div>
+            <label for="cookie-necessary" class="font-medium">
+              Necessary (always on)
+            </label>
+            <p id="cookie-necessary-hint" class="text-sm text-muted">
+              Signing in and keeping you signed in, and remembering this choice.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <input
+            id="cookie-preferences"
+            type="checkbox"
+            data-cookie-preferences
+            aria-describedby="cookie-preferences-hint"
+            class="mt-1 size-4 shrink-0 accent-accent"
+          />
+          <div>
+            <label for="cookie-preferences" class="font-medium">
+              Preferences
+            </label>
+            <p id="cookie-preferences-hint" class="text-sm text-muted">
+              Remembering light or dark mode, and keeping what you make in tools
+              and your game save in this browser while signed out. Off, they
+              last until you close the tab.
+            </p>
+            <p
+              role="alert"
+              hidden
+              data-cookie-warning
+              class="mt-2 border-l-2 border-accent pl-3 text-sm"
+            ></p>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <input
+            id="cookie-analytics"
+            type="checkbox"
+            data-cookie-analytics
+            aria-describedby="cookie-analytics-hint"
+            class="mt-1 size-4 shrink-0 accent-accent"
+          />
+          <div>
+            <label for="cookie-analytics" class="font-medium">
+              Analytics
+            </label>
+            <p id="cookie-analytics-hint" class="text-sm text-muted">
+              Cloudflare Web Analytics counts page views without cookies or
+              identifiers; only totals are seen.
+              <span hidden data-cookie-gpc>
+                Your browser asks sites not to share your data (Global Privacy
+                Control), so this stays off.
+              </span>
+            </p>
+          </div>
+        </div>
+      </fieldset>
+
+      <div class="flex flex-wrap gap-2 border-t border-ink pt-4">
+        <button
+          type="submit"
+          value="save"
+          class={buttonClasses({ ...plain, className: "flex-1" })}
+        >
+          Save choices
+        </button>
+        <button
+          type="submit"
+          value="cancel"
+          formnovalidate
+          class={buttonClasses({
+            ...plain,
+            variant: "secondary",
+            className: "flex-1",
+          })}
+        >
+          Cancel
+        </button>
+      </div>
+      <p class="text-sm text-muted">
+        More in the{" "}
+        <a href="/legal/cookies/" class="text-ink underline">
+          cookie policy
+        </a>
+        .
+      </p>
+    </form>
+  </dialog>
+</div>
+
+<script>
+  import {
+    CONSENT_EVENT,
+    analyticsAllowed,
+    clearPreferences,
+    countPreferences,
+    gpcEnabled,
+    preferencesAllowed,
+    readConsent,
+    saveConsent,
+    type ConsentChoice,
+  } from "@trilleo/ui/consent";
+
+  const BEACON = "https://static.cloudflareinsights.com/beacon.min.js";
+
+  const root = document.querySelector<HTMLElement>("[data-cookie-consent]");
+  const card = root?.querySelector<HTMLElement>("[data-cookie-card]");
+  const dialog = root?.querySelector<HTMLDialogElement>("[data-cookie-dialog]");
+  const preferences = root?.querySelector<HTMLInputElement>(
+    "[data-cookie-preferences]",
+  );
+  const analytics = root?.querySelector<HTMLInputElement>(
+    "[data-cookie-analytics]",
+  );
+  const warning = root?.querySelector<HTMLElement>("[data-cookie-warning]");
+  const gpcNote = root?.querySelector<HTMLElement>("[data-cookie-gpc]");
+
+  /** Cloudflare's beacon, added once, only with consent (and a token). */
+  function loadAnalytics() {
+    const token = root?.dataset.token;
+    if (!token || !analyticsAllowed(window)) return;
+    if (document.querySelector(`script[src="${BEACON}"]`)) return;
+    const script = document.createElement("script");
+    script.defer = true;
+    script.src = BEACON;
+    script.dataset.cfBeacon = JSON.stringify({ token });
+    document.head.append(script);
+  }
+
+  function choose(choice: ConsentChoice) {
+    const before = {
+      analytics: analyticsAllowed(window),
+      preferences: preferencesAllowed(window),
+    };
+    if (!choice.preferences && before.preferences) clearPreferences(window);
+    const consent = saveConsent(window, choice);
+    if (card) card.hidden = true;
+    window.dispatchEvent(new CustomEvent(CONSENT_EVENT, { detail: consent }));
+    // Turning something off only fully takes effect on a fresh page.
+    const switchedOff =
+      (before.analytics && !choice.analytics) ||
+      before.preferences !== choice.preferences;
+    if (switchedOff) location.reload();
+    else loadAnalytics();
+  }
+
+  function showWarning() {
+    if (!preferences || !warning) return;
+    const stored = countPreferences(window);
+    const losing =
+      preferencesAllowed(window) && !preferences.checked && stored > 0;
+    warning.hidden = !losing;
+    warning.textContent = losing
+      ? "Saving this deletes what this browser keeps now: tool data, your Skygrid island and your light/dark choice."
+      : "";
+  }
+
+  function openSettings() {
+    if (!dialog || !preferences || !analytics || !gpcNote) return;
+    const gpc = gpcEnabled(window);
+    preferences.checked = preferencesAllowed(window);
+    analytics.checked = !gpc && readConsent(window)?.analytics === true;
+    analytics.disabled = gpc;
+    gpcNote.hidden = !gpc;
+    showWarning();
+    dialog.showModal();
+  }
+
+  if (root && card && dialog && preferences && analytics) {
+    if (!readConsent(window)) card.hidden = false;
+    loadAnalytics();
+
+    root.querySelector("[data-cookie-allow]")?.addEventListener("click", () => {
+      choose({
+        analytics: !gpcEnabled(window),
+        preferences: preferencesAllowed(window),
+      });
+    });
+    root
+      .querySelector("[data-cookie-refuse]")
+      ?.addEventListener("click", () => {
+        choose({ analytics: false, preferences: preferencesAllowed(window) });
+      });
+    root
+      .querySelector("[data-cookie-open]")
+      ?.addEventListener("click", openSettings);
+    preferences.addEventListener("change", showWarning);
+    dialog.addEventListener("close", () => {
+      if (dialog.returnValue === "save")
+        choose({
+          analytics: analytics.checked && !gpcEnabled(window),
+          preferences: preferences.checked,
+        });
+    });
+    // "Cookie settings" links anywhere: the dialog instead of the policy.
+    document.addEventListener("click", (event) => {
+      const link = (event.target as Element | null)?.closest(
+        "[data-cookie-settings]",
+      );
+      if (!link) return;
+      event.preventDefault();
+      openSettings();
+    });
+  }
+</script>

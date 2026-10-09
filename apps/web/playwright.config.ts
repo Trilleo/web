@@ -28,6 +28,8 @@ const e2eEnv = {
   CLAMAV_ADDRESS: `127.0.0.1:${String(FAKE_CLAMD_PORT)}`,
   // Mail is kept in the outbox, never sent: specs read it at /admin/mail/.
   MAIL_CAPTURE: "1",
+  // Analytics loads (after consent) with this fake token; the specs stub the beacon.
+  PUBLIC_CF_ANALYTICS_TOKEN: "e2e-analytics-token",
   // Minecraft versions: the list kept in the code, never Mojang's manifest.
   MINECRAFT_VERSION_MANIFEST: "off",
   MIGRATIONS_DIR: fileURLToPath(
