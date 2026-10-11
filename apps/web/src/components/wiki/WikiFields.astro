@@ -14,16 +14,26 @@ interface Props {
   errors: Partial<Record<WikiField, string>>;
   /** Only a new wiki chooses its address. */
   creating: boolean;
+  /**
+   * The page's full width (New wiki): two columns on desktop. The default suits
+   * the text column of a wiki's own pages. The slot adds fields at the end.
+   */
+  wide?: boolean;
 }
 
-const { values, errors, creating } = Astro.props;
+const { values, errors, creating, wide = false } = Astro.props;
 const label = "type-label text-muted";
 const invalid = (name: WikiField) => (errors[name] ? "true" : undefined);
 const described = (name: WikiField) =>
   errors[name] ? `${name}-error` : undefined;
 ---
 
-<div class="flex flex-col gap-5">
+<div
+  class:list={[
+    "flex flex-col gap-5",
+    wide && "xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-6 xl:gap-y-8",
+  ]}
+>
   {creating && (
     <label class="flex flex-col gap-2">
       <span class={label}>Address</span>
@@ -34,7 +44,7 @@ const described = (name: WikiField) =>
           value={values.slug}
           required
           maxlength={WIKI_LIMITS.slug.max}
-          class={wikiInput}
+          class={`${wikiInput} min-w-0 flex-1`}
           aria-invalid={invalid("slug")}
           aria-describedby={described("slug")}
         />
@@ -206,4 +216,5 @@ const described = (name: WikiField) =>
       </strong>
     )}
   </label>
+  <slot />
 </div>

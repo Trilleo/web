@@ -91,31 +91,33 @@ if (Astro.request.method === "POST") {
 ---
 
 <WikiLayout title="New wiki" noindex>
-  <div class="flex max-w-[44rem] flex-col gap-8">
+  <div class="flex flex-col gap-8">
     <ToolHeading
+      label="Admin"
       title="New wiki"
       lead="A wiki for one project: its own pages, members and search."
     />
     <form method="post" class="flex flex-col gap-6">
-      <WikiFields values={values} errors={errors} creating />
-      <label class="flex flex-col gap-2">
-        <span class="type-label text-muted">First owner (optional)</span>
-        <input
-          name="owner"
-          value={owner}
-          autocomplete="off"
-          class={wikiInput}
-          placeholder="A username"
-        />
-        <span class="text-sm text-muted">
-          You can run every wiki as the admin; an owner runs this one.
-        </span>
-        {ownerError && (
-          <strong class="text-sm font-medium" role="alert">
-            {ownerError}
-          </strong>
-        )}
-      </label>
+      <WikiFields values={values} errors={errors} creating wide>
+        <label class="flex flex-col gap-2">
+          <span class="type-label text-muted">First owner (optional)</span>
+          <input
+            name="owner"
+            value={owner}
+            autocomplete="off"
+            class={wikiInput}
+            placeholder="A username"
+          />
+          <span class="text-sm text-muted">
+            You can run every wiki as the admin; an owner runs this one.
+          </span>
+          {ownerError && (
+            <strong class="text-sm font-medium" role="alert">
+              {ownerError}
+            </strong>
+          )}
+        </label>
+      </WikiFields>
       <div>
         <button type="submit" class={wikiButton("primary")}>
           Create wiki

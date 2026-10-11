@@ -43,7 +43,7 @@ const changes = context ? await recentChanges(context.db, context.wiki.id) : [];
       {changes.length === 0 ? (
         <p class="text-muted">No edits yet.</p>
       ) : (
-        <div class="overflow-x-auto">
+        <div class="relative overflow-x-auto">
           <table class={wikiTable} data-recent>
             <thead>
               <tr>

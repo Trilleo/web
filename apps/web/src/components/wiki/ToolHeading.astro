@@ -4,13 +4,15 @@ interface Props {
   title: string;
   /** A line under it. */
   lead?: string;
+  /** The small label above it. */
+  label?: string;
 }
 
-const { title, lead } = Astro.props;
+const { title, lead, label = "This wiki" } = Astro.props;
 ---
 
 <div class="flex flex-col gap-3 border-b border-ink pb-4">
-  <span class="type-label text-muted">This wiki</span>
+  <span class="type-label text-muted">{label}</span>
   <h1 class="text-[2.25rem] leading-[1.05] font-bold tracking-[-0.035em] md:text-[2.75rem]">
     {title}
   </h1>

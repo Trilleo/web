@@ -1,6 +1,6 @@
 ---
 /**
- * The wiki's header: "Trilleo Wiki" (the list of wikis), then the wiki you're in,
+ * The wiki's header: "Wiki" (the list of wikis), then the wiki you're in,
  * labelled with its code and kind so its boundary is plain, a search that stays
  * inside it, the theme toggle and who's signed in. Pages render on the server, so
  * the account is known here (no island).
@@ -32,10 +32,10 @@ const signIn = `/-/sign-in?next=${encodeURIComponent(path)}`;
       class="col-span-2 inline-flex min-h-11 items-center gap-2.5 text-lg font-bold tracking-[-0.03em] md:col-span-2 xl:col-span-2"
     >
       <Logo class="size-6 shrink-0" />
-      <span>Trilleo Wiki</span>
+      <span>Wiki</span>
     </a>
 
-    <div class="col-span-2 flex items-center justify-end gap-1 whitespace-nowrap md:col-span-6 md:gap-3 xl:order-last xl:col-span-3">
+    <div class="col-span-2 flex items-center justify-end gap-1 whitespace-nowrap md:col-span-6 md:gap-3 xl:order-last xl:col-span-3 xl:col-start-10">
       <ThemeToggle />
       {user ? (
         <div class="flex items-center gap-3">
@@ -84,7 +84,7 @@ const signIn = `/-/sign-in?next=${encodeURIComponent(path)}`;
           role="search"
           method="get"
           action={toolHref(wiki, "search")}
-          class="flex min-w-0 flex-1 basis-56"
+          class="flex min-w-0 flex-1 basis-full md:basis-56"
         >
           <label for="wiki-search" class="sr-only">
             Search {wiki.name}
