@@ -137,12 +137,18 @@ const contents = toc.filter((heading) => heading.depth === 2);
     <script>
       import {
         animateObfuscated,
+        enhanceCalculators,
+        enhanceCosts,
         enhanceInventories,
+        enhanceMaterials,
         enhanceTabs,
         placeTooltips,
       } from "@trilleo/wiki/client";
 
       enhanceTabs(document);
+      enhanceCalculators(document);
+      enhanceCosts(document);
+      enhanceMaterials(document);
       enhanceInventories(document);
       placeTooltips(document);
       animateObfuscated(document);

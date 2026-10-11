@@ -98,3 +98,59 @@ describe("enhanceInventories", () => {
     expect(links.map((link) => link.tabIndex)).toEqual([0, -1, -1]);
   });
 });
+
+describe("live calculators", () => {
+  const type = (input: HTMLInputElement | null, value: string) => {
+    if (!input) throw new Error("no input");
+    input.value = value;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+
+  it("::: calculator works results out as readers type", async () => {
+    const { enhanceCalculators } = await import("./client");
+    const { render } = await import("./test-render");
+    document.body.innerHTML = render(
+      "::: calculator\ninput a: A = 2\nresult b: B = a * 10\n:::",
+    ).html;
+    enhanceCalculators(document);
+    const input = document.querySelector<HTMLInputElement>("[data-input]");
+    expect(input?.readOnly).toBe(false);
+    type(input, "7");
+    expect(document.querySelector("output")?.textContent).toBe("70");
+    type(input, "");
+    expect(document.querySelector("output")?.textContent).toBe("20");
+  });
+
+  it("::: costs adds up between the picked levels", async () => {
+    const { enhanceCosts } = await import("./client");
+    const { render } = await import("./test-render");
+    document.body.innerHTML = render(
+      "::: costs\ncolumns: Coins\nI: 1\nII: 10\nIII: 100\n:::",
+    ).html;
+    enhanceCosts(document);
+    const from = document.querySelector<HTMLSelectElement>("[data-from]");
+    if (!from) throw new Error();
+    expect(from.disabled).toBe(false);
+    from.value = "0";
+    from.dispatchEvent(new Event("change"));
+    expect(document.querySelector("[data-costs-total]")?.textContent).toBe(
+      "110",
+    );
+  });
+
+  it("::: materials follows the amount and what's on hand", async () => {
+    const { enhanceMaterials } = await import("./client");
+    const { render } = await import("./test-render");
+    document.body.innerHTML = render(
+      "::: materials Enchanted Diamond :::",
+    ).html;
+    enhanceMaterials(document);
+    const totals = () =>
+      document.querySelector("[data-materials-totals]")?.textContent;
+    expect(totals()).toContain("160 × Diamond");
+    type(document.querySelector("[data-amount]"), "3");
+    expect(totals()).toContain("480 × Diamond");
+    type(document.querySelector('[data-have="diamond"]'), "80");
+    expect(totals()).toContain("400 × Diamond");
+  });
+});

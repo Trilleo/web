@@ -15,6 +15,7 @@
  * ones whose page doesn't exist (markMissing) without rendering again.
  * Bump WIKI_RENDER_VERSION when the output changes.
  */
+import { randomBytes } from "node:crypto";
 import GithubSlugger, { slug as slugify } from "github-slugger";
 import MarkdownIt, {
   type Env,
@@ -32,6 +33,8 @@ import {
   type ComponentState,
   type ItemData,
   type ItemLookup,
+  type RecipeData,
+  type RecipeLookup,
 } from "@trilleo/wiki";
 import type { HighlighterCore } from "shiki/core";
 import { getHighlighter, highlightCode } from "../blog/render";
@@ -135,6 +138,8 @@ export interface RenderedWikiPage {
   plain: string;
   /** The item the page describes (an Item: page's `::: item`). */
   item: ItemData | null;
+  /** Its recipes (`::: recipe`), each with its rendered panel. */
+  recipes: (RecipeData & { html: string })[];
 }
 
 /** What rendering passes to the rules (markdown-it's env is an open record). */
@@ -153,6 +158,8 @@ export interface RenderTarget {
   componentSets: readonly string[];
   /** The wiki's items, for the minecraft components. */
   items?: ItemLookup;
+  /** The wiki's recipes by what they make, for the materials calculator. */
+  recipes?: RecipeLookup;
 }
 
 function escapeHtml(text: string): string {
@@ -309,7 +316,12 @@ export async function renderWikiPage(
         env.links.set(titleKey(normal), normal);
     },
     imageUrl: allowedImage,
-    resources: { items: target.items ?? (() => null) },
+    resources: {
+      items: target.items ?? (() => null),
+      recipes: target.recipes ?? (() => null),
+    },
+    // Recipe panels are kept and shown on other pages: their ids must not clash.
+    idPrefix: `${randomBytes(3).toString("hex")}-`,
   };
   // The redirect line is for the wiki, not the reader.
   const source = parseRedirect(body)
@@ -360,8 +372,13 @@ export async function renderWikiPage(
   }
   const defined = env.components.emitted?.get("item")?.at(-1) as
     ItemData | undefined;
+  const recipes = (env.components.emitted?.get("recipe") ??
+    []) as (RecipeData & {
+    html: string;
+  })[];
   return {
     item: defined ?? null,
+    recipes,
     html,
     toc,
     links: [...env.links].map(([key, title]) => ({ key, title })),

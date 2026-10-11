@@ -3,6 +3,7 @@
  * (src/components/), add it here, give it a test, and style its classes in
  * apps/web/src/styles/wiki.css. A new set: add it to COMPONENT_SETS too.
  */
+import { CALCULATOR_COMPONENTS } from "./components/calculators";
 import { CORE_COMPONENTS } from "./components/core";
 import { MINECRAFT_COMPONENTS } from "./components/minecraft";
 import type { ComponentSet, WikiComponent } from "./types";
@@ -12,19 +13,20 @@ export const COMPONENT_SETS: readonly ComponentSet[] = [
     id: "core",
     label: "Core",
     description:
-      "Infoboxes, notices, tabs, collapsible sections, navboxes, columns, badges and keys.",
+      "Infoboxes, notices, tabs, collapsible sections, navboxes, columns, badges, keys, calculators and cost tables.",
     always: true,
   },
   {
     id: "minecraft",
     label: "Minecraft",
     description:
-      "Minecraft text with § codes, items described on Item: pages with the game's tooltips, and inventories.",
+      "Minecraft text with § codes, items described on Item: pages with the game's tooltips, inventories, recipes and a raw-materials calculator.",
   },
 ];
 
 export const COMPONENTS: readonly WikiComponent[] = [
   ...CORE_COMPONENTS,
+  ...CALCULATOR_COMPONENTS,
   ...MINECRAFT_COMPONENTS,
 ];
 

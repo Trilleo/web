@@ -655,8 +655,20 @@ Name`, `::: inventory 3x9 Title` (slots `5: Item x64`, ranges, `row 2: A, , B`).
   so the upload widget works there; the OBS bucket's CORS must allow the wiki's origin.
   Images in pages and icons: only files.trilleo.net (or the local driver's
   /api/storage/local/ in dev and tests), `allowedImage`.
-- Next phases (planned): recipes (crafting grids, custom stations) and calculators,
-  then proposed edits and review.
+- Recipes (minecraft set): `::: recipe Station [WxH][, time]` with slots, rows or a
+  `- Item x2` list, and `makes: Item x4` (@trilleo/wiki's minecraft/recipes.ts). Saved
+  recipes go to wiki_recipes (`recordRecipes`, in replaceLinks; output key, input keys
+  with a GIN index, the recipe and its rendered panel). Item: pages list "Made with"
+  and "Used in" from it at view time (`recipesForItem`), leaving out the page's own.
+  Panels are shown on other pages, so ids are unique per render (`idPrefix`).
+- Calculators: `::: materials Item x3` (minecraft) follows the wiki's recipes
+  (`recipeLookup`, first recipe per output) to raw materials; `::: calculator`
+  (core, `input`/`result` lines, formula.ts: a hand-written arithmetic parser, never
+  eval) and `::: costs` (core, a table summed between two rows). The server renders
+  the defaults worked out; client.ts makes them live from a JSON script block
+  (`scriptJson` escapes `<`), with the same code (calculators.ts) on both sides.
+  A changed recipe re-renders pages linking its output's page.
+- Next phase (planned): proposed edits and review, watchlists, email.
 
 ## Mail
 

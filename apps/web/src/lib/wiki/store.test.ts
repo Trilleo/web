@@ -35,6 +35,7 @@ import {
   wikiLogEntries,
   type SaveInput,
 } from "./store";
+import { recipesForItem } from "./recipes";
 import { titleKey } from "./titles";
 
 const now = new Date("2026-10-11T12:00:00Z");
@@ -391,6 +392,75 @@ describe("items", () => {
     if (!result.ok) throw new Error();
     expect(result.page.html).toContain(
       "Items are described on pages called Item:",
+    );
+  });
+});
+
+describe("recipes", () => {
+  it("are recorded, listed per item, followed by calculators, and kept up to date", async () => {
+    const created = await createWiki(handle.db, owner, {
+      slug: "craft",
+      name: "Craft",
+      code: "CR",
+      description: "",
+      kind: "minecraft",
+      visibility: "public",
+      homeTitle: "Main Page",
+      nav: [],
+      componentSets: ["minecraft"],
+    });
+    if (!created.ok) throw new Error();
+    const craft = created.wiki;
+    const saveIn = (title: string, body: string, base: number | null = null) =>
+      savePage(handle.db, {
+        wiki: craft,
+        actor: editor,
+        title,
+        body,
+        summary: "",
+        minor: false,
+        baseRevisionId: base,
+        canEditProtected: true,
+        now,
+      });
+
+    const recipes = await saveIn(
+      "Recipes",
+      "::: recipe Crafting Table\n- Plank x4\nmakes: Table\n:::\n\n::: recipe\n- Log\nmakes: Plank x4\n:::",
+    );
+    if (!recipes.ok) throw new Error();
+    const table = await recipesForItem(handle.db, craft.id, "table");
+    expect(table.makes.map((entry) => entry.page)).toEqual(["Recipes"]);
+    const plank = await recipesForItem(handle.db, craft.id, "plank");
+    expect(plank.makes).toHaveLength(1);
+    expect(plank.uses).toHaveLength(1);
+    expect(plank.uses[0]?.recipe.html).toContain("mc-recipe");
+
+    const guide = await saveIn("Guide", "::: materials Table x2 :::");
+    if (!guide.ok) throw new Error();
+    expect(guide.page.html).toContain(
+      '2 ×</span> <a href="/craft/Item:Log">Log</a>',
+    );
+
+    // A changed recipe reaches the calculator the next time it's read.
+    await saveIn(
+      "Recipes",
+      "::: recipe Crafting Table\n- Plank x8\nmakes: Table\n:::\n\n::: recipe\n- Log\nmakes: Plank x4\n:::",
+      recipes.revision.id,
+    );
+    const stale = await findPage(handle.db, craft.id, "guide");
+    expect(stale?.renderVersion).toBe(0);
+    const fresh = stale && (await ensurePageRendered(handle.db, craft, stale));
+    expect(fresh?.html).toContain(
+      '4 ×</span> <a href="/craft/Item:Log">Log</a>',
+    );
+
+    // A deleted page's recipes go.
+    const page = await findPage(handle.db, craft.id, "recipes");
+    if (!page) throw new Error();
+    await deletePage(handle.db, craft, owner, page, "");
+    expect((await recipesForItem(handle.db, craft.id, "plank")).makes).toEqual(
+      [],
     );
   });
 });

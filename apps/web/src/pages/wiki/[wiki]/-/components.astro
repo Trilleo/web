@@ -11,6 +11,7 @@ import {
   COMPONENT_SETS,
   componentsFor,
   demoLookup,
+  demoRecipeLookup,
   effectiveSets,
   type WikiComponent,
 } from "@trilleo/wiki";
@@ -46,6 +47,7 @@ if (context) {
         title: "Item:Aspect of the End",
         componentSets: [...sets],
         items: demoLookup,
+        recipes: demoRecipeLookup,
       });
       entries.push({ component, html: rendered.html });
     }

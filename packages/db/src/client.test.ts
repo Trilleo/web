@@ -110,6 +110,7 @@ describe("openDatabase", () => {
       "wiki_log",
       "wiki_members",
       "wiki_pages",
+      "wiki_recipes",
       "wiki_revisions",
       "wiki_sign_in_tickets",
       "wikis",

@@ -1374,6 +1374,36 @@ export const wikiItems = pgTable(
 );
 
 /**
+ * Recipes written on a wiki's pages (@trilleo/wiki's `::: recipe`), kept when the page
+ * is saved: Item: pages list what makes and uses them, and the materials calculator
+ * follows them. `data` is the recipe (RecipeData) plus its rendered panel (`html`).
+ */
+export const wikiRecipes = pgTable(
+  "wiki_recipes",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    wikiId: integer("wiki_id")
+      .notNull()
+      .references(() => wikis.id, { onDelete: "cascade" }),
+    pageId: integer("page_id")
+      .notNull()
+      .references(() => wikiPages.id, { onDelete: "cascade" }),
+    /** Its place on the page (the first recipe is 0). */
+    position: integer("position").notNull(),
+    /** The output's itemKey. */
+    outputKey: text("output_key").notNull(),
+    /** Every ingredient's itemKey. */
+    inputKeys: text("input_keys").array().notNull(),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull(),
+  },
+  (table) => [
+    index("wiki_recipes_output_idx").on(table.wikiId, table.outputKey),
+    index("wiki_recipes_inputs_idx").using("gin", table.inputKeys),
+    index("wiki_recipes_page_idx").on(table.pageId),
+  ],
+);
+
+/**
  * Files uploaded for a wiki (storage purpose "wiki-media": icons and pictures). A
  * member's file attached here is published once scanned, without review.
  */

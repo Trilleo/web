@@ -14,6 +14,7 @@ import { noStoreRedirect } from "../../../../../lib/auth/redirect";
 import { canEditPage } from "../../../../../lib/wiki/access";
 import { generatedPage } from "../../../../../lib/wiki/generated";
 import { itemLookup } from "../../../../../lib/wiki/items";
+import { recipeLookup } from "../../../../../lib/wiki/recipes";
 import {
   mainSiteRedirect,
   openWiki,
@@ -97,6 +98,7 @@ if (context && title) {
         title,
         componentSets: wiki.componentSets,
         items: await itemLookup(db, wiki),
+        recipes: await recipeLookup(db, wiki),
       });
       const keys = linkedKeys(rendered.html);
       const found = await existingKeys(db, wiki, keys);

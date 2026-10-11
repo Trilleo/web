@@ -27,6 +27,8 @@ export interface ComponentHost {
   /** Allowed images' addresses; others give null. */
   imageUrl(url: string): string | null;
   resources: Readonly<Record<string, unknown>>;
+  /** Starts every id() of this render, so HTML kept and shown elsewhere stays unique. */
+  idPrefix?: string;
 }
 
 /** What the plugin keeps in markdown-it's env while a page renders. */
@@ -208,7 +210,7 @@ export function componentPlugin(
       },
       id: (prefix) => {
         state.ids = (state.ids ?? 0) + 1;
-        return `${prefix}-${String(state.ids)}`;
+        return `${prefix}-${host.idPrefix ?? ""}${String(state.ids)}`;
       },
       imageUrl: (url) => host.imageUrl(url),
     };

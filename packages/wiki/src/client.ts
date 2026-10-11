@@ -4,6 +4,17 @@
  * keys, Home and End move between tabs, as the ARIA pattern describes).
  */
 
+import {
+  computeCalculator,
+  materialsHtml,
+  sumCosts,
+  type CalculatorSpec,
+  type CostsSpec,
+  type ItemLinks,
+} from "./calculators";
+import { formatNumber, type Formula } from "./formula";
+import { computeMaterials, type RecipeBook } from "./minecraft/recipes";
+
 let boxes = 0;
 
 export function enhanceTabs(root: ParentNode = document): void {
@@ -222,4 +233,119 @@ export function placeTooltips(root: Document = document): void {
   root.addEventListener("focusin", (event) => {
     place(event.target);
   });
+}
+
+function readJson(root: Element, selector: string): unknown {
+  const script = root.querySelector(selector);
+  if (!script?.textContent) return null;
+  try {
+    return JSON.parse(script.textContent);
+  } catch {
+    return null;
+  }
+}
+
+function numberOf(input: HTMLInputElement): number | null {
+  const value = Number(input.value);
+  return input.value.trim() === "" || !Number.isFinite(value) ? null : value;
+}
+
+/** `::: calculator`: results follow the inputs as readers type. */
+export function enhanceCalculators(root: ParentNode = document): void {
+  for (const box of root.querySelectorAll<HTMLElement>(
+    "[data-calculator]:not([data-live])",
+  )) {
+    const spec = readJson(
+      box,
+      "[data-calculator-spec]",
+    ) as CalculatorSpec | null;
+    if (!spec) continue;
+    box.dataset.live = "";
+    const inputs = [...box.querySelectorAll<HTMLInputElement>("[data-input]")];
+    const outputs = [
+      ...box.querySelectorAll<HTMLOutputElement>("[data-result]"),
+    ];
+    const parsed = new Map<string, Formula>();
+    const update = () => {
+      const given = new Map<string, number>();
+      for (const input of inputs) {
+        const value = numberOf(input);
+        if (input.dataset.input && value !== null)
+          given.set(input.dataset.input, value);
+      }
+      const values = computeCalculator(spec, given, parsed);
+      for (const output of outputs)
+        output.textContent = formatNumber(
+          values.get(output.dataset.result ?? "") ?? NaN,
+        );
+    };
+    for (const input of inputs) {
+      input.readOnly = false;
+      input.addEventListener("input", update);
+    }
+  }
+}
+
+/** `::: costs`: totals between the levels readers pick. */
+export function enhanceCosts(root: ParentNode = document): void {
+  for (const box of root.querySelectorAll<HTMLElement>(
+    "[data-costs]:not([data-live])",
+  )) {
+    const spec = readJson(box, "[data-costs-spec]") as CostsSpec | null;
+    const from = box.querySelector<HTMLSelectElement>("[data-from]");
+    const to = box.querySelector<HTMLSelectElement>("[data-to]");
+    if (!spec || !from || !to) continue;
+    box.dataset.live = "";
+    const cells = [...box.querySelectorAll<HTMLElement>("[data-costs-total]")];
+    const update = () => {
+      const totals = sumCosts(spec, Number(from.value), Number(to.value));
+      for (const cell of cells)
+        cell.textContent = formatNumber(
+          totals[Number(cell.dataset.costsTotal)] ?? 0,
+        );
+    };
+    from.disabled = false;
+    to.disabled = false;
+    from.addEventListener("change", update);
+    to.addEventListener("change", update);
+  }
+}
+
+/** `::: materials`: the tree and totals follow the amount and what readers have. */
+export function enhanceMaterials(root: ParentNode = document): void {
+  for (const box of root.querySelectorAll<HTMLElement>(
+    "[data-materials]:not([data-live])",
+  )) {
+    const data = readJson(box, "[data-materials-book]") as {
+      name: string;
+      book: RecipeBook;
+      links: ItemLinks;
+    } | null;
+    const amount = box.querySelector<HTMLInputElement>("[data-amount]");
+    const tree = box.querySelector<HTMLElement>("[data-materials-tree]");
+    const totals = box.querySelector<HTMLElement>("[data-materials-totals]");
+    if (!data || !amount || !tree || !totals) continue;
+    box.dataset.live = "";
+    const haves = [...box.querySelectorAll<HTMLInputElement>("[data-have]")];
+    const update = () => {
+      const have = new Map<string, number>();
+      for (const input of haves) {
+        const value = numberOf(input);
+        if (input.dataset.have && value !== null && value > 0)
+          have.set(input.dataset.have, Math.floor(value));
+      }
+      const count = Math.max(1, Math.floor(numberOf(amount) ?? 1));
+      const shown = materialsHtml(
+        computeMaterials(data.book, data.name, count, have),
+        data.links,
+      );
+      // Built from escaped text only (materialsHtml), like the server's.
+      tree.innerHTML = shown.tree;
+      totals.innerHTML = shown.totals;
+    };
+    for (const input of [amount, ...haves]) {
+      input.readOnly = false;
+      input.addEventListener("input", update);
+    }
+  }
 }

@@ -13,6 +13,8 @@ import { stackTables } from "../../../lib/post-html";
 import { canEditPage } from "../../../lib/wiki/access";
 import { generatedPage } from "../../../lib/wiki/generated";
 import { sourceFor } from "../../../lib/wiki/sources";
+import { recipesForItem } from "../../../lib/wiki/recipes";
+import { itemKey } from "@trilleo/wiki";
 import {
   isHidden,
   mainSiteRedirect,
@@ -148,6 +150,23 @@ const description =
     ? snippet(view.plain, 160)
     : wiki?.description;
 const isHome = wiki && title === wiki.homeTitle;
+// Item: pages list the recipes (written anywhere else) that make and use the item.
+const itemRecipes =
+  db && wiki && title && namespaceOf(title) === "item"
+    ? await recipesForItem(db, wiki.id, itemKey(categoryName(title)))
+    : null;
+const elsewhere = <T extends { page: string }>(list: T[]): T[] =>
+  list.filter((entry) => entry.page !== title);
+const recipeGroups = itemRecipes
+  ? [
+      {
+        id: "made-with",
+        label: "Made with",
+        list: elsewhere(itemRecipes.makes),
+      },
+      { id: "used-in", label: "Used in", list: elsewhere(itemRecipes.uses) },
+    ].filter((group) => group.list.length > 0)
+  : [];
 // The top infobox goes beside the text on desktop (the layout), in it elsewhere.
 const { infobox, rest: pageHtml } =
   view?.kind === "page" ? splitInfobox(view.html) : { infobox: null, rest: "" };
@@ -300,6 +319,30 @@ const { infobox, rest: pageHtml } =
           )}
         </section>
       )}
+
+      {recipeGroups.map((group) => (
+        <section class="flex flex-col gap-4" aria-labelledby={group.id}>
+          <h2
+            id={group.id}
+            class="border-b border-ink pb-1.5 text-[1.625rem] font-semibold tracking-[-0.025em]"
+          >
+            {group.label}
+          </h2>
+          <div class="flex flex-wrap gap-6" data-item-recipes={group.id}>
+            {group.list.map((entry) => (
+              <div class="flex flex-col gap-1.5">
+                <div set:html={entry.recipe.html} />
+                <a
+                  href={wikiHref(wiki, entry.page)}
+                  class="type-label text-muted hover:underline"
+                >
+                  On {entry.page}
+                </a>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
 
       {view?.kind === "page" && view.categories.length > 0 && (
         <footer class="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-ink pt-3 text-sm">

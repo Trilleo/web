@@ -436,3 +436,140 @@ span.wiki-error {
 .wiki-error-label {
   font-weight: 600;
 }
+
+/* Calculators (::: calculator, ::: costs, ::: materials): the wiki's own style. */
+.wiki-calculator,
+.wiki-costs,
+.wiki-materials {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border: 1px solid var(--tr-ink);
+  padding: 1rem;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+
+.wiki-calculator-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.wiki-calculator-inputs,
+.wiki-costs-pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.wiki-calculator-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.wiki-calculator-input label,
+.wiki-materials-label,
+.wiki-calculator-results dt {
+  color: var(--tr-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.wiki-calculator-input :is(input, select) {
+  min-height: 2.5rem;
+  border: 1px solid var(--tr-ink);
+  background: var(--tr-paper);
+  color: var(--tr-ink);
+  padding: 0.25rem 0.5rem;
+  font: inherit;
+}
+
+.wiki-calculator-input :is(input, select):focus-visible {
+  outline: 2px solid var(--tr-accent);
+  outline-offset: 2px;
+}
+
+.wiki-calculator-input input[readonly],
+.wiki-calculator-input select:disabled {
+  border-style: dashed;
+}
+
+.wiki-calculator-results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 2rem;
+  margin: 0;
+  border-top: 1px solid var(--tr-ink);
+  padding-top: 0.75rem;
+}
+
+.wiki-calculator-results dd {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.wiki-materials-have summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.wiki-materials-have[open] summary {
+  margin-bottom: 0.75rem;
+}
+
+.wiki-materials-parts {
+  display: grid;
+  gap: 1rem 2rem;
+  border-top: 1px solid var(--tr-ink);
+  padding-top: 0.75rem;
+
+  @media (width >= 48rem) {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+
+.wiki-materials-tree,
+.wiki-materials-tree ul,
+.wiki-materials-totals,
+.prose .wiki-materials-tree,
+.prose .wiki-materials-tree ul,
+.prose .wiki-materials-totals {
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wiki-materials-tree ul,
+.prose .wiki-materials-tree ul {
+  margin-left: 0.5rem;
+  border-left: 1px solid var(--tr-hair);
+  padding-left: 0.85rem;
+}
+
+.wiki-materials-tree li,
+.wiki-materials-totals li {
+  margin: 0.2rem 0;
+}
+
+.wiki-materials-count {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+.wiki-materials-how {
+  color: var(--tr-muted);
+  font-size: 0.875em;
+}
+
+.wiki-materials a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+}

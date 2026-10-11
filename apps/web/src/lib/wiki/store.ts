@@ -36,6 +36,7 @@ import { effectiveSets } from "@trilleo/wiki";
 import { normalizeUsername } from "../auth/usernames";
 import { generatedPages } from "./generated";
 import { itemLookup, recordItem } from "./items";
+import { recipeLookup, recordRecipes } from "./recipes";
 import {
   WIKI_RENDER_VERSION,
   parseRedirect,
@@ -408,6 +409,7 @@ async function replaceLinks(
     page,
     namespaceOf(page.title) === "item" ? rendered.item : null,
   );
+  await recordRecipes(db, page, rendered.recipes);
   await db.delete(wikiLinks).where(eq(wikiLinks.pageId, page.id));
   await db.delete(wikiCategories).where(eq(wikiCategories.pageId, page.id));
   if (rendered.links.length > 0)
@@ -449,6 +451,7 @@ export async function ensurePageRendered(
     title: page.title,
     componentSets: wiki.componentSets,
     items: await itemLookup(db, wiki),
+    recipes: await recipeLookup(db, wiki),
   });
   const changes = {
     html: rendered.html,
@@ -503,6 +506,7 @@ export async function savePage(
     title: input.title,
     componentSets: input.wiki.componentSets,
     items: await itemLookup(db, input.wiki),
+    recipes: await recipeLookup(db, input.wiki),
   });
 
   return db.transaction(async (tx): Promise<SaveResult> => {
@@ -644,6 +648,7 @@ export async function deletePage(
     await tx.delete(wikiLinks).where(eq(wikiLinks.pageId, page.id));
     await tx.delete(wikiCategories).where(eq(wikiCategories.pageId, page.id));
     await recordItem(tx, page, null, now);
+    await recordRecipes(tx, page, []);
     await log(tx, wiki.id, actor, "delete", {
       title: page.title,
       detail: reason,
@@ -672,6 +677,7 @@ export async function restorePage(
     title: page.title,
     componentSets: wiki.componentSets,
     items: await itemLookup(db, wiki),
+    recipes: await recipeLookup(db, wiki),
   });
   await db.transaction(async (tx) => {
     await tx

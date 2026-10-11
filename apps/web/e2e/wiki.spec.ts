@@ -284,7 +284,7 @@ test("pages use components: infobox beside the text, tabs, notices and stubs", a
 
   // The wiki's documentation lists every component.
   await admin.goto(`/${slug}/-/components`);
-  await expect(admin.locator("[data-component]")).toHaveCount(10);
+  await expect(admin.locator("[data-component]")).toHaveCount(12);
 });
 
 test("a Minecraft wiki: members upload icons, describe items and show them", async ({
@@ -389,4 +389,89 @@ test("a Minecraft wiki: members upload icons, describe items and show them", asy
   await hotbar.getByRole("link", { name: "Lamp, 16" }).focus();
   await member.keyboard.press("ArrowRight");
   await expect(hotbar.getByRole("link", { name: "Torch" })).toBeFocused();
+});
+
+test("recipes show on their items' pages, and calculators answer as readers type", async ({
+  browser,
+  baseURL,
+}) => {
+  test.slow();
+  const slug = `e2e-${randomBytes(3).toString("hex")}`;
+  const admin = await wikiPage(browser, baseURL);
+  await signIn(admin, "admin", "/");
+  await admin.goto("/-/new");
+  await admin.getByLabel("Address").fill(slug);
+  await admin
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("Crafts");
+  await admin.getByRole("textbox", { name: "Code", exact: true }).fill("crf");
+  await admin.getByRole("checkbox", { name: "Minecraft" }).check();
+  await admin.getByRole("button", { name: "Create wiki" }).click();
+  await expect(admin).toHaveURL(`/${slug}/`);
+
+  const write = async (title: string, lines: string[]) => {
+    await admin.goto(`/${slug}/-/edit/${title}`);
+    await admin.getByLabel("Text").fill(lines.join("\n"));
+    await admin.getByRole("button", { name: "Save" }).click();
+    await expect(admin).toHaveURL(`/${slug}/${title}`);
+  };
+  await write("Recipes", [
+    "::: recipe Crafting Table",
+    "row 1: Plank, Plank",
+    "row 2: Plank, Plank",
+    "makes: Workbench",
+    ":::",
+    "",
+    "::: recipe Sawmill, 2 s",
+    "- Log",
+    "makes: Plank x4",
+    ":::",
+  ]);
+  await write("Item:Plank", ["::: item", "rarity: common", ":::"]);
+
+  // The plank's page lists what makes it and what it's used in.
+  await expect(
+    admin.locator('[data-item-recipes="made-with"] figure'),
+  ).toContainText("Sawmill");
+  await expect(
+    admin.locator('[data-item-recipes="used-in"] figure'),
+  ).toContainText("Crafting Table");
+
+  await write("Planning", [
+    "::: materials Workbench x3 :::",
+    "",
+    "::: calculator Speed",
+    "input logs: Logs per minute = 10",
+    "result planks: Planks per minute = logs * 4",
+    ":::",
+    "",
+    "::: costs Upgrades",
+    "columns: Coins",
+    "I: 10",
+    "II: 20",
+    "III: 40",
+    ":::",
+  ]);
+
+  // Materials: 3 workbenches → 12 planks → 3 logs; less with planks on hand.
+  const materials = admin.getByRole("region", {
+    name: "Materials for Workbench",
+  });
+  const totals = materials.locator("[data-materials-totals]");
+  await expect(totals).toContainText("3 × Log");
+  await materials.getByLabel("How many").fill("5");
+  await expect(totals).toContainText("5 × Log");
+  await materials.getByText("What you already have").click();
+  await materials.getByLabel("Plank", { exact: true }).fill("8");
+  await expect(totals).toContainText("3 × Log");
+
+  const calculator = admin.getByRole("region", { name: "Speed" });
+  await expect(calculator.locator("output")).toHaveText("40");
+  await calculator.getByLabel("Logs per minute").fill("25");
+  await expect(calculator.locator("output")).toHaveText("100");
+
+  const costs = admin.getByRole("region", { name: "Upgrades" });
+  await expect(costs.locator("[data-costs-total]")).toHaveText("70");
+  await costs.getByLabel("From").selectOption({ label: "I" });
+  await expect(costs.locator("[data-costs-total]")).toHaveText("60");
 });

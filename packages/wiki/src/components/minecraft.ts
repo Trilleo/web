@@ -15,6 +15,15 @@ import {
   type ItemLookup,
 } from "../minecraft/items";
 import { renderMcText, stripMcCodes } from "../minecraft/text";
+import {
+  bookFor,
+  computeMaterials,
+  ingredientTotals,
+  parseRecipe,
+  type Ingredient,
+  type RecipeData,
+} from "../minecraft/recipes";
+import { materialsHtml, scriptJson } from "../calculators";
 import { parseField } from "../syntax";
 import type { BlockComponent, InlineComponent, RenderContext } from "../types";
 
@@ -328,6 +337,112 @@ row 2: , Enchanted Diamond x8, , Aspect of the End
   },
 };
 
+const EMPTY_SLOT = `<span class="mc-slot" aria-hidden="true"></span>`;
+
+function amountText(ingredient: Ingredient): string {
+  return ingredient.count > 1
+    ? `${ingredient.name} x${String(ingredient.count)}`
+    : ingredient.name;
+}
+
+const recipe: BlockComponent = {
+  kind: "block",
+  name: "recipe",
+  set: MINECRAFT,
+  summary:
+    "How something is made: a station's grid (or a list), what it makes, and how long it takes. Item: pages list the recipes that make and use them.",
+  example: `::: recipe Crafting Table
+row 1: , Enchanted Diamond
+row 2: , Enchanted Diamond
+row 3: , Stick
+makes: Aspect of the End
+:::
+
+::: recipe Forge, 4h
+- Enchanted Diamond x32
+- Aspect of the End
+makes: Enchanted Diamond x64
+:::`,
+  notes: [
+    "After the name: the station, then its grid (`Forge 2x1`) and, after a comma, the time. Crafting Table, Furnace and other game stations know their grid.",
+    "Ingredients by slot (`5: Item x2`, `1-3: Item`, `row 2: A, , B`) or, when the order doesn't matter, as a list (`- Item x2`).",
+    "`makes: Item x4` says what comes out; `time: 10 s` also works.",
+  ],
+  render({ argument, body }, context) {
+    const { recipe: parsed, problems } = parseRecipe(argument, body);
+    if (!parsed)
+      return problems.map((problem) => context.error(problem)).join("");
+    const columns = parsed.columns || Math.min(parsed.slots.length, 9);
+    const slots = parsed.slots
+      .map((slot) =>
+        slot ? itemReference(amountText(slot), context, true) : EMPTY_SLOT,
+      )
+      .join("");
+    const output = itemReference(amountText(parsed.output), context, true);
+    const time = parsed.time
+      ? `<span class="mc-recipe-time">${context.escape(parsed.time)}</span>`
+      : "";
+    const html = `<figure class="mc-recipe" data-recipe><figcaption class="mc-recipe-title">${context.escape(parsed.station)}${time}</figcaption><div class="mc-recipe-body"><div class="mc-slots" data-cols="${String(columns)}" role="group" aria-label="Ingredients">${slots}</div><span class="mc-recipe-arrow" aria-hidden="true">→</span><div class="mc-recipe-output" role="group" aria-label="Makes">${output}</div></div></figure>\n`;
+    context.emit("recipe", { ...parsed, html });
+    return html;
+  },
+};
+
+/** Recipes by the key of what they make: the "recipes" resource. */
+export type RecipeLookup = (key: string) => RecipeData | null;
+
+const materials: BlockComponent = {
+  kind: "block",
+  name: "materials",
+  set: MINECRAFT,
+  summary:
+    "Everything it takes to make an item, following this wiki's recipes down to raw materials: a tree and totals. Readers change the amount and say what they already have.",
+  example: "::: materials Aspect of the End x2 :::",
+  notes: [
+    "The item's name follows, with an amount (`x10`; 1 when left out).",
+    "An item with several recipes uses the first one saved.",
+  ],
+  render({ argument }, context) {
+    const [name, count] = nameAndCount(argument);
+    if (!name)
+      return context.error("Name the item: ::: materials <name> x10 :::");
+    const lookup = context.resource("recipes") as RecipeLookup | undefined;
+    const book = lookup ? bookFor(lookup, name) : {};
+    if (!book[itemKey(name)])
+      return context.error(`No recipe on this wiki makes “${name}” yet.`);
+    const amount = Math.max(1, count ?? 1);
+    const result = computeMaterials(book, name, amount);
+
+    // Every item the tree can show, with its page.
+    const names = new Map<string, string>();
+    for (const entry of Object.values(book)) {
+      names.set(itemKey(entry.output.name), entry.output.name);
+      for (const [key, ingredient] of ingredientTotals(entry))
+        if (!names.has(key)) names.set(key, ingredient.name);
+    }
+    const links: Record<string, { name: string; href: string }> = {};
+    for (const [key, itemName] of names) {
+      const item = lookupItem(itemName, context) ?? unknownItem(itemName);
+      context.link(item.page);
+      links[key] = {
+        name: stripMcCodes(item.name),
+        href: context.href(item.page),
+      };
+    }
+    const shown = materialsHtml(result, links);
+    const amountId = context.id("wiki-materials");
+    const have = [...names.entries()]
+      .sort((a, b) => a[1].localeCompare(b[1], "en"))
+      .map(([key, itemName]) => {
+        const id = context.id("wiki-materials");
+        return `<div class="wiki-calculator-input"><label for="${id}">${context.escape(stripMcCodes(itemName))}</label><input id="${id}" type="number" min="0" step="1" inputmode="numeric" value="0" data-have="${context.escape(key)}" readonly></div>`;
+      })
+      .join("");
+    const title = `Materials for ${stripMcCodes(name)}`;
+    return `<section class="wiki-materials" data-materials aria-label="${context.escape(title)}"><p class="wiki-calculator-title">${context.escape(title)}</p><div class="wiki-calculator-inputs"><div class="wiki-calculator-input"><label for="${amountId}">How many</label><input id="${amountId}" type="number" min="1" step="1" inputmode="numeric" value="${String(amount)}" data-amount readonly></div></div><details class="wiki-materials-have"><summary>What you already have</summary><div class="wiki-calculator-inputs">${have}</div></details><div class="wiki-materials-parts"><div><p class="wiki-materials-label">Steps</p><div data-materials-tree aria-live="polite">${shown.tree}</div></div><div><p class="wiki-materials-label">Raw materials</p><div data-materials-totals aria-live="polite">${shown.totals}</div></div></div><script type="application/json" data-materials-book>${scriptJson({ name, book, links })}</script></section>\n`;
+  },
+};
+
 export const MINECRAFT_COMPONENTS = [
   mcInline,
   mcBlock,
@@ -335,4 +450,6 @@ export const MINECRAFT_COMPONENTS = [
   itemInfoboxComponent,
   itemInline,
   inventory,
+  recipe,
+  materials,
 ] as const;

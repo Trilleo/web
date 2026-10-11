@@ -1,6 +1,7 @@
 /** Renders components the way a wiki would, for tests (never bundled). */
 import MarkdownIt from "markdown-it";
 import { demoLookup } from "./minecraft/items";
+import { demoRecipeLookup } from "./minecraft/recipes";
 import { componentPlugin, type ComponentEnv } from "./plugin";
 import { COMPONENTS } from "./registry";
 
@@ -29,7 +30,7 @@ export function render(
         },
         imageUrl: (url) =>
           url.startsWith("https://files.trilleo.net/") ? url : null,
-        resources: { items: demoLookup },
+        resources: { items: demoLookup, recipes: demoRecipeLookup },
       },
     },
   };

@@ -263,7 +263,9 @@
 .mc-inventory {
   display: inline-block;
   max-width: 100%;
-  margin: 0;
+  /* Only the figure's side margins: the text's spacing between blocks still applies. */
+  margin-inline: 0;
+  margin-block-end: 0;
   overflow-x: auto;
   padding: 0.5rem;
   border: 2px solid;
@@ -366,4 +368,50 @@
   line-height: 1;
   text-shadow: 1px 1px 0 #3f3f3f;
   pointer-events: none;
+}
+
+/* Recipes: the station's panel, its grid, an arrow, and what comes out. */
+.mc-recipe {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 100%;
+  /* Only the figure's side margins: the text's spacing between blocks still applies. */
+  margin-inline: 0;
+  margin-block-end: 0;
+  overflow-x: auto;
+  padding: 0.5rem;
+  border: 2px solid;
+  border-color: #ffffff #555555 #555555 #ffffff;
+  background: #c6c6c6;
+}
+
+.mc-recipe-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #3f3f3f;
+  font-family: var(--mc-font);
+  font-size: 0.875rem;
+}
+
+.mc-recipe-time {
+  color: #555555;
+}
+
+.mc-recipe-body {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mc-recipe-arrow {
+  color: #8b8b8b;
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.mc-recipe-output .mc-slot {
+  width: 2.75rem;
+  height: 2.75rem;
 }

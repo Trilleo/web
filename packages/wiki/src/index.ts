@@ -24,3 +24,7 @@ export {
   plainSource,
   splitSections,
 } from "./syntax";
+export * from "./minecraft/recipes";
+export * from "./formula";
+export * from "./calculators";
+export type { RecipeLookup } from "./components/minecraft";
