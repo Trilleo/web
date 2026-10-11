@@ -10,8 +10,11 @@ export const TITLE_MAX = 200;
 /** Titles are measured in characters as people count them. */
 const graphemes = new Intl.Segmenter("en", { granularity: "grapheme" });
 
-/** Namespaces with a meaning; anything else with a colon is an ordinary title. */
-export const NAMESPACES = { category: "Category" } as const;
+/**
+ * Namespaces with a meaning; anything else with a colon is an ordinary title.
+ * Item: pages describe a Minecraft-style item (@trilleo/wiki's `::: item`).
+ */
+export const NAMESPACES = { category: "Category", item: "Item" } as const;
 export type Namespace = keyof typeof NAMESPACES | "main";
 
 // Wiki markup and URL syntax can't appear in titles; nor can control characters.

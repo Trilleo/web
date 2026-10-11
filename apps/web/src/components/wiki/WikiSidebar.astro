@@ -32,7 +32,10 @@ const tools = [
   { label: "Components", href: toolHref(wiki, "components") },
   { label: "Log", href: toolHref(wiki, "log") },
   ...(access?.edit
-    ? [{ label: "Create a page", href: toolHref(wiki, "create") }]
+    ? [
+        { label: "Create a page", href: toolHref(wiki, "create") },
+        { label: "Files", href: toolHref(wiki, "files") },
+      ]
     : []),
   ...(access?.manage
     ? [{ label: "Settings", href: toolHref(wiki, "settings") }]

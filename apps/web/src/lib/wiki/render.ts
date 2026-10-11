@@ -30,6 +30,8 @@ import {
   effectiveSets,
   plainSource,
   type ComponentState,
+  type ItemData,
+  type ItemLookup,
 } from "@trilleo/wiki";
 import type { HighlighterCore } from "shiki/core";
 import { getHighlighter, highlightCode } from "../blog/render";
@@ -46,8 +48,19 @@ import { RESERVED_WIKI_SLUGS, WIKI_SLUG_PATTERN } from "./wikis";
 
 export const WIKI_RENDER_VERSION = 3;
 
-/** Where images may come from: published files only. */
-const IMAGE_ORIGIN = "https://files.trilleo.net/";
+/**
+ * Where images may come from: published files only (the files domain, or the local
+ * storage driver's path in development and tests).
+ */
+const IMAGE_PREFIXES = ["https://files.trilleo.net/", "/api/storage/local/"];
+
+export function allowedImage(url: string): string | null {
+  const trimmed = url.trim();
+  return IMAGE_PREFIXES.some((prefix) => trimmed.startsWith(prefix)) &&
+    !/[\s"'<>]/.test(trimmed)
+    ? trimmed
+    : null;
+}
 
 export type WikiLink =
   | {
@@ -120,6 +133,8 @@ export interface RenderedWikiPage {
   categories: string[];
   /** The text without markup. */
   plain: string;
+  /** The item the page describes (an Item: page's `::: item`). */
+  item: ItemData | null;
 }
 
 /** What rendering passes to the rules (markdown-it's env is an open record). */
@@ -136,6 +151,8 @@ export interface RenderTarget {
   slug: string;
   title: string;
   componentSets: readonly string[];
+  /** The wiki's items, for the minecraft components. */
+  items?: ItemLookup;
 }
 
 function escapeHtml(text: string): string {
@@ -207,7 +224,7 @@ function createMarkdown(shiki: HighlighterCore): Markdown {
   });
   md.linkify.set({ fuzzyEmail: false });
   md.validateLink = (url) =>
-    isAllowedLink(url) || url.startsWith("#") || url.startsWith(IMAGE_ORIGIN);
+    isAllowedLink(url) || url.startsWith("#") || allowedImage(url) !== null;
   md.inline.ruler.before("link", "wiki_link", wikiLinkRule);
   componentPlugin(md, COMPONENTS);
   // Every parse, components' bodies included: the page's title is the h1.
@@ -237,7 +254,7 @@ function createMarkdown(shiki: HighlighterCore): Markdown {
     if (!token) return "";
     const src = String(token.attrGet("src") ?? "");
     const alt = escapeHtml(token.content);
-    if (!src.startsWith(IMAGE_ORIGIN)) return alt;
+    if (!allowedImage(src)) return alt;
     return `<img src="${escapeHtml(src)}" alt="${alt}" loading="lazy" decoding="async">`;
   };
 
@@ -278,6 +295,21 @@ export async function renderWikiPage(
       categories: [],
       depth: 0,
     },
+  };
+  env.components.host = {
+    href: (title) => {
+      const normal = normalizeTitle(title);
+      return normal
+        ? `/${target.slug}/${titlePath(normal)}`
+        : `/${target.slug}/`;
+    },
+    link: (title) => {
+      const normal = normalizeTitle(title);
+      if (normal && !env.links.has(titleKey(normal)))
+        env.links.set(titleKey(normal), normal);
+    },
+    imageUrl: allowedImage,
+    resources: { items: target.items ?? (() => null) },
   };
   // The redirect line is for the wiki, not the reader.
   const source = parseRedirect(body)
@@ -326,7 +358,10 @@ export async function renderWikiPage(
     const title = categoryTitle(name);
     if (title) env.categories.add(title);
   }
+  const defined = env.components.emitted?.get("item")?.at(-1) as
+    ItemData | undefined;
   return {
+    item: defined ?? null,
     html,
     toc,
     links: [...env.links].map(([key, title]) => ({ key, title })),

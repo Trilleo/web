@@ -1,28 +1,7 @@
-import MarkdownIt from "markdown-it";
 import { describe, expect, it } from "vitest";
-import { componentPlugin, type ComponentEnv } from "./plugin";
 import { COMPONENTS, componentsFor, effectiveSets } from "./registry";
+import { render } from "./test-render";
 import { parseField, plainSource, splitSections } from "./syntax";
-
-const md = new MarkdownIt({ html: false, linkify: true });
-md.validateLink = (url) =>
-  url.startsWith("https://files.trilleo.net/") || url.startsWith("/");
-componentPlugin(md, COMPONENTS);
-
-function render(
-  source: string,
-  sets = ["core"],
-): { html: string; env: ComponentEnv } {
-  const env: ComponentEnv = {
-    components: {
-      sets: new Set(sets),
-      pageTitle: "Wheat",
-      categories: [],
-      depth: 0,
-    },
-  };
-  return { html: md.render(source, env), env };
-}
 
 describe("syntax helpers", () => {
   it("reads fields, sections and plain text", () => {
@@ -181,15 +160,29 @@ describe("core components", () => {
 
 describe("the registry", () => {
   it("has unique names, examples that render without errors, and the core set always on", () => {
-    const names = COMPONENTS.map((component) => component.name);
+    // A block and an inline component may share a name, but not two of one kind.
+    const names = COMPONENTS.map(
+      (component) => `${component.kind}:${component.name}`,
+    );
     expect(new Set(names).size).toBe(names.length);
     for (const component of COMPONENTS) {
-      expect(render(component.example).html, component.name).not.toContain(
-        "wiki-error",
-      );
+      // Examples render as the documentation shows them: on an Item: page.
+      expect(
+        render(
+          component.example,
+          ["core", "minecraft"],
+          "Item:Aspect of the End",
+        ).html,
+        component.name,
+      ).not.toContain("wiki-error");
     }
     expect([...effectiveSets([])]).toEqual(["core"]);
     expect([...effectiveSets(["core", "unknown"])]).toEqual(["core"]);
-    expect(componentsFor(new Set(["core"]))).toHaveLength(COMPONENTS.length);
+    expect(componentsFor(new Set(["core", "minecraft"]))).toHaveLength(
+      COMPONENTS.length,
+    );
+    expect(
+      componentsFor(new Set(["core"])).every((c) => c.set === "core"),
+    ).toBe(true);
   });
 });

@@ -4,6 +4,7 @@
  * apps/web/src/styles/wiki.css. A new set: add it to COMPONENT_SETS too.
  */
 import { CORE_COMPONENTS } from "./components/core";
+import { MINECRAFT_COMPONENTS } from "./components/minecraft";
 import type { ComponentSet, WikiComponent } from "./types";
 
 export const COMPONENT_SETS: readonly ComponentSet[] = [
@@ -14,9 +15,18 @@ export const COMPONENT_SETS: readonly ComponentSet[] = [
       "Infoboxes, notices, tabs, collapsible sections, navboxes, columns, badges and keys.",
     always: true,
   },
+  {
+    id: "minecraft",
+    label: "Minecraft",
+    description:
+      "Minecraft text with § codes, items described on Item: pages with the game's tooltips, and inventories.",
+  },
 ];
 
-export const COMPONENTS: readonly WikiComponent[] = [...CORE_COMPONENTS];
+export const COMPONENTS: readonly WikiComponent[] = [
+  ...CORE_COMPONENTS,
+  ...MINECRAFT_COMPONENTS,
+];
 
 /** The sets a wiki ends up with: what it chose (known ones only), plus the ones every wiki has. */
 export function effectiveSets(chosen: readonly string[]): Set<string> {

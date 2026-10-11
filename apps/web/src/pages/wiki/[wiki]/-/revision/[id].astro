@@ -8,6 +8,7 @@ import {
   openWiki,
   privateHeaders,
 } from "../../../../../lib/wiki/page";
+import { itemLookup } from "../../../../../lib/wiki/items";
 import { renderWikiPage } from "../../../../../lib/wiki/render";
 import { getPageById, getRevision } from "../../../../../lib/wiki/store";
 import { formatWikiDate, wikiButton } from "../../../../../lib/wiki/ui";
@@ -42,6 +43,7 @@ const rendered =
         slug: context.wiki.slug,
         title: page?.title ?? revision.title,
         componentSets: context.wiki.componentSets,
+        items: await itemLookup(context.db, context.wiki),
       })
     : null;
 ---

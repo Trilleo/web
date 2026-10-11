@@ -67,6 +67,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-11",
+        note: "Added pictures uploaded for a wiki, and which wiki they’re for.",
+      },
+      {
+        date: "2026-10-11",
         note: "Added the wiki: what’s kept when you edit or join a wiki, and how long.",
       },
       {

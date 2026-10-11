@@ -1,0 +1,369 @@
+/*
+ * Minecraft components (@trilleo/wiki's minecraft set). They look like the game in
+ * both themes: its tooltip, slots and sixteen text colours are what readers know,
+ * so these are game colours, not the site's tokens. The text is set in "Minecraft"
+ * by Jacob Debono, a free fan-made recreation of the game's lettering (not Mojang's
+ * file), committed in packages/wiki/src/fonts (see NOTICE.md there): it isn't on npm.
+ */
+
+@font-face {
+  font-family: "Minecraft Text";
+  src: url("../../../../packages/wiki/src/fonts/Minecraft-Regular.woff2")
+    format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Minecraft Text";
+  src: url("../../../../packages/wiki/src/fonts/Minecraft-Bold.woff2")
+    format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Minecraft Text";
+  src: url("../../../../packages/wiki/src/fonts/Minecraft-Italic.woff2")
+    format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Minecraft Text";
+  src: url("../../../../packages/wiki/src/fonts/Minecraft-BoldItalic.woff2")
+    format("woff2");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  --mc-0: #000000;
+  --mc-1: #0000aa;
+  --mc-2: #00aa00;
+  --mc-3: #00aaaa;
+  --mc-4: #aa0000;
+  --mc-5: #aa00aa;
+  --mc-6: #ffaa00;
+  --mc-7: #aaaaaa;
+  --mc-8: #555555;
+  --mc-9: #5555ff;
+  --mc-a: #55ff55;
+  --mc-b: #55ffff;
+  --mc-c: #ff5555;
+  --mc-d: #ff55ff;
+  --mc-e: #ffff55;
+  --mc-f: #ffffff;
+  --mc-panel: #100010;
+  --mc-edge-top: #5000ff;
+  --mc-edge-bottom: #28007f;
+  --mc-font: "Minecraft Text", var(--font-mono);
+}
+
+.mc-c-0 {
+  color: var(--mc-0);
+}
+.mc-c-1 {
+  color: var(--mc-1);
+}
+.mc-c-2 {
+  color: var(--mc-2);
+}
+.mc-c-3 {
+  color: var(--mc-3);
+}
+.mc-c-4 {
+  color: var(--mc-4);
+}
+.mc-c-5 {
+  color: var(--mc-5);
+}
+.mc-c-6 {
+  color: var(--mc-6);
+}
+.mc-c-7 {
+  color: var(--mc-7);
+}
+.mc-c-8 {
+  color: var(--mc-8);
+}
+.mc-c-9 {
+  color: var(--mc-9);
+}
+.mc-c-a {
+  color: var(--mc-a);
+}
+.mc-c-b {
+  color: var(--mc-b);
+}
+.mc-c-c {
+  color: var(--mc-c);
+}
+.mc-c-d {
+  color: var(--mc-d);
+}
+.mc-c-e {
+  color: var(--mc-e);
+}
+.mc-c-f {
+  color: var(--mc-f);
+}
+
+.mc-bold {
+  font-weight: 700;
+}
+.mc-italic {
+  font-style: italic;
+}
+.mc-underline {
+  text-decoration-line: underline;
+}
+.mc-strike {
+  text-decoration-line: line-through;
+}
+.mc-underline.mc-strike {
+  text-decoration-line: underline line-through;
+}
+
+/* The game's text sits on its dark panel, so every colour reads in both themes. */
+.mc-text,
+.mc-tooltip,
+.mc-item-name {
+  background: var(--mc-panel);
+  color: var(--mc-f);
+  font-family: var(--mc-font);
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-shadow: 0.1em 0.1em 0 rgb(0 0 0 / 0.55);
+}
+
+.mc-text,
+.mc-item-name {
+  padding: 0.05em 0.35em;
+  font-size: 0.875em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.mc-block {
+  display: block;
+  padding: 0.75rem 1rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.mc-line {
+  display: block;
+  white-space: pre-wrap;
+}
+
+/* Items in text: icon and name; the tooltip appears on hover and focus. */
+.mc-item {
+  position: relative;
+}
+
+.prose a.mc-item-link,
+.mc-item-link {
+  text-decoration: none;
+}
+
+.mc-item-link:hover .mc-item-name,
+.mc-item-link:focus-visible .mc-item-name {
+  text-decoration: underline;
+}
+
+.mc-item-link.is-missing .mc-item-name {
+  text-decoration: underline dashed;
+}
+
+.mc-item-count {
+  font-family: var(--mc-font);
+  font-size: 0.875em;
+}
+
+.mc-icon {
+  display: inline-block;
+  width: 1.4em;
+  height: 1.4em;
+  margin-right: 0.25em;
+  border: 0;
+  vertical-align: -0.3em;
+  image-rendering: pixelated;
+}
+
+.mc-swatch {
+  display: inline-grid;
+  place-items: center;
+  border: 2px solid currentColor;
+  background: #1d1d1d;
+  font-family: var(--mc-font);
+  font-size: 0.75em;
+  line-height: 1;
+}
+
+.mc-icon[data-size="large"] {
+  width: 4rem;
+  height: 4rem;
+  margin: 0;
+  font-size: 2rem;
+}
+
+.mc-tooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  display: none;
+  width: max-content;
+  max-width: min(26rem, calc(100vw - 16px));
+  padding: 0.4rem 0.55rem;
+  border: 2px solid;
+  border-image: linear-gradient(var(--mc-edge-top), var(--mc-edge-bottom)) 1;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  text-align: left;
+  text-indent: 0;
+  white-space: normal;
+  pointer-events: none;
+}
+
+.mc-item:hover > .mc-tooltip,
+.mc-item:focus-within > .mc-tooltip {
+  display: block;
+}
+
+.mc-tooltip[data-static] {
+  position: static;
+  display: block;
+  width: auto;
+  max-width: none;
+}
+
+/* An item's infobox: its picture beside its tooltip. */
+.mc-infobox-art {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--tr-ink);
+}
+
+.mc-infobox-art .mc-tooltip {
+  flex: 1 1 12rem;
+}
+
+/* Inventories: the game's grey panel and sunken slots. */
+.mc-inventory {
+  display: inline-block;
+  max-width: 100%;
+  margin: 0;
+  overflow-x: auto;
+  padding: 0.5rem;
+  border: 2px solid;
+  border-color: #ffffff #555555 #555555 #ffffff;
+  background: #c6c6c6;
+}
+
+.mc-inventory-title {
+  margin-bottom: 0.35rem;
+  color: #3f3f3f;
+  font-family: var(--mc-font);
+  font-size: 0.875rem;
+}
+
+.mc-slots {
+  display: grid;
+  grid-template-columns: repeat(9, 2.25rem);
+  width: max-content;
+}
+
+.mc-slots[data-cols="1"] {
+  grid-template-columns: repeat(1, 2.25rem);
+}
+.mc-slots[data-cols="2"] {
+  grid-template-columns: repeat(2, 2.25rem);
+}
+.mc-slots[data-cols="3"] {
+  grid-template-columns: repeat(3, 2.25rem);
+}
+.mc-slots[data-cols="4"] {
+  grid-template-columns: repeat(4, 2.25rem);
+}
+.mc-slots[data-cols="5"] {
+  grid-template-columns: repeat(5, 2.25rem);
+}
+.mc-slots[data-cols="6"] {
+  grid-template-columns: repeat(6, 2.25rem);
+}
+.mc-slots[data-cols="7"] {
+  grid-template-columns: repeat(7, 2.25rem);
+}
+.mc-slots[data-cols="8"] {
+  grid-template-columns: repeat(8, 2.25rem);
+}
+.mc-slots[data-cols="10"] {
+  grid-template-columns: repeat(10, 2.25rem);
+}
+.mc-slots[data-cols="11"] {
+  grid-template-columns: repeat(11, 2.25rem);
+}
+.mc-slots[data-cols="12"] {
+  grid-template-columns: repeat(12, 2.25rem);
+}
+
+.mc-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 2px solid;
+  border-color: #373737 #ffffff #ffffff #373737;
+  background: #8b8b8b;
+}
+
+.mc-slot-item {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.mc-slot-item:hover {
+  background: rgb(255 255 255 / 0.35);
+}
+
+.mc-slot-item:focus-visible {
+  outline: 2px solid var(--tr-accent);
+  outline-offset: 0;
+}
+
+.mc-slot .mc-icon {
+  width: 1.6rem;
+  height: 1.6rem;
+  margin: 0;
+  vertical-align: 0;
+}
+
+.mc-slot-item.is-missing .mc-icon {
+  border-style: dashed;
+}
+
+.mc-count {
+  position: absolute;
+  right: 1px;
+  bottom: -2px;
+  color: #ffffff;
+  font-family: var(--mc-font);
+  font-size: 0.75rem;
+  line-height: 1;
+  text-shadow: 1px 1px 0 #3f3f3f;
+  pointer-events: none;
+}

@@ -15,6 +15,9 @@ import {
   RELEASE_EXTENSIONS,
 } from "../minecraft/catalog";
 
+/** Wiki pictures are icons and screenshots: small. */
+export const WIKI_MEDIA_MAX_BYTES = 2 * 1024 * 1024;
+
 export const STORAGE_PURPOSES: readonly StoragePurpose[] = [
   {
     slug: "site",
@@ -54,6 +57,20 @@ export const STORAGE_PURPOSES: readonly StoragePurpose[] = [
     uploaders: "users",
     extensions: GALLERY_EXTENSIONS,
     maxFileBytes: GALLERY_MAX_BYTES,
+    visibilities: ["public"],
+    defaultVisibility: "public",
+    review: "untrusted",
+  },
+  {
+    // Wiki pictures and item icons (wiki.trilleo.net). Reviewed like anyone's uploads,
+    // except that a wiki member's file attached to their wiki (wiki_files) is
+    // published once scanned: the wiki's owners vouched for them (StorageDeps'
+    // waivesReview, lib/wiki/files.ts).
+    slug: "wiki-media",
+    label: "Wiki pictures",
+    uploaders: "users",
+    extensions: GALLERY_EXTENSIONS,
+    maxFileBytes: WIKI_MEDIA_MAX_BYTES,
     visibilities: ["public"],
     defaultVisibility: "public",
     review: "untrusted",

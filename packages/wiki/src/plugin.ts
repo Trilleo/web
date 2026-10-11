@@ -20,6 +20,15 @@ const NAME = /^[a-z][a-z0-9-]*$/;
 const OPENER = /^:::\s*([a-z][a-z0-9-]*)(?:\s+(.*?))?\s*$/;
 const CLOSER = /^:::\s*$/;
 
+/** What the wiki gives components, besides rendering Markdown. */
+export interface ComponentHost {
+  href(title: string): string;
+  link(title: string): void;
+  /** Allowed images' addresses; others give null. */
+  imageUrl(url: string): string | null;
+  resources: Readonly<Record<string, unknown>>;
+}
+
 /** What the plugin keeps in markdown-it's env while a page renders. */
 export interface ComponentState {
   /** Component sets switched on for this wiki. */
@@ -28,7 +37,20 @@ export interface ComponentState {
   /** Category names components asked for. */
   categories: string[];
   depth: number;
+  host?: ComponentHost;
+  /** What components emitted, by channel. */
+  emitted?: Map<string, unknown[]>;
+  /** For `id()`. */
+  ids?: number;
 }
+
+/** A host that links nowhere and has nothing: tests and the documentation's defaults. */
+export const BARE_HOST: ComponentHost = {
+  href: (title) => `/${encodeURIComponent(title.replace(/ /g, "_"))}`,
+  link: () => undefined,
+  imageUrl: () => null,
+  resources: {},
+};
 
 /** markdown-it's env (an open record) with the plugin's state in it. */
 export type ComponentEnv = Record<string, unknown> & {
@@ -133,9 +155,13 @@ export function componentPlugin(
   md: Markdown,
   components: readonly WikiComponent[],
 ): void {
-  const byName = new Map(
-    components.map((component) => [component.name, component]),
-  );
+  // A block and an inline component may share a name (::: item and {{item}}).
+  const byName = new Map<string, WikiComponent[]>();
+  for (const component of components)
+    byName.set(component.name, [
+      ...(byName.get(component.name) ?? []),
+      component,
+    ]);
 
   md.block.ruler.before("fence", "wiki_component", blockRule, {
     alt: ["paragraph", "reference", "blockquote", "list"],
@@ -156,31 +182,52 @@ export function componentPlugin(
     env: ComponentEnv,
     state: ComponentState,
     depth: number,
-  ): RenderContext => ({
-    markdown: (text) => md.render(text, env),
-    inline: (text) => md.renderInline(text, env),
-    escape: escapeHtml,
-    error: (message) => errorBox(message, false),
-    pageTitle: state.pageTitle,
-    addCategory: (name) => {
-      if (!state.categories.includes(name)) state.categories.push(name);
-    },
-    depth,
-  });
+  ): RenderContext => {
+    const host = state.host ?? BARE_HOST;
+    return {
+      markdown: (text) => md.render(text, env),
+      inline: (text) => md.renderInline(text, env),
+      escape: escapeHtml,
+      error: (message) => errorBox(message, false),
+      pageTitle: state.pageTitle,
+      addCategory: (name) => {
+        if (!state.categories.includes(name)) state.categories.push(name);
+      },
+      depth,
+      href: (title) => host.href(title),
+      link: (title) => {
+        host.link(title);
+      },
+      resource: (name) => host.resources[name],
+      emit: (channel, value) => {
+        state.emitted ??= new Map();
+        state.emitted.set(channel, [
+          ...(state.emitted.get(channel) ?? []),
+          value,
+        ]);
+      },
+      id: (prefix) => {
+        state.ids = (state.ids ?? 0) + 1;
+        return `${prefix}-${String(state.ids)}`;
+      },
+      imageUrl: (url) => host.imageUrl(url),
+    };
+  };
 
   const lookup = (
     name: string,
     kind: WikiComponent["kind"],
     state: ComponentState,
   ) => {
-    const component = byName.get(name);
-    if (!component) return `There's no component called “${name}”.`;
-    if (!state.sets.has(component.set))
-      return `“${name}” isn't switched on for this wiki (it's in the ${component.set} set).`;
-    if (component.kind !== kind)
+    const found = byName.get(name);
+    if (!found) return `There's no component called “${name}”.`;
+    const component = found.find((candidate) => candidate.kind === kind);
+    if (!component)
       return kind === "block"
         ? `“${name}” goes inside a line: {{${name} …}}.`
         : `“${name}” is a block: ::: ${name} … :::.`;
+    if (!state.sets.has(component.set))
+      return `“${name}” isn't switched on for this wiki (it's in the ${component.set} set).`;
     return component;
   };
 

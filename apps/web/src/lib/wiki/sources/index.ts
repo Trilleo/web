@@ -4,6 +4,7 @@
  * Markdown as written pages, and can't be shadowed by one: their titles are taken.
  * Adding a source: write a module like skygrid.ts and list it in SOURCES.
  */
+import type { ItemData } from "@trilleo/wiki";
 import { skygridSource } from "./skygrid";
 
 export interface GeneratedPage {
@@ -19,6 +20,13 @@ export interface WikiSource {
   /** Where the data lives, for the "edit" hint. */
   origin: string;
   pages(): readonly GeneratedPage[];
+  /** Items the minecraft components can show ({{item Name}}). */
+  items?(): readonly ItemData[];
+  /**
+   * Component sets its pages use: they render with them even if the wiki hasn't
+   * switched them on for its written pages.
+   */
+  componentSets?: readonly string[];
 }
 
 export const SOURCES: Readonly<Record<string, WikiSource>> = {

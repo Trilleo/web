@@ -3,6 +3,8 @@
  * they only change when the code does, which means a new release.
  */
 import type { Wiki } from "@trilleo/db";
+import { itemKey } from "@trilleo/wiki";
+import { generatedItems } from "./items";
 import { renderWikiPage, type RenderedWikiPage } from "./render";
 import { sourceFor, type WikiSource } from "./sources";
 import { titleKey } from "./titles";
@@ -22,9 +24,14 @@ const cache = new Map<string, Promise<GeneratedSet>>();
 
 async function build(
   source: WikiSource,
-  wiki: Pick<Wiki, "slug" | "componentSets">,
+  wiki: Pick<Wiki, "slug" | "source" | "componentSets">,
 ): Promise<GeneratedSet> {
   const pages = new Map<string, GeneratedWikiPage>();
+  // Generated pages show generated items (written Item: pages don't change them).
+  const items = generatedItems(wiki);
+  const componentSets = [
+    ...new Set([...wiki.componentSets, ...(source.componentSets ?? [])]),
+  ];
   for (const page of source.pages()) {
     const key = titleKey(page.title);
     if (pages.has(key))
@@ -35,7 +42,8 @@ async function build(
       rendered: await renderWikiPage(page.body, {
         slug: wiki.slug,
         title: page.title,
-        componentSets: wiki.componentSets,
+        componentSets,
+        items: (name) => items.get(itemKey(name)) ?? null,
       }),
     });
   }

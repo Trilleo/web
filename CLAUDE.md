@@ -92,7 +92,8 @@
 - Small labels ("(01)", "About", post meta, contents) hang in a left column:
   2 of 8 columns on iPad, 2 of 12 on desktop, so content starts at column 3.
   Right-hand asides take columns 10–12 on desktop; post text is columns 3–9.
-- Fonts are self-hosted from npm (@fontsource-variable/*); no third-party requests.
+- Fonts are self-hosted from npm (@fontsource-variable/*); no third-party requests. The
+  one exception is the wiki's Minecraft font, committed in packages/wiki/src/fonts.
 - Typefaces by role: the grotesk (`font-sans`) for headings, UI and quotes; the
   serif (`font-serif`, Source Serif 4 with optical sizes) for reading text: .prose
   (posts, rendered notes), .comment-body, and `type-dek`; mono for labels and code.
@@ -633,8 +634,29 @@
   (`splitInfobox`) into the layout's right column on desktop, above the contents,
   and shown in the text below xl. Infoboxes are labelled `<section>`s, not
   `<aside>`s: complementary landmarks can't nest in main.
-- Next phases (planned): Minecraft components (§ text, item tooltips, inventories,
-  recipes, calculators, per-wiki item data and icons), then proposed edits and review.
+- The minecraft set (owners switch it on; Skygrid deliberately doesn't use it):
+  `{{mc §6text}}` / `::: mc` (§ codes, @trilleo/wiki's minecraft/text.ts; only §, not
+  &), `::: item` on an `Item:<name>` page describes an item (name, rarity, type, icon,
+  lore lines; other rows show in its infobox), `{{item Name x64}}`, `::: item-infobox
+Name`, `::: inventory 3x9 Title` (slots `5: Item x64`, ranges, `row 2: A, , B`). They
+  look like the game in both themes (wiki-minecraft.css: game colours, tooltip, slots).
+  Text is set in "Minecraft" by Jacob Debono, a free fan-made font (not Mojang's),
+  committed as WOFF2 in packages/wiki/src/fonts (NOTICE.md); never ship Mojang's files.
+- Items: saving an Item: page records its item in wiki_items (`recordItem`, in
+  replaceLinks), and pages showing it link to its page, so a changed item marks them
+  for re-rendering. `itemLookup` (lib/wiki/items.ts, cached per wiki) serves written
+  items plus a source's `items()`. Components get it as the "items" resource; the
+  renderer gives components a host (href, link, imageUrl, resources) and reads back
+  what they emit (`item`).
+- Pictures: a wiki's Files page (/<wiki>/-/files, members) uploads to the `wiki-media`
+  purpose, attaching each upload to the wiki as it starts (/<wiki>/-/files/attach). A
+  member's attached file is published once scanned, without review (StorageDeps'
+  `waivesReview` → `wikiMemberUpload`). The wiki host passes /api/ through to the app
+  so the upload widget works there; the OBS bucket's CORS must allow the wiki's origin.
+  Images in pages and icons: only files.trilleo.net (or the local driver's
+  /api/storage/local/ in dev and tests), `allowedImage`.
+- Next phases (planned): recipes (crafting grids, custom stations) and calculators,
+  then proposed edits and review.
 
 ## Mail
 

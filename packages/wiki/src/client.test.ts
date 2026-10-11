@@ -67,3 +67,34 @@ describe("enhanceTabs", () => {
     expect(tabs()[2]?.tabIndex).toBe(0);
   });
 });
+
+describe("enhanceInventories", () => {
+  it("makes one tab stop and moves along the grid with arrow keys", async () => {
+    const { enhanceInventories } = await import("./client");
+    // A 2×3 grid: items in slots 1, 3 and 5 (0-based 0, 2, 4).
+    const slot = (n: number) =>
+      `<span class="mc-slot mc-item"><a data-slot href="#${String(n)}">${String(n)}</a></span>`;
+    const empty = `<span class="mc-slot" aria-hidden="true"></span>`;
+    document.body.innerHTML = `<div class="mc-slots" data-cols="3">${slot(0)}${empty}${slot(2)}${empty}${slot(4)}${empty}</div>`;
+    enhanceInventories(document);
+    const links = [
+      ...document.querySelectorAll<HTMLAnchorElement>("[data-slot]"),
+    ];
+    expect(links.map((link) => link.tabIndex)).toEqual([0, -1, -1]);
+    const press = (key: string) =>
+      document.activeElement?.dispatchEvent(
+        new KeyboardEvent("keydown", { key, bubbles: true }),
+      );
+    links[0]?.focus();
+    press("ArrowRight");
+    expect(document.activeElement).toBe(links[1]);
+    press("ArrowDown");
+    expect(document.activeElement).toBe(links[2]);
+    // Equally near items above: the first one.
+    press("ArrowUp");
+    expect(document.activeElement?.getAttribute("href")).toBe("#0");
+    press("Home");
+    expect(document.activeElement).toBe(links[0]);
+    expect(links.map((link) => link.tabIndex)).toEqual([0, -1, -1]);
+  });
+});

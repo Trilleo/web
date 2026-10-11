@@ -104,6 +104,8 @@ describe("openDatabase", () => {
       "username_history",
       "users",
       "wiki_categories",
+      "wiki_files",
+      "wiki_items",
       "wiki_links",
       "wiki_log",
       "wiki_members",

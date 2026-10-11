@@ -1,0 +1,142 @@
+---
+/**
+ * A wiki's pictures, for its members: upload icons and screenshots, and copy a
+ * picture's address into an item's `icon:` line or a page's image. Members' uploads
+ * are published once scanned (lib/wiki/files.ts).
+ */
+import NoWiki from "../../../../../components/wiki/NoWiki.astro";
+import ToolHeading from "../../../../../components/wiki/ToolHeading.astro";
+import WikiFileUpload from "../../../../../components/wiki/WikiFileUpload";
+import WikiLayout from "../../../../../layouts/WikiLayout.astro";
+import { formatBytes } from "@trilleo/tool-kit/files";
+import { GALLERY_EXTENSIONS } from "../../../../../lib/minecraft/catalog";
+import { getStorage } from "../../../../../lib/storage/config";
+import { WIKI_MEDIA_MAX_BYTES } from "../../../../../lib/storage/purposes";
+import { listWikiFiles } from "../../../../../lib/wiki/files";
+import {
+  mainSiteRedirect,
+  openWiki,
+  privateHeaders,
+  publicPath,
+} from "../../../../../lib/wiki/page";
+import { formatWikiDate, wikiTable } from "../../../../../lib/wiki/ui";
+import { toolHref } from "../../../../../lib/wiki/wikis";
+
+export const prerender = false;
+
+const moved = mainSiteRedirect(Astro, Astro.params.wiki);
+if (moved) return moved;
+privateHeaders(Astro);
+const context = await openWiki(Astro, Astro.params.wiki);
+if (!context) Astro.response.status = 404;
+const storage = getStorage();
+const list = context?.access.edit
+  ? await listWikiFiles(context.db, storage, context.wiki.id)
+  : [];
+const accept = GALLERY_EXTENSIONS.map((ext) => `.${ext}`).join(",");
+const STATUS: Record<string, string> = {
+  uploading: "Uploading",
+  processing: "Checking",
+  pending_review: "Waiting for review",
+  published: "Published",
+  rejected: "Refused",
+  removed: "Removed",
+  deleted: "Deleted",
+};
+---
+
+{!context ? (
+  <NoWiki />
+) : (
+  <WikiLayout title="Files" wiki={context.wiki} access={context.access} noindex>
+    <div class="flex flex-col gap-8">
+      <ToolHeading
+        title="Files"
+        lead="Pictures for this wiki: item icons and screenshots. Copy a picture's address into an item's icon: line, or a page's ![description](address)."
+      />
+      {!context.access.edit ? (
+        <p class="text-muted">
+          Only this wiki's members can upload pictures.
+          {!context.user && (
+            <>
+              {" "}
+              <a
+                href={`/-/sign-in?next=${encodeURIComponent(publicPath(Astro.url))}`}
+                class="text-ink underline"
+              >
+                Sign in
+              </a>
+            </>
+          )}
+        </p>
+      ) : !storage ? (
+        <p class="text-muted">File storage isn't set up on this server.</p>
+      ) : (
+        <>
+          <WikiFileUpload
+            client:load
+            attachUrl={toolHref(context.wiki, "files/attach")}
+            accept={accept}
+            hint={`PNG, JPEG, WebP, GIF or AVIF, up to ${formatBytes(WIKI_MEDIA_MAX_BYTES)}. They're checked for malware, then published.`}
+          />
+          {list.length === 0 ? (
+            <p class="text-muted">No pictures yet.</p>
+          ) : (
+            <div class="overflow-x-auto">
+              <table class={wikiTable} data-wiki-files>
+                <thead>
+                  <tr>
+                    <th>
+                      <span class="sr-only">Picture</span>
+                    </th>
+                    <th>Name</th>
+                    <th>Address</th>
+                    <th>Status</th>
+                    <th>By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((file) => (
+                    <tr>
+                      <td>
+                        {file.publicUrl ? (
+                          <img
+                            src={file.thumbnailUrl ?? file.publicUrl}
+                            alt=""
+                            width="40"
+                            height="40"
+                            loading="lazy"
+                            class="size-10 object-contain [image-rendering:pixelated]"
+                          />
+                        ) : null}
+                      </td>
+                      <td>{file.name}</td>
+                      <td>
+                        {file.publicUrl ? (
+                          <code class="text-xs break-all select-all">
+                            {file.publicUrl}
+                          </code>
+                        ) : (
+                          <span class="text-muted">Not public yet</span>
+                        )}
+                      </td>
+                      <td class="whitespace-nowrap">
+                        {STATUS[file.status] ?? file.status}
+                      </td>
+                      <td class="whitespace-nowrap">
+                        {file.uploader ? `@${file.uploader}` : ""}
+                        <span class="block text-xs text-muted">
+                          {formatWikiDate(file.createdAt)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  </WikiLayout>
+)}

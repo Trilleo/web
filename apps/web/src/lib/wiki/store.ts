@@ -35,13 +35,14 @@ import {
 import { effectiveSets } from "@trilleo/wiki";
 import { normalizeUsername } from "../auth/usernames";
 import { generatedPages } from "./generated";
+import { itemLookup, recordItem } from "./items";
 import {
   WIKI_RENDER_VERSION,
   parseRedirect,
   renderWikiPage,
   snippet,
 } from "./render";
-import { titleKey } from "./titles";
+import { namespaceOf, titleKey } from "./titles";
 
 type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
@@ -398,9 +399,15 @@ export async function previousRevision(
 
 async function replaceLinks(
   db: Db,
-  page: Pick<WikiPage, "id" | "wikiId">,
+  page: Pick<WikiPage, "id" | "wikiId" | "key" | "title">,
   rendered: Awaited<ReturnType<typeof renderWikiPage>>,
 ): Promise<void> {
+  // Only Item: pages describe items.
+  await recordItem(
+    db,
+    page,
+    namespaceOf(page.title) === "item" ? rendered.item : null,
+  );
   await db.delete(wikiLinks).where(eq(wikiLinks.pageId, page.id));
   await db.delete(wikiCategories).where(eq(wikiCategories.pageId, page.id));
   if (rendered.links.length > 0)
@@ -426,7 +433,7 @@ async function replaceLinks(
 /** Renders the page again if an older renderer wrote its HTML. */
 export async function ensurePageRendered(
   db: Database,
-  wiki: Pick<Wiki, "slug" | "componentSets">,
+  wiki: WikiRef,
   page: WikiPage,
 ): Promise<WikiPage> {
   if (page.renderVersion >= WIKI_RENDER_VERSION || page.revisionId === null)
@@ -441,6 +448,7 @@ export async function ensurePageRendered(
     slug: wiki.slug,
     title: page.title,
     componentSets: wiki.componentSets,
+    items: await itemLookup(db, wiki),
   });
   const changes = {
     html: rendered.html,
@@ -494,6 +502,7 @@ export async function savePage(
     slug: input.wiki.slug,
     title: input.title,
     componentSets: input.wiki.componentSets,
+    items: await itemLookup(db, input.wiki),
   });
 
   return db.transaction(async (tx): Promise<SaveResult> => {
@@ -600,6 +609,8 @@ export async function movePage(
     return page ?? null;
   });
   if (!moved) return { ok: false, error: "exists" };
+  // At once, not when next read: an Item: page's item is found by its title.
+  await ensurePageRendered(db, input.wiki, moved);
   // A change of case only keeps the same key: there's nothing to redirect from.
   if (input.redirect && titleKey(from) !== key) {
     await savePage(db, {
@@ -632,6 +643,7 @@ export async function deletePage(
       .where(eq(wikiPages.id, page.id));
     await tx.delete(wikiLinks).where(eq(wikiLinks.pageId, page.id));
     await tx.delete(wikiCategories).where(eq(wikiCategories.pageId, page.id));
+    await recordItem(tx, page, null, now);
     await log(tx, wiki.id, actor, "delete", {
       title: page.title,
       detail: reason,
@@ -659,6 +671,7 @@ export async function restorePage(
     slug: wiki.slug,
     title: page.title,
     componentSets: wiki.componentSets,
+    items: await itemLookup(db, wiki),
   });
   await db.transaction(async (tx) => {
     await tx

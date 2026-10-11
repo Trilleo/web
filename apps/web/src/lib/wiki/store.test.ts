@@ -13,6 +13,7 @@ import {
   categoryMembers,
   createWiki,
   deletePage,
+  ensurePageRendered,
   existingKeys,
   findPage,
   listMembers,
@@ -28,6 +29,7 @@ import {
   savePage,
   searchPages,
   setMember,
+  updateWiki,
   wantedPages,
   wikiExport,
   wikiLogEntries,
@@ -314,5 +316,81 @@ describe("the account export", () => {
       { wiki: "sky", page: "Coal", summary: "New", text: "Black rock." },
     ]);
     expect((await wikiExport(handle.db, owner.id)).edits).toEqual([]);
+  });
+});
+
+describe("items", () => {
+  it("are recorded from Item: pages, shown elsewhere, and kept up to date", async () => {
+    const created = await createWiki(handle.db, owner, {
+      slug: "mc",
+      name: "MC",
+      code: "MC",
+      description: "",
+      kind: "minecraft",
+      visibility: "public",
+      homeTitle: "Main Page",
+      nav: [],
+      componentSets: ["minecraft"],
+    });
+    if (!created.ok) throw new Error();
+    const mc = created.wiki;
+    const saveIn = (title: string, body: string, base: number | null = null) =>
+      savePage(handle.db, {
+        wiki: mc,
+        actor: editor,
+        title,
+        body,
+        summary: "",
+        minor: false,
+        baseRevisionId: base,
+        canEditProtected: true,
+        now,
+      });
+
+    // Shown before it exists: a link to the page that would describe it.
+    const shop = await saveIn("Shop", "Buy {{item Magic Wand}}.");
+    if (!shop.ok) throw new Error();
+    expect(shop.page.html).toContain("is-missing");
+
+    const wand = await saveIn(
+      "Item:Magic Wand",
+      "::: item\nrarity: epic\nlore: §7Zap.\n:::",
+    );
+    if (!wand.ok) throw new Error();
+    // The shop shows it the next time it's read.
+    const stale = await findPage(handle.db, mc.id, "shop");
+    expect(stale?.renderVersion).toBe(0);
+    const fresh = stale && (await ensurePageRendered(handle.db, mc, stale));
+    expect(fresh?.html).toContain('<span class="mc-c-5">Magic Wand</span>');
+    expect(fresh?.html).toContain("Zap.");
+
+    // A change to the item reaches the shop again; deleting it leaves a link.
+    await saveIn(
+      "Item:Magic Wand",
+      "::: item\nrarity: rare\n:::",
+      wand.revision.id,
+    );
+    const again = await findPage(handle.db, mc.id, "shop");
+    expect(again?.renderVersion).toBe(0);
+    const page = await findPage(handle.db, mc.id, "item:magic wand");
+    if (!page) throw new Error();
+    await deletePage(handle.db, mc, owner, page, "");
+    const gone = await findPage(handle.db, mc.id, "shop");
+    const shown = gone && (await ensurePageRendered(handle.db, mc, gone));
+    expect(shown?.html).toContain("is-missing");
+  });
+
+  it("aren't recorded from other namespaces", async () => {
+    const updated = await updateWiki(handle.db, wiki, owner, {
+      ...wiki,
+      componentSets: ["minecraft"],
+    });
+    const result = await save("Wand", "::: item\nrarity: epic\n:::", {
+      wiki: updated,
+    });
+    if (!result.ok) throw new Error();
+    expect(result.page.html).toContain(
+      "Items are described on pages called Item:",
+    );
   });
 });

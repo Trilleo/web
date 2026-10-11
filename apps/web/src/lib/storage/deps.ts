@@ -4,6 +4,7 @@ import { isAdmin } from "../auth/guard";
 import { getDb } from "../db";
 import { getScanning, getStorage } from "./config";
 import type { Requester, StorageDeps } from "./service";
+import { wikiMemberUpload } from "../wiki/files";
 
 /** The database and storage, or null when the server has no storage set up. */
 export async function storageDeps(): Promise<StorageDeps | null> {
@@ -14,6 +15,7 @@ export async function storageDeps(): Promise<StorageDeps | null> {
     db,
     storage,
     scanning: getScanning(),
+    waivesReview: (file) => wikiMemberUpload(db, file),
     isAdminId: async (userId) => {
       const [user] = await db
         .select()

@@ -399,6 +399,8 @@ beacon shows it), so it lives in the code. Empty: no analytics.
    <https://wiki.trilleo.net/-/new> (admin only).
 4. Optional: add `https://wiki.trilleo.net/` to Google Search Console and Bing (it's
    another site to them) and submit `https://wiki.trilleo.net/sitemap.xml`.
+5. For wiki picture uploads: add a CORS rule to the OBS bucket for origin
+   `https://wiki.trilleo.net` (the same as www's; see [storage.md](storage.md) §2).
 
 ## Day to day
 

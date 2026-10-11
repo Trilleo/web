@@ -135,9 +135,17 @@ const contents = toc.filter((heading) => heading.depth === 2);
     <WikiFooter main={main} />
     <CookieConsent origin={main} />
     <script>
-      import { enhanceTabs } from "@trilleo/wiki/client";
+      import {
+        animateObfuscated,
+        enhanceInventories,
+        enhanceTabs,
+        placeTooltips,
+      } from "@trilleo/wiki/client";
 
       enhanceTabs(document);
+      enhanceInventories(document);
+      placeTooltips(document);
+      animateObfuscated(document);
     </script>
   </body>
 </html>

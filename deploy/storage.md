@@ -41,8 +41,9 @@ GitHub and the server.
    | Exposed Header    | `ETag`                    |
    | Cache Duration(s) | `3600`                    |
 
-   To try OBS from `pnpm dev` later, add a second rule with origin
-   `http://localhost:4321`.
+   Add a second rule, the same but with origin `https://wiki.trilleo.net`: wiki members
+   upload pictures from the wiki's own address. To try OBS from `pnpm dev` later, add
+   one with origin `http://localhost:4321` (and `http://wiki.localhost:4321`).
 
 3. **Data Management → Lifecycle Rules → Create**: name `abort-unfinished-uploads`,
    status **Enable**, prefix `f/`. Leave current-version and historical-version
@@ -200,7 +201,10 @@ After the next deploy (or now, if the release with storage is already live):
   no total limit. Who uploads what is set per purpose in
   `apps/web/src/lib/storage/purposes.ts`: the admin's `site` files (/admin/files), and
   anyone's Minecraft releases (`minecraft`) and gallery images (`minecraft-media`,
-  raster images up to 10 MB) from the creator pages. The general `shared` purpose is
+  raster images up to 10 MB) from the creator pages, and wiki pictures (`wiki-media`,
+  raster images up to 2 MB) from a wiki's Files page. A wiki member's picture attached
+  to their wiki is published once scanned, without review (`waivesReview`,
+  apps/web/src/lib/wiki/files.ts); anyone else's waits as usual. The general `shared` purpose is
   defined but off; `STORAGE_ENABLE_PURPOSES=shared` in `app.env` would switch it on.
 - **Types**: almost anything. Images, audio, video and PDF open in the browser; every
   other type downloads. HTML, SVG and scripts are stored as plain bytes and always

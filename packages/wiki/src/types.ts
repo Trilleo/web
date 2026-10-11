@@ -30,6 +30,18 @@ export interface RenderContext {
   addCategory(name: string): void;
   /** How deep in other components this one is (0: at the top of the page). */
   depth: number;
+  /** The address of a page in this wiki. */
+  href(title: string): string;
+  /** Records a link to a page (backlinks, wanted pages, re-rendering). */
+  link(title: string): void;
+  /** Something the wiki provides for rendering (e.g. "items": an ItemLookup). */
+  resource(name: string): unknown;
+  /** Hands something back to the wiki (e.g. "item": the item a page defines). */
+  emit(channel: string, value: unknown): void;
+  /** An id unique on the page, for aria references. */
+  id(prefix: string): string;
+  /** The image's address if the wiki allows it (published files), else null. */
+  imageUrl(url: string): string | null;
 }
 
 interface ComponentBase {

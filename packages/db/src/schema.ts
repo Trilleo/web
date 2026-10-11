@@ -1350,6 +1350,54 @@ export const wikiLog = pgTable(
 );
 
 /**
+ * The item an Item: page describes (@trilleo/wiki's ItemData), kept when the page is
+ * saved so other pages can show it without reading every Item: page. `key` is the
+ * item's name folded (itemKey).
+ */
+export const wikiItems = pgTable(
+  "wiki_items",
+  {
+    wikiId: integer("wiki_id")
+      .notNull()
+      .references(() => wikis.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    pageId: integer("page_id")
+      .notNull()
+      .unique()
+      .references(() => wikiPages.id, { onDelete: "cascade" }),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.wikiId, table.key] })],
+);
+
+/**
+ * Files uploaded for a wiki (storage purpose "wiki-media": icons and pictures). A
+ * member's file attached here is published once scanned, without review.
+ */
+export const wikiFiles = pgTable(
+  "wiki_files",
+  {
+    wikiId: integer("wiki_id")
+      .notNull()
+      .references(() => wikis.id, { onDelete: "cascade" }),
+    fileId: text("file_id")
+      .notNull()
+      .references(() => files.id, { onDelete: "cascade" }),
+    addedBy: uuid("added_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.wikiId, table.fileId] }),
+    index("wiki_files_file_idx").on(table.fileId),
+  ],
+);
+
+/**
  * Signing in on wiki.trilleo.net with the session from www (lib/wiki/handoff.ts):
  * a one-time ticket, kept as its SHA-256, tied to the browser that asked for it by
  * `stateHash` (a cookie on the wiki's host). Lives a minute; deleted when used.

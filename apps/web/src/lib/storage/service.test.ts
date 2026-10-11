@@ -330,6 +330,22 @@ describe("moderation", () => {
     expect((await fetchPublic(id)).status).toBe(200);
   });
 
+  it("publishes a file someone else vouched for (waivesReview), scanned all the same", async () => {
+    deps.waivesReview = (file) => Promise.resolve(file.name === "vouched.png");
+    const vouched = await upload(alice, "vouched.png", PNG, {
+      purpose: "shared",
+    });
+    expect(vouched.result).toMatchObject({
+      ok: true,
+      value: { status: "published" },
+    });
+    const other = await upload(alice, "other.png", PNG, { purpose: "shared" });
+    expect(other.result).toMatchObject({
+      ok: true,
+      value: { status: "pending_review" },
+    });
+  });
+
   it("doesn't review private files", async () => {
     const { result } = await upload(alice, "pic.png", PNG, {
       purpose: "shared",

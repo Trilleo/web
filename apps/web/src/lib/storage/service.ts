@@ -92,6 +92,11 @@ export interface StorageDeps {
   isAdminId?: (userId: string) => Promise<boolean>;
   /** The purpose registry (tests pass their own). */
   purposes?: readonly StoragePurpose[];
+  /**
+   * Whether a file that would wait for review needn't (it was vouched for elsewhere:
+   * a wiki member's picture for their wiki). Malware is still refused.
+   */
+  waivesReview?: (file: StoredFile) => Promise<boolean>;
   /** Malware scanning; none when left out. */
   scanning?: Scanning;
   now?: () => Date;
@@ -537,7 +542,8 @@ async function runProcessing(
       : "user";
   const visibility = row.visibility;
   const byRules = purpose
-    ? needsReview(purpose, role, visibility, row.name)
+    ? needsReview(purpose, role, visibility, row.name) &&
+      (await deps.waivesReview?.(row)) !== true
     : !ownerIsAdmin;
   // A file nobody could scan waits for review (the admin's own files never wait).
   const unscanned = scan?.status === "unscanned" && !ownerIsAdmin;

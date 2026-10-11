@@ -6,12 +6,16 @@
 export * from "./types";
 export * from "./registry";
 export {
+  BARE_HOST,
   componentPlugin,
   componentSource,
   errorBox,
   type ComponentEnv,
+  type ComponentHost,
   type ComponentState,
 } from "./plugin";
+export * from "./minecraft/text";
+export * from "./minecraft/items";
 export {
   escapeHtml,
   firstWord,

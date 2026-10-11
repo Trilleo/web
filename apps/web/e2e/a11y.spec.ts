@@ -47,6 +47,8 @@ const PAGES = [
   "wiki:/skygrid/-/pages",
   "wiki:/skygrid/-/components",
   "wiki:/skygrid/Wheat_Minion",
+  "wiki:/skygrid/Merchant",
+  "wiki:/skygrid/Iron_Sword",
   "wiki:/skygrid/-/search?q=spider&fulltext=1",
 ];
 

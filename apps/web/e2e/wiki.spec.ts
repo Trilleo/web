@@ -1,6 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { continueAs, freshLogin } from "./support";
+import { continueAs, freshLogin, hydrated } from "./support";
+
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
 
 /**
  * The wiki is the same server on another host: wiki.localhost here (browsers send
@@ -280,4 +285,108 @@ test("pages use components: infobox beside the text, tabs, notices and stubs", a
   // The wiki's documentation lists every component.
   await admin.goto(`/${slug}/-/components`);
   await expect(admin.locator("[data-component]")).toHaveCount(10);
+});
+
+test("a Minecraft wiki: members upload icons, describe items and show them", async ({
+  browser,
+  baseURL,
+}) => {
+  test.slow();
+  const slug = `e2e-${randomBytes(3).toString("hex")}`;
+  const admin = await wikiPage(browser, baseURL);
+  await signIn(admin, "admin", "/");
+  await admin.goto("/-/new");
+  await admin.getByLabel("Address").fill(slug);
+  await admin
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("Blocks");
+  await admin.getByRole("textbox", { name: "Code", exact: true }).fill("blk");
+  await admin.getByRole("checkbox", { name: "Minecraft" }).check();
+  await admin.getByRole("button", { name: "Create wiki" }).click();
+  await expect(admin).toHaveURL(`/${slug}/`);
+
+  // A member's picture is published once scanned, without review.
+  const login = freshLogin("builder");
+  const member = await wikiPage(browser, baseURL);
+  await signIn(member, login, "/");
+  await admin.goto(`/${slug}/-/settings`);
+  await admin.getByLabel("Username").fill(login);
+  await admin.getByRole("button", { name: "Add or change member" }).click();
+  await expect(admin.locator("[data-members]")).toContainText(`@${login}`);
+
+  await member.goto(`/${slug}/-/files`);
+  await hydrated(member);
+  await member.locator('input[type="file"]').setInputFiles({
+    name: "lamp.png",
+    mimeType: "image/png",
+    buffer: PNG,
+  });
+  const uploads = member.getByRole("list", { name: "Uploads" });
+  await expect(uploads).toContainText("Uploaded");
+  await expect(uploads).not.toContainText("waiting for review");
+  await member.reload();
+  await expect(member.locator("[data-wiki-files]")).toContainText("Published");
+  const address = await member
+    .locator("[data-wiki-files] code")
+    .first()
+    .textContent();
+  expect(address).toBeTruthy();
+
+  // An Item: page describes the lamp; another page shows it.
+  await member.goto(`/${slug}/-/edit/Item:Lamp`);
+  await member
+    .getByLabel("Text")
+    .fill(
+      [
+        "::: item",
+        "rarity: rare",
+        "type: block",
+        `icon: ${address ?? ""}`,
+        "lore: §7Lights up the room.",
+        ":::",
+      ].join("\n"),
+    );
+  await member.getByRole("button", { name: "Save" }).click();
+  await expect(member).toHaveURL(`/${slug}/Item:Lamp`);
+  await expect(member.getByRole("region", { name: "Lamp" })).toContainText(
+    "RARE BLOCK",
+  );
+
+  await member.goto(`/${slug}/-/edit/Lighting`);
+  await member
+    .getByLabel("Text")
+    .fill(
+      [
+        "Place a {{item Lamp x3}} in each room.",
+        "",
+        "::: inventory 1x3 Hotbar",
+        "1: Lamp x16",
+        "3: Torch",
+        ":::",
+      ].join("\n"),
+    );
+  await member.getByRole("button", { name: "Save" }).click();
+  await expect(member).toHaveURL(`/${slug}/Lighting`);
+  const lamp = member.locator(".mc-item-link").first();
+  await expect(lamp).toContainText("Lamp");
+  await expect(lamp.locator("img.mc-icon")).toHaveAttribute(
+    "src",
+    address ?? "",
+  );
+  await lamp.hover();
+  await expect(member.getByRole("tooltip").first()).toContainText(
+    "Lights up the room.",
+  );
+
+  // The hotbar: two items, one unknown (dashed, linking to the page that would describe it).
+  const hotbar = member.getByRole("group", { name: "Hotbar" });
+  await expect(hotbar.getByRole("link")).toHaveCount(2);
+  await expect(hotbar.getByRole("link", { name: "Lamp, 16" })).toBeVisible();
+  await expect(hotbar.getByRole("link", { name: "Torch" })).toHaveAttribute(
+    "href",
+    `/${slug}/Item:Torch`,
+  );
+  await hotbar.getByRole("link", { name: "Lamp, 16" }).focus();
+  await member.keyboard.press("ArrowRight");
+  await expect(hotbar.getByRole("link", { name: "Torch" })).toBeFocused();
 });

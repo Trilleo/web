@@ -13,6 +13,7 @@ import { field } from "../../../../../lib/comments/form";
 import { noStoreRedirect } from "../../../../../lib/auth/redirect";
 import { canEditPage } from "../../../../../lib/wiki/access";
 import { generatedPage } from "../../../../../lib/wiki/generated";
+import { itemLookup } from "../../../../../lib/wiki/items";
 import {
   mainSiteRedirect,
   openWiki,
@@ -95,6 +96,7 @@ if (context && title) {
         slug: wiki.slug,
         title,
         componentSets: wiki.componentSets,
+        items: await itemLookup(db, wiki),
       });
       const keys = linkedKeys(rendered.html);
       const found = await existingKeys(db, wiki, keys);

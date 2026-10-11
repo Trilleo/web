@@ -10,6 +10,7 @@ import WikiLayout from "../../../../layouts/WikiLayout.astro";
 import {
   COMPONENT_SETS,
   componentsFor,
+  demoLookup,
   effectiveSets,
   type WikiComponent,
 } from "@trilleo/wiki";
@@ -41,8 +42,10 @@ if (context) {
     for (const component of available.filter((c) => c.set === set.id)) {
       const rendered = await renderWikiPage(component.example, {
         slug: context.wiki.slug,
-        title: "Example",
+        // As if on an Item: page (so ::: item works), with the package's demo items.
+        title: "Item:Aspect of the End",
         componentSets: [...sets],
+        items: demoLookup,
       });
       entries.push({ component, html: rendered.html });
     }
