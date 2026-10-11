@@ -113,8 +113,9 @@ wiki.trilleo.net {
 			file_server
 		}
 
+		# `file` alone misses directory addresses ("/about/"): try their index too.
 		@mainPage {
-			file
+			file {path} {path}/index.html
 			not path / /robots.txt /sitemap.xml
 		}
 		redir @mainPage https://www.trilleo.net{uri} permanent
