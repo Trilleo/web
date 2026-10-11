@@ -32,6 +32,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
+import { effectiveSets } from "@trilleo/wiki";
 import { normalizeUsername } from "../auth/usernames";
 import { generatedPages } from "./generated";
 import {
@@ -43,6 +44,9 @@ import {
 import { titleKey } from "./titles";
 
 type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+/** What most of this module needs of a wiki: where it is, and how it renders. */
+export type WikiRef = Pick<Wiki, "id" | "slug" | "source" | "componentSets">;
 type Db = Database | Tx;
 
 export const PAGE_LIMITS = {
@@ -143,7 +147,15 @@ export type WikiInput = Pick<
   | "visibility"
   | "homeTitle"
   | "nav"
->;
+> & {
+  /** Component sets; the ones every wiki has are added anyway (core when left out). */
+  componentSets?: string[];
+};
+
+/** The sets as stored: known ones, plus those every wiki has, in a stable order. */
+function storedSets(sets: readonly string[] | undefined): string[] {
+  return [...effectiveSets(sets ?? [])].sort();
+}
 
 async function log(
   db: Db,
@@ -181,6 +193,7 @@ export async function createWiki(
         visibility: input.visibility,
         homeTitle: input.homeTitle,
         nav: input.nav,
+        componentSets: storedSets(input.componentSets),
         source: input.source ?? null,
         createdAt: now,
         updatedAt: now,
@@ -201,6 +214,7 @@ const EDITABLE = [
   "visibility",
   "homeTitle",
   "nav",
+  "componentSets",
 ] as const satisfies readonly (keyof WikiInput)[];
 
 export async function updateWiki(
@@ -210,6 +224,7 @@ export async function updateWiki(
   input: Omit<WikiInput, "slug">,
   now = new Date(),
 ): Promise<Wiki> {
+  const componentSets = storedSets(input.componentSets ?? wiki.componentSets);
   const [updated] = await db
     .update(wikis)
     .set({
@@ -220,14 +235,23 @@ export async function updateWiki(
       visibility: input.visibility,
       homeTitle: input.homeTitle,
       nav: input.nav,
+      componentSets,
       updatedAt: now,
     })
     .where(eq(wikis.id, wiki.id))
     .returning();
   if (!updated) throw new Error("Updating the wiki returned nothing");
-  const changed = EDITABLE.filter(
-    (key) => JSON.stringify(input[key]) !== JSON.stringify(wiki[key]),
+  const changed = EDITABLE.filter((key) =>
+    key === "componentSets"
+      ? JSON.stringify(componentSets) !== JSON.stringify(wiki.componentSets)
+      : JSON.stringify(input[key]) !== JSON.stringify(wiki[key]),
   );
+  // Pages render again (when next read) with the components they may now use.
+  if (changed.includes("componentSets"))
+    await db
+      .update(wikiPages)
+      .set({ renderVersion: 0 })
+      .where(eq(wikiPages.wikiId, wiki.id));
   if (changed.length > 0)
     await log(db, wiki.id, actor, "settings", {
       detail: changed.join(", "),
@@ -402,7 +426,7 @@ async function replaceLinks(
 /** Renders the page again if an older renderer wrote its HTML. */
 export async function ensurePageRendered(
   db: Database,
-  wiki: Pick<Wiki, "slug">,
+  wiki: Pick<Wiki, "slug" | "componentSets">,
   page: WikiPage,
 ): Promise<WikiPage> {
   if (page.renderVersion >= WIKI_RENDER_VERSION || page.revisionId === null)
@@ -413,7 +437,11 @@ export async function ensurePageRendered(
     .where(eq(wikiRevisions.id, page.revisionId))
     .limit(1);
   if (!revision) return page;
-  const rendered = await renderWikiPage(revision.body, wiki.slug);
+  const rendered = await renderWikiPage(revision.body, {
+    slug: wiki.slug,
+    title: page.title,
+    componentSets: wiki.componentSets,
+  });
   const changes = {
     html: rendered.html,
     toc: rendered.toc,
@@ -433,7 +461,7 @@ export type SaveResult =
   | { ok: false; error: "unchanged" | "generated" | "too-long" | "protected" };
 
 export interface SaveInput {
-  wiki: Pick<Wiki, "id" | "slug" | "source">;
+  wiki: WikiRef;
   /** Null for built-in pages (seed.ts). */
   actor: User | null;
   title: string;
@@ -462,7 +490,11 @@ export async function savePage(
   const key = titleKey(input.title);
   const generated = await generatedPages(input.wiki);
   if (generated?.pages.has(key)) return { ok: false, error: "generated" };
-  const rendered = await renderWikiPage(body, input.wiki.slug);
+  const rendered = await renderWikiPage(body, {
+    slug: input.wiki.slug,
+    title: input.title,
+    componentSets: input.wiki.componentSets,
+  });
 
   return db.transaction(async (tx): Promise<SaveResult> => {
     let [page] = await tx
@@ -536,7 +568,7 @@ export type MoveResult =
 export async function movePage(
   db: Database,
   input: {
-    wiki: Pick<Wiki, "id" | "slug" | "source">;
+    wiki: WikiRef;
     actor: User;
     page: WikiPage;
     to: string;
@@ -556,7 +588,8 @@ export async function movePage(
     if (existing && existing.id !== input.page.id) return null;
     const [page] = await tx
       .update(wikiPages)
-      .set({ key, title: input.to, updatedAt: now })
+      // Rendered again when next read: an infobox's title is the page's.
+      .set({ key, title: input.to, renderVersion: 0, updatedAt: now })
       .where(eq(wikiPages.id, input.page.id))
       .returning();
     await log(tx, input.wiki.id, input.actor, "move", {
@@ -609,7 +642,7 @@ export async function deletePage(
 
 export async function restorePage(
   db: Database,
-  wiki: Pick<Wiki, "id" | "slug">,
+  wiki: WikiRef,
   actor: User,
   page: WikiPage,
   now = new Date(),
@@ -622,7 +655,11 @@ export async function restorePage(
           .from(wikiRevisions)
           .where(eq(wikiRevisions.id, page.revisionId))
           .limit(1);
-  const rendered = await renderWikiPage(revision?.body ?? "", wiki.slug);
+  const rendered = await renderWikiPage(revision?.body ?? "", {
+    slug: wiki.slug,
+    title: page.title,
+    componentSets: wiki.componentSets,
+  });
   await db.transaction(async (tx) => {
     await tx
       .update(wikiPages)
@@ -775,7 +812,7 @@ export interface PageListing {
 /** Every page, written and generated, by title. */
 export async function allPages(
   db: Database,
-  wiki: Pick<Wiki, "id" | "slug" | "source">,
+  wiki: WikiRef,
 ): Promise<PageListing[]> {
   const rows = await db
     .select({ title: wikiPages.title, redirectTo: wikiPages.redirectTo })
@@ -796,7 +833,7 @@ export async function allPages(
 /** Which of these keys are pages (written or generated) in the wiki. */
 export async function existingKeys(
   db: Database,
-  wiki: Pick<Wiki, "id" | "slug" | "source">,
+  wiki: WikiRef,
   keys: readonly string[],
 ): Promise<Set<string>> {
   const found = new Set<string>();
@@ -826,7 +863,7 @@ export async function existingKeys(
 /** Links (from written and generated pages) to pages nobody has written yet. */
 export async function wantedPages(
   db: Database,
-  wiki: Pick<Wiki, "id" | "slug" | "source">,
+  wiki: WikiRef,
 ): Promise<{ title: string; links: number }[]> {
   const counts = new Map<string, { title: string; links: number }>();
   const rows = await db
@@ -858,7 +895,7 @@ export async function wantedPages(
 /** Pages that link here (written and generated). */
 export async function backlinks(
   db: Database,
-  wiki: Pick<Wiki, "id" | "slug" | "source">,
+  wiki: WikiRef,
   key: string,
 ): Promise<string[]> {
   const rows = await db
@@ -884,7 +921,7 @@ export async function backlinks(
 /** The pages in a category (by the category page's key). */
 export async function categoryMembers(
   db: Database,
-  wiki: Pick<Wiki, "id" | "slug" | "source">,
+  wiki: WikiRef,
   categoryKey: string,
 ): Promise<string[]> {
   const rows = await db
@@ -914,7 +951,7 @@ export async function categoryMembers(
 /** Every category in use, with how many pages are in it. */
 export async function allCategories(
   db: Database,
-  wiki: Pick<Wiki, "id" | "slug" | "source">,
+  wiki: WikiRef,
 ): Promise<{ title: string; pages: number }[]> {
   const counts = new Map<string, { title: string; pages: number }>();
   const rows = await db
@@ -956,7 +993,7 @@ export const SEARCH_LIMIT = 50;
  */
 export async function searchPages(
   db: Database,
-  wiki: Pick<Wiki, "id" | "slug" | "source">,
+  wiki: WikiRef,
   query: string,
 ): Promise<SearchHit[]> {
   const q = query.trim().slice(0, 200);

@@ -38,7 +38,11 @@ const canRevert =
   canEditPage(context.access, page);
 const rendered =
   context && revision
-    ? await renderWikiPage(revision.body, context.wiki.slug)
+    ? await renderWikiPage(revision.body, {
+        slug: context.wiki.slug,
+        title: page?.title ?? revision.title,
+        componentSets: context.wiki.componentSets,
+      })
     : null;
 ---
 

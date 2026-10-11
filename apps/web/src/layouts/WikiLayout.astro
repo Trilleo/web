@@ -28,6 +28,11 @@ interface Props {
   access?: WikiAccess | null;
   /** h2/h3 headings: a contents list on desktop. */
   toc?: readonly PostHeading[];
+  /**
+   * The page's infobox (rendered HTML): beside the text, above the contents, on
+   * desktop. The page shows it in the text on smaller screens.
+   */
+  infobox?: string | null;
 }
 
 const {
@@ -37,6 +42,7 @@ const {
   wiki = null,
   access = null,
   toc = [],
+  infobox = null,
 } = Astro.props;
 const user: User | null = Astro.locals.user;
 const main = mainOrigin(Astro.url);
@@ -116,13 +122,22 @@ const contents = toc.filter((heading) => heading.depth === 2);
       >
         <slot />
       </main>
-      {wiki && contents.length > 1 && (
-        <aside class="hidden xl:col-span-3 xl:block">
-          <TableOfContents headings={contents} />
+      {wiki && (infobox || contents.length > 1) && (
+        <aside
+          aria-label="About this page"
+          class="hidden xl:col-span-3 xl:flex xl:flex-col xl:gap-8"
+        >
+          {infobox && <div set:html={infobox} />}
+          {contents.length > 1 && <TableOfContents headings={contents} />}
         </aside>
       )}
     </div>
     <WikiFooter main={main} />
     <CookieConsent origin={main} />
+    <script>
+      import { enhanceTabs } from "@trilleo/wiki/client";
+
+      enhanceTabs(document);
+    </script>
   </body>
 </html>

@@ -33,7 +33,7 @@ import {
 } from "../../../../../lib/wiki/store";
 import { titleFromPath, titleKey } from "../../../../../lib/wiki/titles";
 import { wikiButton, wikiInput } from "../../../../../lib/wiki/ui";
-import { wikiHref } from "../../../../../lib/wiki/wikis";
+import { toolHref, wikiHref } from "../../../../../lib/wiki/wikis";
 
 export const prerender = false;
 
@@ -91,7 +91,11 @@ if (context && title) {
     const base = field(form, "base");
     baseRevisionId = /^\d+$/.test(base) ? Number(base) : null;
     if (field(form, "intent") === "preview") {
-      const rendered = await renderWikiPage(body, wiki.slug);
+      const rendered = await renderWikiPage(body, {
+        slug: wiki.slug,
+        title,
+        componentSets: wiki.componentSets,
+      });
       const keys = linkedKeys(rendered.html);
       const found = await existingKeys(db, wiki, keys);
       previewHtml = markMissing(
@@ -207,6 +211,16 @@ const signIn = `/-/sign-in?next=${encodeURIComponent(publicPath(Astro.url))}`;
               </span>
               <span>
                 # Heading · **bold** · *italic* · `code` · - list · | tables |
+              </span>
+              <span>
+                ::: notice warning … ::: · {"{{kbd E}}"} ·{" "}
+                <a
+                  href={toolHref(context.wiki, "components")}
+                  class="text-ink underline"
+                  target="_blank"
+                >
+                  every component, with examples
+                </a>
               </span>
             </div>
           </details>

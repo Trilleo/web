@@ -134,6 +134,13 @@
       "when": 1791712953401,
       "tag": "0018_wiki",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791718168861,
+      "tag": "0019_wiki-components",
+      "breakpoints": true
     }
   ]
 }

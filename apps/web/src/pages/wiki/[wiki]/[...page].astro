@@ -19,7 +19,12 @@ import {
   openWiki,
   privateHeaders,
 } from "../../../lib/wiki/page";
-import { linkedKeys, markMissing, snippet } from "../../../lib/wiki/render";
+import {
+  linkedKeys,
+  markMissing,
+  snippet,
+  splitInfobox,
+} from "../../../lib/wiki/render";
 import {
   categoryMembers,
   ensurePageRendered,
@@ -143,6 +148,9 @@ const description =
     ? snippet(view.plain, 160)
     : wiki?.description;
 const isHome = wiki && title === wiki.homeTitle;
+// The top infobox goes beside the text on desktop (the layout), in it elsewhere.
+const { infobox, rest: pageHtml } =
+  view?.kind === "page" ? splitInfobox(view.html) : { infobox: null, rest: "" };
 ---
 
 {!wiki || !access ? (
@@ -163,6 +171,7 @@ const isHome = wiki && title === wiki.homeTitle;
     wiki={wiki}
     access={access}
     toc={view?.kind === "page" ? view.toc : []}
+    infobox={infobox}
   >
     <article class="flex flex-col gap-6">
       <PageHeading
@@ -213,8 +222,10 @@ const isHome = wiki && title === wiki.homeTitle;
         </p>
       )}
 
+      {infobox && <div class="xl:hidden" set:html={infobox} />}
+
       {view?.kind === "page" && (
-        <div class="prose prose-wiki max-w-none" set:html={view.html} />
+        <div class="prose prose-wiki max-w-none" set:html={pageHtml} />
       )}
 
       {view?.kind === "missing" && (

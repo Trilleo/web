@@ -51,6 +51,9 @@
   (what a mod, plugin, pack, world or schematic says about itself); builds' blocks
   (`readVoxels`), the compact preview format, block colours/shapes and the mesher
   for the 3D view. `./testing` writes NBT for tests. Source-only.
+- packages/wiki (@trilleo/wiki): wiki components. `.` the registry (`COMPONENTS`,
+  `COMPONENT_SETS`), the markdown-it plugin that renders them, and syntax helpers;
+  `./client` the browser part (`enhanceTabs`). Source-only.
 - Blog content: Markdown posts in Postgres, written in the admin editor (/admin/posts).
 - The wiki (wiki.trilleo.net) is apps/web on a second host, not its own app: pages in
   src/pages/wiki/, logic in src/lib/wiki/ (see Wiki below).
@@ -613,9 +616,25 @@
   styles/wiki.css), sidebar in columns 1–2, page in 3–9, contents in 10–12; no
   reveals, no morphs, cross-document view transitions off, buttons with the plain
   hover (`wikiButton`). Everything works without JavaScript.
-- Next phases (planned): a component system (infoboxes, notices, tabs) as packages,
-  then Minecraft components (§ text, item tooltips, inventories, recipes,
-  calculators, per-wiki item data and icons), then proposed edits and review.
+- Components (@trilleo/wiki): blocks are `::: name argument` … `:::` (nesting allowed;
+  `::: name argument :::` on one line), inline ones `{{name argument}}`. Bodies are
+  `key: value` fields, `== Label ==` sections, or wiki Markdown, rendered through the
+  same parser (links, categories, nested components). Each component is one module
+  with its documentation (summary, example, notes) and a server-side `render` that
+  escapes or renders everything typed; nothing runs in the browser except tabs
+  (`enhanceTabs`, loaded by WikiLayout; without JS they're sections). Unknown,
+  misused, switched-off or failing components render a visible `.wiki-error`.
+- Component sets: wikis.component_sets (`core` always on). Changing them marks the
+  wiki's pages for re-rendering. Core: infobox, notice, tabs, collapse, navbox,
+  columns, stub and outdated (add Category:Stubs / Outdated pages via
+  `addCategory`), badge, kbd. /<wiki>/-/components documents what a wiki can use,
+  with live examples, straight from the registry.
+- The page's first top-level infobox (`data-placement="page"`) is lifted out
+  (`splitInfobox`) into the layout's right column on desktop, above the contents,
+  and shown in the text below xl. Infoboxes are labelled `<section>`s, not
+  `<aside>`s: complementary landmarks can't nest in main.
+- Next phases (planned): Minecraft components (§ text, item tooltips, inventories,
+  recipes, calculators, per-wiki item data and icons), then proposed edits and review.
 
 ## Mail
 
@@ -803,3 +822,21 @@ Copy apps/notes as the template, then:
    without node_modules). No server changes are needed to deploy.
 8. A tool that needs its own server gets a subdomain instead; that recipe isn't
    written yet.
+
+## Adding a wiki component
+
+1. Write it in packages/wiki/src/components/ (a new file per set): a `BlockComponent`
+   or `InlineComponent` with `name`, `set`, `summary`, `example` (it must render
+   without errors: the registry test checks), optional `notes`, and `render`. Escape
+   everything typed (`context.escape`) or render it as wiki Markdown
+   (`context.markdown` / `context.inline`); never build HTML from raw input. Report
+   bad input with `context.error(...)`.
+2. Add it to `COMPONENTS` (src/registry.ts). A new set also goes in
+   `COMPONENT_SETS`; owners switch it on in their wiki's settings.
+3. Style its classes in apps/web/src/styles/wiki.css (tokens only; it must work in
+   both themes and without JavaScript). Browser behaviour goes in src/client.ts and is
+   started from WikiLayout's script.
+4. Tests: its rendering in packages/wiki (components.test.ts), and if it changes
+   pages (categories, the infobox's placement) a case in apps/web's
+   lib/wiki/render.test.ts. Bump WIKI_RENDER_VERSION when existing pages' HTML changes.
+5. /<wiki>/-/components documents it by itself; e2e/a11y.spec.ts checks that page.

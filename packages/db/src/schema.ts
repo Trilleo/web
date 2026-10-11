@@ -1167,6 +1167,11 @@ export const wikis = pgTable("wikis", {
   /** The page at /<slug>/. */
   homeTitle: text("home_title").notNull().default("Main Page"),
   nav: jsonb("nav").$type<WikiNavSection[]>().notNull().default([]),
+  /** Component sets its pages can use (@trilleo/wiki's COMPONENT_SETS). */
+  componentSets: text("component_sets")
+    .array()
+    .notNull()
+    .default(sql`'{core}'::text[]`),
   /**
    * Pages generated from code (apps/web/src/lib/wiki/sources/), e.g. "skygrid" for
    * the game's items and recipes. Null: only written pages.

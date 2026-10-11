@@ -206,3 +206,78 @@ test("people outside a wiki can read it but not edit it", async ({
   });
   expect(status).toBe(403);
 });
+
+test("pages use components: infobox beside the text, tabs, notices and stubs", async ({
+  browser,
+  baseURL,
+}) => {
+  test.slow();
+  const slug = `e2e-${randomBytes(3).toString("hex")}`;
+  const admin = await wikiPage(browser, baseURL);
+  await signIn(admin, "admin", "/");
+  await admin.goto("/-/new");
+  await admin.getByLabel("Address").fill(slug);
+  await admin.getByRole("textbox", { name: "Name", exact: true }).fill("Parts");
+  await admin.getByRole("textbox", { name: "Code", exact: true }).fill("prt");
+  await admin.getByRole("button", { name: "Create wiki" }).click();
+  await expect(admin).toHaveURL(`/${slug}/`);
+
+  await admin.goto(`/${slug}/-/edit/Lamp`);
+  await admin
+    .getByLabel("Text")
+    .fill(
+      [
+        "::: infobox",
+        "Made of: [[Glass]]",
+        "Light: 15",
+        ":::",
+        "",
+        "A lamp. Press {{kbd E}} to switch it. {{badge accent New}}",
+        "",
+        "::: notice warning Careful",
+        "It gets hot.",
+        ":::",
+        "",
+        "::: tabs",
+        "== Java ==",
+        "Right-click it.",
+        "== Bedrock ==",
+        "Tap it.",
+        ":::",
+        "",
+        "::: stub :::",
+        "",
+        "::: nothing :::",
+      ].join("\n"),
+    );
+  await admin.getByRole("button", { name: "Save" }).click();
+  await expect(admin).toHaveURL(`/${slug}/Lamp`);
+
+  // On desktop the infobox sits beside the text, once.
+  const infobox = admin.getByRole("region", { name: "Lamp" });
+  await expect(infobox).toHaveCount(1);
+  await expect(infobox).toContainText("Light");
+  await expect(infobox.getByRole("link", { name: "Glass" })).toBeVisible();
+  await expect(admin.locator("kbd")).toHaveText("E");
+  await expect(
+    admin.getByRole("note").filter({ hasText: "It gets hot." }),
+  ).toBeVisible();
+
+  // Tabs switch.
+  await expect(admin.getByText("Right-click it.")).toBeVisible();
+  await expect(admin.getByText("Tap it.")).toBeHidden();
+  await admin.getByRole("tab", { name: "Bedrock" }).click();
+  await expect(admin.getByText("Tap it.")).toBeVisible();
+
+  // A stub joins its category; an unknown component shows an error, not nothing.
+  await expect(admin.getByRole("link", { name: "Stubs" })).toBeVisible();
+  await expect(admin.getByText("no component called “nothing”")).toBeVisible();
+  await admin.goto(`/${slug}/Category:Stubs`);
+  await expect(
+    admin.getByRole("link", { name: "Lamp", exact: true }),
+  ).toBeVisible();
+
+  // The wiki's documentation lists every component.
+  await admin.goto(`/${slug}/-/components`);
+  await expect(admin.locator("[data-component]")).toHaveCount(10);
+});

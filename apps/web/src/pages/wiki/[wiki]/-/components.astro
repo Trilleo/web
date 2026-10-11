@@ -1,0 +1,128 @@
+---
+/**
+ * The components this wiki can use, from @trilleo/wiki's registry: how each is
+ * written, what its options are, and a live example rendered as a page would.
+ * Adding a component to the registry adds it here.
+ */
+import NoWiki from "../../../../components/wiki/NoWiki.astro";
+import ToolHeading from "../../../../components/wiki/ToolHeading.astro";
+import WikiLayout from "../../../../layouts/WikiLayout.astro";
+import {
+  COMPONENT_SETS,
+  componentsFor,
+  effectiveSets,
+  type WikiComponent,
+} from "@trilleo/wiki";
+import {
+  mainSiteRedirect,
+  openWiki,
+  privateHeaders,
+} from "../../../../lib/wiki/page";
+import { renderWikiPage } from "../../../../lib/wiki/render";
+
+export const prerender = false;
+
+const moved = mainSiteRedirect(Astro, Astro.params.wiki);
+if (moved) return moved;
+privateHeaders(Astro);
+const context = await openWiki(Astro, Astro.params.wiki);
+if (!context) Astro.response.status = 404;
+
+interface Entry {
+  component: WikiComponent;
+  html: string;
+}
+const groups: { label: string; description: string; entries: Entry[] }[] = [];
+if (context) {
+  const sets = effectiveSets(context.wiki.componentSets);
+  const available = componentsFor(sets);
+  for (const set of COMPONENT_SETS.filter((set) => sets.has(set.id))) {
+    const entries: Entry[] = [];
+    for (const component of available.filter((c) => c.set === set.id)) {
+      const rendered = await renderWikiPage(component.example, {
+        slug: context.wiki.slug,
+        title: "Example",
+        componentSets: [...sets],
+      });
+      entries.push({ component, html: rendered.html });
+    }
+    groups.push({
+      label: set.label,
+      description: set.description,
+      entries,
+    });
+  }
+}
+---
+
+{!context ? (
+  <NoWiki />
+) : (
+  <WikiLayout
+    title="Components"
+    wiki={context.wiki}
+    access={context.access}
+    noindex
+  >
+    <div class="flex flex-col gap-10">
+      <ToolHeading
+        title="Components"
+        lead="Boxes and labels pages can use. Blocks start with a ::: line and end with a ::: line; inline ones go inside a line, between {{ and }}."
+      />
+      {groups.map((group) => (
+        <section
+          class="flex flex-col gap-8"
+          aria-labelledby={`set-${group.label}`}
+        >
+          <div class="flex flex-col gap-1">
+            <h2
+              id={`set-${group.label}`}
+              class="text-2xl font-semibold tracking-[-0.02em]"
+            >
+              {group.label}
+            </h2>
+            <p class="text-muted">{group.description}</p>
+          </div>
+          {group.entries.map(({ component, html }) => (
+            <article
+              class="flex flex-col gap-4 border-t border-ink pt-5"
+              id={component.name}
+              data-component={component.name}
+            >
+              <div class="flex flex-wrap items-baseline gap-x-3">
+                <h3 class="font-mono text-lg">{component.name}</h3>
+                <span class="type-label text-muted">
+                  {component.kind === "block" ? "Block" : "Inline"}
+                </span>
+              </div>
+              <p>{component.summary}</p>
+              {component.notes && (
+                <ul class="list-disc pl-5 text-sm text-muted">
+                  {component.notes.map((note) => (
+                    <li>
+                      {note
+                        .split("`")
+                        .map((part, index) =>
+                          index % 2 === 1 ? <code>{part}</code> : part,
+                        )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div class="grid gap-4 xl:grid-cols-2">
+                <div class="flex min-w-0 flex-col gap-2">
+                  <span class="type-label text-muted">Written</span>
+                  <pre class="bg-code-bg p-3 font-mono text-sm whitespace-pre-wrap text-code-fg"><code>{component.example}</code></pre>
+                </div>
+                <div class="flex min-w-0 flex-col gap-2">
+                  <span class="type-label text-muted">Shown</span>
+                  <div class="prose prose-wiki max-w-none" set:html={html} />
+                </div>
+              </div>
+            </article>
+          ))}
+        </section>
+      ))}
+    </div>
+  </WikiLayout>
+)}

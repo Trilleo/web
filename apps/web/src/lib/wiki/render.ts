@@ -8,6 +8,8 @@
  *   [[:Category:Name]]       links to the category instead
  *   [[@other-wiki:Title]]    a page in another wiki, marked as such
  *   #REDIRECT [[Title]]      on the first line: the page sends readers there
+ *   ::: name argument … :::  {{name argument}}   components (@trilleo/wiki), from
+ *                            the sets the wiki has switched on
  *
  * Links carry their target's key (data-wiki-key), so a page's view can mark the
  * ones whose page doesn't exist (markMissing) without rendering again.
@@ -21,11 +23,20 @@ import MarkdownIt, {
   type Token,
 } from "markdown-it";
 import type { PostHeading } from "@trilleo/db";
+import {
+  COMPONENTS,
+  componentPlugin,
+  componentSource,
+  effectiveSets,
+  plainSource,
+  type ComponentState,
+} from "@trilleo/wiki";
 import type { HighlighterCore } from "shiki/core";
 import { getHighlighter, highlightCode } from "../blog/render";
 import { isAllowedLink } from "../comments/render";
 import {
   NAMESPACES,
+  categoryTitle,
   namespaceOf,
   normalizeTitle,
   titleKey,
@@ -33,7 +44,7 @@ import {
 } from "./titles";
 import { RESERVED_WIKI_SLUGS, WIKI_SLUG_PATTERN } from "./wikis";
 
-export const WIKI_RENDER_VERSION = 2;
+export const WIKI_RENDER_VERSION = 3;
 
 /** Where images may come from: published files only. */
 const IMAGE_ORIGIN = "https://files.trilleo.net/";
@@ -117,7 +128,15 @@ type RenderEnv = Record<string, unknown> & {
   links: Map<string, string>;
   categories: Set<string>;
   plain: string[];
+  components: ComponentState;
 };
+
+/** The page being rendered: its wiki and title, and the component sets it may use. */
+export interface RenderTarget {
+  slug: string;
+  title: string;
+  componentSets: readonly string[];
+}
 
 function escapeHtml(text: string): string {
   return text
@@ -190,6 +209,11 @@ function createMarkdown(shiki: HighlighterCore): Markdown {
   md.validateLink = (url) =>
     isAllowedLink(url) || url.startsWith("#") || url.startsWith(IMAGE_ORIGIN);
   md.inline.ruler.before("link", "wiki_link", wikiLinkRule);
+  componentPlugin(md, COMPONENTS);
+  // Every parse, components' bodies included: the page's title is the h1.
+  md.core.ruler.push("wiki_headings", (state) => {
+    shiftHeadings(state.tokens);
+  });
 
   const rules = md.renderer.rules;
   rules.wiki_link = (tokens, idx, _options, env?: Env) => {
@@ -236,35 +260,44 @@ function shiftHeadings(tokens: Token[]): void {
   }
 }
 
-/** A page of `wiki` (its slug): HTML, contents, links and categories. */
+/** A page's HTML, contents, links and categories. */
 export async function renderWikiPage(
   body: string,
-  wiki: string,
+  target: RenderTarget,
 ): Promise<RenderedWikiPage> {
   processor ??= getHighlighter().then(createMarkdown);
   const md = await processor;
   const env: RenderEnv = {
-    wiki,
+    wiki: target.slug,
     links: new Map(),
     categories: new Set(),
     plain: [],
+    components: {
+      sets: effectiveSets(target.componentSets),
+      pageTitle: target.title,
+      categories: [],
+      depth: 0,
+    },
   };
   // The redirect line is for the wiki, not the reader.
   const source = parseRedirect(body)
     ? body.replace(/^\s*#REDIRECT[^\n]*\n?/i, "")
     : body;
   const tokens = md.parse(source, env);
-  shiftHeadings(tokens);
 
   const slugger = new GithubSlugger();
   const toc: PostHeading[] = [];
   tokens.forEach((token: Token, index: number) => {
+    const block = componentSource(token);
+    if (block !== null) env.plain.push(plainSource(block));
     if (token.type === "inline") {
       for (const child of token.children ?? []) {
+        const inline = componentSource(child);
         if (child.type === "text" || child.type === "code_inline")
           env.plain.push(child.content);
         else if (child.type === "wiki_link" && !isCategorization(child))
           env.plain.push((child.meta as WikiLink).label);
+        else if (inline !== null) env.plain.push(plainSource(inline));
       }
     }
     if (token.type !== "heading_open") return;
@@ -288,6 +321,11 @@ export async function renderWikiPage(
   const html = md.renderer
     .render(tokens, md.options, env)
     .replace(/<p>\s*<\/p>\n?/g, "");
+  // Categories components asked for (a stub's "Stubs").
+  for (const name of env.components.categories) {
+    const title = categoryTitle(name);
+    if (title) env.categories.add(title);
+  }
   return {
     html,
     toc,
@@ -332,3 +370,25 @@ export function snippet(plain: string, max = 200): string {
 }
 
 export const CATEGORY_PREFIX = `${NAMESPACES.category}:`;
+
+/**
+ * Takes the page's first top-level infobox out of its HTML, so the layout can put it
+ * beside the text on wide screens. Infoboxes hold only inline content, so the first
+ * </section> after it is its own.
+ */
+export function splitInfobox(html: string): {
+  infobox: string | null;
+  rest: string;
+} {
+  const marker = html.indexOf('data-placement="page"');
+  if (marker === -1) return { infobox: null, rest: html };
+  const start = html.lastIndexOf('<section class="wiki-infobox"', marker);
+  const close = html.indexOf("</section>", marker);
+  if (start === -1 || close === -1) return { infobox: null, rest: html };
+  let end = close + "</section>".length;
+  if (html[end] === "\n") end += 1;
+  return {
+    infobox: html.slice(start, end),
+    rest: html.slice(0, start) + html.slice(end),
+  };
+}

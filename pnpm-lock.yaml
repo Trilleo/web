@@ -580,6 +580,9 @@ importers:
       '@trilleo/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@trilleo/wiki':
+        specifier: workspace:*
+        version: link:../../packages/wiki
       astro:
         specifier: ^7.3.5
         version: 7.3.5(@types/node@26.6.4)(aws4fetch@1.0.20)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
@@ -814,6 +817,25 @@ importers:
       react-dom:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.3
+        version: 5.0.3(@types/node@26.6.4)(jsdom@30.1.1)(vite@8.3.1(@types/node@26.6.4)(jiti@2.7.0))
+
+  packages/wiki:
+    dependencies:
+      markdown-it:
+        specifier: ^15.0.2
+        version: 15.0.2
+    devDependencies:
+      '@types/node':
+        specifier: ^26.6.4
+        version: 26.6.4
+      jsdom:
+        specifier: ^30.1.1
+        version: 30.1.1
       typescript:
         specifier: ~6.0.3
         version: 6.0.3

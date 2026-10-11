@@ -8,6 +8,7 @@ import type {
   WikiNavSection,
   WikiVisibility,
 } from "@trilleo/db";
+import { effectiveSets } from "@trilleo/wiki";
 import { normalizeTitle, titlePath } from "./titles";
 
 /**
@@ -183,7 +184,8 @@ export type WikiField =
   | "kind"
   | "visibility"
   | "homeTitle"
-  | "nav";
+  | "nav"
+  | "componentSets";
 
 /** What the settings (and new wiki) form holds, as typed. */
 export interface WikiDraft {
@@ -195,6 +197,7 @@ export interface WikiDraft {
   visibility: string;
   homeTitle: string;
   nav: string;
+  componentSets: string[];
 }
 
 export function wikiDraft(wiki: Wiki): WikiDraft {
@@ -207,6 +210,7 @@ export function wikiDraft(wiki: Wiki): WikiDraft {
     visibility: wiki.visibility,
     homeTitle: wiki.homeTitle,
     nav: formatNav(wiki.nav),
+    componentSets: wiki.componentSets,
   };
 }
 
@@ -224,6 +228,9 @@ export function readWikiForm(form: FormData): WikiDraft {
     visibility: text("visibility"),
     homeTitle: text("homeTitle"),
     nav: text("nav"),
+    componentSets: form
+      .getAll("componentSets")
+      .filter((value): value is string => typeof value === "string"),
   };
 }
 
@@ -268,6 +275,7 @@ export function validateWiki(draft: WikiDraft): WikiValidation {
       visibility: draft.visibility as WikiVisibility,
       homeTitle,
       nav,
+      componentSets: [...effectiveSets(draft.componentSets)].sort(),
     },
   };
 }

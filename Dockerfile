@@ -34,6 +34,7 @@ COPY packages/mc-files/package.json packages/mc-files/
 COPY packages/storage/package.json packages/storage/
 COPY packages/tool-kit/package.json packages/tool-kit/
 COPY packages/ui/package.json packages/ui/
+COPY packages/wiki/package.json packages/wiki/
 RUN pnpm install --frozen-lockfile
 
 COPY . .

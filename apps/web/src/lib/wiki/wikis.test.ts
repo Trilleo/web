@@ -77,6 +77,7 @@ describe("validateWiki", () => {
     visibility: "private",
     homeTitle: "main page",
     nav: "Start\nMain Page",
+    componentSets: ["unknown"],
   };
 
   it("accepts a good draft, tidied", () => {
@@ -85,6 +86,7 @@ describe("validateWiki", () => {
     if (result.ok) {
       expect(result.input.code).toBe("SMP");
       expect(result.input.homeTitle).toBe("Main page");
+      expect(result.input.componentSets).toEqual(["core"]);
     }
   });
 

@@ -35,6 +35,7 @@
     "@trilleo/tool-notes": "workspace:*",
     "@trilleo/tool-qr": "workspace:*",
     "@trilleo/ui": "workspace:*",
+    "@trilleo/wiki": "workspace:*",
     "astro": "^7.3.5",
     "drizzle-orm": "^0.45.3",
     "github-slugger": "^2.0.0",

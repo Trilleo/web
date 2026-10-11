@@ -48,7 +48,11 @@ describe("the Skygrid wiki's generated pages", () => {
     const written = new Set(skygrid?.pages.map((page) => titleKey(page.title)));
     const missing = new Set<string>();
     for (const page of pages) {
-      const rendered = await renderWikiPage(page.body, "skygrid");
+      const rendered = await renderWikiPage(page.body, {
+        slug: "skygrid",
+        title: page.title,
+        componentSets: ["core"],
+      });
       for (const link of rendered.links)
         if (!titles.has(link.key) && !written.has(link.key))
           missing.add(`${page.title} → ${link.title}`);
@@ -63,7 +67,11 @@ describe("the Skygrid wiki's generated pages", () => {
     if (!skygrid) throw new Error("no Skygrid wiki");
     const written = new Set(skygrid.pages.map((page) => titleKey(page.title)));
     for (const page of skygrid.pages) {
-      const rendered = await renderWikiPage(page.body, "skygrid");
+      const rendered = await renderWikiPage(page.body, {
+        slug: "skygrid",
+        title: page.title,
+        componentSets: ["core"],
+      });
       for (const link of rendered.links)
         expect(
           titles.has(link.key) || written.has(link.key),
@@ -75,5 +83,22 @@ describe("the Skygrid wiki's generated pages", () => {
         titles.has(titleKey(link.page)) || written.has(titleKey(link.page)),
         link.page,
       ).toBe(true);
+  });
+});
+
+describe("the generated pages' components", () => {
+  it("render without errors, each page with its infobox or none", async () => {
+    for (const page of pages) {
+      const rendered = await renderWikiPage(page.body, {
+        slug: "skygrid",
+        title: page.title,
+        componentSets: ["core"],
+      });
+      expect(rendered.html, page.title).not.toContain("wiki-error");
+      expect(
+        rendered.html.match(/class="wiki-infobox"/g)?.length ?? 0,
+        page.title,
+      ).toBeLessThanOrEqual(1);
+    }
   });
 });

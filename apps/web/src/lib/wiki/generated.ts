@@ -20,7 +20,10 @@ export interface GeneratedSet {
 
 const cache = new Map<string, Promise<GeneratedSet>>();
 
-async function build(source: WikiSource, slug: string): Promise<GeneratedSet> {
+async function build(
+  source: WikiSource,
+  wiki: Pick<Wiki, "slug" | "componentSets">,
+): Promise<GeneratedSet> {
   const pages = new Map<string, GeneratedWikiPage>();
   for (const page of source.pages()) {
     const key = titleKey(page.title);
@@ -29,7 +32,11 @@ async function build(source: WikiSource, slug: string): Promise<GeneratedSet> {
     pages.set(key, {
       key,
       title: page.title,
-      rendered: await renderWikiPage(page.body, slug),
+      rendered: await renderWikiPage(page.body, {
+        slug: wiki.slug,
+        title: page.title,
+        componentSets: wiki.componentSets,
+      }),
     });
   }
   return { source, pages };
@@ -37,14 +44,15 @@ async function build(source: WikiSource, slug: string): Promise<GeneratedSet> {
 
 /** The wiki's generated pages by key, or null if it has no source. */
 export function generatedPages(
-  wiki: Pick<Wiki, "slug" | "source">,
+  wiki: Pick<Wiki, "slug" | "source" | "componentSets">,
 ): Promise<GeneratedSet> | null {
   const source = sourceFor(wiki.source);
   if (!source) return null;
-  const id = `${source.id}:${wiki.slug}`;
+  // Switching a component set on or off renders them again.
+  const id = `${source.id}:${wiki.slug}:${[...wiki.componentSets].sort().join(",")}`;
   let set = cache.get(id);
   if (!set) {
-    set = build(source, wiki.slug);
+    set = build(source, wiki);
     cache.set(id, set);
     set.catch(() => cache.delete(id));
   }
@@ -53,7 +61,7 @@ export function generatedPages(
 
 /** One generated page, if the wiki has it. */
 export async function generatedPage(
-  wiki: Pick<Wiki, "slug" | "source">,
+  wiki: Pick<Wiki, "slug" | "source" | "componentSets">,
   key: string,
 ): Promise<GeneratedWikiPage | null> {
   const set = await generatedPages(wiki);

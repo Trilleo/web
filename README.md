@@ -50,6 +50,8 @@ packages/storage    @trilleo/storage: file storage (OBS and local drivers, uploa
 packages/mail       @trilleo/mail: email (template, address rules, SMTP and capture drivers)
 packages/mc-files   @trilleo/mc-files: reads Minecraft files in the browser (NBT, mod and
                     pack metadata, builds' blocks, 3D preview format and mesher)
+packages/wiki       @trilleo/wiki: wiki components (infobox, notice, tabs, …): registry,
+                    markdown-it plugin, and the tabs script
 deploy/             Caddy config, server compose file, deploy and backup scripts, runbooks
 Dockerfile          Production images: `web` (Caddy + static site) and `app` (Node server)
 ```

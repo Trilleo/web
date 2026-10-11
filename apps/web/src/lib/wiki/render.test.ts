@@ -6,7 +6,15 @@ import {
   parseWikiLink,
   renderWikiPage,
   snippet,
+  splitInfobox,
+  type RenderTarget,
 } from "./render";
+
+const SKY: RenderTarget = {
+  slug: "sky",
+  title: "Iron Ore",
+  componentSets: ["core"],
+};
 
 describe("parseWikiLink", () => {
   it("reads titles, labels and sections", () => {
@@ -61,7 +69,7 @@ describe("renderWikiPage", () => {
   it("links pages in the same wiki and records them", async () => {
     const page = await renderWikiPage(
       "See [[iron ore]] and [[Coal|coal]].",
-      "sky",
+      SKY,
     );
     expect(page.html).toContain(
       '<a href="/sky/Iron_ore" class="wiki-link" data-wiki-key="iron ore">iron ore</a>',
@@ -77,7 +85,7 @@ describe("renderWikiPage", () => {
   it("collects categories without showing them, and links to them with a colon", async () => {
     const page = await renderWikiPage(
       "Text.\n\n[[Category:Items]] [[category:ores]]\n\nSee [[:Category:Tools]].",
-      "sky",
+      SKY,
     );
     expect(page.categories).toEqual(["Category:Items", "Category:Ores"]);
     expect(page.html).not.toContain("Category:Items");
@@ -86,7 +94,7 @@ describe("renderWikiPage", () => {
   });
 
   it("marks links to other wikis", async () => {
-    const page = await renderWikiPage("[[@trilleo-smp:Spawn]]", "sky");
+    const page = await renderWikiPage("[[@trilleo-smp:Spawn]]", SKY);
     expect(page.html).toContain('href="/trilleo-smp/Spawn"');
     expect(page.html).toContain('class="wiki-link-wiki">trilleo-smp</span>');
     expect(page.links).toEqual([]);
@@ -95,7 +103,7 @@ describe("renderWikiPage", () => {
   it("starts headings at h2, with ids and a contents list", async () => {
     const page = await renderWikiPage(
       "# Obtaining\n\n## Uses\n\n### From mobs\n\n#### Rare",
-      "sky",
+      SKY,
     );
     expect(page.html).toContain('<h2 id="obtaining">Obtaining</h2>');
     expect(page.html).toContain('<h2 id="uses">Uses</h2>');
@@ -111,7 +119,7 @@ describe("renderWikiPage", () => {
   it("keeps HTML as text and refuses unsafe links", async () => {
     const page = await renderWikiPage(
       "<script>alert(1)</script> <img src=x onerror=alert(1)> [x](javascript:alert(1)) [y](data:text/html,hi) [z](https://example.com)",
-      "sky",
+      SKY,
     );
     expect(page.html).not.toContain("<script");
     expect(page.html).not.toContain("<img");
@@ -123,7 +131,7 @@ describe("renderWikiPage", () => {
   });
 
   it("escapes what goes into link attributes", async () => {
-    const page = await renderWikiPage('[[Say "hi" & bye|x]]', "sky");
+    const page = await renderWikiPage('[[Say "hi" & bye|x]]', SKY);
     expect(page.html).toContain('data-wiki-key="say &quot;hi&quot; &amp; bye"');
     expect(linkedKeys(page.html)).toEqual(['say "hi" & bye']);
   });
@@ -131,7 +139,7 @@ describe("renderWikiPage", () => {
   it("shows images only from the files domain", async () => {
     const page = await renderWikiPage(
       "![ok](https://files.trilleo.net/a.png) ![no](https://evil.test/a.png)",
-      "sky",
+      SKY,
     );
     expect(page.html).toContain(
       '<img src="https://files.trilleo.net/a.png" alt="ok"',
@@ -141,7 +149,7 @@ describe("renderWikiPage", () => {
   });
 
   it("drops the redirect line from what readers see", async () => {
-    const page = await renderWikiPage("#REDIRECT [[Coal]]\nOld notes", "sky");
+    const page = await renderWikiPage("#REDIRECT [[Coal]]\nOld notes", SKY);
     expect(page.html).not.toContain("REDIRECT");
     expect(page.html).toContain("Old notes");
   });
@@ -149,7 +157,7 @@ describe("renderWikiPage", () => {
 
 describe("markMissing", () => {
   it("marks only the links whose pages are missing", async () => {
-    const page = await renderWikiPage("[[Coal]] [[Gold]]", "sky");
+    const page = await renderWikiPage("[[Coal]] [[Gold]]", SKY);
     const html = markMissing(page.html, new Set(["gold"]));
     expect(html).toContain('class="wiki-link" data-wiki-key="coal"');
     expect(html).toContain('class="wiki-link is-missing" data-wiki-key="gold"');
@@ -160,5 +168,72 @@ describe("snippet", () => {
   it("cuts long text at a word", () => {
     expect(snippet("short")).toBe("short");
     expect(snippet("alpha beta gamma delta", 15)).toBe("alpha beta…");
+  });
+});
+
+describe("components on wiki pages", () => {
+  it("render, link, categorize and count as text", async () => {
+    const page = await renderWikiPage(
+      [
+        "::: infobox",
+        "Mined in: [[Mines]]",
+        ":::",
+        "",
+        "# Uses",
+        "",
+        "::: notice tip",
+        "## Inside",
+        "See [[Coal]].",
+        ":::",
+        "",
+        "::: stub :::",
+      ].join("\n"),
+      SKY,
+    );
+    expect(page.html).toContain('<p class="wiki-infobox-title">Iron Ore</p>');
+    expect(page.links.map((link) => link.title)).toEqual(["Mines", "Coal"]);
+    expect(page.categories).toEqual(["Category:Stubs"]);
+    expect(page.plain).toContain("Mined in: Mines");
+    // Headings inside components start at h2 too; they aren't in the contents.
+    expect(page.html).toContain("<h2>Inside</h2>");
+    expect(page.toc.map((heading) => heading.text)).toEqual(["Uses"]);
+  });
+
+  it("keeps the core set on, and shows unknown components as errors", async () => {
+    const page = await renderWikiPage("::: notice\nx\n:::", {
+      ...SKY,
+      componentSets: [],
+    });
+    expect(page.html).toContain("wiki-notice");
+    const unknown = await renderWikiPage("::: recipe\nx\n:::", SKY);
+    expect(unknown.html).toContain("wiki-error");
+  });
+
+  it("lifts the first top-level infobox out for the layout", async () => {
+    const page = await renderWikiPage(
+      [
+        "Intro",
+        "",
+        "::: infobox",
+        "A: b",
+        ":::",
+        "",
+        "::: infobox Second",
+        "C: d",
+        ":::",
+      ].join("\n"),
+      SKY,
+    );
+    const { infobox, rest } = splitInfobox(page.html);
+    expect(infobox).toMatch(
+      /^<section class="wiki-infobox" aria-label="Iron Ore" data-placement="page">/,
+    );
+    expect(rest).toContain("<p>Intro</p>");
+    expect(rest).not.toContain('aria-label="Iron Ore"');
+    expect(rest).toContain('aria-label="Second"');
+    expect(splitInfobox("<p>none</p>")).toEqual({
+      infobox: null,
+      rest: "<p>none</p>",
+    });
   });
 });

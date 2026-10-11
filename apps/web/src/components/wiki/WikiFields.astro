@@ -7,6 +7,7 @@ import {
   WIKI_VISIBILITIES,
 } from "../../lib/wiki/wikis";
 import { wikiInput } from "../../lib/wiki/ui";
+import { COMPONENT_SETS } from "@trilleo/wiki";
 
 interface Props {
   values: WikiDraft;
@@ -158,6 +159,32 @@ const described = (name: WikiField) =>
         {errors.visibility}
       </strong>
     )}
+  </fieldset>
+  <fieldset class="flex flex-col gap-2">
+    <legend class={`${label} mb-2`}>Components</legend>
+    {COMPONENT_SETS.map((set) => (
+      <div class="flex items-start gap-2">
+        <input
+          id={`sets-${set.id}`}
+          type="checkbox"
+          name="componentSets"
+          value={set.id}
+          checked={set.always || values.componentSets.includes(set.id)}
+          disabled={set.always}
+          aria-describedby={`sets-${set.id}-hint`}
+          class="mt-1 size-4 accent-[var(--tr-accent)]"
+        />
+        <div>
+          <label for={`sets-${set.id}`} class="font-medium">
+            {set.label}
+          </label>
+          <p id={`sets-${set.id}-hint`} class="text-sm text-muted">
+            {set.description}
+            {set.always && " Every wiki has these."}
+          </p>
+        </div>
+      </div>
+    ))}
   </fieldset>
   <label class="flex flex-col gap-2">
     <span class={label}>Sidebar</span>

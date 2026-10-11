@@ -1,0 +1,1 @@
+ALTER TABLE "wikis" ADD COLUMN "component_sets" text[] DEFAULT '{core}'::text[] NOT NULL;

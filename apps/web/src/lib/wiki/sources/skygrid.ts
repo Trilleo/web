@@ -153,6 +153,65 @@ function sections(...parts: string[]): string {
   return parts.filter((part) => part.trim() !== "").join("\n\n");
 }
 
+/** An infobox (core component): its rows, empty ones left out. */
+function infobox(rows: readonly (readonly [string, string])[]): string {
+  return [
+    "::: infobox",
+    ...rows
+      .filter(([, value]) => value !== "")
+      .map(([key, value]) => `${key}: ${value}`),
+    ":::",
+  ].join("\n");
+}
+
+/** A navbox (core component) of linked groups. */
+function navbox(
+  title: string,
+  groups: readonly (readonly [string, readonly string[]])[],
+): string {
+  return [
+    `::: navbox ${title}`,
+    ...groups
+      .filter(([, links]) => links.length > 0)
+      .map(([group, links]) => `${group}: ${links.join(" · ")}`),
+    ":::",
+  ].join("\n");
+}
+
+function resourcesNavbox(): string {
+  return navbox(
+    "Resources",
+    SKILLS.map((skill) => [
+      SKILL_NAMES[skill],
+      RESOURCE_IDS.filter((id) => RESOURCES[id].skill === skill).map(link),
+    ]),
+  );
+}
+
+function equipmentNavbox(): string {
+  const of = (test: (item: ItemDef) => boolean) =>
+    Object.entries(ITEMS)
+      .filter(([, item]) => test(item))
+      .map(([id]) => link(id));
+  return navbox("Equipment", [
+    ["Tools", of((item) => item.kind === "tool")],
+    ["Weapons", of((item) => item.gear?.slot === "weapon")],
+    [
+      "Armor",
+      of((item) => item.kind === "gear" && item.gear?.slot !== "weapon"),
+    ],
+  ]);
+}
+
+function worldNavbox(): string {
+  return navbox("Skygrid", [
+    ["Skills", SKILLS.map((skill) => `[[${SKILL_NAMES[skill]}]]`)],
+    ["Islands", ISLANDS.map((id) => `[[${ISLAND_MAPS[id].name}]]`)],
+    ["Mobs", Object.values(MOBS).map((mob) => `[[${mob.name}]]`)],
+    ["Minions", MINION_KINDS.map((kind) => `[[${minionPage(kind)}]]`)],
+  ]);
+}
+
 function resourcePage(id: ResourceId): GeneratedPage {
   const resource = RESOURCES[id];
   const item = ITEMS[id];
@@ -232,13 +291,22 @@ function resourcePage(id: ResourceId): GeneratedPage {
     }),
   );
 
+  const sells = sellText(item ?? { name: "", kind: "resource", price: 0 });
   return {
     title: resource.name,
     body: sections(
-      `**${resource.name}** is a [[${SKILL_NAMES[resource.skill]}]] resource in Skygrid. The merchant pays ${sellText(item ?? { name: "", kind: "resource", price: 0 })} for one; ${fmt(ENCHANT_COST)} of them make one [[${itemName(enchantedId(id))}]].`,
+      infobox([
+        ["Kind", "Resource"],
+        ["Skill", `[[${SKILL_NAMES[resource.skill]}]]`],
+        ["Merchant pays", sells],
+        ["Compressed", `[[${itemName(enchantedId(id))}]]`],
+        ["Minion", "minionSeconds" in resource ? `[[${minionPage(id)}]]` : ""],
+      ]),
+      `**${resource.name}** is a [[${SKILL_NAMES[resource.skill]}]] resource in Skygrid. The merchant pays ${sells} for one; ${fmt(ENCHANT_COST)} of them make one [[${itemName(enchantedId(id))}]].`,
       sources.length > 0 ? `## Obtaining\n\n${sources.join("\n\n")}` : "",
       `## Collection\n\nEverything you gather counts towards the ${resource.name} collection (see [[Collections]]).\n\n${collection}`,
       usesSection(id),
+      resourcesNavbox(),
       `[[Category:Items]] [[Category:${KIND_CATEGORY.resource}]] [[Category:${SKILL_NAMES[resource.skill]}]]`,
     ),
   };
@@ -251,9 +319,15 @@ function enchantedPage(id: ResourceId): GeneratedPage {
   return {
     title: name,
     body: sections(
+      infobox([
+        ["Kind", "Enchanted item"],
+        ["Made of", `${fmt(ENCHANT_COST)} × [[${itemName(id)}]]`],
+        ["Merchant pays", item ? sellText(item) : ""],
+      ]),
       `**${name}** is a compressed form of [[${itemName(id)}]]: ${fmt(ENCHANT_COST)} of them in one. The merchant pays ${item ? sellText(item) : "nothing"} for it.`,
       recipeSection(enchanted),
       usesSection(enchanted),
+      resourcesNavbox(),
       `[[Category:Items]] [[Category:${KIND_CATEGORY.enchanted}]]`,
     ),
   };
@@ -262,35 +336,21 @@ function enchantedPage(id: ResourceId): GeneratedPage {
 function toolPage(id: ItemId, item: ItemDef): GeneratedPage {
   const tool = item.tool;
   const shop = SHOP.find((entry) => entry.item === id);
-  const facts = tool
-    ? table(
-        [
-          "Type",
-          "Tier",
-          "Speed",
-          "Fortune",
-          "Sells for",
-          "Buy from the merchant",
-        ],
-        [
-          [
-            tool.type,
-            fmt(tool.tier),
-            `×${fmt(tool.speed)}`,
-            `+${fmt(tool.fortune)}%`,
-            sellText(item),
-            shop ? `${fmt(shop.price)} coins` : "Not sold",
-          ],
-        ],
-      )
-    : "";
   return {
     title: item.name,
     body: sections(
+      infobox([
+        ["Kind", tool ? `Tool (${tool.type})` : "Tool"],
+        ["Tier", tool ? fmt(tool.tier) : ""],
+        ["Speed", tool ? `×${fmt(tool.speed)}` : ""],
+        ["Fortune", tool ? `+${fmt(tool.fortune)}%` : ""],
+        ["Merchant pays", sellText(item)],
+        ["Merchant sells", shop ? `${fmt(shop.price)} coins` : ""],
+      ]),
       `**${item.name}** is a ${tool?.type ?? "tool"} in Skygrid. Tools of a higher tier work nodes that need them; speed divides gathering time, and fortune adds drops.`,
-      facts,
       recipeSection(id),
       usesSection(id),
+      equipmentNavbox(),
       `[[Category:Items]] [[Category:${KIND_CATEGORY.tool}]]`,
     ),
   };
@@ -303,25 +363,23 @@ function gearPage(id: ItemId, item: ItemDef): GeneratedPage {
   return {
     title: item.name,
     body: sections(
-      `**${item.name}** is ${gear?.slot === "weapon" ? "a weapon" : `a piece of armor (${gear?.slot ?? "gear"})`} in Skygrid.`,
-      gear
-        ? table(
-            ["Slot", "Stats", "Sells for", "Buy from the merchant"],
-            [
-              [
-                gear.slot,
-                statsText(gear.stats),
-                sellText(item),
-                shop ? `${fmt(shop.price)} coins` : "Not sold",
-              ],
-            ],
-          )
-        : "",
+      infobox([
+        ["Kind", gear?.slot === "weapon" ? "Weapon" : "Armor"],
+        ["Slot", gear?.slot ?? ""],
+        ...(Object.entries(gear?.stats ?? {}) as [keyof Stats, number][]).map(
+          ([stat, value]) => [STAT_NAMES[stat], `+${fmt(value)}`] as const,
+        ),
+        ["Set", set ? `[[Armor sets#${set.name}|${set.name}]]` : ""],
+        ["Merchant pays", sellText(item)],
+        ["Merchant sells", shop ? `${fmt(shop.price)} coins` : ""],
+      ]),
+      `**${item.name}** is ${gear?.slot === "weapon" ? "a weapon" : `a piece of armor (${gear?.slot ?? "gear"})`} in Skygrid. It gives ${gear ? statsText(gear.stats) : "nothing"}.`,
       set
         ? `Part of the [[Armor sets#${set.name}|${set.name}]] set: wearing all four pieces adds ${statsText(set.stats)}.`
         : "",
       recipeSection(id),
       usesSection(id),
+      equipmentNavbox(),
       `[[Category:Items]] [[Category:${KIND_CATEGORY.gear}]] [[Category:${gear?.slot === "weapon" ? "Weapons" : "Armor"}]]`,
     ),
   };
@@ -334,6 +392,12 @@ function minionKindPage(kind: ResourceId): GeneratedPage {
   return {
     title: minionPage(kind),
     body: sections(
+      infobox([
+        ["Kind", "Minion"],
+        ["Makes", `[[${resource.name}]]`],
+        ["Tier I", `one every ${seconds(base * 1000)}`],
+        ["Tiers", fmt(MINION_TIERS)],
+      ]),
       `A **${minionPage(kind)}** makes [[${resource.name}]] on your island while you're away. Place it on a minion slot; it stops when its storage is full. Higher tiers are faster and hold more.`,
       `## Tiers\n\n${table(
         ["Tier", "One every", "Holds", "Ingredients", "Unlocked by"],
@@ -350,6 +414,7 @@ function minionKindPage(kind: ResourceId): GeneratedPage {
           ];
         }),
       )}`,
+      worldNavbox(),
       `[[Category:Items]] [[Category:${KIND_CATEGORY.minion}]]`,
     ),
   };
@@ -452,6 +517,7 @@ function skillPage(skill: SkillId): GeneratedPage {
       resources.length > 0
         ? `## Resources\n\n${resources.map((id) => `- ${link(id)}`).join("\n")}`
         : "",
+      worldNavbox(),
       `[[Category:Skills]]`,
     ),
   };
@@ -482,20 +548,17 @@ function mobPage(char: string): GeneratedPage | null {
   return {
     title: mob.name,
     body: sections(
-      `The **${mob.name}** is a mob, shown as \`${char}\` on the map. Walk into it to fight; each swing that doesn't kill it is answered.`,
-      table(
-        ["Health", "Hits for", "XP", "Coins", "Comes back after", "Found on"],
-        [
-          [
-            fmt(mob.hp),
-            fmt(mob.damage),
-            fmt(mob.xp),
-            `${fmt(mob.coins[0])}–${fmt(mob.coins[1])}`,
-            seconds(mob.respawn),
-            islandLinks(islandsWith(char)),
-          ],
-        ],
-      ),
+      infobox([
+        ["Kind", "Mob"],
+        ["On the map", `\`${char}\``],
+        ["Health", fmt(mob.hp)],
+        ["Hits for", fmt(mob.damage)],
+        ["XP", fmt(mob.xp)],
+        ["Coins", `${fmt(mob.coins[0])}–${fmt(mob.coins[1])}`],
+        ["Comes back after", seconds(mob.respawn)],
+        ["Found on", islandLinks(islandsWith(char))],
+      ]),
+      `The **${mob.name}** is a mob, shown as \`${char}\` on the map. Walk into it to fight; each swing that doesn't kill it is answered (see [[Combat#Fighting]]).`,
       `## Drops\n\n${table(
         ["Item", "Chance", "Amount"],
         mob.drops.map((drop) => [
@@ -506,6 +569,7 @@ function mobPage(char: string): GeneratedPage | null {
             : `${fmt(drop.min)}–${fmt(drop.max)}`,
         ]),
       )}`,
+      worldNavbox(),
       `[[Category:Mobs]]`,
     ),
   };
@@ -544,6 +608,18 @@ function islandPage(id: IslandId): GeneratedPage {
   return {
     title: island.name,
     body: sections(
+      infobox([
+        ["Kind", "Island"],
+        [
+          "Portals to",
+          portals.map((to) => `[[${ISLAND_MAPS[to].name}]]`).join(", "),
+        ],
+        [
+          "Minion slots",
+          island.slots.length > 0 ? fmt(island.slots.length) : "",
+        ],
+        ["Size", `${fmt(island.width)} × ${fmt(island.height)}`],
+      ]),
       `**${island.name}** is one of Skygrid's islands.${portals.length > 0 ? ` Its portals lead to ${portals.map((to) => `[[${ISLAND_MAPS[to].name}]]`).join(", ")}.` : ""}`,
       `## Map\n\n\`\`\`text\n${island.rows.join("\n").replace(/\s+$/gm, "")}\n\`\`\``,
       resources.length > 0 ? `## Resources\n\n${resources.join("\n")}` : "",
@@ -551,6 +627,7 @@ function islandPage(id: IslandId): GeneratedPage {
       island.slots.length > 0
         ? `It has ${fmt(island.slots.length)} minion slots (\`_\`).`
         : "",
+      worldNavbox(),
       `[[Category:Islands]]`,
     ),
   };

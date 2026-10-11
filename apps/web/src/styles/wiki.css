@@ -123,3 +123,316 @@ a.is-missing {
 .prose-wiki .table-scroll {
   overflow-x: auto;
 }
+
+/* Components (@trilleo/wiki). Quiet boxes in the site's tokens: ink rules, mono
+   labels, the accent only where something needs attention. */
+
+.wiki-infobox {
+  border: 1px solid var(--tr-ink);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+
+.prose .wiki-infobox {
+  max-width: 24rem;
+}
+
+.wiki-infobox-title {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--tr-ink);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.wiki-infobox-image {
+  margin: 0;
+  border-bottom: 1px solid var(--tr-hair);
+}
+
+.wiki-infobox-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 0;
+}
+
+.wiki-infobox-image figcaption {
+  padding: 0.5rem 1rem;
+  color: var(--tr-muted);
+  font-size: 0.8125rem;
+}
+
+.wiki-infobox dl {
+  margin: 0;
+  padding: 0.25rem 1rem;
+}
+
+.wiki-infobox-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 0.75rem;
+  padding-block: 0.375rem;
+}
+
+.wiki-infobox-row + .wiki-infobox-row {
+  border-top: 1px solid var(--tr-hair);
+}
+
+.wiki-infobox-row dt,
+.wiki-infobox-section,
+.wiki-notice-label,
+.wiki-navbox-group,
+.wiki-tab-label,
+.wiki-tab-button,
+.wiki-error-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.wiki-infobox-row dt {
+  color: var(--tr-muted);
+  padding-top: 0.1rem;
+}
+
+.wiki-infobox-row dd {
+  margin: 0;
+}
+
+.wiki-infobox-section {
+  padding: 0.5rem 1rem;
+  border-block: 1px solid var(--tr-ink);
+  background: var(--tr-chip);
+}
+
+.wiki-infobox-note {
+  padding: 0.375rem 1rem;
+  color: var(--tr-muted);
+}
+
+.wiki-infobox a,
+.wiki-navbox a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
+}
+
+.wiki-notice {
+  border-left: 2px solid var(--tr-ink);
+  background: var(--tr-chip);
+  padding: 0.75rem 1rem;
+}
+
+.wiki-notice[data-tone="warning"],
+.wiki-notice[data-tone="danger"] {
+  border-left-color: var(--tr-accent);
+}
+
+.wiki-notice[data-tone="danger"] {
+  border-left-width: 4px;
+}
+
+.wiki-notice[data-tone="outdated"],
+.wiki-notice[data-tone="stub"] {
+  border-left-style: dashed;
+  border-left-color: var(--tr-muted);
+}
+
+.wiki-notice-label {
+  margin: 0 0 0.375rem;
+  color: var(--tr-muted);
+}
+
+.wiki-notice-body > * + *,
+.wiki-collapse-body > * + *,
+.wiki-tab-panel > * + * {
+  margin-top: 0.75rem;
+}
+
+.wiki-notice-body > :first-child,
+.wiki-collapse-body > :first-child,
+.wiki-tab-panel > :first-child {
+  margin-top: 0;
+}
+
+details.wiki-notice > summary,
+.wiki-collapse > summary,
+.wiki-navbox summary {
+  cursor: pointer;
+}
+
+details.wiki-notice[open] > summary {
+  margin-bottom: 0.5rem;
+}
+
+.wiki-collapse {
+  border-block: 1px solid var(--tr-ink);
+  padding-block: 0.5rem;
+}
+
+.wiki-collapse > summary {
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+
+.wiki-collapse-body {
+  padding-top: 0.75rem;
+}
+
+/* Tabs: sections one under another until the script makes a tab list. */
+.wiki-tab + .wiki-tab {
+  margin-top: 1rem;
+}
+
+.wiki-tab-label {
+  margin: 0 0 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--tr-ink);
+}
+
+.wiki-tablist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.25rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--tr-ink);
+}
+
+.wiki-tab-button {
+  min-height: 2.75rem;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  color: var(--tr-muted);
+  cursor: pointer;
+}
+
+.wiki-tab-button:hover {
+  color: var(--tr-ink);
+}
+
+.wiki-tab-button[aria-selected="true"] {
+  border-bottom-color: var(--tr-accent);
+  color: var(--tr-ink);
+}
+
+.wiki-tab-button:focus-visible,
+.wiki-tab-panel:focus-visible {
+  outline: 2px solid var(--tr-accent);
+  outline-offset: 2px;
+}
+
+.wiki-navbox {
+  border: 1px solid var(--tr-ink);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+}
+
+.wiki-navbox-title {
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+}
+
+.wiki-navbox details[open] > .wiki-navbox-title {
+  border-bottom: 1px solid var(--tr-ink);
+}
+
+.wiki-navbox-rows {
+  padding: 0.25rem 1rem;
+}
+
+.wiki-navbox-row {
+  display: grid;
+  gap: 0.25rem 1rem;
+  padding-block: 0.375rem;
+
+  @media (width >= 48rem) {
+    grid-template-columns: 9rem minmax(0, 1fr);
+  }
+}
+
+.wiki-navbox-row + .wiki-navbox-row {
+  border-top: 1px solid var(--tr-hair);
+}
+
+.wiki-navbox-group {
+  color: var(--tr-muted);
+  padding-top: 0.1rem;
+}
+
+.wiki-columns {
+  @media (width >= 48rem) {
+    column-count: 2;
+    column-gap: 1.5rem;
+
+    &[data-columns="3"] {
+      column-count: 3;
+    }
+
+    &[data-columns="4"] {
+      column-count: 4;
+    }
+  }
+}
+
+.wiki-columns li {
+  break-inside: avoid;
+}
+
+.wiki-badge {
+  display: inline-block;
+  padding: 0 0.4em;
+  border: 1px solid var(--tr-ink);
+  font-family: var(--font-mono);
+  font-size: 0.75em;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  text-transform: uppercase;
+  vertical-align: 0.1em;
+}
+
+.wiki-badge[data-tone="accent"] {
+  border-color: var(--tr-accent);
+  background: var(--tr-accent);
+  color: var(--tr-on-accent);
+}
+
+.wiki-badge[data-tone="muted"] {
+  border-color: var(--tr-hair);
+  color: var(--tr-muted);
+}
+
+.wiki-keys {
+  white-space: nowrap;
+}
+
+.wiki-keys kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 0.35em;
+  border: 1px solid var(--tr-ink);
+  border-bottom-width: 2px;
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.wiki-error {
+  display: block;
+  border: 1px dashed var(--tr-accent);
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+span.wiki-error {
+  display: inline;
+  padding: 0 0.3em;
+}
+
+.wiki-error-label {
+  font-weight: 600;
+}
