@@ -85,9 +85,9 @@ const tabs: { id: PageTab; label: string; href: string }[] = [
     </h1>
   </div>
   <nav aria-label="Page" class="border-b border-ink">
-    <ul class="type-nav -mb-px flex flex-wrap gap-x-5">
+    <ul class="type-nav -mb-px flex gap-x-5 overflow-x-auto whitespace-nowrap [scrollbar-width:none] md:flex-wrap">
       {tabs.map((tab) => (
-        <li>
+        <li class="shrink-0">
           <a
             href={tab.href}
             aria-current={tab.id === current ? "page" : undefined}

@@ -59,7 +59,7 @@ const revisions = context && page ? await pageHistory(context.db, page.id) : [];
       {revisions.length === 0 ? (
         <p class="text-muted">This page has no history.</p>
       ) : (
-        <div class="overflow-x-auto">
+        <div class="relative overflow-x-auto">
           <table class={wikiTable}>
             <thead>
               <tr>

@@ -20,7 +20,7 @@ import { mainOrigin, wikiOrigin } from "../lib/wiki/host";
 import { publicPath } from "../lib/wiki/page";
 
 interface Props {
-  /** The page's own title; the wiki's name and "Trilleo Wiki" are added. */
+  /** The page's own title; the wiki's name and "Wiki" are added. */
   title?: string;
   description?: string;
   noindex?: boolean;
@@ -52,7 +52,7 @@ const canonical = new URL(
   Astro.url.pathname.replace(/^\/wiki/, "") || "/",
   origin,
 );
-const parts = [title?.trim(), wiki?.name, "Trilleo Wiki"].filter(
+const parts = [title?.trim(), wiki?.name, "Wiki"].filter(
   (part): part is string => Boolean(part),
 );
 const documentTitle = [...new Set(parts)].join(" · ");
@@ -79,7 +79,7 @@ const contents = toc.filter((heading) => heading.depth === 2);
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex" />}
     {!noindex && <link rel="canonical" href={canonical} />}
-    <meta property="og:site_name" content="Trilleo Wiki" />
+    <meta property="og:site_name" content="Wiki" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={canonical} />
     <meta property="og:title" content={documentTitle} />

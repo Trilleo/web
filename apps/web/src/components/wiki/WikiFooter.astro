@@ -23,8 +23,8 @@ const small = "hover:underline";
 
 <footer class="border-t border-ink">
   <div class="grid-swiss px-page gap-y-4 py-6 text-sm">
-    <p class="col-span-4 md:col-span-3 xl:col-span-4">
-      <span class="font-semibold">Trilleo Wiki</span>{" "}
+    <p class="col-span-4 md:col-span-8 xl:col-span-6">
+      <span class="font-semibold">Wiki</span>{" "}
       <span class="text-muted">
         is part of{" "}
         <a href={`${main}/`} class="text-ink underline">
@@ -33,7 +33,7 @@ const small = "hover:underline";
         . Each wiki's pages are written by its members.
       </span>
     </p>
-    <ul class="type-label col-span-4 flex flex-wrap gap-x-5 gap-y-2 md:col-span-5 md:justify-end xl:col-span-8">
+    <ul class="type-label col-span-4 flex flex-wrap gap-x-5 gap-y-2 md:col-span-8 xl:col-span-6 xl:justify-end">
       {links.map((link) => (
         <li>
           <a href={link.href} class={small}>

@@ -18,18 +18,33 @@ const user = Astro.locals.user;
 const admin = isAdmin(user);
 const db = await wikiDb();
 const summaries = await listWikis(db, user?.id ?? null, admin);
+
+/** Cards fill their last row, as the main site's card lists do: two per row on
+ * iPad and three on desktop, with leftover cards sharing the last row. */
+function cardSpan(index: number, count: number): string {
+  const md =
+    count % 2 === 1 && index === count - 1 ? "md:col-span-8" : "md:col-span-4";
+  const left = count % 3;
+  const xl =
+    left === 1 && index === count - 1
+      ? "xl:col-span-12"
+      : left === 2 && index >= count - 2
+        ? "xl:col-span-6"
+        : "xl:col-span-4";
+  return `${md} ${xl}`;
+}
 ---
 
-<WikiLayout title="Trilleo Wiki">
+<WikiLayout title="Wiki">
   <div class="flex flex-col gap-10">
     <div class="flex flex-col gap-4">
       <span class="type-label text-muted">Index</span>
       <h1 class="text-[2.75rem] leading-none font-bold tracking-[-0.04em] md:text-[4rem]">
-        Trilleo Wiki
+        Wiki
       </h1>
-      <p class="type-dek max-w-[40rem] text-muted">
-        Reference wikis for the projects on Trilleo Network. Each wiki belongs
-        to one project, and keeps its own pages, editors and search.
+      <p class="type-dek text-muted">
+        Reference wikis for the projects on Trilleo Network, each with its own
+        pages, editors and search.
       </p>
     </div>
 
@@ -37,8 +52,13 @@ const summaries = await listWikis(db, user?.id ?? null, admin);
       <p class="text-muted">No wikis yet.</p>
     ) : (
       <ul class="grid-swiss gap-y-6 border-t border-ink pt-6">
-        {summaries.map(({ wiki, role, pages }) => (
-          <li class="col-span-4 flex flex-col gap-2 md:col-span-4 xl:col-span-4">
+        {summaries.map(({ wiki, role, pages }, index) => (
+          <li
+            class:list={[
+              "col-span-4 flex flex-col gap-2",
+              cardSpan(index, summaries.length),
+            ]}
+          >
             <div class="type-label flex flex-wrap gap-x-3 text-muted">
               <span class="bg-ink px-1.5 py-0.5 text-paper">{wiki.code}</span>
               <span>{WIKI_KINDS[wiki.kind]}</span>
