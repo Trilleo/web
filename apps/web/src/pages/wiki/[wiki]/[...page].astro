@@ -1,0 +1,313 @@
+---
+/**
+ * Reading a page: /<wiki>/ (its home page) or /<wiki>/<Title>. Generated pages come
+ * from code (lib/wiki/sources/); written ones from the database. Redirect pages
+ * send readers on (with ?redirect=no to see the redirect itself); a page that
+ * doesn't exist is a 404 that offers to create it. Category pages list their pages.
+ */
+import NoWiki from "../../../components/wiki/NoWiki.astro";
+import PageHeading from "../../../components/wiki/PageHeading.astro";
+import WikiLayout from "../../../layouts/WikiLayout.astro";
+import { noStoreRedirect } from "../../../lib/auth/redirect";
+import { stackTables } from "../../../lib/post-html";
+import { canEditPage } from "../../../lib/wiki/access";
+import { generatedPage } from "../../../lib/wiki/generated";
+import { sourceFor } from "../../../lib/wiki/sources";
+import {
+  isHidden,
+  mainSiteRedirect,
+  openWiki,
+  privateHeaders,
+} from "../../../lib/wiki/page";
+import { linkedKeys, markMissing, snippet } from "../../../lib/wiki/render";
+import {
+  categoryMembers,
+  ensurePageRendered,
+  existingKeys,
+  findPage,
+  pageCategories,
+} from "../../../lib/wiki/store";
+import {
+  categoryName,
+  namespaceOf,
+  normalizeTitle,
+  titleFromPath,
+  titleKey,
+  titlePath,
+} from "../../../lib/wiki/titles";
+import { toolHref, wikiHref } from "../../../lib/wiki/wikis";
+import { formatWikiDate, wikiButton } from "../../../lib/wiki/ui";
+
+export const prerender = false;
+
+const moved = mainSiteRedirect(Astro, Astro.params.wiki);
+if (moved) return moved;
+privateHeaders(Astro);
+const context = await openWiki(Astro, Astro.params.wiki);
+if (!context) {
+  Astro.response.status = 404;
+}
+const { db, wiki, access } = context ?? {};
+const rawPath = Astro.params.page ?? "";
+const title = wiki
+  ? rawPath === ""
+    ? wiki.homeTitle
+    : titleFromPath(rawPath)
+  : null;
+if (wiki && title && rawPath !== "") {
+  // One address per page: Iron_ore, iron ore and Iron%20Ore all go to Iron_ore.
+  if (rawPath !== title.replace(/ /g, "_"))
+    return noStoreRedirect(wikiHref(wiki, title) + Astro.url.search, 301);
+}
+
+type View =
+  | {
+      kind: "page";
+      html: string;
+      toc: { depth: number; slug: string; text: string }[];
+      categories: string[];
+      plain: string;
+      updatedAt: Date | null;
+      generatedBy: string | null;
+    }
+  | { kind: "missing"; deleted: boolean; pageExists: boolean };
+
+let view: View | null = null;
+let page = null as Awaited<ReturnType<typeof findPage>> | null;
+let members: string[] = [];
+const redirectedFrom = normalizeTitle(Astro.url.searchParams.get("from") ?? "");
+
+if (db && wiki && access && title) {
+  const key = titleKey(title);
+  const generated = await generatedPage(wiki, key);
+  if (generated) {
+    const keys = generated.rendered.links.map((link) => link.key);
+    const existing = await existingKeys(db, wiki, keys);
+    view = {
+      kind: "page",
+      html: markMissing(
+        stackTables(generated.rendered.html),
+        new Set(keys.filter((k) => !existing.has(k))),
+      ),
+      toc: generated.rendered.toc,
+      categories: generated.rendered.categories,
+      plain: generated.rendered.plain,
+      updatedAt: null,
+      generatedBy: sourceFor(wiki.source)?.label ?? "code",
+    };
+  } else {
+    page = (await findPage(db, wiki.id, key)) ?? null;
+    if (page && !page.deletedAt) {
+      if (page.redirectTo && Astro.url.searchParams.get("redirect") !== "no") {
+        const target = normalizeTitle(page.redirectTo);
+        if (target && titleKey(target) !== key)
+          return noStoreRedirect(
+            `${wikiHref(wiki, target)}?from=${encodeURIComponent(titlePath(page.title))}`,
+          );
+      }
+      page = await ensurePageRendered(db, wiki, page);
+      const keys = linkedKeys(page.html);
+      const existing = await existingKeys(db, wiki, keys);
+      view = {
+        kind: "page",
+        html: markMissing(
+          stackTables(page.html),
+          new Set(keys.filter((k) => !existing.has(k))),
+        ),
+        toc: page.toc,
+        categories: await pageCategories(db, page.id),
+        plain: page.plain,
+        updatedAt: page.updatedAt,
+        generatedBy: null,
+      };
+    } else {
+      view = {
+        kind: "missing",
+        deleted: page?.deletedAt != null,
+        pageExists: page !== null,
+      };
+    }
+  }
+  if (namespaceOf(title) === "category")
+    members = await categoryMembers(db, wiki, key);
+  if (view.kind === "missing" && members.length === 0)
+    Astro.response.status = 404;
+}
+if (wiki && !title) Astro.response.status = 404;
+
+const exists = view?.kind === "page" && view.generatedBy === null;
+const canEdit = access ? canEditPage(access, page ?? null) : false;
+const hidden = wiki ? isHidden(wiki) : true;
+const description =
+  view?.kind === "page" && view.plain
+    ? snippet(view.plain, 160)
+    : wiki?.description;
+const isHome = wiki && title === wiki.homeTitle;
+---
+
+{!wiki || !access ? (
+  <NoWiki />
+) : !title ? (
+  <WikiLayout title="Bad title" wiki={wiki} access={access} noindex>
+    <h1 class="text-3xl font-bold">Bad title</h1>
+    <p class="mt-4 text-muted">
+      That can't be a page's title: titles can't contain # &lt; &gt; [ ] {"{"}{" "}
+      {"}"} | or \.
+    </p>
+  </WikiLayout>
+) : (
+  <WikiLayout
+    title={isHome ? undefined : title}
+    description={description}
+    noindex={hidden || view?.kind !== "page"}
+    wiki={wiki}
+    access={access}
+    toc={view?.kind === "page" ? view.toc : []}
+  >
+    <article class="flex flex-col gap-6">
+      <PageHeading
+        wiki={wiki}
+        title={title}
+        current="read"
+        exists={exists}
+        generated={view?.kind === "page" && view.generatedBy !== null}
+        canEdit={canEdit}
+        canManage={access.manage}
+      />
+
+      {redirectedFrom && (
+        <p class="type-label -mt-3 text-muted">
+          Redirected from{" "}
+          <a
+            href={`${wikiHref(wiki, redirectedFrom)}?redirect=no`}
+            class="underline"
+          >
+            {redirectedFrom}
+          </a>
+        </p>
+      )}
+
+      {Astro.url.searchParams.get("signed-in") === "failed" && (
+        <p class="border border-ink p-3 text-sm" role="status">
+          Signing in didn't work: the link was used or had expired. Try again.
+        </p>
+      )}
+
+      {view?.kind === "page" && view.generatedBy !== null && (
+        <p
+          class="type-label border-l-2 border-accent pl-3 text-muted"
+          data-generated
+        >
+          Generated from {view.generatedBy} and kept up to date with it; it
+          can't be edited here.
+        </p>
+      )}
+
+      {page?.redirectTo && view?.kind === "page" && (
+        <p class="border border-ink p-3 text-sm">
+          This page redirects to{" "}
+          <a href={wikiHref(wiki, page.redirectTo)} class="underline">
+            {page.redirectTo}
+          </a>
+          .
+        </p>
+      )}
+
+      {view?.kind === "page" && (
+        <div class="prose prose-wiki max-w-none" set:html={view.html} />
+      )}
+
+      {view?.kind === "missing" && (
+        <div class="flex flex-col gap-4 border border-ink p-5">
+          <p>
+            {view.deleted
+              ? "This page was deleted."
+              : namespaceOf(title) === "category"
+                ? "This category has no description yet."
+                : `${wiki.name} has no page called “${title}” yet.`}
+          </p>
+          <div class="flex flex-wrap gap-3">
+            {canEdit && !view.deleted && (
+              <a
+                href={toolHref(wiki, "edit", title)}
+                class={wikiButton("primary")}
+              >
+                {namespaceOf(title) === "category"
+                  ? "Describe this category"
+                  : "Create this page"}
+              </a>
+            )}
+            {view.deleted && access.manage && page && (
+              <form method="post" action={toolHref(wiki, "action")}>
+                <input type="hidden" name="intent" value="restore" />
+                <input type="hidden" name="title" value={title} />
+                <button type="submit" class={wikiButton("primary")}>
+                  Restore
+                </button>
+              </form>
+            )}
+            {view.pageExists && (
+              <a
+                href={toolHref(wiki, "history", title)}
+                class={wikiButton("secondary")}
+              >
+                History
+              </a>
+            )}
+            <a
+              href={`${toolHref(wiki, "search")}?q=${encodeURIComponent(title)}`}
+              class={wikiButton("secondary")}
+            >
+              Search for it
+            </a>
+          </div>
+          {!access.signedIn && (
+            <p class="text-sm text-muted">
+              Members of this wiki can write pages once signed in.
+            </p>
+          )}
+        </div>
+      )}
+
+      {namespaceOf(title) === "category" && (
+        <section class="flex flex-col gap-3" aria-labelledby="category-pages">
+          <h2 id="category-pages" class="type-label text-muted">
+            Pages in “{categoryName(title)}” ({members.length})
+          </h2>
+          {members.length === 0 ? (
+            <p class="text-muted">No pages are in this category yet.</p>
+          ) : (
+            <ul class="columns-1 gap-6 md:columns-2 xl:columns-3">
+              {members.map((member) => (
+                <li class="break-inside-avoid py-0.5">
+                  <a href={wikiHref(wiki, member)} class="hover:underline">
+                    {member}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {view?.kind === "page" && view.categories.length > 0 && (
+        <footer class="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-ink pt-3 text-sm">
+          <span class="type-label text-muted">Categories</span>
+          {view.categories.map((category) => (
+            <a href={wikiHref(wiki, category)} class="underline">
+              {categoryName(category)}
+            </a>
+          ))}
+        </footer>
+      )}
+
+      {view?.kind === "page" && view.updatedAt && (
+        <p class="type-label text-muted">
+          Last edited {formatWikiDate(view.updatedAt)}
+          {page?.protection === "owners" &&
+            " · Protected: only owners can edit"}
+        </p>
+      )}
+    </article>
+  </WikiLayout>
+)}

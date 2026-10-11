@@ -1,0 +1,61 @@
+---
+/** Start a page by title: on to its editor (which shows the page if it exists). */
+import NoWiki from "../../../../components/wiki/NoWiki.astro";
+import ToolHeading from "../../../../components/wiki/ToolHeading.astro";
+import WikiLayout from "../../../../layouts/WikiLayout.astro";
+import { noStoreRedirect } from "../../../../lib/auth/redirect";
+import {
+  mainSiteRedirect,
+  openWiki,
+  privateHeaders,
+} from "../../../../lib/wiki/page";
+import { normalizeTitle } from "../../../../lib/wiki/titles";
+import { wikiButton, wikiInput } from "../../../../lib/wiki/ui";
+import { toolHref } from "../../../../lib/wiki/wikis";
+
+export const prerender = false;
+
+const moved = mainSiteRedirect(Astro, Astro.params.wiki);
+if (moved) return moved;
+privateHeaders(Astro);
+const context = await openWiki(Astro, Astro.params.wiki);
+if (!context) Astro.response.status = 404;
+const typed = Astro.url.searchParams.get("title") ?? "";
+const title = typed ? normalizeTitle(typed) : null;
+if (context && title)
+  return noStoreRedirect(toolHref(context.wiki, "edit", title));
+---
+
+{!context ? (
+  <NoWiki />
+) : (
+  <WikiLayout
+    title="Create a page"
+    wiki={context.wiki}
+    access={context.access}
+    noindex
+  >
+    <div class="flex flex-col gap-6">
+      <ToolHeading
+        title="Create a page"
+        lead="Name it, then write it. Titles can't contain # < > [ ] { } | or \."
+      />
+      <form method="get" class="flex max-w-[40rem] flex-col gap-4">
+        {typed && !title && (
+          <p class="border-l-2 border-accent pl-3" role="alert">
+            That can't be a title.
+          </p>
+        )}
+        <label class="flex flex-col gap-2">
+          <span class="type-label text-muted">Title</span>
+          <input name="title" value={typed} required class={wikiInput} />
+        </label>
+        <div>
+          <button type="submit" class={wikiButton("primary")}>
+            Continue
+          </button>
+        </div>
+      </form>
+    </div>
+  </WikiLayout>
+)}

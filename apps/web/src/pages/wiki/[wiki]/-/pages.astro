@@ -1,0 +1,78 @@
+---
+/** Every page in the wiki, A to Z: written, generated, and redirects (in italics). */
+import NoWiki from "../../../../components/wiki/NoWiki.astro";
+import ToolHeading from "../../../../components/wiki/ToolHeading.astro";
+import WikiLayout from "../../../../layouts/WikiLayout.astro";
+import {
+  mainSiteRedirect,
+  openWiki,
+  privateHeaders,
+} from "../../../../lib/wiki/page";
+import { allPages, type PageListing } from "../../../../lib/wiki/store";
+import { wikiHref } from "../../../../lib/wiki/wikis";
+
+export const prerender = false;
+
+const moved = mainSiteRedirect(Astro, Astro.params.wiki);
+if (moved) return moved;
+privateHeaders(Astro);
+const context = await openWiki(Astro, Astro.params.wiki);
+if (!context) Astro.response.status = 404;
+const pages = context ? await allPages(context.db, context.wiki) : [];
+const groups = new Map<string, PageListing[]>();
+for (const page of pages) {
+  const first = page.title.charAt(0).toUpperCase();
+  const letter = /[A-Z]/.test(first) ? first : "#";
+  groups.set(letter, [...(groups.get(letter) ?? []), page]);
+}
+---
+
+{!context ? (
+  <NoWiki />
+) : (
+  <WikiLayout
+    title="All pages"
+    wiki={context.wiki}
+    access={context.access}
+    noindex
+  >
+    <div class="flex flex-col gap-8">
+      <ToolHeading
+        title="All pages"
+        lead={`${String(pages.length)} pages. Generated pages are marked; redirects are in italics.`}
+      />
+      {[...groups].map(([letter, list]) => (
+        <section class="flex flex-col gap-2" aria-label={letter}>
+          <h2 class="type-label text-muted">{letter}</h2>
+          <ul class="columns-1 gap-6 md:columns-2 xl:columns-3">
+            {list.map((page) => (
+              <li class="break-inside-avoid py-0.5">
+                <a
+                  href={
+                    page.redirectTo
+                      ? `${wikiHref(context.wiki, page.title)}?redirect=no`
+                      : wikiHref(context.wiki, page.title)
+                  }
+                  class:list={[
+                    "hover:underline",
+                    page.redirectTo && "text-muted italic",
+                  ]}
+                >
+                  {page.title}
+                </a>
+                {page.generated && (
+                  <span
+                    class="type-label ml-1 text-muted"
+                    title="Generated from code"
+                  >
+                    gen
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  </WikiLayout>
+)}

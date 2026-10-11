@@ -1,7 +1,7 @@
 # web
 
-Personal site, blog, tools, games, a Minecraft creator platform and file storage behind
-<https://www.trilleo.net>. A pnpm + Turborepo monorepo with an Astro site and shared
+Personal site, blog, tools, games, a Minecraft creator platform, file storage, and a
+wiki for each project behind <https://www.trilleo.net> and <https://wiki.trilleo.net>. A pnpm + Turborepo monorepo with an Astro site and shared
 React UI.
 
 ## Prerequisites
@@ -87,12 +87,18 @@ and need nothing. Without an OAuth App, the `web-fake-signin` and `fake-github` 
 in `.claude/launch.json` run a dev server (port 4331, in-memory database) that signs in
 against the e2e fake GitHub.
 
+The wiki is the same app on another host: open <http://wiki.localhost:4321/> next to
+`pnpm dev` (browsers send `*.localhost` to your machine). It starts with the Skygrid
+wiki, whose reference pages are generated from the game's data
+(`apps/web/src/lib/wiki/sources/`). Signing in there goes through the main site at
+`localhost:4321`.
+
 Lint, format, and TypeScript base configs live at the repo root (`eslint.config.js`,
 `.prettierrc.json`, `tsconfig.base.json`).
 
 ## Deploying
 
-Pushing to `main` deploys to <https://www.trilleo.net> once CI passes. Setup, rollback,
+Pushing to `main` deploys to <https://www.trilleo.net> (and the wiki) once CI passes. Setup, rollback,
 and troubleshooting: [deploy/README.md](deploy/README.md). File storage (the OBS bucket,
 `files.trilleo.net`, its certificate, ClamAV and moderation):
 [deploy/storage.md](deploy/storage.md). Email (Tencent Cloud SES, the sender domain,

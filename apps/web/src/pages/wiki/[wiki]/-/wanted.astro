@@ -1,0 +1,62 @@
+---
+/** Pages that are linked to but don't exist yet, most wanted first. */
+import NoWiki from "../../../../components/wiki/NoWiki.astro";
+import ToolHeading from "../../../../components/wiki/ToolHeading.astro";
+import WikiLayout from "../../../../layouts/WikiLayout.astro";
+import {
+  mainSiteRedirect,
+  openWiki,
+  privateHeaders,
+} from "../../../../lib/wiki/page";
+import { wantedPages } from "../../../../lib/wiki/store";
+import { toolHref, wikiHref } from "../../../../lib/wiki/wikis";
+
+export const prerender = false;
+
+const moved = mainSiteRedirect(Astro, Astro.params.wiki);
+if (moved) return moved;
+privateHeaders(Astro);
+const context = await openWiki(Astro, Astro.params.wiki);
+if (!context) Astro.response.status = 404;
+const wanted = context ? await wantedPages(context.db, context.wiki) : [];
+---
+
+{!context ? (
+  <NoWiki />
+) : (
+  <WikiLayout
+    title="Wanted pages"
+    wiki={context.wiki}
+    access={context.access}
+    noindex
+  >
+    <div class="flex flex-col gap-6">
+      <ToolHeading
+        title="Wanted pages"
+        lead="Linked to, but not written yet."
+      />
+      {wanted.length === 0 ? (
+        <p class="text-muted">Every link goes to a page that exists.</p>
+      ) : (
+        <ul class="flex flex-col" data-wanted>
+          {wanted.map((page) => (
+            <li class="flex flex-wrap items-baseline gap-x-3 border-b border-hair py-2">
+              <a
+                href={wikiHref(context.wiki, page.title)}
+                class="is-missing underline"
+              >
+                {page.title}
+              </a>
+              <a
+                href={toolHref(context.wiki, "links", page.title)}
+                class="text-sm text-muted hover:underline"
+              >
+                {page.links} {page.links === 1 ? "link" : "links"}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  </WikiLayout>
+)}

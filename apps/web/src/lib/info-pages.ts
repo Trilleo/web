@@ -39,9 +39,13 @@ export const INFO_PAGES: readonly InfoPage[] = [
     title: "Terms of use",
     label: "Terms",
     description:
-      "The rules for using Trilleo Network: accounts, comments, uploads, tools and games.",
+      "The rules for using Trilleo Network: accounts, comments, uploads, tools, games and the wiki.",
     group: "legal",
     changes: [
+      {
+        date: "2026-10-11",
+        note: "Added the wiki: who can read and edit it, and what saving an edit allows.",
+      },
       {
         date: "2026-10-09",
         note: "Accounts are now their email address, with GitHub as a linked account.",
@@ -61,6 +65,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "What Trilleo Network keeps about you, why, for how long, and how to see or delete it.",
     group: "legal",
     changes: [
+      {
+        date: "2026-10-11",
+        note: "Added the wiki: what’s kept when you edit or join a wiki, and how long.",
+      },
       {
         date: "2026-10-09",
         note: "Added passkeys, the security log, sign-in alerts and undoing an address change.",
@@ -89,6 +97,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "The cookies and browser storage the site uses, what each is for, and how to choose what’s kept.",
     group: "legal",
     changes: [
+      {
+        date: "2026-10-11",
+        note: "Added the wiki’s sign-in cookie, and that the wiki keeps its cookies and choices apart.",
+      },
       {
         date: "2026-10-09",
         note: "Corrected the summary, which still said there was one cookie and no banner.",

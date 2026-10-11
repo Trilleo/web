@@ -38,7 +38,7 @@ echo "==> setting up a stack directory like /srv/trilleo"
 mkdir "$stack/certs"
 # Self-signed stand-in for the Cloudflare Origin certificate.
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=trilleo.net" \
-	-addext "subjectAltName=DNS:trilleo.net,DNS:www.trilleo.net" \
+	-addext "subjectAltName=DNS:trilleo.net,DNS:*.trilleo.net" \
 	-keyout "$stack/certs/origin.key" -out "$stack/certs/origin.pem" 2>/dev/null
 chmod 644 "$stack/certs/origin.key" "$stack/certs/origin.pem"
 # Like trilleo-deploy: compose.yaml comes out of the web image.
@@ -71,7 +71,8 @@ docker compose up --detach --wait --wait-timeout 180 web app db || fail "the sta
 
 site() {
 	curl --silent --show-error --insecure --max-time 10 \
-		--resolve www.trilleo.net:443:127.0.0.1 --resolve trilleo.net:443:127.0.0.1 "$@"
+		--resolve www.trilleo.net:443:127.0.0.1 --resolve trilleo.net:443:127.0.0.1 \
+		--resolve wiki.trilleo.net:443:127.0.0.1 "$@"
 }
 
 echo "==> home page: 200, security headers, revalidating cache"
@@ -165,6 +166,18 @@ status="$(site --output /dev/null --write-out '%{http_code}' "https://www.trille
 headers="$(site --dump-header - --output /dev/null "https://www.trilleo.net/api/tools/notes/data")"
 grep -qi '^HTTP/[0-9.]* 401' <<<"$headers" || fail "tool data API without sign-in: $headers"
 grep -qi '^cache-control: no-store' <<<"$headers" || fail "tool data API should not be cached"
+
+echo "==> the wiki: its own host, the Skygrid wiki, and the main site's pages sent home"
+status="$(site --output "$stack/wiki.html" --write-out '%{http_code}' "https://wiki.trilleo.net/skygrid/")"
+[[ "$status" == "200" ]] || fail "wiki.trilleo.net/skygrid/ answered $status"
+grep -q 'Skygrid' "$stack/wiki.html" || fail "the Skygrid wiki's home page is missing its name"
+headers="$(site --dump-header - --output /dev/null "https://wiki.trilleo.net/about/")"
+grep -qi '^location: https://www.trilleo.net/about/' <<<"$headers" || fail "wiki.trilleo.net/about/ should go to the main site: $headers"
+headers="$(site --dump-header - --output /dev/null "https://www.trilleo.net/wiki/skygrid/Wheat")"
+grep -qi '^location: https://wiki.trilleo.net/skygrid/Wheat' <<<"$headers" || fail "/wiki/ should go to the wiki: $headers"
+headers="$(site --dump-header - --output /dev/null "https://wiki.trilleo.net/-/sign-in?next=/skygrid/")"
+grep -qi '^location: https://www.trilleo.net/auth/wiki?state=' <<<"$headers" || fail "wiki sign-in should start on the main site: $headers"
+grep -qi '^set-cookie: __Host-trilleo_wiki_state=' <<<"$headers" || fail "no __Host-trilleo_wiki_state cookie: $headers"
 
 echo "==> the database was migrated"
 migrations="$(docker compose exec -T db psql --username=trilleo --dbname=trilleo --tuples-only --no-align \

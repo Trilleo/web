@@ -16,18 +16,30 @@ import {
 } from "./lib/origin-check";
 import { storageDeps } from "./lib/storage/deps";
 import { maintainInBackground } from "./lib/storage/maintenance";
+import {
+  isWikiHost,
+  mainOrigin,
+  wikiRedirect,
+  wikiRewrite,
+} from "./lib/wiki/host";
 
 // Queued mail and admin alerts start a delivery pass in this server.
 startMailDelivery();
 
 /**
  * Looks up the signed-in user for server-rendered requests (Astro.locals.user).
- * Pre-built pages are the same for everyone, so they skip this.
+ * Pre-built pages are the same for everyone, so they skip this. Requests for the
+ * wiki's host (wiki.trilleo.net) are served from src/pages/wiki/ (lib/wiki/host.ts).
  */
 export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.user = null;
   context.locals.session = null;
-  if (context.isPrerendered) return next();
+  const wikiHost = isWikiHost(context.url);
+  if (!wikiHost) {
+    const wiki = wikiRedirect(context.url);
+    if (wiki) return noStoreRedirect(wiki, 301);
+    if (context.isPrerendered) return next();
+  }
   // Cross-site form posts are refused (Astro's check, with one exception).
   if (isForbiddenCrossOrigin(context.request, context.url))
     return crossOriginForbidden(context.request);
@@ -57,8 +69,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const setup = emailSetupRedirect(
     context.locals.user,
     context.request.method,
-    url,
+    wikiHost ? new URL("/account/", url) : url,
   );
-  if (setup) return noStoreRedirect(setup);
-  return next();
+  if (setup)
+    return noStoreRedirect(
+      wikiHost ? `${mainOrigin(url)}/account/email/?setup=1` : setup,
+    );
+  const rewrite = wikiHost ? wikiRewrite(url) : null;
+  return rewrite ? next(rewrite) : next();
 });

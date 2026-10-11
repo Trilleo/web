@@ -52,6 +52,8 @@
   (`readVoxels`), the compact preview format, block colours/shapes and the mesher
   for the 3D view. `./testing` writes NBT for tests. Source-only.
 - Blog content: Markdown posts in Postgres, written in the admin editor (/admin/posts).
+- The wiki (wiki.trilleo.net) is apps/web on a second host, not its own app: pages in
+  src/pages/wiki/, logic in src/lib/wiki/ (see Wiki below).
 - Workspace packages use the `@trilleo/*` scope.
 
 ## Decisions
@@ -293,6 +295,11 @@
   signs in against e2e/fake-github.ts, which gives every login a verified address
   (`githubEmail`) except "legacy-" ones (accounts from before email sign-in). Email
   sign-ins in e2e share 127.0.0.1's per-IP limit: keep them few (e2e/sign-in.spec.ts).
+- The wiki's host can't read the `__Host-` session cookie, so it signs in by handoff
+  (src/lib/wiki/handoff.ts): wiki /-/sign-in sets a state cookie
+  (`trilleo_wiki_state`) → www /auth/wiki issues a one-time ticket (wiki_sign_in_tickets,
+  hashed, a minute, tied to the state) → wiki /-/auth redeems it with `startSession`
+  (method "wiki"). Each host has its own session; signing out is per host.
 - New private pages: add their prefix to PRIVATE_PATHS (src/lib/site.ts) to keep
   them out of robots.txt and the sitemap.
 - The header's account slot (components/account/HeaderAccount.astro) is a server
@@ -460,6 +467,14 @@
   server can later replay a player's actions to check them. Content (items, nodes,
   recipes, island maps) lives in src/core/content/; src/ui/ is the browser side
   (GameSession, Controller, WorldView). Pacing guard rails: src/core/balance.test.ts.
+- Skygrid has a wiki (wiki.trilleo.net/skygrid/). Its reference pages are generated
+  from `@trilleo/game-skygrid/core` (apps/web/src/lib/wiki/sources/skygrid.ts), so
+  changed numbers follow by themselves. When a Skygrid change adds a new kind of thing
+  (a content table, a mechanic, an island feature) or renames one, update that
+  generator in the same change (sources/skygrid.test.ts checks every page and link),
+  and the written pages that describe it: the seed in src/lib/wiki/seed.ts for new
+  databases, and say in the summary which live pages (Main Page, Getting started, …)
+  need editing on the wiki, since the database owns those once created.
 - Skygrid combat (src/core/content/combat.ts): stats come from skills, gear and full
   armor sets (`playerStats`); mobs are letters on the map (z, s, B). Fights are
   exchanges: each swing that doesn't kill is answered, so the engine stays
@@ -555,6 +570,52 @@
   charts on their dashboard and each project's releases page.
 - Mojang's usage guidelines: pages about the platform carry MOJANG_NOTICE ("Not an
   official Minecraft product…"); never use Mojang's textures or logo.
+
+## Wiki
+
+- wiki.trilleo.net is served by apps/web: src/middleware.ts rewrites the wiki host's
+  paths to src/pages/wiki/ (`wikiRewrite`, lib/wiki/host.ts); /wiki/ on www 301s there.
+  Locally it's wiki.localhost:<port> (browsers resolve *.localhost; Node may not, so
+  e2e talks to it from the page). Links back to www are absolute (`mainOrigin`).
+- One wiki per project (wikis: slug, name, short `code`, kind game|minecraft|code|
+  general, visibility public|unlisted|private, home page, sidebar `nav`, optional
+  `source`). The header band shows its code, name and kind; search, sidebar, members
+  and links stay inside it. Slugs can't be the main site's top-level paths
+  (RESERVED_WIKI_SLUGS; wikis.test.ts checks src/pages/) since prerendered files there
+  would shadow them; Caddy redirects such files to www.
+- Addresses: /<wiki>/<Title> (titles.ts: underscores for spaces, first letter upper
+  case, case-insensitive `key`; one canonical path, others 301). The wiki's own pages
+  sit under a reserved `-` segment: /<wiki>/-/edit|history|links|move/<Title>,
+  -/revision/<id>, -/diff?to=&from=, -/search, -/recent, -/pages, -/categories,
+  -/wanted, -/log, -/create, -/settings, -/action (POST); site-wide /-/sign-in,
+  /-/auth, /-/sign-out, /-/new (admin), /robots.txt, /sitemap.xml.
+- Roles (access.ts): the admin manages every wiki; owners run one (settings, members,
+  move/protect/delete); editors write pages; everyone else reads public and unlisted
+  wikis (private ones 404 for them). Protected pages are owners-only.
+- Pages (store.ts): wiki_pages (current HTML, toc, plain text) + wiki_revisions (never
+  changed). Saving sends the revision it started from; a newer one means a conflict
+  that hands back the current text. Links and categories are recorded on save
+  (wiki_links, wiki_categories: backlinks, wanted pages, category lists). Deleting is
+  soft and drops them until restored. Moves can leave a `#REDIRECT [[Title]]` page.
+  Other actions go to wiki_log. Account deletion keeps revisions without the author.
+- Markup (render.ts): markdown-it with HTML off, http(s)/site links only, images only
+  from files.trilleo.net, Shiki for code (shared with the blog), headings from h2 (the
+  title is the h1; "#" and "##" are both h2), plus [[Title|label]], [[Title#Section]], [[Category:X]],
+  [[:Category:X]], [[@wiki:Title]] (another wiki, marked) and #REDIRECT. Links carry
+  `data-wiki-key`; the view marks missing ones (`markMissing`). Bump
+  WIKI_RENDER_VERSION when output changes. No user-written templates (for now).
+- Generated pages (sources/): a wiki's `source` adds read-only pages written from code
+  as wiki Markdown, rendered once per server (generated.ts). Their titles can't be
+  written over. Skygrid's is sources/skygrid.ts (see Games).
+- Built-in wikis (seed.ts) are created once per database the first time the wiki is
+  used (`wikiDb()`), and never overwritten after.
+- Layout (WikiLayout): the site's tokens and grid, denser (`.prose-wiki` in
+  styles/wiki.css), sidebar in columns 1–2, page in 3–9, contents in 10–12; no
+  reveals, no morphs, cross-document view transitions off, buttons with the plain
+  hover (`wikiButton`). Everything works without JavaScript.
+- Next phases (planned): a component system (infoboxes, notices, tabs) as packages,
+  then Minecraft components (§ text, item tooltips, inventories, recipes,
+  calculators, per-wiki item data and icons), then proposed edits and review.
 
 ## Mail
 
@@ -686,6 +747,9 @@
   `frame-ancestors 'none'` and X-Frame-Options DENY don't stop Minecraft embeds,
   which send their own enforced `frame-ancestors *`; when the CSP is enforced, leave
   the embed paths out of it (deploy/README.md says how).
+- wiki.trilleo.net has its own Caddy block: built assets and icons from files, other
+  files (main-site pages) redirect to www, everything else to the app. Shared headers
+  are the `site_headers` snippet. The Origin certificate covers `*.trilleo.net`.
 - Server config (deploy/compose.yaml) ships inside the web image; changing it only
   needs a deploy. deploy/server/* changes (trilleo-deploy, trilleo-backup) need a
   manual reinstall. Server-only secrets live in /srv/trilleo/*.env, never in git

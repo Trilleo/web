@@ -1,0 +1,110 @@
+---
+/**
+ * The wiki's header: "Trilleo Wiki" (the list of wikis), then the wiki you're in,
+ * labelled with its code and kind so its boundary is plain, a search that stays
+ * inside it, the theme toggle and who's signed in. Pages render on the server, so
+ * the account is known here (no island).
+ */
+import type { User, Wiki } from "@trilleo/db";
+import Logo from "../Logo.astro";
+import ThemeToggle from "../ThemeToggle.astro";
+import { wikiButton } from "../../lib/wiki/ui";
+import { WIKI_KINDS, toolHref, wikiHref } from "../../lib/wiki/wikis";
+
+interface Props {
+  wiki: Wiki | null;
+  user: User | null;
+  /** The main site's origin, for links back to it. */
+  main: string;
+  /** This page's path, to come back to after signing in. */
+  path: string;
+}
+
+const { wiki, user, main, path } = Astro.props;
+const query = Astro.url.searchParams.get("q") ?? "";
+const signIn = `/-/sign-in?next=${encodeURIComponent(path)}`;
+---
+
+<header class="border-b border-ink">
+  <div class="grid-swiss px-page items-center gap-y-3 py-3">
+    <a
+      href="/"
+      class="col-span-2 inline-flex min-h-11 items-center gap-2.5 text-lg font-bold tracking-[-0.03em] md:col-span-2 xl:col-span-2"
+    >
+      <Logo class="size-6 shrink-0" />
+      <span>Trilleo Wiki</span>
+    </a>
+
+    <div class="col-span-2 flex items-center justify-end gap-1 whitespace-nowrap md:col-span-6 md:gap-3 xl:order-last xl:col-span-3">
+      <ThemeToggle />
+      {user ? (
+        <div class="flex items-center gap-3">
+          <a
+            href={`${main}/account/`}
+            class="group type-nav hidden min-h-11 items-center md:inline-flex"
+          >
+            <span class="link-wipe">@{user.username}</span>
+          </a>
+          <form method="post" action="/-/sign-out">
+            <input type="hidden" name="next" value={path} />
+            <button type="submit" class="group type-nav min-h-11">
+              <span class="link-wipe">Sign out</span>
+            </button>
+          </form>
+        </div>
+      ) : (
+        <a
+          href={signIn}
+          class="group type-nav inline-flex min-h-11 items-center"
+        >
+          <span class="link-wipe">Sign in</span>
+        </a>
+      )}
+    </div>
+
+    {wiki && (
+      <div class="col-span-4 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 md:col-span-8 xl:col-span-7">
+        <a
+          href={wikiHref(wiki)}
+          class="group inline-flex min-h-11 min-w-0 items-center gap-3"
+          data-wiki-band
+        >
+          <span class="type-label shrink-0 bg-ink px-1.5 py-0.5 text-paper">
+            {wiki.code}
+          </span>
+          <span class="truncate text-lg font-semibold tracking-[-0.02em]">
+            <span class="link-wipe">{wiki.name}</span>
+          </span>
+          <span class="type-label hidden text-muted md:inline">
+            {WIKI_KINDS[wiki.kind]}
+            {wiki.visibility !== "public" && ` · ${wiki.visibility}`}
+          </span>
+        </a>
+        <form
+          role="search"
+          method="get"
+          action={toolHref(wiki, "search")}
+          class="flex min-w-0 flex-1 basis-56"
+        >
+          <label for="wiki-search" class="sr-only">
+            Search {wiki.name}
+          </label>
+          <input
+            id="wiki-search"
+            type="search"
+            name="q"
+            value={query}
+            placeholder={`Search ${wiki.name}`}
+            class="min-h-11 w-full min-w-0 border border-r-0 border-ink bg-paper px-3 text-base text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          />
+          <button
+            type="submit"
+            class={wikiButton("primary", "min-h-11 shrink-0")}
+          >
+            Search
+          </button>
+        </form>
+      </div>
+    )}
+  </div>
+</header>

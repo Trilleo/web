@@ -1,0 +1,70 @@
+---
+/**
+ * wiki.trilleo.net/: the wikis. Public ones for everyone, plus the ones you're a
+ * member of (the admin sees all, and can start a new one).
+ */
+import WikiLayout from "../../layouts/WikiLayout.astro";
+import { isAdmin } from "../../lib/auth/guard";
+import { privateHeaders, wikiDb } from "../../lib/wiki/page";
+import { ROLE_LABELS } from "../../lib/wiki/access";
+import { listWikis } from "../../lib/wiki/store";
+import { WIKI_KINDS, wikiHref } from "../../lib/wiki/wikis";
+import { wikiButton } from "../../lib/wiki/ui";
+
+export const prerender = false;
+
+privateHeaders(Astro);
+const user = Astro.locals.user;
+const admin = isAdmin(user);
+const db = await wikiDb();
+const summaries = await listWikis(db, user?.id ?? null, admin);
+---
+
+<WikiLayout title="Trilleo Wiki">
+  <div class="flex flex-col gap-10">
+    <div class="flex flex-col gap-4">
+      <span class="type-label text-muted">Index</span>
+      <h1 class="text-[2.75rem] leading-none font-bold tracking-[-0.04em] md:text-[4rem]">
+        Trilleo Wiki
+      </h1>
+      <p class="type-dek max-w-[40rem] text-muted">
+        Reference wikis for the projects on Trilleo Network. Each wiki belongs
+        to one project, and keeps its own pages, editors and search.
+      </p>
+    </div>
+
+    {summaries.length === 0 ? (
+      <p class="text-muted">No wikis yet.</p>
+    ) : (
+      <ul class="grid-swiss gap-y-6 border-t border-ink pt-6">
+        {summaries.map(({ wiki, role, pages }) => (
+          <li class="col-span-4 flex flex-col gap-2 md:col-span-4 xl:col-span-4">
+            <div class="type-label flex flex-wrap gap-x-3 text-muted">
+              <span class="bg-ink px-1.5 py-0.5 text-paper">{wiki.code}</span>
+              <span>{WIKI_KINDS[wiki.kind]}</span>
+              <span>
+                {pages.toLocaleString("en-US")} {pages === 1 ? "page" : "pages"}
+              </span>
+              {wiki.visibility !== "public" && <span>{wiki.visibility}</span>}
+              {role && <span>{ROLE_LABELS[role]}</span>}
+            </div>
+            <h2 class="text-2xl font-semibold tracking-[-0.025em]">
+              <a href={wikiHref(wiki)} class="hover:underline">
+                {wiki.name}
+              </a>
+            </h2>
+            {wiki.description && <p class="text-muted">{wiki.description}</p>}
+          </li>
+        ))}
+      </ul>
+    )}
+
+    {admin && (
+      <p>
+        <a href="/-/new" class={wikiButton("secondary")}>
+          New wiki
+        </a>
+      </p>
+    )}
+  </div>
+</WikiLayout>

@@ -1,0 +1,182 @@
+---
+/** The fields of a wiki's settings, shared by its settings page and "New wiki". */
+import type { WikiDraft, WikiField } from "../../lib/wiki/wikis";
+import {
+  WIKI_KINDS,
+  WIKI_LIMITS,
+  WIKI_VISIBILITIES,
+} from "../../lib/wiki/wikis";
+import { wikiInput } from "../../lib/wiki/ui";
+
+interface Props {
+  values: WikiDraft;
+  errors: Partial<Record<WikiField, string>>;
+  /** Only a new wiki chooses its address. */
+  creating: boolean;
+}
+
+const { values, errors, creating } = Astro.props;
+const label = "type-label text-muted";
+const invalid = (name: WikiField) => (errors[name] ? "true" : undefined);
+const described = (name: WikiField) =>
+  errors[name] ? `${name}-error` : undefined;
+---
+
+<div class="flex flex-col gap-5">
+  {creating && (
+    <label class="flex flex-col gap-2">
+      <span class={label}>Address</span>
+      <span class="flex items-center gap-1 font-mono text-sm">
+        <span class="text-muted">wiki.trilleo.net/</span>
+        <input
+          name="slug"
+          value={values.slug}
+          required
+          maxlength={WIKI_LIMITS.slug.max}
+          class={wikiInput}
+          aria-invalid={invalid("slug")}
+          aria-describedby={described("slug")}
+        />
+      </span>
+      {errors.slug && (
+        <strong id="slug-error" class="text-sm font-medium" role="alert">
+          {errors.slug}
+        </strong>
+      )}
+    </label>
+  )}
+  <div class="grid grid-cols-1 gap-5 md:grid-cols-[1fr_8rem]">
+    <label class="flex flex-col gap-2">
+      <span class={label}>Name</span>
+      <input
+        name="name"
+        value={values.name}
+        required
+        maxlength={WIKI_LIMITS.name}
+        class={wikiInput}
+        aria-invalid={invalid("name")}
+        aria-describedby={described("name")}
+      />
+      {errors.name && (
+        <strong id="name-error" class="text-sm font-medium" role="alert">
+          {errors.name}
+        </strong>
+      )}
+    </label>
+    <label class="flex flex-col gap-2">
+      <span class={label}>Code</span>
+      <input
+        name="code"
+        value={values.code}
+        required
+        maxlength={WIKI_LIMITS.code.max}
+        class={`${wikiInput} font-mono uppercase`}
+        aria-invalid={invalid("code")}
+        aria-describedby={described("code")}
+      />
+      {errors.code && (
+        <strong id="code-error" class="text-sm font-medium" role="alert">
+          {errors.code}
+        </strong>
+      )}
+    </label>
+  </div>
+  <label class="flex flex-col gap-2">
+    <span class={label}>Description</span>
+    <textarea
+      name="description"
+      rows="2"
+      maxlength={WIKI_LIMITS.description}
+      class={wikiInput}
+      aria-invalid={invalid("description")}
+      aria-describedby={described("description")}
+    >{values.description}</textarea>
+    {errors.description && (
+      <strong id="description-error" class="text-sm font-medium" role="alert">
+        {errors.description}
+      </strong>
+    )}
+  </label>
+  <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+    <label class="flex flex-col gap-2">
+      <span class={label}>Kind</span>
+      <select name="kind" class={wikiInput} aria-invalid={invalid("kind")}>
+        {Object.entries(WIKI_KINDS).map(([value, text]) => (
+          <option value={value} selected={values.kind === value}>
+            {text}
+          </option>
+        ))}
+      </select>
+      {errors.kind && (
+        <strong id="kind-error" class="text-sm font-medium" role="alert">
+          {errors.kind}
+        </strong>
+      )}
+    </label>
+    <label class="flex flex-col gap-2">
+      <span class={label}>Home page</span>
+      <input
+        name="homeTitle"
+        value={values.homeTitle}
+        required
+        class={wikiInput}
+        aria-invalid={invalid("homeTitle")}
+        aria-describedby={described("homeTitle")}
+      />
+      {errors.homeTitle && (
+        <strong id="homeTitle-error" class="text-sm font-medium" role="alert">
+          {errors.homeTitle}
+        </strong>
+      )}
+    </label>
+  </div>
+  <fieldset class="flex flex-col gap-2">
+    <legend class={`${label} mb-2`}>Who can read it</legend>
+    {Object.entries(WIKI_VISIBILITIES).map(([value, option]) => (
+      <div class="flex items-start gap-2">
+        <input
+          id={`visibility-${value}`}
+          type="radio"
+          name="visibility"
+          value={value}
+          checked={values.visibility === value}
+          aria-describedby={`visibility-${value}-hint`}
+          class="mt-1 size-4 accent-[var(--tr-accent)]"
+        />
+        <div>
+          <label for={`visibility-${value}`} class="font-medium">
+            {option.label}
+          </label>
+          <p id={`visibility-${value}-hint`} class="text-sm text-muted">
+            {option.hint}
+          </p>
+        </div>
+      </div>
+    ))}
+    {errors.visibility && (
+      <strong id="visibility-error" class="text-sm font-medium" role="alert">
+        {errors.visibility}
+      </strong>
+    )}
+  </fieldset>
+  <label class="flex flex-col gap-2">
+    <span class={label}>Sidebar</span>
+    <textarea
+      name="nav"
+      rows="10"
+      class={`${wikiInput} font-mono text-sm`}
+      aria-invalid={invalid("nav")}
+      aria-describedby="nav-hint"
+    >{values.nav}</textarea>
+    <span id="nav-hint" class="text-sm text-muted">
+      One section per block, separated by a blank line: the section's name on
+      its first line, then one link per line, “Label | Page title” or just a
+      page title.
+    </span>
+    {errors.nav && (
+      <strong id="nav-error" class="text-sm font-medium" role="alert">
+        {errors.nav}
+      </strong>
+    )}
+  </label>
+</div>

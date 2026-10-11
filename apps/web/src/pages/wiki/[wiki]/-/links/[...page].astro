@@ -1,0 +1,70 @@
+---
+/** What links here: the pages in this wiki that link to a title. */
+import NoWiki from "../../../../../components/wiki/NoWiki.astro";
+import PageHeading from "../../../../../components/wiki/PageHeading.astro";
+import WikiLayout from "../../../../../layouts/WikiLayout.astro";
+import { canEditPage } from "../../../../../lib/wiki/access";
+import { generatedPage } from "../../../../../lib/wiki/generated";
+import {
+  mainSiteRedirect,
+  openWiki,
+  privateHeaders,
+} from "../../../../../lib/wiki/page";
+import { backlinks, findPage } from "../../../../../lib/wiki/store";
+import { titleFromPath, titleKey } from "../../../../../lib/wiki/titles";
+import { wikiHref } from "../../../../../lib/wiki/wikis";
+
+export const prerender = false;
+
+const moved = mainSiteRedirect(Astro, Astro.params.wiki);
+if (moved) return moved;
+privateHeaders(Astro);
+const context = await openWiki(Astro, Astro.params.wiki);
+const title = titleFromPath(Astro.params.page ?? "");
+if (!context || !title) Astro.response.status = 404;
+const key = title ? titleKey(title) : "";
+const page =
+  context && title
+    ? await findPage(context.db, context.wiki.id, key)
+    : undefined;
+const generated =
+  context && title ? await generatedPage(context.wiki, key) : null;
+const links =
+  context && title ? await backlinks(context.db, context.wiki, key) : [];
+---
+
+{!context || !title ? (
+  <NoWiki />
+) : (
+  <WikiLayout
+    title={`Links to ${title}`}
+    wiki={context.wiki}
+    access={context.access}
+    noindex
+  >
+    <div class="flex flex-col gap-6">
+      <PageHeading
+        wiki={context.wiki}
+        title={title}
+        current="links"
+        exists={page !== undefined && page.deletedAt === null}
+        generated={generated !== null}
+        canEdit={canEditPage(context.access, page ?? null)}
+        canManage={context.access.manage}
+      />
+      {links.length === 0 ? (
+        <p class="text-muted">No pages link here.</p>
+      ) : (
+        <ul class="columns-1 gap-6 md:columns-2" data-backlinks>
+          {links.map((link) => (
+            <li class="break-inside-avoid py-0.5">
+              <a href={wikiHref(context.wiki, link)} class="hover:underline">
+                {link}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  </WikiLayout>
+)}

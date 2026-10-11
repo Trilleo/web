@@ -5,9 +5,16 @@
  * footer's "Cookie settings", the cookie policy). Choices are kept by @trilleo/ui's
  * consent.ts; this loads Cloudflare Web Analytics only when allowed. Without
  * JavaScript nothing shows, nothing optional runs, and the links go to the policy.
+ * The wiki (another host) passes `origin`, the main site's, for the policy link.
  */
 import { buttonClasses } from "@trilleo/ui";
 import { CF_ANALYTICS_TOKEN } from "../lib/site";
+
+interface Props {
+  origin?: string;
+}
+
+const { origin = "" } = Astro.props;
 
 const plain = { hover: "plain" } as const;
 ---
@@ -165,7 +172,7 @@ const plain = { hover: "plain" } as const;
       </div>
       <p class="text-sm text-muted">
         More in the{" "}
-        <a href="/legal/cookies/" class="text-ink underline">
+        <a href={`${origin}/legal/cookies/`} class="text-ink underline">
           cookie policy
         </a>
         .

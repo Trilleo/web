@@ -1,0 +1,125 @@
+---
+/** The admin starts a wiki: its settings, and optionally its first owner. */
+import WikiFields from "../../../components/wiki/WikiFields.astro";
+import ToolHeading from "../../../components/wiki/ToolHeading.astro";
+import WikiLayout from "../../../layouts/WikiLayout.astro";
+import { isAdmin } from "../../../lib/auth/guard";
+import { noStoreRedirect } from "../../../lib/auth/redirect";
+import { field } from "../../../lib/comments/form";
+import { privateHeaders, publicPath, wikiDb } from "../../../lib/wiki/page";
+import { createWiki, setMember, savePage } from "../../../lib/wiki/store";
+import { wikiButton, wikiInput } from "../../../lib/wiki/ui";
+import {
+  readWikiForm,
+  validateWiki,
+  wikiHref,
+  type WikiDraft,
+  type WikiField,
+} from "../../../lib/wiki/wikis";
+
+export const prerender = false;
+
+privateHeaders(Astro);
+const user = Astro.locals.user;
+if (!user)
+  return noStoreRedirect(
+    `/-/sign-in?next=${encodeURIComponent(publicPath(Astro.url))}`,
+  );
+if (!isAdmin(user)) {
+  return new Response("Only the site's admin can start a wiki.", {
+    status: 403,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "private, no-store",
+    },
+  });
+}
+
+let values: WikiDraft = {
+  slug: "",
+  name: "",
+  code: "",
+  description: "",
+  kind: "general",
+  visibility: "public",
+  homeTitle: "Main Page",
+  nav: "Start here\nMain Page",
+};
+let errors: Partial<Record<WikiField, string>> = {};
+let owner = "";
+let ownerError: string | null = null;
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  values = readWikiForm(form);
+  owner = field(form, "owner");
+  const result = validateWiki(values);
+  if (result.ok) {
+    const db = await wikiDb();
+    const created = await createWiki(db, user, {
+      ...result.input,
+      source: null,
+    });
+    if (created.ok) {
+      const { wiki } = created;
+      await savePage(db, {
+        wiki,
+        actor: user,
+        title: wiki.homeTitle,
+        body: `Welcome to the **${wiki.name}** wiki.\n`,
+        summary: "New wiki",
+        minor: false,
+        baseRevisionId: null,
+        canEditProtected: true,
+      });
+      if (owner) {
+        const member = await setMember(db, wiki, user, owner, "owner");
+        if (!member.ok)
+          ownerError =
+            "No account has that username: add the owner in the wiki's settings.";
+      }
+      if (!ownerError) return noStoreRedirect(wikiHref(wiki), 303);
+      return noStoreRedirect(`${wikiHref(wiki)}-/settings`, 303);
+    }
+    errors = { slug: "A wiki already has that address." };
+  } else {
+    errors = result.errors;
+  }
+  Astro.response.status = 422;
+}
+---
+
+<WikiLayout title="New wiki" noindex>
+  <div class="flex max-w-[44rem] flex-col gap-8">
+    <ToolHeading
+      title="New wiki"
+      lead="A wiki for one project: its own pages, members and search."
+    />
+    <form method="post" class="flex flex-col gap-6">
+      <WikiFields values={values} errors={errors} creating />
+      <label class="flex flex-col gap-2">
+        <span class="type-label text-muted">First owner (optional)</span>
+        <input
+          name="owner"
+          value={owner}
+          autocomplete="off"
+          class={wikiInput}
+          placeholder="A username"
+        />
+        <span class="text-sm text-muted">
+          You can run every wiki as the admin; an owner runs this one.
+        </span>
+        {ownerError && (
+          <strong class="text-sm font-medium" role="alert">
+            {ownerError}
+          </strong>
+        )}
+      </label>
+      <div>
+        <button type="submit" class={wikiButton("primary")}>
+          Create wiki
+        </button>
+      </div>
+    </form>
+  </div>
+</WikiLayout>

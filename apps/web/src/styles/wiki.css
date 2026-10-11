@@ -1,0 +1,125 @@
+/*
+ * The wiki (wiki.trilleo.net): the site's type and colours, set denser for
+ * reference reading. Pages use `.prose .prose-wiki`; headings carry a rule, tables
+ * are compact, and links to pages that don't exist yet are dashed and muted.
+ * Less motion than the main site: no reveals, no morphs.
+ */
+
+.prose-wiki {
+  font-size: 1.0625rem;
+  line-height: 1.6;
+
+  @media (width >= 80rem) {
+    font-size: 1.125rem;
+  }
+}
+
+.prose-wiki > * + * {
+  margin-top: 1rem;
+}
+
+.prose-wiki h2 {
+  margin-top: 2.25rem;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid var(--tr-ink);
+  font-size: 1.625rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.prose-wiki h3 {
+  margin-top: 1.75rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+}
+
+.prose-wiki :is(h4, h5, h6) {
+  margin-top: 1.5rem;
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+.prose-wiki > :is(h2, h3, h4):first-child {
+  margin-top: 0;
+}
+
+.prose-wiki table {
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+
+.prose-wiki :is(th, td) {
+  padding: 0.375rem 0.75rem 0.375rem 0;
+  vertical-align: top;
+}
+
+.prose-wiki pre {
+  font-size: 0.875rem;
+}
+
+/* Links to pages in this wiki. */
+.prose-wiki a.wiki-link {
+  text-decoration-thickness: 1px;
+}
+
+/* A page nobody has written yet: following it offers to create it. */
+.prose-wiki a.wiki-link.is-missing,
+a.is-missing {
+  color: var(--tr-muted);
+  text-decoration-style: dashed;
+}
+
+/* A page in another wiki: its slug, in mono, so the boundary is visible. */
+.wiki-link-wiki {
+  margin-left: 0.3em;
+  padding: 0 0.3em;
+  border: 1px solid var(--tr-hair);
+  font-family: var(--font-mono);
+  font-size: 0.7em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: 0.1em;
+}
+
+/* Revision comparison. */
+.wiki-diff {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.wiki-diff [data-op] {
+  display: grid;
+  grid-template-columns: 3rem 3rem 1.25rem minmax(0, 1fr);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.wiki-diff [data-op="added"] {
+  background: color-mix(in srgb, var(--tr-accent) 14%, transparent);
+}
+
+.wiki-diff [data-op="removed"] {
+  background: var(--tr-chip);
+  text-decoration: line-through;
+  text-decoration-color: var(--tr-muted);
+}
+
+.wiki-diff [data-op="skip"] {
+  color: var(--tr-muted);
+}
+
+.wiki-diff .line-number {
+  color: var(--tr-muted);
+  text-align: right;
+  padding-right: 0.75rem;
+  user-select: none;
+}
+
+/* Wide tables scroll inside the text column instead of widening the page. */
+.prose-wiki .table-scroll {
+  overflow-x: auto;
+}

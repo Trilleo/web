@@ -1,0 +1,234 @@
+---
+/**
+ * A wiki's settings and members, for its owners (and the admin). One page, POST
+ * with `intent`: settings, add (a member by username, or a new role), remove.
+ */
+import NoWiki from "../../../../components/wiki/NoWiki.astro";
+import ToolHeading from "../../../../components/wiki/ToolHeading.astro";
+import WikiFields from "../../../../components/wiki/WikiFields.astro";
+import WikiLayout from "../../../../layouts/WikiLayout.astro";
+import type { WikiRole } from "@trilleo/db";
+import { noStoreRedirect } from "../../../../lib/auth/redirect";
+import { field } from "../../../../lib/comments/form";
+import { ROLE_LABELS } from "../../../../lib/wiki/access";
+import {
+  mainSiteRedirect,
+  openWiki,
+  privateHeaders,
+} from "../../../../lib/wiki/page";
+import {
+  listMembers,
+  removeMember,
+  setMember,
+  updateWiki,
+} from "../../../../lib/wiki/store";
+import {
+  formatWikiDate,
+  wikiButton,
+  wikiInput,
+  wikiTable,
+} from "../../../../lib/wiki/ui";
+import {
+  readWikiForm,
+  toolHref,
+  validateWiki,
+  wikiDraft,
+  type WikiDraft,
+  type WikiField,
+} from "../../../../lib/wiki/wikis";
+
+export const prerender = false;
+
+const moved = mainSiteRedirect(Astro, Astro.params.wiki);
+if (moved) return moved;
+privateHeaders(Astro);
+const context = await openWiki(Astro, Astro.params.wiki);
+if (!context) Astro.response.status = 404;
+if (context && (!context.access.manage || !context.user)) {
+  return new Response("Only this wiki's owners can change its settings.", {
+    status: 403,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "private, no-store",
+    },
+  });
+}
+
+let values: WikiDraft | null = context ? wikiDraft(context.wiki) : null;
+let errors: Partial<Record<WikiField, string>> = {};
+let memberError: string | null = null;
+let memberName = "";
+
+if (context?.user && Astro.request.method === "POST") {
+  const { db, wiki, user } = context;
+  const form = await Astro.request.formData();
+  const intent = field(form, "intent");
+  const settingsUrl = toolHref(wiki, "settings");
+  if (intent === "settings") {
+    const draft = { ...readWikiForm(form), slug: wiki.slug };
+    const result = validateWiki(draft);
+    if (result.ok) {
+      await updateWiki(db, wiki, user, result.input);
+      return noStoreRedirect(`${settingsUrl}?saved=1`, 303);
+    }
+    values = draft;
+    errors = result.errors;
+    Astro.response.status = 422;
+  } else if (intent === "add") {
+    memberName = field(form, "username");
+    const role: WikiRole = field(form, "role") === "owner" ? "owner" : "editor";
+    const result = await setMember(db, wiki, user, memberName, role);
+    if (result.ok)
+      return noStoreRedirect(
+        `${settingsUrl}?member=${encodeURIComponent(result.username)}`,
+        303,
+      );
+    memberError =
+      result.error === "no-user"
+        ? "No account has that username."
+        : "That account is blocked.";
+    Astro.response.status = 422;
+  } else if (intent === "remove") {
+    await removeMember(db, wiki, user, field(form, "user"));
+    return noStoreRedirect(settingsUrl, 303);
+  }
+}
+const members = context ? await listMembers(context.db, context.wiki.id) : [];
+const saved =
+  Astro.url.searchParams.has("saved") && Astro.request.method === "GET";
+const added =
+  Astro.request.method === "GET" ? Astro.url.searchParams.get("member") : null;
+---
+
+{!context || !values ? (
+  <NoWiki />
+) : (
+  <WikiLayout
+    title="Settings"
+    wiki={context.wiki}
+    access={context.access}
+    noindex
+  >
+    <div class="flex flex-col gap-10">
+      <ToolHeading
+        title="Settings"
+        lead={`wiki.trilleo.net/${context.wiki.slug}/`}
+      />
+
+      <form
+        method="post"
+        class="flex max-w-[44rem] flex-col gap-5"
+        aria-labelledby="settings-heading"
+      >
+        <h2 id="settings-heading" class="text-xl font-semibold">
+          The wiki
+        </h2>
+        {saved && (
+          <p class="border-l-2 border-accent pl-3" role="status">
+            Saved.
+          </p>
+        )}
+        <input type="hidden" name="intent" value="settings" />
+        <WikiFields values={values} errors={errors} creating={false} />
+        <div>
+          <button type="submit" class={wikiButton("primary")}>
+            Save settings
+          </button>
+        </div>
+      </form>
+
+      <section
+        class="flex max-w-[44rem] flex-col gap-5 border-t border-ink pt-6"
+        aria-labelledby="members-heading"
+      >
+        <h2 id="members-heading" class="text-xl font-semibold">
+          Members
+        </h2>
+        <p class="text-muted">
+          Editors write pages. Owners also change these settings, add and remove
+          members, and move, protect and delete pages. The site's admin can do
+          everything.
+        </p>
+        {added && (
+          <p class="border-l-2 border-accent pl-3" role="status">
+            @{added} is a member.
+          </p>
+        )}
+        {members.length === 0 ? (
+          <p class="text-muted">No members yet.</p>
+        ) : (
+          <table class={wikiTable} data-members>
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Role</th>
+                <th>Since</th>
+                <th>
+                  <span class="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {members.map((member) => (
+                <tr>
+                  <td>@{member.username}</td>
+                  <td>{ROLE_LABELS[member.role]}</td>
+                  <td class="whitespace-nowrap">
+                    {formatWikiDate(member.addedAt)}
+                  </td>
+                  <td>
+                    <form method="post">
+                      <input type="hidden" name="intent" value="remove" />
+                      <input type="hidden" name="user" value={member.userId} />
+                      <button
+                        type="submit"
+                        class="underline"
+                        aria-label={`Remove @${member.username}`}
+                      >
+                        Remove
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <form method="post" class="flex flex-col gap-4">
+          <input type="hidden" name="intent" value="add" />
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-[1fr_10rem]">
+            <label class="flex flex-col gap-2">
+              <span class="type-label text-muted">Username</span>
+              <input
+                name="username"
+                value={memberName}
+                required
+                autocomplete="off"
+                class={wikiInput}
+                aria-invalid={memberError ? "true" : undefined}
+                aria-describedby={memberError ? "member-error" : undefined}
+              />
+            </label>
+            <label class="flex flex-col gap-2">
+              <span class="type-label text-muted">Role</span>
+              <select name="role" class={wikiInput}>
+                <option value="editor">Editor</option>
+                <option value="owner">Owner</option>
+              </select>
+            </label>
+          </div>
+          {memberError && (
+            <strong id="member-error" class="text-sm font-medium" role="alert">
+              {memberError}
+            </strong>
+          )}
+          <div>
+            <button type="submit" class={wikiButton("secondary")}>
+              Add or change member
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </WikiLayout>
+)}

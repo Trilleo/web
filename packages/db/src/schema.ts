@@ -1117,6 +1117,252 @@ export const mcPreviews = pgTable("mc_previews", {
   createdAt: createdAt(),
 });
 
+/** What a wiki is about: it decides the label in its band and, later, its components. */
+export const wikiKind = pgEnum("wiki_kind", [
+  "game",
+  "minecraft",
+  "code",
+  "general",
+]);
+
+/**
+ * public: listed and indexed; unlisted: anyone with the link, not listed or indexed;
+ * private: members (and the admin) only.
+ */
+export const wikiVisibility = pgEnum("wiki_visibility", [
+  "public",
+  "unlisted",
+  "private",
+]);
+
+/** owner: settings, members, protected pages; editor: writes pages. */
+export const wikiRole = pgEnum("wiki_role", ["owner", "editor"]);
+
+/** A link in a wiki's sidebar. `page` is a page title in the same wiki. */
+export interface WikiNavLink {
+  label: string;
+  page: string;
+}
+
+/** A labelled group of sidebar links. */
+export interface WikiNavSection {
+  label: string;
+  links: WikiNavLink[];
+}
+
+/**
+ * A wiki on wiki.trilleo.net: one project (a game, a Minecraft server, a code
+ * project), at /<slug>/. Everything in it (pages, members, search) belongs to it.
+ */
+export const wikis = pgTable("wikis", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  /** Its address: wiki.trilleo.net/<slug>/ (apps/web/src/lib/wiki/wikis.ts). */
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  /** A short upper-case label shown in its band, e.g. "SKY". */
+  code: text("code").notNull(),
+  description: text("description").notNull().default(""),
+  kind: wikiKind("kind").notNull().default("general"),
+  visibility: wikiVisibility("visibility").notNull().default("public"),
+  /** The page at /<slug>/. */
+  homeTitle: text("home_title").notNull().default("Main Page"),
+  nav: jsonb("nav").$type<WikiNavSection[]>().notNull().default([]),
+  /**
+   * Pages generated from code (apps/web/src/lib/wiki/sources/), e.g. "skygrid" for
+   * the game's items and recipes. Null: only written pages.
+   */
+  source: text("source"),
+  createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const wikiMembers = pgTable(
+  "wiki_members",
+  {
+    wikiId: integer("wiki_id")
+      .notNull()
+      .references(() => wikis.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: wikiRole("role").notNull(),
+    addedAt: timestamp("added_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.wikiId, table.userId] }),
+    index("wiki_members_user_idx").on(table.userId),
+  ],
+);
+
+/**
+ * A page in a wiki, by title. `key` is the title folded for lookups (see
+ * lib/wiki/titles.ts). The text lives in wiki_revisions; the current one is
+ * rendered into `html` when saved (again when `renderVersion` falls behind).
+ * A deleted page keeps its history and can be restored.
+ */
+export const wikiPages = pgTable(
+  "wiki_pages",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    wikiId: integer("wiki_id")
+      .notNull()
+      .references(() => wikis.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    title: text("title").notNull(),
+    /** The current revision. */
+    revisionId: integer("revision_id"),
+    /** Set when the page is only a redirect: the title it sends readers to. */
+    redirectTo: text("redirect_to"),
+    html: text("html").notNull().default(""),
+    toc: jsonb("toc").$type<PostHeading[]>().notNull().default([]),
+    renderVersion: integer("render_version").notNull().default(0),
+    /** The text without markup: search snippets and descriptions. */
+    plain: text("plain").notNull().default(""),
+    /** "owners": only the wiki's owners may edit it. */
+    protection: text("protection", { enum: ["none", "owners"] })
+      .notNull()
+      .default("none"),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("wiki_pages_key_idx").on(table.wikiId, table.key),
+    index("wiki_pages_updated_idx").on(table.wikiId, table.updatedAt),
+  ],
+);
+
+/** Every saved version of a page. Never changed once written. */
+export const wikiRevisions = pgTable(
+  "wiki_revisions",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    wikiId: integer("wiki_id")
+      .notNull()
+      .references(() => wikis.id, { onDelete: "cascade" }),
+    pageId: integer("page_id")
+      .notNull()
+      .references(() => wikiPages.id, { onDelete: "cascade" }),
+    /** Null when the account was deleted, or for built-in pages. */
+    authorId: uuid("author_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    /** The page's title when this was saved. */
+    title: text("title").notNull(),
+    /** Markdown, as typed. */
+    body: text("body").notNull(),
+    summary: text("summary").notNull().default(""),
+    minor: boolean("minor").notNull().default(false),
+    /** The body's length in UTF-8 bytes, for the size changes in histories. */
+    bytes: integer("bytes").notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index("wiki_revisions_page_idx").on(table.pageId, table.id),
+    index("wiki_revisions_wiki_idx").on(table.wikiId, table.createdAt),
+    index("wiki_revisions_author_idx").on(table.authorId),
+  ],
+);
+
+/** Which pages a page links to, by key: backlinks and wanted (missing) pages. */
+export const wikiLinks = pgTable(
+  "wiki_links",
+  {
+    pageId: integer("page_id")
+      .notNull()
+      .references(() => wikiPages.id, { onDelete: "cascade" }),
+    wikiId: integer("wiki_id")
+      .notNull()
+      .references(() => wikis.id, { onDelete: "cascade" }),
+    targetKey: text("target_key").notNull(),
+    /** The title as linked, for listing wanted pages. */
+    targetTitle: text("target_title").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.pageId, table.targetKey] }),
+    index("wiki_links_target_idx").on(table.wikiId, table.targetKey),
+  ],
+);
+
+/** A page's categories, by the category page's key ("category:items"). */
+export const wikiCategories = pgTable(
+  "wiki_categories",
+  {
+    pageId: integer("page_id")
+      .notNull()
+      .references(() => wikiPages.id, { onDelete: "cascade" }),
+    wikiId: integer("wiki_id")
+      .notNull()
+      .references(() => wikis.id, { onDelete: "cascade" }),
+    categoryKey: text("category_key").notNull(),
+    categoryTitle: text("category_title").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.pageId, table.categoryKey] }),
+    index("wiki_categories_key_idx").on(table.wikiId, table.categoryKey),
+  ],
+);
+
+/**
+ * What happened in a wiki besides edits: moves, deletions, restores, protection,
+ * members and settings. `detail` is short text for the log.
+ */
+export const wikiLog = pgTable(
+  "wiki_log",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    wikiId: integer("wiki_id")
+      .notNull()
+      .references(() => wikis.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    action: text("action", {
+      enum: [
+        "create-wiki",
+        "settings",
+        "member-added",
+        "member-changed",
+        "member-removed",
+        "move",
+        "delete",
+        "restore",
+        "protect",
+      ],
+    }).notNull(),
+    /** The page's title, when it's about one. */
+    title: text("title"),
+    detail: text("detail").notNull().default(""),
+    createdAt: createdAt(),
+  },
+  (table) => [index("wiki_log_wiki_idx").on(table.wikiId, table.createdAt)],
+);
+
+/**
+ * Signing in on wiki.trilleo.net with the session from www (lib/wiki/handoff.ts):
+ * a one-time ticket, kept as its SHA-256, tied to the browser that asked for it by
+ * `stateHash` (a cookie on the wiki's host). Lives a minute; deleted when used.
+ */
+export const wikiSignInTickets = pgTable(
+  "wiki_sign_in_tickets",
+  {
+    id: text("id").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    stateHash: text("state_hash").notNull(),
+    createdAt: createdAt(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [index("wiki_sign_in_tickets_expires_idx").on(table.expiresAt)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type UserIdentity = typeof userIdentities.$inferSelect;
@@ -1155,3 +1401,11 @@ export type EmailCode = typeof emailCodes.$inferSelect;
 export type MailMessage = typeof mailMessages.$inferSelect;
 export type MailMessageStatus = (typeof mailStatus.enumValues)[number];
 export type AdminAlert = typeof adminAlerts.$inferSelect;
+export type Wiki = typeof wikis.$inferSelect;
+export type WikiKind = (typeof wikiKind.enumValues)[number];
+export type WikiVisibility = (typeof wikiVisibility.enumValues)[number];
+export type WikiRole = (typeof wikiRole.enumValues)[number];
+export type WikiMember = typeof wikiMembers.$inferSelect;
+export type WikiPage = typeof wikiPages.$inferSelect;
+export type WikiRevision = typeof wikiRevisions.$inferSelect;
+export type WikiLogEntry = typeof wikiLog.$inferSelect;

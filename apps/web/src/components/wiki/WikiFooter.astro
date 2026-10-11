@@ -1,0 +1,73 @@
+---
+/**
+ * The wiki's footer: where it belongs (Trilleo Network), the legal pages it shares
+ * with the main site, cookie settings, and the mainland filing numbers every page
+ * of the site carries.
+ */
+import { ICP_FILING, PSB_FILING, SITE_NAME } from "../../lib/site";
+
+interface Props {
+  main: string;
+}
+
+const { main } = Astro.props;
+const links = [
+  { label: "Terms", href: `${main}/legal/terms/` },
+  { label: "Privacy", href: `${main}/legal/privacy/` },
+  { label: "Guidelines", href: `${main}/legal/guidelines/` },
+  { label: "Contact", href: `${main}/contact/` },
+];
+const psbCode = PSB_FILING?.match(/\d+/)?.[0];
+const small = "hover:underline";
+---
+
+<footer class="border-t border-ink">
+  <div class="grid-swiss px-page gap-y-4 py-6 text-sm">
+    <p class="col-span-4 md:col-span-3 xl:col-span-4">
+      <span class="font-semibold">Trilleo Wiki</span>{" "}
+      <span class="text-muted">
+        is part of{" "}
+        <a href={`${main}/`} class="text-ink underline">
+          {SITE_NAME}
+        </a>
+        . Each wiki's pages are written by its members.
+      </span>
+    </p>
+    <ul class="type-label col-span-4 flex flex-wrap gap-x-5 gap-y-2 md:col-span-5 md:justify-end xl:col-span-8">
+      {links.map((link) => (
+        <li>
+          <a href={link.href} class={small}>
+            {link.label}
+          </a>
+        </li>
+      ))}
+      <li>
+        <a
+          href={`${main}/legal/cookies/#control`}
+          class={small}
+          data-cookie-settings
+        >
+          Cookie settings
+        </a>
+      </li>
+      {ICP_FILING && (
+        <li class="font-cjk normal-case">
+          <a href="https://beian.miit.gov.cn/" rel="noopener" class={small}>
+            {ICP_FILING}
+          </a>
+        </li>
+      )}
+      {PSB_FILING && (
+        <li class="font-cjk normal-case">
+          <a
+            href={`https://beian.mps.gov.cn/#/query/webSearch${psbCode ? `?code=${psbCode}` : ""}`}
+            rel="noopener"
+            class={small}
+          >
+            {PSB_FILING}
+          </a>
+        </li>
+      )}
+    </ul>
+  </div>
+</footer>

@@ -38,10 +38,13 @@ export default defineConfig({
     checkOrigin: false,
     // Hosts the server believes in requests (Host, and X-Forwarded-* from Caddy), so
     // URLs, cookies and the same-origin check on form posts see the real address.
-    // Anything else shows up as "localhost". Caddy only ever forwards www.trilleo.net.
+    // Anything else shows up as "localhost". Caddy forwards www.trilleo.net and
+    // wiki.trilleo.net (the wiki, served by this app: src/lib/wiki/host.ts).
     allowedDomains: [
       { hostname: "www.trilleo.net", protocol: "https" },
+      { hostname: "wiki.trilleo.net", protocol: "https" },
       { hostname: "localhost", protocol: "http" },
+      { hostname: "wiki.localhost", protocol: "http" },
       { hostname: "127.0.0.1", protocol: "http" },
     ],
   },

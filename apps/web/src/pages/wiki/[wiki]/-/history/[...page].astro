@@ -1,0 +1,135 @@
+---
+/** A page's revisions, newest first, each with a link to what it changed. */
+import NoWiki from "../../../../../components/wiki/NoWiki.astro";
+import PageHeading from "../../../../../components/wiki/PageHeading.astro";
+import WikiLayout from "../../../../../layouts/WikiLayout.astro";
+import { canEditPage } from "../../../../../lib/wiki/access";
+import {
+  mainSiteRedirect,
+  openWiki,
+  privateHeaders,
+} from "../../../../../lib/wiki/page";
+import { findPage, pageHistory } from "../../../../../lib/wiki/store";
+import { titleFromPath, titleKey } from "../../../../../lib/wiki/titles";
+import {
+  formatDelta,
+  formatWikiDate,
+  wikiTable,
+} from "../../../../../lib/wiki/ui";
+import { toolHref } from "../../../../../lib/wiki/wikis";
+
+export const prerender = false;
+
+const moved = mainSiteRedirect(Astro, Astro.params.wiki);
+if (moved) return moved;
+privateHeaders(Astro);
+const context = await openWiki(Astro, Astro.params.wiki);
+const title = titleFromPath(Astro.params.page ?? "");
+const page =
+  context && title
+    ? await findPage(context.db, context.wiki.id, titleKey(title))
+    : undefined;
+if (!context || !title || !page) Astro.response.status = 404;
+const revisions = context && page ? await pageHistory(context.db, page.id) : [];
+---
+
+{!context || !title ? (
+  <NoWiki />
+) : (
+  <WikiLayout
+    title={`History of ${title}`}
+    wiki={context.wiki}
+    access={context.access}
+    noindex
+  >
+    <div class="flex flex-col gap-6">
+      <PageHeading
+        wiki={context.wiki}
+        title={title}
+        current="history"
+        exists={page !== undefined && page.deletedAt === null}
+        canEdit={canEditPage(context.access, page ?? null)}
+        canManage={context.access.manage}
+      />
+      {page?.deletedAt && (
+        <p class="border-l-2 border-accent pl-3">
+          This page is deleted; its history is kept.
+        </p>
+      )}
+      {revisions.length === 0 ? (
+        <p class="text-muted">This page has no history.</p>
+      ) : (
+        <div class="overflow-x-auto">
+          <table class={wikiTable}>
+            <thead>
+              <tr>
+                <th>Saved</th>
+                <th>By</th>
+                <th>Size</th>
+                <th>Summary</th>
+                <th>
+                  <span class="sr-only">Compare</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {revisions.map((revision, index) => (
+                <tr data-revision={revision.id}>
+                  <td class="whitespace-nowrap">
+                    <a
+                      href={toolHref(
+                        context.wiki,
+                        `revision/${String(revision.id)}`,
+                      )}
+                      class="underline"
+                    >
+                      {formatWikiDate(revision.createdAt)}
+                    </a>
+                    {index === 0 && (
+                      <span class="type-label ml-2 text-muted">Current</span>
+                    )}
+                  </td>
+                  <td>
+                    {revision.author ? (
+                      `@${revision.author}`
+                    ) : (
+                      <span class="text-muted">the site</span>
+                    )}
+                  </td>
+                  <td class="whitespace-nowrap font-mono text-xs">
+                    {formatDelta(revision.bytes, revision.previousBytes)}
+                  </td>
+                  <td>
+                    {revision.minor && (
+                      <abbr
+                        title="Minor edit"
+                        class="type-label mr-2 no-underline"
+                      >
+                        m
+                      </abbr>
+                    )}
+                    {revision.summary || (
+                      <span class="text-muted">No summary</span>
+                    )}
+                  </td>
+                  <td class="whitespace-nowrap">
+                    {revision.previousBytes !== null ? (
+                      <a
+                        href={`${toolHref(context.wiki, "diff")}?to=${String(revision.id)}`}
+                        class="underline"
+                      >
+                        Changes
+                      </a>
+                    ) : (
+                      <span class="type-label text-muted">Created</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  </WikiLayout>
+)}

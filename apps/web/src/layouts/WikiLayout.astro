@@ -1,0 +1,128 @@
+---
+/**
+ * Pages on wiki.trilleo.net. The site's tokens, fonts and grid, set as a reference:
+ * a header that says which wiki you're in (its code, name and kind, and a search
+ * that stays inside it), its sidebar in columns 1–2, the page in 3–9, contents in
+ * 10–12. No scroll reveals and no morphs; links to the main site are absolute,
+ * since this is another host.
+ */
+import "../styles/global.css";
+import type { PostHeading, User, Wiki } from "@trilleo/db";
+import { THEME_COLORS, themeInitScript } from "@trilleo/ui/theme";
+import CookieConsent from "../components/CookieConsent.astro";
+import TableOfContents from "../components/TableOfContents.astro";
+import WikiFooter from "../components/wiki/WikiFooter.astro";
+import WikiHeader from "../components/wiki/WikiHeader.astro";
+import WikiSidebar from "../components/wiki/WikiSidebar.astro";
+import { SITE_IMAGE } from "../lib/seo";
+import type { WikiAccess } from "../lib/wiki/access";
+import { mainOrigin, wikiOrigin } from "../lib/wiki/host";
+import { publicPath } from "../lib/wiki/page";
+
+interface Props {
+  /** The page's own title; the wiki's name and "Trilleo Wiki" are added. */
+  title?: string;
+  description?: string;
+  noindex?: boolean;
+  wiki?: Wiki | null;
+  access?: WikiAccess | null;
+  /** h2/h3 headings: a contents list on desktop. */
+  toc?: readonly PostHeading[];
+}
+
+const {
+  title,
+  description = "Wikis for the projects on Trilleo Network: games, Minecraft servers and code.",
+  noindex = false,
+  wiki = null,
+  access = null,
+  toc = [],
+} = Astro.props;
+const user: User | null = Astro.locals.user;
+const main = mainOrigin(Astro.url);
+const origin = wikiOrigin(Astro.url);
+const path = publicPath(Astro.url);
+const canonical = new URL(
+  Astro.url.pathname.replace(/^\/wiki/, "") || "/",
+  origin,
+);
+const parts = [title?.trim(), wiki?.name, "Trilleo Wiki"].filter(
+  (part): part is string => Boolean(part),
+);
+const documentTitle = [...new Set(parts)].join(" · ");
+const contents = toc.filter((heading) => heading.depth === 2);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="theme-color"
+      content={THEME_COLORS.light}
+      media="(prefers-color-scheme: light)"
+    />
+    <meta
+      name="theme-color"
+      content={THEME_COLORS.dark}
+      media="(prefers-color-scheme: dark)"
+    />
+    <script is:inline set:html={themeInitScript}></script>
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
+    {!noindex && <link rel="canonical" href={canonical} />}
+    <meta property="og:site_name" content="Trilleo Wiki" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:title" content={documentTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={new URL(SITE_IMAGE, main)} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>{documentTitle}</title>
+  </head>
+  <body id="top" class="flex min-h-dvh flex-col bg-paper text-ink">
+    <!-- Pages change at once: the main site's crossfade (theme.css) is off here. In
+         the body, so it comes after the shared stylesheet and wins. -->
+    <style is:inline>
+      @view-transition {
+        navigation: none;
+      }
+    </style>
+    <a
+      href="#main"
+      class="type-nav sr-only bg-accent px-4 py-3 text-on-accent focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50"
+    >
+      Skip to content
+    </a>
+    <WikiHeader wiki={wiki} user={user} main={main} path={path} />
+    <div class="grid-swiss px-page flex-1 gap-y-10 py-8 md:py-10">
+      {wiki && (
+        <div class="col-span-4 border-t border-ink pt-6 max-md:order-last md:col-span-2 md:border-t-0 md:pt-0 xl:col-span-2">
+          <WikiSidebar wiki={wiki} access={access} />
+        </div>
+      )}
+      <main
+        id="main"
+        tabindex="-1"
+        class:list={[
+          "col-span-4 min-w-0 focus:outline-none",
+          wiki ? "md:col-span-6 xl:col-span-7" : "md:col-span-8 xl:col-span-12",
+        ]}
+      >
+        <slot />
+      </main>
+      {wiki && contents.length > 1 && (
+        <aside class="hidden xl:col-span-3 xl:block">
+          <TableOfContents headings={contents} />
+        </aside>
+      )}
+    </div>
+    <WikiFooter main={main} />
+    <CookieConsent origin={main} />
+  </body>
+</html>

@@ -16,6 +16,11 @@ visitor ─HTTPS─▶ Cloudflare ─HTTPS (Origin cert, "Full (strict)")─▶ 
 
 - The server only answers Cloudflare's IP ranges (`cloudflare-ips.txt`); `trilleo.net`
   redirects to `www.trilleo.net`.
+- `wiki.trilleo.net` is the same app (it rewrites the host's paths to its wiki pages,
+  `apps/web/src/lib/wiki/host.ts`). Its Caddy block serves only built assets and icons
+  from files; any other file there is a main-site page, so Caddy redirects it to
+  `www.trilleo.net`, and everything else goes to the app. It shares the headers
+  (`site_headers`) and the Origin certificate (`*.trilleo.net`).
 - Caddy serves any file that exists and forwards other requests to the app, so prerendered
   pages (/about, /tools, assets) keep working even if the app is down; the home page and
   posts render on the app. Only Caddy's ports are published.
@@ -32,8 +37,9 @@ Placeholders below: `<SERVER_IP>`, `<REGION>` (your Huawei region, e.g. `cn-east
 
 ### 1. Cloudflare (dashboard → trilleo.net)
 
-1. **DNS → Records:** `A  @  <SERVER_IP>` and `A  www  <SERVER_IP>` (or `CNAME www
-trilleo.net`), both **Proxied** (orange cloud).
+1. **DNS → Records:** `A  @  <SERVER_IP>`, `A  www  <SERVER_IP>` and `A  wiki
+<SERVER_IP>` (or `CNAME www trilleo.net` and `CNAME wiki trilleo.net`), all **Proxied**
+   (orange cloud). The wiki needs no other setup: the certificate below covers it.
 2. **SSL/TLS → Overview:** encryption mode **Full (strict)**.
 3. **SSL/TLS → Origin Server → Create Certificate:** key type RSA (2048), hostnames
    `trilleo.net` and `*.trilleo.net`, validity 15 years. Keep the page open: you'll paste
@@ -381,6 +387,18 @@ Manage site**: turn **automatic setup** off (otherwise Cloudflare injects the be
 everyone), then copy the token from the JS snippet into `CF_ANALYTICS_TOKEN` in
 `apps/web/src/lib/site.ts` and deploy. The token is public (every page that loads the
 beacon shows it), so it lives in the code. Empty: no analytics.
+
+### 13. The wiki (once, before the release that adds it)
+
+1. In Cloudflare, add `A  wiki  <SERVER_IP>` (or `CNAME wiki trilleo.net`), **Proxied**.
+   The Origin certificate already covers `*.trilleo.net`, and Caddy's `wiki.trilleo.net`
+   block ships in the web image.
+2. Deploy. The app creates the built-in wikis (Skygrid) the first time the wiki is
+   opened; check <https://wiki.trilleo.net/skygrid/>.
+3. Sign in on the wiki (it hands over from www) and start other wikis at
+   <https://wiki.trilleo.net/-/new> (admin only).
+4. Optional: add `https://wiki.trilleo.net/` to Google Search Console and Bing (it's
+   another site to them) and submit `https://wiki.trilleo.net/sitemap.xml`.
 
 ## Day to day
 

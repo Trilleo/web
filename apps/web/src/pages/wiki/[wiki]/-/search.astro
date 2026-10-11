@@ -1,0 +1,86 @@
+---
+/**
+ * Search inside one wiki: its written pages (Postgres full-text) and its generated
+ * ones. An exact title goes straight to the page (unless ?fulltext=1); no results
+ * offer to create the page.
+ */
+import NoWiki from "../../../../components/wiki/NoWiki.astro";
+import ToolHeading from "../../../../components/wiki/ToolHeading.astro";
+import WikiLayout from "../../../../layouts/WikiLayout.astro";
+import { noStoreRedirect } from "../../../../lib/auth/redirect";
+import {
+  mainSiteRedirect,
+  openWiki,
+  privateHeaders,
+} from "../../../../lib/wiki/page";
+import { existingKeys, searchPages } from "../../../../lib/wiki/store";
+import { normalizeTitle, titleKey } from "../../../../lib/wiki/titles";
+import { wikiButton } from "../../../../lib/wiki/ui";
+import { toolHref, wikiHref } from "../../../../lib/wiki/wikis";
+
+export const prerender = false;
+
+const moved = mainSiteRedirect(Astro, Astro.params.wiki);
+if (moved) return moved;
+privateHeaders(Astro);
+const context = await openWiki(Astro, Astro.params.wiki);
+if (!context) Astro.response.status = 404;
+const query = (Astro.url.searchParams.get("q") ?? "").trim().slice(0, 200);
+const asTitle = normalizeTitle(query);
+if (context && asTitle && Astro.url.searchParams.get("fulltext") !== "1") {
+  const found = await existingKeys(context.db, context.wiki, [
+    titleKey(asTitle),
+  ]);
+  if (found.size > 0) return noStoreRedirect(wikiHref(context.wiki, asTitle));
+}
+const hits =
+  context && query ? await searchPages(context.db, context.wiki, query) : [];
+const lead = query
+  ? `${String(hits.length)} ${hits.length === 1 ? "result" : "results"} for “${query}”.`
+  : "Search this wiki's pages.";
+---
+
+{!context ? (
+  <NoWiki />
+) : (
+  <WikiLayout
+    title={query ? `Search: ${query}` : "Search"}
+    wiki={context.wiki}
+    access={context.access}
+    noindex
+  >
+    <div class="flex flex-col gap-6">
+      <ToolHeading title="Search" lead={lead} />
+      {query && hits.length === 0 && (
+        <div class="flex flex-col gap-3">
+          <p class="text-muted">Nothing matches.</p>
+          {asTitle && context.access.edit && (
+            <p>
+              <a
+                href={toolHref(context.wiki, "edit", asTitle)}
+                class={wikiButton("primary")}
+              >
+                Create “{asTitle}”
+              </a>
+            </p>
+          )}
+        </div>
+      )}
+      {hits.length > 0 && (
+        <ol class="flex flex-col" data-search-results>
+          {hits.map((hit) => (
+            <li class="flex flex-col gap-1 border-b border-hair py-3">
+              <a
+                href={wikiHref(context.wiki, hit.title)}
+                class="text-lg font-semibold hover:underline"
+              >
+                {hit.title}
+              </a>
+              {hit.snippet && <p class="text-sm text-muted">{hit.snippet}</p>}
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  </WikiLayout>
+)}

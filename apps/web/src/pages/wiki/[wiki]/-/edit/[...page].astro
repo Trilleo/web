@@ -1,0 +1,279 @@
+---
+/**
+ * Editing a page (or creating one): a plain form that works without JavaScript.
+ * "Preview" renders what's typed above the form; "Save" writes a revision. If
+ * someone saved in the meantime, nothing is lost: their version is shown, the text
+ * stays in the editor, and saving again replaces theirs knowingly. People who can't
+ * edit see the source.
+ */
+import NoWiki from "../../../../../components/wiki/NoWiki.astro";
+import PageHeading from "../../../../../components/wiki/PageHeading.astro";
+import WikiLayout from "../../../../../layouts/WikiLayout.astro";
+import { field } from "../../../../../lib/comments/form";
+import { noStoreRedirect } from "../../../../../lib/auth/redirect";
+import { canEditPage } from "../../../../../lib/wiki/access";
+import { generatedPage } from "../../../../../lib/wiki/generated";
+import {
+  mainSiteRedirect,
+  openWiki,
+  privateHeaders,
+  publicPath,
+} from "../../../../../lib/wiki/page";
+import {
+  linkedKeys,
+  markMissing,
+  renderWikiPage,
+} from "../../../../../lib/wiki/render";
+import {
+  PAGE_LIMITS,
+  existingKeys,
+  findPage,
+  getRevision,
+  savePage,
+} from "../../../../../lib/wiki/store";
+import { titleFromPath, titleKey } from "../../../../../lib/wiki/titles";
+import { wikiButton, wikiInput } from "../../../../../lib/wiki/ui";
+import { wikiHref } from "../../../../../lib/wiki/wikis";
+
+export const prerender = false;
+
+const moved = mainSiteRedirect(Astro, Astro.params.wiki);
+if (moved) return moved;
+privateHeaders(Astro);
+const context = await openWiki(Astro, Astro.params.wiki);
+const title = titleFromPath(Astro.params.page ?? "");
+if (!context || !title) Astro.response.status = 404;
+
+let body = "";
+let summary = "";
+let minor = false;
+let baseRevisionId: number | null = null;
+let previewHtml: string | null = null;
+let conflict: { body: string; at: Date } | null = null;
+let error: string | null = null;
+let canEdit = false;
+let exists = false;
+let reason = "";
+
+if (context && title) {
+  const { db, wiki, access, user } = context;
+  if (await generatedPage(wiki, titleKey(title)))
+    return noStoreRedirect(wikiHref(wiki, title));
+  const page = await findPage(db, wiki.id, titleKey(title));
+  exists = page !== undefined && page.deletedAt === null;
+  canEdit = canEditPage(access, page ?? null);
+  reason = !user
+    ? "Sign in to edit: only this wiki's members can."
+    : !access.edit
+      ? "Only this wiki's members can edit it."
+      : "This page is protected: only the wiki's owners can edit it.";
+  const current =
+    page?.revisionId != null && exists
+      ? await getRevision(db, wiki.id, page.revisionId)
+      : undefined;
+  body = current?.body ?? "";
+  baseRevisionId = current?.id ?? null;
+
+  if (Astro.request.method === "POST") {
+    if (!canEdit) {
+      return new Response(reason, {
+        status: 403,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "private, no-store",
+        },
+      });
+    }
+    const form = await Astro.request.formData();
+    body = field(form, "body").replace(/\r\n?/g, "\n");
+    summary = field(form, "summary");
+    minor = form.get("minor") === "on";
+    const base = field(form, "base");
+    baseRevisionId = /^\d+$/.test(base) ? Number(base) : null;
+    if (field(form, "intent") === "preview") {
+      const rendered = await renderWikiPage(body, wiki.slug);
+      const keys = linkedKeys(rendered.html);
+      const found = await existingKeys(db, wiki, keys);
+      previewHtml = markMissing(
+        rendered.html,
+        new Set(keys.filter((key) => !found.has(key))),
+      );
+    } else {
+      const result = await savePage(db, {
+        wiki,
+        actor: user,
+        title,
+        body,
+        summary,
+        minor,
+        baseRevisionId,
+        canEditProtected: access.manage,
+      });
+      if (result.ok) return noStoreRedirect(wikiHref(wiki, title), 303);
+      if (result.error === "unchanged")
+        return noStoreRedirect(wikiHref(wiki, title), 303);
+      if (result.error === "conflict") {
+        conflict = { body: result.current.body, at: result.current.createdAt };
+        baseRevisionId = result.current.id;
+        error =
+          "Someone saved this page while you were editing. Their version is below; your text is still in the editor. Save again to replace theirs.";
+      } else if (result.error === "too-long") {
+        error = `Pages can be at most ${PAGE_LIMITS.body.toLocaleString("en-US")} characters.`;
+      } else if (result.error === "protected") {
+        error = "This page is protected: only the wiki's owners can edit it.";
+      } else {
+        error = "That title belongs to a generated page.";
+      }
+      Astro.response.status = 409;
+    }
+  }
+}
+const signIn = `/-/sign-in?next=${encodeURIComponent(publicPath(Astro.url))}`;
+---
+
+{!context || !title ? (
+  <NoWiki />
+) : (
+  <WikiLayout
+    title={`${canEdit ? (exists ? "Editing" : "Creating") : "Source of"} ${title}`}
+    wiki={context.wiki}
+    access={context.access}
+    noindex
+  >
+    <div class="flex flex-col gap-6">
+      <PageHeading
+        wiki={context.wiki}
+        title={title}
+        current="edit"
+        exists={exists}
+        canEdit={canEdit}
+        canManage={context.access.manage}
+      />
+
+      {error && (
+        <p class="border-l-2 border-accent pl-3" role="alert">
+          {error}
+        </p>
+      )}
+
+      {conflict && (
+        <section class="flex flex-col gap-2">
+          <h2 class="type-label text-muted">Their version</h2>
+          <textarea
+            readonly
+            rows="10"
+            class={`${wikiInput} font-mono text-sm`}
+            aria-label="The version saved by someone else"
+          >{conflict.body}</textarea>
+        </section>
+      )}
+
+      {previewHtml !== null && (
+        <section
+          class="flex flex-col gap-3 border border-ink p-5"
+          aria-labelledby="preview-label"
+        >
+          <h2 id="preview-label" class="type-label text-muted">
+            Preview: not saved yet
+          </h2>
+          <div class="prose prose-wiki max-w-none" set:html={previewHtml} />
+        </section>
+      )}
+
+      {canEdit ? (
+        <form method="post" class="flex flex-col gap-4">
+          <input type="hidden" name="base" value={baseRevisionId ?? ""} />
+          <label class="flex flex-col gap-2">
+            <span class="type-label text-muted">Text</span>
+            <textarea
+              name="body"
+              rows="24"
+              maxlength={PAGE_LIMITS.body}
+              class={`${wikiInput} font-mono text-sm leading-relaxed`}
+              spellcheck="true"
+            >{body}</textarea>
+          </label>
+          <details class="text-sm text-muted">
+            <summary class="cursor-pointer">Formatting</summary>
+            <div class="mt-2 flex flex-col gap-1 font-mono text-xs">
+              <span>[[Page]] · [[Page|label]] · [[Page#Section]]</span>
+              <span>
+                [[Category:Name]] puts this page in a category;
+                [[:Category:Name]] links to it
+              </span>
+              <span>[[@other-wiki:Page]] links to a page in another wiki</span>
+              <span>
+                #REDIRECT [[Page]] on the first line makes this page a redirect
+              </span>
+              <span>
+                # Heading · **bold** · *italic* · `code` · - list · | tables |
+              </span>
+            </div>
+          </details>
+          <label class="flex flex-col gap-2">
+            <span class="type-label text-muted">Summary of your change</span>
+            <input
+              name="summary"
+              value={summary}
+              maxlength={PAGE_LIMITS.summary}
+              class={wikiInput}
+              placeholder="What changed, and why"
+            />
+          </label>
+          {exists && (
+            <label class="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="minor"
+                checked={minor}
+                class="size-4 accent-[var(--tr-accent)]"
+              />
+              A minor edit (typos, formatting)
+            </label>
+          )}
+          <div class="flex flex-wrap gap-3">
+            <button
+              type="submit"
+              name="intent"
+              value="save"
+              class={wikiButton("primary")}
+            >
+              Save
+            </button>
+            <button
+              type="submit"
+              name="intent"
+              value="preview"
+              class={wikiButton("secondary")}
+            >
+              Preview
+            </button>
+            <a
+              href={wikiHref(context.wiki, title)}
+              class={wikiButton("secondary")}
+            >
+              Cancel
+            </a>
+          </div>
+        </form>
+      ) : (
+        <div class="flex flex-col gap-4">
+          <p class="text-muted">
+            {reason}{" "}
+            {!context.user && (
+              <a href={signIn} class="text-ink underline">
+                Sign in
+              </a>
+            )}
+          </p>
+          {exists && <textarea
+            readonly
+            rows="24"
+            class={`${wikiInput} font-mono text-sm`}
+            aria-label={`Source of ${title}`}
+          >{body}</textarea>}
+        </div>
+      )}
+    </div>
+  </WikiLayout>
+)}

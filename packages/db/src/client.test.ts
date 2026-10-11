@@ -103,6 +103,14 @@ describe("openDatabase", () => {
       "user_identities",
       "username_history",
       "users",
+      "wiki_categories",
+      "wiki_links",
+      "wiki_log",
+      "wiki_members",
+      "wiki_pages",
+      "wiki_revisions",
+      "wiki_sign_in_tickets",
+      "wikis",
     ]);
   });
 

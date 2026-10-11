@@ -20,12 +20,13 @@ export const NEW_DEVICE_DAYS = 90;
 /** How many events /account/security/ lists. */
 export const RECENT_EVENTS = 20;
 
-export type SignInMethod = "email" | "github" | "passkey";
+export type SignInMethod = "email" | "github" | "passkey" | "wiki";
 
 export const SIGN_IN_METHODS: Readonly<Record<SignInMethod, string>> = {
   email: "an email code",
   github: "GitHub",
   passkey: "a passkey",
+  wiki: "this site's session, on the wiki",
 };
 
 export const SECURITY_EVENTS = {

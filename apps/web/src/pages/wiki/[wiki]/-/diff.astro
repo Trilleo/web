@@ -1,0 +1,153 @@
+---
+/**
+ * What a revision changed: ?to=<revision> against the one before it, or against
+ * ?from=<revision>. Lines removed and added, with unchanged runs folded.
+ */
+import NoWiki from "../../../../components/wiki/NoWiki.astro";
+import WikiLayout from "../../../../layouts/WikiLayout.astro";
+import { diffLines, diffStats, foldDiff } from "../../../../lib/wiki/diff";
+import {
+  mainSiteRedirect,
+  openWiki,
+  privateHeaders,
+} from "../../../../lib/wiki/page";
+import {
+  getPageById,
+  getRevision,
+  previousRevision,
+} from "../../../../lib/wiki/store";
+import { formatWikiDate } from "../../../../lib/wiki/ui";
+import { toolHref, wikiHref } from "../../../../lib/wiki/wikis";
+
+export const prerender = false;
+
+const moved = mainSiteRedirect(Astro, Astro.params.wiki);
+if (moved) return moved;
+privateHeaders(Astro);
+const context = await openWiki(Astro, Astro.params.wiki);
+const id = (name: string) => {
+  const value = Astro.url.searchParams.get(name) ?? "";
+  return /^\d{1,10}$/.test(value) ? Number(value) : null;
+};
+const toId = id("to");
+const fromId = id("from");
+const to =
+  context && toId !== null
+    ? await getRevision(context.db, context.wiki.id, toId)
+    : undefined;
+const from =
+  context && to
+    ? fromId !== null
+      ? await getRevision(context.db, context.wiki.id, fromId)
+      : await previousRevision(context.db, to)
+    : undefined;
+if (!context || !to) Astro.response.status = 404;
+const page =
+  context && to
+    ? await getPageById(context.db, context.wiki.id, to.pageId)
+    : undefined;
+const lines = to ? foldDiff(diffLines(from?.body ?? "", to.body)) : [];
+const stats = to
+  ? diffStats(diffLines(from?.body ?? "", to.body))
+  : { added: 0, removed: 0 };
+const pageTitle = page?.title ?? to?.title ?? "";
+---
+
+{!context ? (
+  <NoWiki />
+) : !to ? (
+  <WikiLayout
+    title="No such revision"
+    wiki={context.wiki}
+    access={context.access}
+    noindex
+  >
+    <h1 class="text-3xl font-bold">No such revision</h1>
+  </WikiLayout>
+) : (
+  <WikiLayout
+    title={`Changes to ${pageTitle}`}
+    wiki={context.wiki}
+    access={context.access}
+    noindex
+  >
+    <div class="flex flex-col gap-6">
+      <div class="flex flex-col gap-1">
+        <span class="type-label text-muted">Changes</span>
+        <h1 class="text-[2.25rem] leading-[1.05] font-bold tracking-[-0.035em]">
+          <a href={wikiHref(context.wiki, pageTitle)} class="hover:underline">
+            {pageTitle}
+          </a>
+        </h1>
+      </div>
+      <dl class="grid grid-cols-1 gap-4 border-y border-ink py-4 text-sm md:grid-cols-2">
+        <div>
+          <dt class="type-label text-muted">From</dt>
+          <dd>
+            {from ? (
+              <a
+                href={toolHref(context.wiki, `revision/${String(from.id)}`)}
+                class="underline"
+              >
+                {formatWikiDate(from.createdAt)}
+              </a>
+            ) : (
+              "Nothing (the page was created)"
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt class="type-label text-muted">To</dt>
+          <dd>
+            <a
+              href={toolHref(context.wiki, `revision/${String(to.id)}`)}
+              class="underline"
+            >
+              {formatWikiDate(to.createdAt)}
+            </a>
+            {to.summary && <span class="text-muted"> · {to.summary}</span>}
+          </dd>
+        </div>
+      </dl>
+      <p class="type-label text-muted" data-diff-stats>
+        {stats.added} {stats.added === 1 ? "line" : "lines"} added ·{" "}
+        {stats.removed} {stats.removed === 1 ? "line" : "lines"} removed
+      </p>
+      {lines.length === 0 ? (
+        <p class="text-muted">No changes.</p>
+      ) : (
+        <div
+          class="wiki-diff overflow-x-auto border border-ink"
+          role="table"
+          aria-label="Changes, line by line"
+        >
+          {lines.map((line) =>
+            line.op === "skip" ? (
+              <div data-op="skip" role="row">
+                <span role="cell" class="col-span-4 px-3 py-1">
+                  … {line.count} unchanged {line.count === 1 ? "line" : "lines"}
+                </span>
+              </div>
+            ) : (
+              <div data-op={line.op} role="row">
+                <span role="cell" class="line-number">
+                  {line.op !== "added" ? line.oldLine : ""}
+                </span>
+                <span role="cell" class="line-number">
+                  {line.op !== "removed" ? line.newLine : ""}
+                </span>
+                <span
+                  role="cell"
+                  aria-label={line.op === "same" ? "unchanged" : line.op}
+                >
+                  {line.op === "added" ? "+" : line.op === "removed" ? "−" : ""}
+                </span>
+                <span role="cell">{line.text || " "}</span>
+              </div>
+            ),
+          )}
+        </div>
+      )}
+    </div>
+  </WikiLayout>
+)}

@@ -30,19 +30,8 @@
 	tls /certs/origin.pem /certs/origin.key
 }
 
-trilleo.net {
-	import cloudflare_only
-	import origin_tls
-	redir https://www.trilleo.net{uri} permanent
-}
-
-www.trilleo.net {
-	import cloudflare_only
-	import origin_tls
-
-	root * /srv/site
-	encode zstd gzip
-
+# The headers every page gets, on the site and the wiki.
+(site_headers) {
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
@@ -63,6 +52,22 @@ www.trilleo.net {
 		# Pages and other unhashed files: always revalidate (cheap, thanks to ETags).
 		?Cache-Control "public, max-age=0, must-revalidate"
 	}
+}
+
+trilleo.net {
+	import cloudflare_only
+	import origin_tls
+	redir https://www.trilleo.net{uri} permanent
+}
+
+www.trilleo.net {
+	import cloudflare_only
+	import origin_tls
+
+	root * /srv/site
+	encode zstd gzip
+
+	import site_headers
 
 	# Astro's fingerprinted assets never change once published.
 	@fingerprinted path /_astro/*
@@ -81,6 +86,39 @@ www.trilleo.net {
 		file_server {
 			pass_thru
 		}
+		reverse_proxy app:4321
+	}
+}
+
+# The wiki (wiki.trilleo.net) is the same app: it rewrites this host's paths to its
+# wiki pages (apps/web/src/lib/wiki/host.ts). Only built assets and icons are served
+# from files here; any other file is one of the main site's pages, so its address goes
+# there (wikis can't take those names: RESERVED_WIKI_SLUGS).
+wiki.trilleo.net {
+	import cloudflare_only
+	import origin_tls
+	import site_headers
+
+	root * /srv/site
+	encode zstd gzip
+
+	@fingerprinted path /_astro/*
+	header @fingerprinted Cache-Control "public, max-age=31536000, immutable"
+
+	route {
+		respond /api/health 404
+
+		@asset path /_astro/* /favicon-32.png /favicon-192.png /apple-touch-icon.png
+		handle @asset {
+			file_server
+		}
+
+		@mainPage {
+			file
+			not path / /robots.txt /sitemap.xml
+		}
+		redir @mainPage https://www.trilleo.net{uri} permanent
+
 		reverse_proxy app:4321
 	}
 }

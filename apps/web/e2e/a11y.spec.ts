@@ -35,7 +35,26 @@ const PAGES = [
   "/security/",
   "/colophon/",
   "/sitemap/",
+  // The wiki's host (wiki.localhost; see e2e/wiki.spec.ts).
+  "wiki:/",
+  "wiki:/skygrid/",
+  "wiki:/skygrid/Wheat",
+  "wiki:/skygrid/Category:Mobs",
+  "wiki:/skygrid/No_such_page",
+  "wiki:/skygrid/-/history/Main_Page",
+  "wiki:/skygrid/-/edit/Main_Page",
+  "wiki:/skygrid/-/recent",
+  "wiki:/skygrid/-/pages",
+  "wiki:/skygrid/-/search?q=spider&fulltext=1",
 ];
+
+/** A path, or "wiki:<path>" for the same path on the wiki's host. */
+function address(path: string, baseURL: string | undefined): string {
+  if (!path.startsWith("wiki:")) return path;
+  const url = new URL(baseURL ?? "http://127.0.0.1:4329");
+  url.hostname = "wiki.localhost";
+  return url.origin + path.slice("wiki:".length);
+}
 const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 900 },
   { name: "phone", width: 390, height: 844 },
@@ -50,8 +69,11 @@ for (const colorScheme of ["light", "dark"] as const) {
       });
 
       for (const path of PAGES) {
-        test(`${path} has no accessibility violations`, async ({ page }) => {
-          await page.goto(path);
+        test(`${path} has no accessibility violations`, async ({
+          page,
+          baseURL,
+        }) => {
+          await page.goto(address(path, baseURL));
           await page.evaluate(() => document.fonts.ready);
 
           const { violations } = await new AxeBuilder({ page })

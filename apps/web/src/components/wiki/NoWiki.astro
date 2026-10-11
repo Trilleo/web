@@ -1,0 +1,25 @@
+---
+/**
+ * The page for a wiki that doesn't exist, or one this visitor can't read (private
+ * wikis look the same as missing ones). The caller sets the 404.
+ */
+import WikiLayout from "../../layouts/WikiLayout.astro";
+---
+
+<WikiLayout title="No such wiki" noindex>
+  <div class="flex max-w-[40rem] flex-col gap-4">
+    <span class="type-label text-muted">404</span>
+    <h1 class="text-[2.25rem] leading-none font-bold tracking-[-0.035em]">
+      No such wiki
+    </h1>
+    <p class="text-muted">
+      There's no wiki at this address, or it's private and you're not one of its
+      members. If you are, sign in.
+    </p>
+    <p>
+      <a href="/" class="underline">
+        All wikis
+      </a>
+    </p>
+  </div>
+</WikiLayout>

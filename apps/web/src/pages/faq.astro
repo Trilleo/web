@@ -9,6 +9,7 @@ const sections = [
   { slug: "tools", text: "Tools" },
   { slug: "games", text: "Games" },
   { slug: "minecraft", text: "Minecraft" },
+  { slug: "wiki", text: "The wiki" },
   { slug: "comments", text: "Comments" },
   { slug: "site", text: "The site" },
 ] as const;
@@ -64,7 +65,8 @@ const sections = [
   <p>
     From <a href="/account/">your account</a>: “Delete account” removes your
     profile, comments, tool data, game saves, files, Minecraft projects and
-    email address. Download your data first if you want to keep it.
+    email address. Your wiki edits stay in their pages’ history, without your
+    name. Download your data first if you want to keep it.
   </p>
 
   <h2 id="data">Your data</h2>
@@ -144,6 +146,26 @@ const sections = [
   <p>
     No. {SITE_NAME} is not an official Minecraft product, and is not approved by
     or associated with Mojang or Microsoft.
+  </p>
+
+  <h2 id="wiki">The wiki</h2>
+  <h3>Who can edit the wiki?</h3>
+  <p>
+    Each wiki on <a href="https://wiki.trilleo.net/">wiki.trilleo.net</a>{" "}
+    belongs to one project, and its owners choose its editors. Anyone can read a
+    public wiki and see its pages’ source; to edit, sign in and ask the wiki’s
+    owner to add you.
+  </p>
+  <h3>Why can’t a page be edited?</h3>
+  <p>
+    Some pages are generated from a project’s own data, such as Skygrid’s items
+    and recipes, so they’re always up to date; they say so at the top. Others
+    are protected, and only the wiki’s owners can change them.
+  </p>
+  <h3>Can I start a wiki for my server or project?</h3>
+  <p>
+    Wikis are started by the site’s admin: <a href="/contact/">get in touch</a>{" "}
+    and say what it’s for.
   </p>
 
   <h2 id="comments">Comments</h2>

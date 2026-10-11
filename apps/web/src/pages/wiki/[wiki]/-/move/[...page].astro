@@ -1,0 +1,200 @@
+---
+/**
+ * An owner's tools for a page: move (rename, leaving a redirect behind if wanted),
+ * protect, delete. Each is its own form.
+ */
+import NoWiki from "../../../../../components/wiki/NoWiki.astro";
+import PageHeading from "../../../../../components/wiki/PageHeading.astro";
+import WikiLayout from "../../../../../layouts/WikiLayout.astro";
+import { noStoreRedirect } from "../../../../../lib/auth/redirect";
+import { field } from "../../../../../lib/comments/form";
+import {
+  mainSiteRedirect,
+  openWiki,
+  privateHeaders,
+} from "../../../../../lib/wiki/page";
+import { findPage, movePage } from "../../../../../lib/wiki/store";
+import {
+  normalizeTitle,
+  titleFromPath,
+  titleKey,
+} from "../../../../../lib/wiki/titles";
+import { wikiButton, wikiInput } from "../../../../../lib/wiki/ui";
+import { toolHref, wikiHref } from "../../../../../lib/wiki/wikis";
+
+export const prerender = false;
+
+const moved = mainSiteRedirect(Astro, Astro.params.wiki);
+if (moved) return moved;
+privateHeaders(Astro);
+const context = await openWiki(Astro, Astro.params.wiki);
+const title = titleFromPath(Astro.params.page ?? "");
+const page =
+  context && title
+    ? await findPage(context.db, context.wiki.id, titleKey(title))
+    : undefined;
+if (!context || !title || !page || page.deletedAt) Astro.response.status = 404;
+if (context && !context.access.manage) {
+  return new Response(
+    "Only this wiki's owners can move, protect or delete pages.",
+    {
+      status: 403,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "private, no-store",
+      },
+    },
+  );
+}
+
+let target = title ?? "";
+let reason = "";
+let error: string | null = null;
+if (
+  context &&
+  page &&
+  !page.deletedAt &&
+  Astro.request.method === "POST" &&
+  context.user
+) {
+  const form = await Astro.request.formData();
+  target = field(form, "to");
+  reason = field(form, "reason");
+  const to = normalizeTitle(target);
+  if (!to) {
+    error = "That can't be a title.";
+  } else {
+    const result = await movePage(context.db, {
+      wiki: context.wiki,
+      actor: context.user,
+      page,
+      to,
+      redirect: form.get("redirect") === "on",
+      reason: reason.slice(0, 300),
+    });
+    if (result.ok)
+      return noStoreRedirect(wikiHref(context.wiki, result.page.title), 303);
+    error =
+      result.error === "exists"
+        ? "A page with that title exists (or was deleted): move or delete it first."
+        : result.error === "generated"
+          ? "That title belongs to a generated page."
+          : "That's the title it has.";
+  }
+  Astro.response.status = 422;
+}
+---
+
+{!context || !title || !page || page.deletedAt ? (
+  <NoWiki />
+) : (
+  <WikiLayout
+    title={`Move ${title}`}
+    wiki={context.wiki}
+    access={context.access}
+    noindex
+  >
+    <div class="flex flex-col gap-8">
+      <PageHeading
+        wiki={context.wiki}
+        title={title}
+        current="move"
+        exists
+        canEdit
+        canManage
+      />
+
+      <form method="post" class="flex max-w-[40rem] flex-col gap-4">
+        <h2 class="text-xl font-semibold">Move</h2>
+        {error && (
+          <p class="border-l-2 border-accent pl-3" role="alert">
+            {error}
+          </p>
+        )}
+        <label class="flex flex-col gap-2">
+          <span class="type-label text-muted">New title</span>
+          <input
+            name="to"
+            value={target}
+            required
+            class={wikiInput}
+            aria-invalid={error ? "true" : undefined}
+          />
+        </label>
+        <label class="flex flex-col gap-2">
+          <span class="type-label text-muted">Reason</span>
+          <input
+            name="reason"
+            value={reason}
+            maxlength="300"
+            class={wikiInput}
+          />
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="redirect"
+            checked
+            class="size-4 accent-[var(--tr-accent)]"
+          />
+          Leave a redirect at the old title
+        </label>
+        <div>
+          <button type="submit" class={wikiButton("primary")}>
+            Move page
+          </button>
+        </div>
+      </form>
+
+      <form
+        method="post"
+        action={toolHref(context.wiki, "action")}
+        class="flex max-w-[40rem] flex-col gap-4 border-t border-ink pt-6"
+      >
+        <h2 class="text-xl font-semibold">Protection</h2>
+        <p class="text-muted">
+          {page.protection === "owners"
+            ? "Protected: only owners can edit this page."
+            : "Every member of this wiki can edit this page."}
+        </p>
+        <input type="hidden" name="intent" value="protect" />
+        <input type="hidden" name="title" value={page.title} />
+        <input
+          type="hidden"
+          name="protection"
+          value={page.protection === "owners" ? "none" : "owners"}
+        />
+        <div>
+          <button type="submit" class={wikiButton("secondary")}>
+            {page.protection === "owners"
+              ? "Let every member edit it"
+              : "Protect: owners only"}
+          </button>
+        </div>
+      </form>
+
+      <form
+        method="post"
+        action={toolHref(context.wiki, "action")}
+        class="flex max-w-[40rem] flex-col gap-4 border-t border-ink pt-6"
+      >
+        <h2 class="text-xl font-semibold">Delete</h2>
+        <p class="text-muted">
+          The page disappears, but its history is kept and an owner can restore
+          it.
+        </p>
+        <input type="hidden" name="intent" value="delete" />
+        <input type="hidden" name="title" value={page.title} />
+        <label class="flex flex-col gap-2">
+          <span class="type-label text-muted">Reason</span>
+          <input name="reason" maxlength="300" class={wikiInput} />
+        </label>
+        <div>
+          <button type="submit" class={wikiButton("secondary")}>
+            Delete page
+          </button>
+        </div>
+      </form>
+    </div>
+  </WikiLayout>
+)}

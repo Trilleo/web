@@ -1,0 +1,95 @@
+---
+/** Everything but edits: moves, deletions, protection, members and settings. */
+import NoWiki from "../../../../components/wiki/NoWiki.astro";
+import ToolHeading from "../../../../components/wiki/ToolHeading.astro";
+import WikiLayout from "../../../../layouts/WikiLayout.astro";
+import {
+  mainSiteRedirect,
+  openWiki,
+  privateHeaders,
+} from "../../../../lib/wiki/page";
+import { wikiLogEntries, type LogRow } from "../../../../lib/wiki/store";
+import { formatWikiDate, wikiTable } from "../../../../lib/wiki/ui";
+import { wikiHref } from "../../../../lib/wiki/wikis";
+
+export const prerender = false;
+
+const ACTIONS: Readonly<Record<LogRow["action"], string>> = {
+  "create-wiki": "Created the wiki",
+  settings: "Changed settings",
+  "member-added": "Added a member",
+  "member-changed": "Changed a member's role",
+  "member-removed": "Removed a member",
+  move: "Moved",
+  delete: "Deleted",
+  restore: "Restored",
+  protect: "Changed protection",
+};
+
+const moved = mainSiteRedirect(Astro, Astro.params.wiki);
+if (moved) return moved;
+privateHeaders(Astro);
+const context = await openWiki(Astro, Astro.params.wiki);
+if (!context) Astro.response.status = 404;
+const entries = context
+  ? await wikiLogEntries(context.db, context.wiki.id)
+  : [];
+---
+
+{!context ? (
+  <NoWiki />
+) : (
+  <WikiLayout title="Log" wiki={context.wiki} access={context.access} noindex>
+    <div class="flex flex-col gap-6">
+      <ToolHeading
+        title="Log"
+        lead="What happened besides edits (those are in Recent changes)."
+      />
+      {entries.length === 0 ? (
+        <p class="text-muted">Nothing yet.</p>
+      ) : (
+        <div class="overflow-x-auto">
+          <table class={wikiTable} data-log>
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Who</th>
+                <th>What</th>
+                <th>Page</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((entry) => (
+                <tr>
+                  <td class="whitespace-nowrap">
+                    {formatWikiDate(entry.createdAt)}
+                  </td>
+                  <td>
+                    {entry.actor ? (
+                      `@${entry.actor}`
+                    ) : (
+                      <span class="text-muted">the site</span>
+                    )}
+                  </td>
+                  <td>{ACTIONS[entry.action]}</td>
+                  <td>
+                    {entry.title && (
+                      <a
+                        href={`${wikiHref(context.wiki, entry.title)}?redirect=no`}
+                        class="underline"
+                      >
+                        {entry.title}
+                      </a>
+                    )}
+                  </td>
+                  <td class="text-muted">{entry.detail}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  </WikiLayout>
+)}

@@ -52,7 +52,8 @@ const THEME = "vesper";
 
 // A fixed set keeps the server bundle small; anything else renders as plain text.
 let highlighter: Promise<HighlighterCore> | undefined;
-function getHighlighter(): Promise<HighlighterCore> {
+/** Shiki with the languages above, loaded once (the wiki's renderer shares it). */
+export function getHighlighter(): Promise<HighlighterCore> {
   highlighter ??= createHighlighterCore({
     themes: [vesper],
     langs: [
@@ -99,6 +100,23 @@ function footnoteId(label: string): string {
   );
 }
 
+/** A fenced block's HTML: highlighted if its language is loaded, else plain text. */
+export function highlightCode(
+  shiki: HighlighterCore,
+  code: string,
+  lang: string,
+): string {
+  const name = lang.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
+  const loaded = shiki.getLoadedLanguages();
+  const language = loaded.includes(name) ? name : "text";
+  return shiki
+    .codeToHtml(code.replace(/\n$/, ""), { lang: language, theme: THEME })
+    .replace(
+      /^<pre class="shiki/,
+      `<pre data-language="${escapeHtml(name || "plaintext")}" class="astro-code shiki`,
+    );
+}
+
 interface FootnoteMeta {
   id: number;
   subId?: number;
@@ -112,17 +130,7 @@ function createMarkdown(shiki: HighlighterCore): Markdown {
     linkify: true,
     typographer: true,
     quotes: "“”‘’",
-    highlight(code, lang) {
-      const name = lang.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
-      const loaded = shiki.getLoadedLanguages();
-      const language = loaded.includes(name) ? name : "text";
-      return shiki
-        .codeToHtml(code.replace(/\n$/, ""), { lang: language, theme: THEME })
-        .replace(
-          /^<pre class="shiki/,
-          `<pre data-language="${escapeHtml(name || "plaintext")}" class="astro-code shiki`,
-        );
-    },
+    highlight: (code, lang) => highlightCode(shiki, code, lang),
   });
   md.use(footnote);
 

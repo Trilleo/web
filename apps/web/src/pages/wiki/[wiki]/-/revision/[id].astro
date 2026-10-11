@@ -1,0 +1,124 @@
+---
+/** One saved version of a page, rendered as it was. */
+import NoWiki from "../../../../../components/wiki/NoWiki.astro";
+import WikiLayout from "../../../../../layouts/WikiLayout.astro";
+import { canEditPage } from "../../../../../lib/wiki/access";
+import {
+  mainSiteRedirect,
+  openWiki,
+  privateHeaders,
+} from "../../../../../lib/wiki/page";
+import { renderWikiPage } from "../../../../../lib/wiki/render";
+import { getPageById, getRevision } from "../../../../../lib/wiki/store";
+import { formatWikiDate, wikiButton } from "../../../../../lib/wiki/ui";
+import { toolHref, wikiHref } from "../../../../../lib/wiki/wikis";
+
+export const prerender = false;
+
+const moved = mainSiteRedirect(Astro, Astro.params.wiki);
+if (moved) return moved;
+privateHeaders(Astro);
+const context = await openWiki(Astro, Astro.params.wiki);
+const id = Number(Astro.params.id);
+const revision =
+  context && Number.isSafeInteger(id)
+    ? await getRevision(context.db, context.wiki.id, id)
+    : undefined;
+if (!context || !revision) Astro.response.status = 404;
+const page =
+  context && revision
+    ? await getPageById(context.db, context.wiki.id, revision.pageId)
+    : undefined;
+const current = page?.revisionId === revision?.id;
+const canRevert =
+  context !== null &&
+  page !== undefined &&
+  !current &&
+  page.deletedAt === null &&
+  canEditPage(context.access, page);
+const rendered =
+  context && revision
+    ? await renderWikiPage(revision.body, context.wiki.slug)
+    : null;
+---
+
+{!context ? (
+  <NoWiki />
+) : !revision || !rendered ? (
+  <WikiLayout
+    title="No such revision"
+    wiki={context.wiki}
+    access={context.access}
+    noindex
+  >
+    <h1 class="text-3xl font-bold">No such revision</h1>
+  </WikiLayout>
+) : (
+  <WikiLayout
+    title={`${revision.title} (revision ${String(revision.id)})`}
+    wiki={context.wiki}
+    access={context.access}
+    noindex
+  >
+    <article class="flex flex-col gap-6">
+      <div class="flex flex-col gap-1">
+        <span class="type-label text-muted">Revision {revision.id}</span>
+        <h1 class="text-[2.25rem] leading-[1.05] font-bold tracking-[-0.035em]">
+          {revision.title}
+        </h1>
+      </div>
+      <div class="flex flex-col gap-3 border border-ink p-4 text-sm">
+        <p>
+          Saved {formatWikiDate(revision.createdAt)}
+          {revision.summary && <>: “{revision.summary}”</>}.
+          {current
+            ? " This is the current version."
+            : " This is an old version."}
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <a
+            href={wikiHref(context.wiki, page?.title ?? revision.title)}
+            class={wikiButton("secondary")}
+          >
+            Current page
+          </a>
+          <a
+            href={toolHref(
+              context.wiki,
+              "history",
+              page?.title ?? revision.title,
+            )}
+            class={wikiButton("secondary")}
+          >
+            History
+          </a>
+          <a
+            href={`${toolHref(context.wiki, "diff")}?to=${String(revision.id)}`}
+            class={wikiButton("secondary")}
+          >
+            Changes
+          </a>
+          {canRevert && page && (
+            <form
+              method="post"
+              action={toolHref(context.wiki, "edit", page.title)}
+            >
+              <input type="hidden" name="intent" value="save" />
+              <input type="hidden" name="base" value={page.revisionId ?? ""} />
+              <input type="hidden" name="body" value={revision.body} />
+              <input
+                type="hidden"
+                name="summary"
+                value={`Restored revision ${String(revision.id)}`}
+              />
+              <button type="submit" class={wikiButton("primary")}>
+                Restore this version
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+      <div class="prose prose-wiki max-w-none" set:html={rendered.html} />
+    </article>
+  </WikiLayout>
+)}

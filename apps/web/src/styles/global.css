@@ -2,6 +2,7 @@
 @import "@trilleo/ui/theme.css";
 @import "./prose.css";
 @import "./comments.css";
+@import "./wiki.css";
 
 /* Tools' own components use Tailwind classes too (workspace packages aren't scanned). */
 @source "../../../color/src";

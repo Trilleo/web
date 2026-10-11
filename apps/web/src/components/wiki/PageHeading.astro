@@ -1,0 +1,103 @@
+---
+/**
+ * A page's title and its tabs: Read, Edit (or View source), History, What links
+ * here, and for owners Move. A namespace ("Category:") shows as a label above.
+ */
+import type { Wiki } from "@trilleo/db";
+import { namespaceOf } from "../../lib/wiki/titles";
+import { toolHref, wikiHref } from "../../lib/wiki/wikis";
+
+export type PageTab = "read" | "edit" | "history" | "links" | "move";
+
+interface Props {
+  wiki: Wiki;
+  title: string;
+  current: PageTab;
+  /** The page exists (written); generated pages have no edit or history. */
+  exists: boolean;
+  generated?: boolean;
+  canEdit: boolean;
+  canManage: boolean;
+}
+
+const {
+  wiki,
+  title,
+  current,
+  exists,
+  generated = false,
+  canEdit,
+  canManage,
+} = Astro.props;
+const namespace = namespaceOf(title);
+const shown =
+  namespace === "main" ? title : title.slice(title.indexOf(":") + 1);
+const tabs: { id: PageTab; label: string; href: string }[] = [
+  {
+    id: "read",
+    label: exists || generated ? "Read" : "Page",
+    href: wikiHref(wiki, title),
+  },
+  ...(!generated
+    ? [
+        {
+          id: "edit" as const,
+          label: !canEdit ? "View source" : exists ? "Edit" : "Create",
+          href: toolHref(wiki, "edit", title),
+        },
+      ]
+    : []),
+  ...(exists
+    ? [
+        {
+          id: "history" as const,
+          label: "History",
+          href: toolHref(wiki, "history", title),
+        },
+      ]
+    : []),
+  {
+    id: "links",
+    label: "What links here",
+    href: toolHref(wiki, "links", title),
+  },
+  ...(exists && canManage
+    ? [
+        {
+          id: "move" as const,
+          label: "Move",
+          href: toolHref(wiki, "move", title),
+        },
+      ]
+    : []),
+];
+---
+
+<div class="flex flex-col gap-4">
+  <div class="flex flex-col gap-1">
+    {namespace !== "main" && (
+      <span class="type-label text-muted">
+        {title.slice(0, title.indexOf(":"))}
+      </span>
+    )}
+    <h1 class="text-[2.25rem] leading-[1.05] font-bold tracking-[-0.035em] text-balance md:text-[2.75rem]">
+      {shown}
+    </h1>
+  </div>
+  <nav aria-label="Page" class="border-b border-ink">
+    <ul class="type-nav -mb-px flex flex-wrap gap-x-5">
+      {tabs.map((tab) => (
+        <li>
+          <a
+            href={tab.href}
+            aria-current={tab.id === current ? "page" : undefined}
+            class="inline-flex min-h-11 items-center border-b-2 border-transparent text-muted hover:text-ink aria-[current=page]:border-accent aria-[current=page]:text-ink"
+            rel={tab.id === "read" ? undefined : "nofollow"}
+          >
+            {tab.label}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+</div>
