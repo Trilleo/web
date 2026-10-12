@@ -10,19 +10,34 @@ export function escapeHtml(text: string): string {
     .replace(/'/g, "&#39;");
 }
 
-const FIELD = /^([^:\n]{1,40}?)\s*:\s+(.*)$/;
-const SECTION = /^==\s*(.+?)\s*==\s*$/;
+/** Characters in a field's key. */
+const KEY_MAX = 40;
+
+/*
+ * Lines are read by hand, not with patterns like /^(.+?)\s*:\s+(.*)$/: those
+ * backtrack on long runs of spaces, and anyone who edits a page types these lines.
+ */
 
 /** A `key: value` line, or null. Keys can't hold colons; values can. */
 export function parseField(line: string): Field | null {
-  const match = FIELD.exec(line.trim());
-  if (!match?.[1] || match[2] === undefined) return null;
-  return { key: match[1].trim(), value: match[2].trim() };
+  const text = line.trim();
+  if (text.includes("\n")) return null;
+  const colon = text.indexOf(":");
+  if (colon < 1) return null;
+  const key = text.slice(0, colon).trim();
+  const after = text.slice(colon + 1);
+  // A space follows the colon ("time: 4h"), unlike in "12:30".
+  if (!key || key.length > KEY_MAX || !/^\s/.test(after)) return null;
+  return { key, value: after.trim() };
 }
 
 /** `== Label ==` on its own line: the label, or null. */
 export function parseSectionLine(line: string): string | null {
-  return SECTION.exec(line.trim())?.[1] ?? null;
+  const text = line.trim();
+  if (text.includes("\n") || !text.startsWith("==") || !text.endsWith("=="))
+    return null;
+  if (text.length < 5) return null;
+  return text.slice(2, -2).trim() || null;
 }
 
 export interface Section {

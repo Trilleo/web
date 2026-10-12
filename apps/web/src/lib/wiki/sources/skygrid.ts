@@ -56,7 +56,9 @@ const percent = (share: number) =>
   `${(share * 100).toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;
 
 function table(headers: string[], rows: string[][]): string {
-  const cell = (text: string) => text.replace(/\|/g, "\\|");
+  // Backslashes first, so a backslash before a pipe can't undo its escape.
+  const cell = (text: string) =>
+    text.replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
   return [
     `| ${headers.map(cell).join(" | ")} |`,
     `| ${headers.map(() => "---").join(" | ")} |`,

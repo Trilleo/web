@@ -116,6 +116,52 @@ describe("recipes", () => {
     });
   });
 
+  it("trim what's typed around names, counts and sizes", () => {
+    expect(parseRecipeHeader("  Forge   2 x 1  ,  4h ")).toEqual({
+      station: "Forge",
+      columns: 2,
+      rows: 1,
+      time: "4h",
+    });
+    const recipe = recipeOf(
+      "Crafting Table",
+      "row 1:   A  x 2 ,  B\n2 - 3 :  C\nmakes:   E x4 \ntime:  5s",
+    );
+    expect(recipe.slots.slice(0, 3).map((slot) => slot?.name)).toEqual([
+      "A",
+      "C",
+      "C",
+    ]);
+    expect(recipe.slots[0]?.count).toBe(2);
+    expect(recipe.output).toEqual({ name: "E", count: 4 });
+    expect(recipe.time).toBe("5s");
+    const list = recipeOf("Forge", "-   D  ×3\n*  F\nmakes: G");
+    expect(list.slots).toEqual([
+      { name: "D", count: 3 },
+      { name: "F", count: 1 },
+    ]);
+  });
+
+  it("stay fast on long runs of spaces", () => {
+    // Recipes and calculators are typed by anyone who can edit a page.
+    const spaces = " ".repeat(50_000);
+    const started = performance.now();
+    parseRecipeHeader(`Forge${spaces}2`);
+    parseRecipe(
+      "Crafting Table 3x3",
+      [
+        `makes:${spaces}x`,
+        `time:${spaces}`,
+        `* ${spaces}x`,
+        `row 1:${spaces}x`,
+        `9:${spaces}x`,
+        `A${spaces}x${spaces}`,
+      ].join("\n"),
+    );
+    parseCalculator(`input _:${spaces}x`);
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+
   it("read slots, rows, ranges and lists", () => {
     const grid = parseRecipe(
       "Crafting Table",

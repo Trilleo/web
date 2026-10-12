@@ -11,6 +11,17 @@ describe("syntax helpers", () => {
     });
     expect(parseField("Time: 10:30")).toEqual({ key: "Time", value: "10:30" });
     expect(parseField("no field here")).toBeNull();
+    expect(parseField("  Name   :   Diamond  ")).toEqual({
+      key: "Name",
+      value: "Diamond",
+    });
+    expect(parseField("Name:Diamond")).toBeNull();
+    expect(parseField(": value")).toBeNull();
+    expect(parseField(`${"k".repeat(41)}: value`)).toBeNull();
+    expect(parseField(`${"k".repeat(40)}: value`)?.value).toBe("value");
+    expect(splitSections("==  Drops  ==\nx\n===\n== ==")).toEqual([
+      { label: "Drops", body: "x\n===\n== ==" },
+    ]);
     expect(splitSections("intro\n== A ==\none\n== B ==\ntwo")).toEqual([
       { label: null, body: "intro" },
       { label: "A", body: "one" },
@@ -19,6 +30,22 @@ describe("syntax helpers", () => {
     expect(plainSource("::: notice\nSee [[Coal|coal]] {{kbd E}}\n:::")).toBe(
       "See coal E",
     );
+  });
+});
+
+describe("long runs of spaces", () => {
+  // Pages are typed by anyone who can edit: parsing must stay linear.
+  const spaces = " ".repeat(50_000);
+
+  it("don't slow down fields and sections", () => {
+    const started = performance.now();
+    expect(parseField(`9: ${spaces}x`)).toEqual({ key: "9", value: "x" });
+    expect(parseField(`k${spaces}`)).toBeNull();
+    expect(splitSections(`==${spaces}`)).toEqual([
+      { label: null, body: `==${spaces}`.trim() },
+    ]);
+    expect(splitSections(`==a${spaces}x`)).toHaveLength(1);
+    expect(performance.now() - started).toBeLessThan(500);
   });
 });
 

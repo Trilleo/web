@@ -19,7 +19,8 @@ export interface CalculatorSpec {
   results: { name: string; label: string; formula: string }[];
 }
 
-const LINE = /^(input|result)\s+([a-z_][a-z0-9_]*)\s*:\s*(.+)$/i;
+// The rest is trimmed where it's used: a \s* before it would backtrack.
+const LINE = /^(input|result)\s+([a-z_][a-z0-9_]*)\s*:(.+)$/i;
 
 /** `input name: Label = 100` and `result name: Label = formula` lines. */
 export function parseCalculator(body: string): {

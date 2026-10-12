@@ -38,10 +38,12 @@ const STATION_GRIDS: Readonly<Record<string, readonly [number, number]>> = {
   anvil: [2, 1],
 };
 
-const COUNT = /\s*[x×]\s*(\d{1,6})\s*$/i;
+// Matched against trimmed text: a leading \s* would backtrack on runs of spaces.
+const COUNT = /[x×]\s*(\d{1,6})$/i;
 export const GRID_MAX = 6;
 
-export function parseIngredient(text: string): Ingredient | null {
+export function parseIngredient(raw: string): Ingredient | null {
+  const text = raw.trim();
   const match = COUNT.exec(text);
   const name = (match ? text.slice(0, match.index) : text).trim();
   if (!name) return null;
@@ -55,9 +57,10 @@ export function parseRecipeHeader(argument: string): {
   rows: number | null;
   time: string | null;
 } {
-  const [head = "", ...rest] = argument.split(",");
+  const [rawHead = "", ...rest] = argument.split(",");
+  const head = rawHead.trim();
   const time = rest.join(",").trim() || null;
-  const size = /\s+(\d{1,2})\s*[x×]\s*(\d{1,2})\s*$/i.exec(head);
+  const size = /\s(\d{1,2})\s*[x×]\s*(\d{1,2})$/i.exec(head);
   const station =
     (size ? head.slice(0, size.index) : head).trim() || "Crafting Table";
   if (size?.[1] && size[2])
@@ -86,20 +89,21 @@ export function parseRecipe(
   for (const raw of body.split("\n")) {
     const line = raw.trim();
     if (!line) continue;
-    const field = /^(makes|time)\s*:\s*(.+)$/i.exec(line);
-    if (field?.[1] && field[2]) {
-      if (field[1].toLowerCase() === "makes")
-        output = parseIngredient(field[2]);
-      else time = field[2].trim();
+    // Values are trimmed where they're used: a \s* before them would backtrack.
+    const field = /^(makes|time)\s*:(.+)$/i.exec(line);
+    const value = field?.[2]?.trim();
+    if (field?.[1] && value) {
+      if (field[1].toLowerCase() === "makes") output = parseIngredient(value);
+      else time = value;
       continue;
     }
-    const bullet = /^[-*]\s+(.+)$/.exec(line);
-    if (bullet?.[1]) {
+    const bullet = /^[-*]\s(.+)$/.exec(line);
+    if (bullet?.[1]?.trim()) {
       const ingredient = parseIngredient(bullet[1]);
       if (ingredient) listed.push(ingredient);
       continue;
     }
-    const row = /^row\s+(\d{1,2})\s*:\s*(.*)$/i.exec(line);
+    const row = /^row\s+(\d{1,2})\s*:(.*)$/i.exec(line);
     if (row?.[1]) {
       if (!columns) {
         problems.push("Rows need a grid size: ::: recipe Station 3x3");
@@ -113,8 +117,8 @@ export function parseRecipe(
       });
       continue;
     }
-    const slot = /^(\d{1,2})(?:\s*-\s*(\d{1,2}))?\s*:\s*(.+)$/.exec(line);
-    if (slot?.[1] && slot[3]) {
+    const slot = /^(\d{1,2})(?:\s*-\s*(\d{1,2}))?\s*:(.+)$/.exec(line);
+    if (slot?.[1] && slot[3]?.trim()) {
       const ingredient = parseIngredient(slot[3]);
       const from = Number(slot[1]);
       const to = slot[2] ? Number(slot[2]) : from;
