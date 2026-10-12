@@ -2,11 +2,13 @@
 /** The wiki's latest edits, newest first. */
 import NoWiki from "../../../../components/wiki/NoWiki.astro";
 import ToolHeading from "../../../../components/wiki/ToolHeading.astro";
+import WatchButton from "../../../../components/wiki/WatchButton.astro";
 import WikiLayout from "../../../../layouts/WikiLayout.astro";
 import {
   mainSiteRedirect,
   openWiki,
   privateHeaders,
+  publicPath,
 } from "../../../../lib/wiki/page";
 import { recentChanges } from "../../../../lib/wiki/store";
 import {
@@ -14,6 +16,7 @@ import {
   formatWikiDate,
   wikiTable,
 } from "../../../../lib/wiki/ui";
+import { WHOLE_WIKI, watching } from "../../../../lib/wiki/watch";
 import { toolHref, wikiHref } from "../../../../lib/wiki/wikis";
 
 export const prerender = false;
@@ -24,6 +27,9 @@ privateHeaders(Astro);
 const context = await openWiki(Astro, Astro.params.wiki);
 if (!context) Astro.response.status = 404;
 const changes = context ? await recentChanges(context.db, context.wiki.id) : [];
+const watched = context?.user
+  ? await watching(context.db, context.user.id, context.wiki.id, WHOLE_WIKI)
+  : null;
 ---
 
 {!context ? (
@@ -40,6 +46,15 @@ const changes = context ? await recentChanges(context.db, context.wiki.id) : [];
         title="Recent changes"
         lead="The latest edits to written pages. Generated pages change with their source."
       />
+      {watched && (
+        <div>
+          <WatchButton
+            wiki={context.wiki}
+            watching={watched.wiki}
+            back={publicPath(Astro.url)}
+          />
+        </div>
+      )}
       {changes.length === 0 ? (
         <p class="text-muted">No edits yet.</p>
       ) : (

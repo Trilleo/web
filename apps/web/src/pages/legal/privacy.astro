@@ -186,6 +186,28 @@ const sections = [
         </td>
       </tr>
       <tr>
+        <td>
+          Edits you propose on a wiki (the text, summary and time), and what was
+          decided, by whom, with their note
+        </td>
+        <td>You propose an edit to a wiki you aren’t a member of</td>
+        <td>
+          So the wiki’s members can review it. They see it with your username;
+          approved, it joins the page’s history like any edit
+        </td>
+      </tr>
+      <tr>
+        <td>
+          Your watchlist: the wiki pages and wikis you watch, and when your last
+          digest email went out
+        </td>
+        <td>
+          You watch a page or wiki, or edit or propose a change to a page (which
+          watches it for you)
+        </td>
+        <td>To show you, and email you once a day at most, what changed</td>
+      </tr>
+      <tr>
         <td>Download counts: one number per file per day</td>
         <td>Someone downloads a file</td>
         <td>
@@ -280,13 +302,15 @@ const sections = [
   </p>
   <p>
     With an address, you get the notifications you leave switched on: replies to
-    your comments, your comments’ review, and decisions about your uploads and
-    Minecraft projects, and sign-in alerts. Each email has a one-click
-    unsubscribe link, and the email page lets you switch each kind off. Since
-    it’s how you sign in, the address can be changed but not removed, except by
-    deleting your account. Codes you ask for always arrive, and so does a
-    message to your old address when it changes, with a link that undoes the
-    change for {UNDO_EMAIL_DAYS} days.
+    your comments, your comments’ review, decisions about your uploads and
+    Minecraft projects and the wiki edits you propose (and, in wikis you help
+    run, edits others propose), a daily digest of changes to the wiki pages you
+    watch, and sign-in alerts. Each email has a one-click unsubscribe link, and
+    the email page lets you switch each kind off. Since it’s how you sign in,
+    the address can be changed but not removed, except by deleting your account.
+    Codes you ask for always arrive, and so does a message to your old address
+    when it changes, with a link that undoes the change for {UNDO_EMAIL_DAYS}{" "}
+    days.
   </p>
   <p>
     The site keeps a record of each email it sends: to whom, the subject, what
@@ -347,7 +371,8 @@ const sections = [
     <li>
       Wiki edits: as long as the page’s history. If you delete your account, the
       versions you wrote stay in that history without your name, since the pages
-      built on them; your memberships go.
+      built on them; your memberships, proposed edits and watchlist go. Proposed
+      edits are kept, decided or not, until you delete them with your account.
     </li>
     <li>
       Sessions: until you sign out, or {sessionDays} days after they were last

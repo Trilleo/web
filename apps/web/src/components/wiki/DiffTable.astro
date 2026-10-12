@@ -1,0 +1,47 @@
+---
+/** Lines removed and added between two texts, unchanged runs folded (foldDiff). */
+import type { DiffHunkLine } from "../../lib/wiki/diff";
+
+interface Props {
+  lines: readonly DiffHunkLine[];
+  label?: string;
+}
+
+const { lines, label = "Changes, line by line" } = Astro.props;
+---
+
+{lines.length === 0 ? (
+  <p class="text-muted">No changes.</p>
+) : (
+  <div
+    class="wiki-diff overflow-x-auto border border-ink"
+    role="table"
+    aria-label={label}
+  >
+    {lines.map((line) =>
+      line.op === "skip" ? (
+        <div data-op="skip" role="row">
+          <span role="cell" class="col-span-4 px-3 py-1">
+            … {line.count} unchanged {line.count === 1 ? "line" : "lines"}
+          </span>
+        </div>
+      ) : (
+        <div data-op={line.op} role="row">
+          <span role="cell" class="line-number">
+            {line.op !== "added" ? line.oldLine : ""}
+          </span>
+          <span role="cell" class="line-number">
+            {line.op !== "removed" ? line.newLine : ""}
+          </span>
+          <span
+            role="cell"
+            aria-label={line.op === "same" ? "unchanged" : line.op}
+          >
+            {line.op === "added" ? "+" : line.op === "removed" ? "−" : ""}
+          </span>
+          <span role="cell">{line.text || " "}</span>
+        </div>
+      ),
+    )}
+  </div>
+)}

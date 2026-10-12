@@ -1,0 +1,149 @@
+---
+/**
+ * wiki.trilleo.net/-/watchlist: what you watch, across every wiki, and the latest
+ * edits to it by others. The daily digest email covers the same.
+ */
+import { NOTIFICATION_LABELS } from "@trilleo/mail";
+import ToolHeading from "../../../components/wiki/ToolHeading.astro";
+import WatchButton from "../../../components/wiki/WatchButton.astro";
+import WikiLayout from "../../../layouts/WikiLayout.astro";
+import { noStoreRedirect } from "../../../lib/auth/redirect";
+import { mainOrigin } from "../../../lib/wiki/host";
+import { privateHeaders, publicPath, wikiDb } from "../../../lib/wiki/page";
+import { formatWikiDate, wikiTable } from "../../../lib/wiki/ui";
+import {
+  DIGEST,
+  WATCH_LIMITS,
+  listWatches,
+  watchHref,
+  watchedChanges,
+} from "../../../lib/wiki/watch";
+import { toolHref, wikiHref } from "../../../lib/wiki/wikis";
+
+export const prerender = false;
+
+privateHeaders(Astro);
+const user = Astro.locals.user;
+if (!user)
+  return noStoreRedirect(
+    `/-/sign-in?next=${encodeURIComponent(publicPath(Astro.url))}`,
+  );
+const db = await wikiDb();
+const watches = await listWatches(db, user.id);
+const changes = await watchedChanges(db, user, {
+  since: new Date(Date.now() - DIGEST.lookbackMs * 2),
+  limit: 100,
+});
+const back = publicPath(Astro.url);
+const emailSettings = `${mainOrigin(Astro.url)}/account/email/`;
+---
+
+<WikiLayout title="Watchlist" noindex>
+  <div class="flex flex-col gap-10">
+    <ToolHeading
+      label="Your account"
+      title="Watchlist"
+      lead={`Edits by others to the pages and wikis you watch, from the last ${String((DIGEST.lookbackMs * 2) / 86_400_000)} days. Pages you edit or propose changes to are watched for you.`}
+    />
+
+    <section class="flex flex-col gap-4" aria-labelledby="changes-heading">
+      <h2 id="changes-heading" class="type-label text-muted">
+        Latest changes
+      </h2>
+      {changes.length === 0 ? (
+        <p class="text-muted">Nothing you watch has changed lately.</p>
+      ) : (
+        <div class="relative overflow-x-auto">
+          <table class={wikiTable} data-watchlist>
+            <thead>
+              <tr>
+                <th>Page</th>
+                <th>Wiki</th>
+                <th>Saved</th>
+                <th>By</th>
+                <th>Summary</th>
+              </tr>
+            </thead>
+            <tbody>
+              {changes.map((change) => (
+                <tr>
+                  <td>
+                    <a
+                      href={wikiHref({ slug: change.wiki }, change.title)}
+                      class="font-medium underline"
+                    >
+                      {change.title}
+                    </a>
+                  </td>
+                  <td>{change.wikiName}</td>
+                  <td class="whitespace-nowrap">
+                    <a
+                      href={`${toolHref({ slug: change.wiki }, "diff")}?to=${String(change.revisionId)}`}
+                      class="underline"
+                    >
+                      {formatWikiDate(change.createdAt)}
+                    </a>
+                  </td>
+                  <td>
+                    {change.author ? (
+                      `@${change.author}`
+                    ) : (
+                      <span class="text-muted">the site</span>
+                    )}
+                  </td>
+                  <td>
+                    {change.summary || (
+                      <span class="text-muted">No summary</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+
+    <section class="flex flex-col gap-4" aria-labelledby="watched-heading">
+      <h2 id="watched-heading" class="type-label text-muted">
+        What you watch ({watches.length} of {WATCH_LIMITS.max})
+      </h2>
+      {watches.length === 0 ? (
+        <p class="text-muted">
+          Nothing yet: a page's “Watch this page” button, or “Watch this wiki”
+          on a wiki's Recent changes, adds it here.
+        </p>
+      ) : (
+        <ul class="flex flex-col" data-watches>
+          {watches.map((row) => (
+            <li class="flex flex-wrap items-center justify-between gap-x-6 border-t border-hair py-1">
+              <span>
+                <a href={watchHref(row)} class="font-medium underline">
+                  {row.title ?? `All of ${row.wikiName}`}
+                </a>
+                {row.title !== null && (
+                  <span class="text-muted"> · {row.wikiName}</span>
+                )}
+              </span>
+              <WatchButton
+                wiki={{ slug: row.wiki }}
+                {...(row.title !== null ? { title: row.title } : {})}
+                watching
+                back={back}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+
+    <p class="text-sm text-muted">
+      Once a day at most, a digest email lists what changed since the last one.
+      Switch “{NOTIFICATION_LABELS.watchlist.label}” off in your{" "}
+      <a href={emailSettings} class="text-ink underline">
+        email settings
+      </a>{" "}
+      to stop it.
+    </p>
+  </div>
+</WikiLayout>

@@ -14,7 +14,10 @@ What it sends:
 - **New sign-in** alerts (a browser the account hasn't used lately), which people can
   switch off ("Sign-in alerts").
 - **Notifications** people can switch off: replies to their comments, their comments'
-  review, decisions on their uploads and Minecraft projects. Each has a one-click
+  review, decisions on their uploads and Minecraft projects, wiki proposals (new ones to
+  the wiki's members, decisions to the proposer), and a daily digest of changes to the
+  wiki pages they watch (looked for hourly by the delivery pass; /admin/mail/ can send
+  due ones at once). Each has a one-click
   unsubscribe link (`List-Unsubscribe` + `List-Unsubscribe-Post`).
 - **Your replies** to contact messages (/admin/messages/ → "Reply by email").
 - **Admin alerts**: new contact messages, files waiting for review, reports, appeals,

@@ -1,6 +1,6 @@
 ---
 /**
- * A page's title and its tabs: Read, Edit (or View source), History, What links
+ * A page's title and its tabs: Read, Edit (Propose a change, or View source), History, What links
  * here, and for owners Move. A namespace ("Category:") shows as a label above.
  */
 import type { Wiki } from "@trilleo/db";
@@ -17,6 +17,8 @@ interface Props {
   exists: boolean;
   generated?: boolean;
   canEdit: boolean;
+  /** Signed in but can't edit: the edit tab proposes a change. */
+  canPropose?: boolean;
   canManage: boolean;
 }
 
@@ -27,6 +29,7 @@ const {
   exists,
   generated = false,
   canEdit,
+  canPropose = false,
   canManage,
 } = Astro.props;
 const namespace = namespaceOf(title);
@@ -42,7 +45,13 @@ const tabs: { id: PageTab; label: string; href: string }[] = [
     ? [
         {
           id: "edit" as const,
-          label: !canEdit ? "View source" : exists ? "Edit" : "Create",
+          label: canEdit
+            ? exists
+              ? "Edit"
+              : "Create"
+            : canPropose
+              ? "Propose a change"
+              : "View source",
           href: toolHref(wiki, "edit", title),
         },
       ]

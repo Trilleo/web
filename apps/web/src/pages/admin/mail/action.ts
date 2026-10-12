@@ -8,12 +8,13 @@ import { composeDirect } from "../../../lib/mail/compose";
 import { mailSetup } from "../../../lib/mail/config";
 import { cancelMail, queueMail, retryMail } from "../../../lib/mail/outbox";
 import { SITE_NAME } from "../../../lib/site";
+import { sendWikiDigests } from "../../../lib/wiki/watch";
 
 export const prerender = false;
 
 /**
  * The admin's buttons on /admin/mail/: send a test, check the SMTP login, retry or
- * cancel a message. Back to the page with ?done= or ?error=.
+ * cancel a message, send the wiki digests that are due. Back to the page with ?done= or ?error=.
  */
 export const POST: APIRoute = async (context) => {
   const admin = requireAdmin(context);
@@ -91,6 +92,11 @@ export const POST: APIRoute = async (context) => {
           "That can’t be done to the message as it is now.",
         );
       return finish("done", intent === "retry" ? "retried" : "cancelled");
+    }
+    case "digests": {
+      // The hourly check does this anyway; only people due one get one.
+      const sent = await sendWikiDigests(db);
+      return finish("done", `digests-${String(sent)}`);
     }
     default:
       return finish("error", "Unknown action.");

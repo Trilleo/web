@@ -76,6 +76,12 @@ const DONE: Record<string, string> = {
   retried: "Queued again.",
   cancelled: "Cancelled.",
 };
+const digests = /^digests-(\d+)$/.exec(done ?? "")?.[1];
+if (digests !== undefined)
+  DONE[`digests-${digests}`] =
+    digests === "1"
+      ? "One wiki digest queued."
+      : `${digests === "0" ? "No" : digests} wiki digests queued.`;
 const when = (date: Date) =>
   date.toISOString().slice(0, 16).replace("T", " ") + " UTC";
 const link = (changes: Record<string, string | null>) => {
@@ -172,6 +178,15 @@ const testTo = config.adminTo[0] ?? admin.email ?? "";
             </div>
             <button type="submit" class={buttonClasses()}>
               Send test
+            </button>
+          </form>
+          <form method="post" action="/admin/mail/action">
+            <input type="hidden" name="intent" value="digests" />
+            <button
+              type="submit"
+              class={buttonClasses({ variant: "secondary" })}
+            >
+              Send due wiki digests
             </button>
           </form>
           {config.transport.kind === "smtp" && (

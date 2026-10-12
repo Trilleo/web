@@ -3,17 +3,23 @@
  * Editing a page (or creating one): a plain form that works without JavaScript.
  * "Preview" renders what's typed above the form; "Save" writes a revision. If
  * someone saved in the meantime, nothing is lost: their version is shown, the text
- * stays in the editor, and saving again replaces theirs knowingly. People who can't
- * edit see the source.
+ * stays in the editor, and saving again replaces theirs knowingly. Signed-in people
+ * who can't edit the page propose their change instead (members review it); anyone
+ * else sees the source.
  */
 import NoWiki from "../../../../../components/wiki/NoWiki.astro";
 import PageHeading from "../../../../../components/wiki/PageHeading.astro";
 import WikiLayout from "../../../../../layouts/WikiLayout.astro";
 import { field } from "../../../../../lib/comments/form";
 import { noStoreRedirect } from "../../../../../lib/auth/redirect";
-import { canEditPage } from "../../../../../lib/wiki/access";
+import { canEditPage, canProposeTo } from "../../../../../lib/wiki/access";
 import { generatedPage } from "../../../../../lib/wiki/generated";
 import { itemLookup } from "../../../../../lib/wiki/items";
+import {
+  PROPOSAL_LIMITS,
+  proposalHref,
+  propose,
+} from "../../../../../lib/wiki/proposals";
 import { recipeLookup } from "../../../../../lib/wiki/recipes";
 import {
   mainSiteRedirect,
@@ -54,6 +60,7 @@ let previewHtml: string | null = null;
 let conflict: { body: string; at: Date } | null = null;
 let error: string | null = null;
 let canEdit = false;
+let canPropose = false;
 let exists = false;
 let reason = "";
 
@@ -64,6 +71,7 @@ if (context && title) {
   const page = await findPage(db, wiki.id, titleKey(title));
   exists = page !== undefined && page.deletedAt === null;
   canEdit = canEditPage(access, page ?? null);
+  canPropose = canProposeTo(access, page ?? null);
   reason = !user
     ? "Sign in to edit: only this wiki's members can."
     : !access.edit
@@ -77,7 +85,7 @@ if (context && title) {
   baseRevisionId = current?.id ?? null;
 
   if (Astro.request.method === "POST") {
-    if (!canEdit) {
+    if (!canEdit && !canPropose) {
       return new Response(reason, {
         status: 403,
         headers: {
@@ -106,6 +114,26 @@ if (context && title) {
         rendered.html,
         new Set(keys.filter((key) => !found.has(key))),
       );
+    } else if (!canEdit && user) {
+      const result = await propose(db, {
+        wiki,
+        author: user,
+        title,
+        body,
+        summary,
+        baseRevisionId,
+      });
+      if (result.ok)
+        return noStoreRedirect(proposalHref(wiki, result.proposal.id), 303);
+      error = {
+        empty: "There's nothing to propose: the text is empty.",
+        unchanged: "That's the page as it is: change something first.",
+        "too-long": `Pages can be at most ${PAGE_LIMITS.body.toLocaleString("en-US")} characters.`,
+        generated: "That title belongs to a generated page.",
+        "daily-limit": `You can propose ${String(PROPOSAL_LIMITS.perDay)} edits a day. Try again tomorrow; your text is still below.`,
+        "pending-limit": `You have ${String(PROPOSAL_LIMITS.pendingPerWiki)} proposals waiting in this wiki. Once members have looked at them you can propose more.`,
+      }[result.error];
+      Astro.response.status = 422;
     } else {
       const result = await savePage(db, {
         wiki,
@@ -143,7 +171,7 @@ const signIn = `/-/sign-in?next=${encodeURIComponent(publicPath(Astro.url))}`;
   <NoWiki />
 ) : (
   <WikiLayout
-    title={`${canEdit ? (exists ? "Editing" : "Creating") : "Source of"} ${title}`}
+    title={`${canEdit ? (exists ? "Editing" : "Creating") : canPropose ? "Proposing a change to" : "Source of"} ${title}`}
     wiki={context.wiki}
     access={context.access}
     noindex
@@ -155,6 +183,7 @@ const signIn = `/-/sign-in?next=${encodeURIComponent(publicPath(Astro.url))}`;
         current="edit"
         exists={exists}
         canEdit={canEdit}
+        canPropose={canPropose}
         canManage={context.access.manage}
       />
 
@@ -188,7 +217,17 @@ const signIn = `/-/sign-in?next=${encodeURIComponent(publicPath(Astro.url))}`;
         </section>
       )}
 
-      {canEdit ? (
+      {canPropose && (
+        <p class="border-l-2 border-ink pl-3 text-sm">
+          {context.access.edit
+            ? "This page is protected, so your change goes to the wiki's owners as a proposal."
+            : "Only this wiki's members edit it directly, so your change goes to them as a proposal."}{" "}
+          They approve it (it's saved under your name) or decline it with a
+          note; you'll get an email either way.
+        </p>
+      )}
+
+      {canEdit || canPropose ? (
         <form method="post" class="flex flex-col gap-4">
           <input type="hidden" name="base" value={baseRevisionId ?? ""} />
           <label class="flex flex-col gap-2">
@@ -238,7 +277,7 @@ const signIn = `/-/sign-in?next=${encodeURIComponent(publicPath(Astro.url))}`;
               placeholder="What changed, and why"
             />
           </label>
-          {exists && (
+          {exists && canEdit && (
             <label class="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -256,7 +295,7 @@ const signIn = `/-/sign-in?next=${encodeURIComponent(publicPath(Astro.url))}`;
               value="save"
               class={wikiButton("primary")}
             >
-              Save
+              {canEdit ? "Save" : "Propose"}
             </button>
             <button
               type="submit"

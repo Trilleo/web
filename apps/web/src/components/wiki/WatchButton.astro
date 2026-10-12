@@ -1,0 +1,41 @@
+---
+/**
+ * Watch or unwatch a page (or, without a title, the whole wiki): a small form post.
+ * Watching the whole wiki covers its pages, so a page under it only says so.
+ */
+import type { Wiki } from "@trilleo/db";
+import { toolHref } from "../../lib/wiki/wikis";
+
+interface Props {
+  wiki: Pick<Wiki, "slug">;
+  /** Omit for the whole wiki. */
+  title?: string;
+  watching: boolean;
+  /** For a page: the whole wiki is watched. */
+  wikiWatched?: boolean;
+  /** Where to come back to. */
+  back: string;
+}
+
+const { wiki, title, watching, wikiWatched = false, back } = Astro.props;
+const what = title === undefined ? "this wiki" : "this page";
+---
+
+{title !== undefined && wikiWatched && !watching ? (
+  <span class="type-label text-muted" data-watch="wiki">
+    Watched with the whole wiki
+  </span>
+) : (
+  <form method="post" action={toolHref(wiki, "watch")} class="inline">
+    <input type="hidden" name="intent" value={watching ? "unwatch" : "watch"} />
+    {title !== undefined && <input type="hidden" name="title" value={title} />}
+    <input type="hidden" name="back" value={back} />
+    <button
+      type="submit"
+      class="type-label inline-flex min-h-11 items-center gap-1.5 text-muted underline-offset-4 hover:text-ink hover:underline"
+    >
+      <span aria-hidden="true">{watching ? "★" : "☆"}</span>
+      {watching ? `Unwatch ${what}` : `Watch ${what}`}
+    </button>
+  </form>
+)}

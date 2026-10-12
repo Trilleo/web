@@ -35,6 +35,25 @@ export function canEditPage(
   return page?.protection === "owners" ? access.manage : true;
 }
 
+/**
+ * Whether this person may propose a change to this page instead: anyone signed in
+ * who reads the wiki but can't change the page (editors, on a protected one).
+ */
+export function canProposeTo(
+  access: WikiAccess,
+  page: Pick<WikiPage, "protection"> | null,
+): boolean {
+  return access.signedIn && access.read && !canEditPage(access, page);
+}
+
+/** Whether this person may approve or decline a proposal for this page. */
+export function canReview(
+  access: WikiAccess,
+  page: Pick<WikiPage, "protection"> | null,
+): boolean {
+  return canEditPage(access, page);
+}
+
 export const ROLE_LABELS: Readonly<Record<WikiRole, string>> = {
   owner: "Owner",
   editor: "Editor",

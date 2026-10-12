@@ -93,7 +93,8 @@ The wiki is the same app on another host: open <http://wiki.localhost:4321/> nex
 `pnpm dev` (browsers send `*.localhost` to your machine). It starts with the Skygrid
 wiki, whose reference pages are generated from the game's data
 (`apps/web/src/lib/wiki/sources/`). Signing in there goes through the main site at
-`localhost:4321`.
+`localhost:4321`. Anyone signed in can propose edits for a wiki's members to review,
+and watch pages (a watchlist, plus a daily digest email).
 
 Lint, format, and TypeScript base configs live at the repo root (`eslint.config.js`,
 `.prettierrc.json`, `tsconfig.base.json`).

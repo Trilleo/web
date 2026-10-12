@@ -6,6 +6,7 @@
  */
 import { authConfig } from "../auth/config";
 import { getDb } from "../db";
+import { sendWikiDigests } from "../wiki/watch";
 import { purgeCodes } from "./addresses";
 import { flushAdminAlerts, onAdminAlert } from "./alerts";
 import { mailSetup } from "./config";
@@ -19,9 +20,12 @@ import {
 
 export const DELIVERY_INTERVAL_MS = 60 * 1000;
 const PURGE_INTERVAL_MS = 60 * 60 * 1000;
+/** How often due watchlist digests are looked for (each goes out once a day). */
+const DIGEST_INTERVAL_MS = 60 * 60 * 1000;
 
 let lastRun = 0;
 let lastPurge = 0;
+let lastDigest = 0;
 let running = false;
 let again = false;
 
@@ -41,6 +45,11 @@ async function pass(): Promise<void> {
     },
     now,
   );
+  if (now.getTime() - lastDigest > DIGEST_INTERVAL_MS) {
+    lastDigest = now.getTime();
+    // Queues mail, which starts another pass to send it.
+    await sendWikiDigests(deps.db, now);
+  }
   await deliverDue(deps);
   if (now.getTime() - lastPurge > PURGE_INTERVAL_MS) {
     lastPurge = now.getTime();

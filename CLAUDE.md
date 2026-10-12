@@ -668,7 +668,25 @@ Name`, `::: inventory 3x9 Title` (slots `5: Item x64`, ranges, `row 2: A, , B`).
   the defaults worked out; client.ts makes them live from a JSON script block
   (`scriptJson` escapes `<`), with the same code (calculators.ts) on both sides.
   A changed recipe re-renders pages linking its output's page.
-- Next phase (planned): proposed edits and review, watchlists, email.
+- Proposed edits (lib/wiki/proposals.ts, wiki_proposals): signed-in readers who can't
+  edit a page (`canProposeTo`: non-members, and editors on protected pages) get
+  "Propose a change" instead of "View source"; the edit form then proposes. Limits:
+  PROPOSAL_LIMITS (per day across wikis, waiting per wiki). Members review at
+  /<wiki>/-/proposals[/<id>] (a diff against the page as it is now, and a preview);
+  approving claims the proposal, then saves it with `savePage` as the proposer's
+  revision on top of the current one (owners only for protected pages); declining
+  keeps a note. Proposers see their own there and can withdraw. Emails: "wiki-proposal"
+  to the wiki's editors and owners (owners only for protected pages), "wiki-decision"
+  to the proposer (topic "wiki"). Both decisions go to wiki_log.
+- Watchlists (lib/wiki/watch.ts, wiki_watches: a page key, or "" for the whole wiki):
+  saving a page (unless `watch: false`) and proposing watch it; moves carry watches
+  along. Buttons: WatchButton (POST /<wiki>/-/watch) at a page's foot and on Recent
+  changes (the whole wiki). /-/watchlist (site-wide on the wiki host) lists others'
+  edits since each watch began, only in wikis the person can still read.
+  `sendWikiDigests` runs from the mail delivery pass at most hourly and emails each
+  person due one (DIGEST.gapMs since their last, wiki_digests) what changed, if
+  anything ("wiki-digest", topic "watchlist"); /admin/mail/ can send due ones now.
+  Email links are absolute to WIKI_URL.
 
 ## Mail
 
@@ -696,7 +714,8 @@ Name`, `::: inventory 3x9 Title` (slots `5: Item x64`, ranges, `row 2: A, , B`).
   List-Unsubscribe + List-Unsubscribe-Post. They're called through `safely()` where
   things happen: comments (createComment, moderateComment), storage's changeStatus
   (file decisions; `notify: false` when the caller sends its own, like appeals),
-  decideAppeal, and Minecraft's setHidden. notify.ts reads tables directly, so those
+  decideAppeal, Minecraft's setHidden, and the wiki's proposals (lib/wiki/proposals.ts;
+  digests come from lib/wiki/watch.ts). notify.ts reads tables directly, so those
   services can import it without cycles.
 - Admin alerts (src/lib/mail/alerts.ts): `alertAdmin` adds an admin_alerts row
   (contact messages, files waiting, file and project reports, appeals, comments

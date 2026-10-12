@@ -24,6 +24,8 @@ const ACTIONS: Readonly<Record<LogRow["action"], string>> = {
   delete: "Deleted",
   restore: "Restored",
   protect: "Changed protection",
+  "proposal-approved": "Approved a proposed edit",
+  "proposal-declined": "Declined a proposed edit",
 };
 
 const moved = mainSiteRedirect(Astro, Astro.params.wiki);

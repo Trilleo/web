@@ -43,6 +43,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "legal",
     changes: [
       {
+        date: "2026-10-12",
+        note: "Added proposed edits on the wiki: anyone signed in can propose one, and an approved one counts as your edit.",
+      },
+      {
         date: "2026-10-11",
         note: "Added the wiki: who can read and edit it, and what saving an edit allows.",
       },
@@ -65,6 +69,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "What Trilleo Network keeps about you, why, for how long, and how to see or delete it.",
     group: "legal",
     changes: [
+      {
+        date: "2026-10-12",
+        note: "Added proposed wiki edits, wiki watchlists and their daily digest email.",
+      },
       {
         date: "2026-10-11",
         note: "Added pictures uploaded for a wiki, and which wiki they’re for.",
@@ -168,6 +176,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "Short answers about accounts, your data, the tools, the games and comments.",
     group: "help",
     changes: [
+      {
+        date: "2026-10-12",
+        note: "Proposing wiki edits, and following changes with a watchlist.",
+      },
       {
         date: "2026-10-09",
         note: "Passkeys, and how you’d know about someone else signing in.",

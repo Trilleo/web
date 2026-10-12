@@ -44,6 +44,7 @@ const PAGES = [
   "wiki:/skygrid/-/history/Main_Page",
   "wiki:/skygrid/-/edit/Main_Page",
   "wiki:/skygrid/-/recent",
+  "wiki:/skygrid/-/proposals",
   "wiki:/skygrid/-/pages",
   "wiki:/skygrid/-/components",
   "wiki:/skygrid/Wheat_Minion",

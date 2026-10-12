@@ -10,6 +10,8 @@ export const NOTIFICATION_TOPICS = [
   "replies",
   "comments",
   "reviews",
+  "wiki",
+  "watchlist",
   "admin",
 ] as const;
 export type NotificationTopic = (typeof NOTIFICATION_TOPICS)[number];
@@ -22,6 +24,8 @@ export const DEFAULT_NOTIFICATIONS: Readonly<NotificationSettings> = {
   replies: true,
   comments: true,
   reviews: true,
+  wiki: true,
+  watchlist: true,
   admin: true,
 };
 
@@ -43,6 +47,14 @@ export const NOTIFICATION_LABELS: Readonly<
   reviews: {
     label: "Uploads and Minecraft projects",
     hint: "A file was approved, refused or taken down, an appeal was decided, or a project was hidden or shown again.",
+  },
+  wiki: {
+    label: "Wiki proposals",
+    hint: "An edit you proposed on a wiki was approved or declined, or (in wikis you help run) someone proposed one.",
+  },
+  watchlist: {
+    label: "Wiki watchlist",
+    hint: "Once a day at most: what changed on the wiki pages you watch.",
   },
   admin: {
     label: "Admin alerts",
@@ -99,6 +111,13 @@ export const MAIL_KINDS = {
     topic: "reviews",
     secret: false,
   },
+  "wiki-proposal": { label: "Wiki proposal", topic: "wiki", secret: false },
+  "wiki-decision": {
+    label: "Wiki proposal decided",
+    topic: "wiki",
+    secret: false,
+  },
+  "wiki-digest": { label: "Wiki watchlist", topic: "watchlist", secret: false },
   "contact-reply": { label: "Contact reply", topic: null, secret: false },
   "admin-alert": { label: "Admin alert", topic: "admin", secret: false },
   test: { label: "Test", topic: null, secret: false },

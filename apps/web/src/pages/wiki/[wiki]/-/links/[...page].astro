@@ -3,7 +3,7 @@
 import NoWiki from "../../../../../components/wiki/NoWiki.astro";
 import PageHeading from "../../../../../components/wiki/PageHeading.astro";
 import WikiLayout from "../../../../../layouts/WikiLayout.astro";
-import { canEditPage } from "../../../../../lib/wiki/access";
+import { canEditPage, canProposeTo } from "../../../../../lib/wiki/access";
 import { generatedPage } from "../../../../../lib/wiki/generated";
 import {
   mainSiteRedirect,
@@ -50,6 +50,7 @@ const links =
         exists={page !== undefined && page.deletedAt === null}
         generated={generated !== null}
         canEdit={canEditPage(context.access, page ?? null)}
+        canPropose={canProposeTo(context.access, page ?? null)}
         canManage={context.access.manage}
       />
       {links.length === 0 ? (

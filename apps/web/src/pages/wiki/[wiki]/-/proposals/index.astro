@@ -1,0 +1,145 @@
+---
+/**
+ * Proposed edits. Members see the queue (?show=all for decided ones too); anyone
+ * else signed in sees their own proposals in this wiki.
+ */
+import NoWiki from "../../../../../components/wiki/NoWiki.astro";
+import ToolHeading from "../../../../../components/wiki/ToolHeading.astro";
+import WikiLayout from "../../../../../layouts/WikiLayout.astro";
+import {
+  mainSiteRedirect,
+  openWiki,
+  privateHeaders,
+  publicPath,
+} from "../../../../../lib/wiki/page";
+import {
+  PROPOSAL_STATUS_LABELS,
+  listProposals,
+  proposalHref,
+} from "../../../../../lib/wiki/proposals";
+import { formatWikiDate, wikiTable } from "../../../../../lib/wiki/ui";
+import { toolHref, wikiHref } from "../../../../../lib/wiki/wikis";
+
+export const prerender = false;
+
+const moved = mainSiteRedirect(Astro, Astro.params.wiki);
+if (moved) return moved;
+privateHeaders(Astro);
+const context = await openWiki(Astro, Astro.params.wiki);
+if (!context) Astro.response.status = 404;
+const member = context?.access.edit ?? false;
+const all = Astro.url.searchParams.get("show") === "all";
+const proposals =
+  context && (member || context.user)
+    ? await listProposals(context.db, context.wiki.id, {
+        ...(member
+          ? all
+            ? {}
+            : { status: "pending" as const }
+          : { authorId: context.user?.id ?? "" }),
+      })
+    : [];
+const signIn = `/-/sign-in?next=${encodeURIComponent(publicPath(Astro.url))}`;
+const base = context ? toolHref(context.wiki, "proposals") : "";
+---
+
+{!context ? (
+  <NoWiki />
+) : (
+  <WikiLayout
+    title="Proposed edits"
+    wiki={context.wiki}
+    access={context.access}
+    noindex
+  >
+    <div class="flex flex-col gap-6">
+      <ToolHeading
+        title="Proposed edits"
+        lead={
+          member
+            ? "Edits from people outside the wiki. Approving saves one as its author's revision; declining sends them your note."
+            : "Your proposed edits to this wiki. Its members approve or decline them, and you get an email either way."
+        }
+      />
+      {member && (
+        <nav aria-label="Proposals" class="type-nav flex gap-5">
+          <a
+            href={base}
+            aria-current={all ? undefined : "page"}
+            class="text-muted hover:text-ink aria-[current=page]:text-ink aria-[current=page]:underline"
+          >
+            Waiting
+          </a>
+          <a
+            href={`${base}?show=all`}
+            aria-current={all ? "page" : undefined}
+            class="text-muted hover:text-ink aria-[current=page]:text-ink aria-[current=page]:underline"
+          >
+            All
+          </a>
+        </nav>
+      )}
+      {!member && !context.user ? (
+        <p class="text-muted">
+          <a href={signIn} class="text-ink underline">
+            Sign in
+          </a>{" "}
+          to propose edits and see yours.
+        </p>
+      ) : proposals.length === 0 ? (
+        <p class="text-muted">
+          {member
+            ? all
+              ? "Nobody has proposed an edit yet."
+              : "Nothing is waiting."
+            : "You haven't proposed any edits here. Any page's “Propose a change” tab starts one."}
+        </p>
+      ) : (
+        <div class="relative overflow-x-auto">
+          <table class={wikiTable} data-proposals>
+            <thead>
+              <tr>
+                <th>Page</th>
+                <th>Proposed</th>
+                {member && <th>By</th>}
+                <th>Status</th>
+                <th>Summary</th>
+              </tr>
+            </thead>
+            <tbody>
+              {proposals.map((proposal) => (
+                <tr>
+                  <td>
+                    <a
+                      href={wikiHref(context.wiki, proposal.title)}
+                      class="font-medium underline"
+                    >
+                      {proposal.title}
+                    </a>
+                  </td>
+                  <td class="whitespace-nowrap">
+                    <a
+                      href={proposalHref(context.wiki, proposal.id)}
+                      class="underline"
+                    >
+                      {formatWikiDate(proposal.createdAt)}
+                    </a>
+                  </td>
+                  {member && <td>@{proposal.author}</td>}
+                  <td class="type-label whitespace-nowrap">
+                    {PROPOSAL_STATUS_LABELS[proposal.status]}
+                  </td>
+                  <td>
+                    {proposal.summary || (
+                      <span class="text-muted">No summary</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  </WikiLayout>
+)}

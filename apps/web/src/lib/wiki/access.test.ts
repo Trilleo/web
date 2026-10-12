@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canEditPage, wikiAccess } from "./access";
+import { canEditPage, canProposeTo, wikiAccess } from "./access";
 
 const as = (
   visibility: "public" | "unlisted" | "private",
@@ -35,5 +35,23 @@ describe("wikiAccess", () => {
       true,
     );
     expect(canEditPage(as("public", "editor"), null)).toBe(true);
+  });
+});
+
+describe("canProposeTo", () => {
+  const reader = (visibility: "public" | "private", signedIn: boolean) =>
+    wikiAccess({ visibility }, { signedIn, role: null, admin: false });
+
+  it("lets signed-in readers who can't edit propose", () => {
+    expect(canProposeTo(reader("public", true), null)).toBe(true);
+    expect(canProposeTo(reader("public", false), null)).toBe(false);
+    expect(canProposeTo(reader("private", true), null)).toBe(false);
+    expect(canProposeTo(as("public", "editor"), null)).toBe(false);
+  });
+
+  it("lets editors propose changes to protected pages", () => {
+    const page = { protection: "owners" as const };
+    expect(canProposeTo(as("public", "editor"), page)).toBe(true);
+    expect(canProposeTo(as("public", "owner"), page)).toBe(false);
   });
 });

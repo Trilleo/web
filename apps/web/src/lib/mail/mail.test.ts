@@ -477,6 +477,8 @@ describe("email addresses", () => {
       replies: false,
       comments: false,
       reviews: false,
+      wiki: false,
+      watchlist: false,
       admin: false,
     });
     expect((await unsubscribe(db, "x".repeat(40), "replies")).ok).toBe(false);

@@ -44,6 +44,7 @@ import {
   snippet,
 } from "./render";
 import { namespaceOf, titleKey } from "./titles";
+import { moveWatches, watch } from "./watch";
 
 type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
@@ -483,6 +484,8 @@ export interface SaveInput {
   baseRevisionId: number | null;
   /** Whether the editor may change protected pages (an owner). */
   canEditProtected: boolean;
+  /** Whether the author starts watching the page (default: yes). */
+  watch?: boolean;
   now?: Date;
 }
 
@@ -569,6 +572,9 @@ export async function savePage(
       .returning();
     if (!saved) throw new Error("Updating the page returned nothing");
     await replaceLinks(tx, saved, rendered);
+    // People watch the pages they write (a proposal's author already does).
+    if (input.actor && input.watch !== false)
+      await watch(tx, input.actor.id, input.wiki.id, key, now);
     return { ok: true, page: saved, revision, created };
   });
 }
@@ -605,6 +611,7 @@ export async function movePage(
       .set({ key, title: input.to, renderVersion: 0, updatedAt: now })
       .where(eq(wikiPages.id, input.page.id))
       .returning();
+    await moveWatches(tx, input.wiki.id, input.page.key, key);
     await log(tx, input.wiki.id, input.actor, "move", {
       title: from,
       detail: `→ ${input.to}${input.reason ? `: ${input.reason}` : ""}`,
@@ -626,6 +633,7 @@ export async function movePage(
       minor: false,
       baseRevisionId: null,
       canEditProtected: true,
+      watch: false,
       now,
     });
   }

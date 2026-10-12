@@ -1,0 +1,349 @@
+---
+/**
+ * One proposed edit: who proposed what, the difference to the page as it is now (or,
+ * once decided, to the text it was made from), and a preview. Members approve or
+ * decline it (owners only, for protected pages); its author can withdraw it while it
+ * waits. Everyone else gets a 404.
+ */
+import DiffTable from "../../../../../components/wiki/DiffTable.astro";
+import NoWiki from "../../../../../components/wiki/NoWiki.astro";
+import WikiLayout from "../../../../../layouts/WikiLayout.astro";
+import { noStoreRedirect } from "../../../../../lib/auth/redirect";
+import { field } from "../../../../../lib/comments/form";
+import { canReview } from "../../../../../lib/wiki/access";
+import { diffLines, diffStats, foldDiff } from "../../../../../lib/wiki/diff";
+import { itemLookup } from "../../../../../lib/wiki/items";
+import {
+  mainSiteRedirect,
+  openWiki,
+  privateHeaders,
+} from "../../../../../lib/wiki/page";
+import {
+  PROPOSAL_LIMITS,
+  PROPOSAL_STATUS_LABELS,
+  approveProposal,
+  declineProposal,
+  getProposal,
+  proposalHref,
+  withdrawProposal,
+} from "../../../../../lib/wiki/proposals";
+import { recipeLookup } from "../../../../../lib/wiki/recipes";
+import {
+  linkedKeys,
+  markMissing,
+  renderWikiPage,
+} from "../../../../../lib/wiki/render";
+import {
+  existingKeys,
+  findPage,
+  getRevision,
+} from "../../../../../lib/wiki/store";
+import { titleKey } from "../../../../../lib/wiki/titles";
+import {
+  formatWikiDate,
+  wikiButton,
+  wikiInput,
+} from "../../../../../lib/wiki/ui";
+import { toolHref, wikiHref } from "../../../../../lib/wiki/wikis";
+
+export const prerender = false;
+
+const moved = mainSiteRedirect(Astro, Astro.params.wiki);
+if (moved) return moved;
+privateHeaders(Astro);
+const context = await openWiki(Astro, Astro.params.wiki);
+const idParam = Astro.params.id ?? "";
+const id = /^\d{1,10}$/.test(idParam) ? Number(idParam) : null;
+let detail =
+  context && id !== null
+    ? await getProposal(context.db, context.wiki.id, id)
+    : undefined;
+const isAuthor =
+  detail !== undefined && context?.user?.id === detail.proposal.authorId;
+// Only members and the author see a proposal.
+if (detail && !context?.access.edit && !isAuthor) detail = undefined;
+if (!context || !detail) Astro.response.status = 404;
+
+const DONE: Record<string, string> = {
+  approved: "Approved: the page now has this text.",
+  declined: "Declined. Its author gets your note by email.",
+  withdrawn: "Withdrawn.",
+};
+let error: string | null = null;
+let note = "";
+const page =
+  context && detail
+    ? await findPage(
+        context.db,
+        context.wiki.id,
+        titleKey(detail.proposal.title),
+      )
+    : undefined;
+const reviewer = context ? canReview(context.access, page ?? null) : false;
+
+if (context && detail && context.user && Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const { db, wiki, user, access } = context;
+  const intent = field(form, "intent");
+  const proposalId = detail.proposal.id;
+  const back = (done: string) =>
+    noStoreRedirect(`${proposalHref(wiki, proposalId)}?done=${done}`, 303);
+  if (intent === "withdraw" && isAuthor) {
+    if (await withdrawProposal(db, detail.proposal, user))
+      return back("withdrawn");
+    error = "It was already decided.";
+  } else if ((intent === "approve" || intent === "decline") && reviewer) {
+    note = field(form, "note");
+    const result =
+      intent === "approve"
+        ? await approveProposal(db, {
+            wiki,
+            reviewer: user,
+            proposal: detail.proposal,
+            canEditProtected: access.manage,
+          })
+        : await declineProposal(db, {
+            wiki,
+            reviewer: user,
+            proposal: detail.proposal,
+            note,
+          });
+    if (result.ok) return back(result.proposal.status);
+    error = {
+      decided:
+        "Someone else got here first: it was decided, or the page changed. Look again below.",
+      unchanged:
+        "The page already says exactly this. Decline it to clear it from the queue.",
+      protected: "The page is protected now: only owners can approve this.",
+      "too-long": "The text is longer than a page may be.",
+      generated: "That title belongs to a generated page now.",
+    }[result.error];
+  } else {
+    return new Response("You can't do that to this proposal.", {
+      status: 403,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "private, no-store",
+      },
+    });
+  }
+  Astro.response.status = 409;
+  detail = (await getProposal(db, wiki.id, proposalId)) ?? detail;
+}
+
+const proposal = detail?.proposal;
+const pending = proposal?.status === "pending";
+const current =
+  context && page && !page.deletedAt && page.revisionId !== null
+    ? await getRevision(context.db, context.wiki.id, page.revisionId)
+    : undefined;
+const base =
+  context && proposal?.baseRevisionId != null
+    ? await getRevision(context.db, context.wiki.id, proposal.baseRevisionId)
+    : undefined;
+// Waiting: against what approving would replace. Decided: against what it started from.
+const against = pending ? current : base;
+const diff =
+  proposal !== undefined ? diffLines(against?.body ?? "", proposal.body) : [];
+const lines = foldDiff(diff);
+const stats = diffStats(diff);
+const changedSince =
+  pending &&
+  current !== undefined &&
+  current.id !== (proposal?.baseRevisionId ?? null);
+let preview: string | null = null;
+if (context && proposal) {
+  const { db, wiki } = context;
+  const rendered = await renderWikiPage(proposal.body, {
+    slug: wiki.slug,
+    title: proposal.title,
+    componentSets: wiki.componentSets,
+    items: await itemLookup(db, wiki),
+    recipes: await recipeLookup(db, wiki),
+  });
+  const keys = linkedKeys(rendered.html);
+  const found = await existingKeys(db, wiki, keys);
+  preview = markMissing(
+    rendered.html,
+    new Set(keys.filter((key) => !found.has(key))),
+  );
+}
+const done = Astro.url.searchParams.get("done");
+const doneText = done ? DONE[done] : undefined;
+---
+
+{!context || !detail || !proposal ? (
+  <NoWiki />
+) : (
+  <WikiLayout
+    title={`Proposed edit to ${proposal.title}`}
+    wiki={context.wiki}
+    access={context.access}
+    noindex
+  >
+    <div class="flex flex-col gap-6">
+      <div class="flex flex-col gap-1">
+        <span class="type-label text-muted">
+          <a href={toolHref(context.wiki, "proposals")} class="hover:underline">
+            Proposed edit
+          </a>{" "}
+          #{proposal.id}
+        </span>
+        <h1 class="text-[2.25rem] leading-[1.05] font-bold tracking-[-0.035em] md:text-[2.75rem]">
+          <a
+            href={wikiHref(context.wiki, proposal.title)}
+            class="hover:underline"
+          >
+            {proposal.title}
+          </a>
+        </h1>
+      </div>
+
+      {doneText && (
+        <p class="border-l-2 border-ink pl-3" role="status">
+          {doneText}
+        </p>
+      )}
+      {error && (
+        <p class="border-l-2 border-accent pl-3" role="alert">
+          {error}
+        </p>
+      )}
+
+      <dl
+        class="grid grid-cols-1 gap-4 border-y border-ink py-4 text-sm md:grid-cols-2"
+        data-proposal-status={proposal.status}
+      >
+        <div>
+          <dt class="type-label text-muted">Proposed</dt>
+          <dd>
+            {formatWikiDate(proposal.createdAt)} by @{detail.author}
+          </dd>
+        </div>
+        <div>
+          <dt class="type-label text-muted">Status</dt>
+          <dd>
+            {PROPOSAL_STATUS_LABELS[proposal.status]}
+            {proposal.decidedAt && ` · ${formatWikiDate(proposal.decidedAt)}`}
+            {detail.reviewer && ` by @${detail.reviewer}`}
+          </dd>
+        </div>
+        <div>
+          <dt class="type-label text-muted">Summary</dt>
+          <dd>{proposal.summary || <span class="text-muted">None</span>}</dd>
+        </div>
+        <div>
+          <dt class="type-label text-muted">Made from</dt>
+          <dd>
+            {base ? (
+              <a
+                href={toolHref(context.wiki, `revision/${String(base.id)}`)}
+                class="underline"
+              >
+                The page as of {formatWikiDate(base.createdAt)}
+              </a>
+            ) : (
+              "Nothing: a new page"
+            )}
+          </dd>
+        </div>
+        {proposal.status === "approved" && proposal.revisionId !== null && (
+          <div>
+            <dt class="type-label text-muted">Saved as</dt>
+            <dd>
+              <a
+                href={`${toolHref(context.wiki, "diff")}?to=${String(proposal.revisionId)}`}
+                class="underline"
+              >
+                Its revision
+              </a>
+            </dd>
+          </div>
+        )}
+        {proposal.note && (
+          <div class="md:col-span-2">
+            <dt class="type-label text-muted">Note from the reviewer</dt>
+            <dd class="whitespace-pre-line">{proposal.note}</dd>
+          </div>
+        )}
+      </dl>
+
+      {changedSince && (
+        <p class="border-l-2 border-accent pl-3 text-sm">
+          The page changed after this was proposed. The difference below is
+          against the page as it is now: approving replaces those later changes
+          too.
+        </p>
+      )}
+
+      <section class="flex flex-col gap-3" aria-labelledby="changes-label">
+        <h2 id="changes-label" class="type-label text-muted">
+          {pending
+            ? current
+              ? "Changes to the page as it is now"
+              : "The new page"
+            : "Changes it proposed"}
+        </h2>
+        <p class="type-label text-muted" data-diff-stats>
+          {stats.added} {stats.added === 1 ? "line" : "lines"} added ·{" "}
+          {stats.removed} {stats.removed === 1 ? "line" : "lines"} removed
+        </p>
+        <DiffTable lines={lines} label="Proposed changes, line by line" />
+      </section>
+
+      {preview !== null && (
+        <details class="border border-ink p-5">
+          <summary class="type-label cursor-pointer text-muted">
+            Preview of the proposed page
+          </summary>
+          <div class="prose prose-wiki mt-4 max-w-none" set:html={preview} />
+        </details>
+      )}
+
+      {pending && reviewer && (
+        <section
+          class="flex flex-col gap-4 border-t border-ink pt-5"
+          aria-labelledby="review-label"
+        >
+          <h2 id="review-label" class="type-label text-muted">
+            Review
+          </h2>
+          <form method="post">
+            <input type="hidden" name="intent" value="approve" />
+            <button type="submit" class={wikiButton("primary")}>
+              Approve and save
+            </button>
+          </form>
+          <form method="post" class="flex flex-col gap-3">
+            <input type="hidden" name="intent" value="decline" />
+            <label class="flex flex-col gap-2">
+              <span class="type-label text-muted">
+                Why not (sent to @{detail.author}, optional)
+              </span>
+              <textarea
+                name="note"
+                rows="3"
+                maxlength={PROPOSAL_LIMITS.note}
+                class={wikiInput}
+              >{note}</textarea>
+            </label>
+            <div>
+              <button type="submit" class={wikiButton("secondary")}>
+                Decline
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
+
+      {pending && isAuthor && (
+        <form method="post" class="border-t border-ink pt-5">
+          <input type="hidden" name="intent" value="withdraw" />
+          <button type="submit" class={wikiButton("secondary")}>
+            Withdraw this proposal
+          </button>
+        </form>
+      )}
+    </div>
+  </WikiLayout>
+)}

@@ -3,7 +3,7 @@
 import NoWiki from "../../../../../components/wiki/NoWiki.astro";
 import PageHeading from "../../../../../components/wiki/PageHeading.astro";
 import WikiLayout from "../../../../../layouts/WikiLayout.astro";
-import { canEditPage } from "../../../../../lib/wiki/access";
+import { canEditPage, canProposeTo } from "../../../../../lib/wiki/access";
 import {
   mainSiteRedirect,
   openWiki,
@@ -49,6 +49,7 @@ const revisions = context && page ? await pageHistory(context.db, page.id) : [];
         current="history"
         exists={page !== undefined && page.deletedAt === null}
         canEdit={canEditPage(context.access, page ?? null)}
+        canPropose={canProposeTo(context.access, page ?? null)}
         canManage={context.access.manage}
       />
       {page?.deletedAt && (

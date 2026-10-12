@@ -8,7 +8,9 @@ import { mailOf } from "../../lib/mail/outbox";
 import { minecraftExport } from "../../lib/minecraft/service";
 import { exportUserData } from "../../lib/profile/store";
 import { storageExport } from "../../lib/storage/account";
+import { proposalExport } from "../../lib/wiki/proposals";
 import { wikiExport } from "../../lib/wiki/store";
+import { watchExport } from "../../lib/wiki/watch";
 
 export const prerender = false;
 
@@ -24,8 +26,13 @@ export const GET: APIRoute = async (context) => {
     ...profile,
     storage: await storageExport(db, user.id),
     minecraft: await minecraftExport({ db }, user.id),
-    // Wikis you belong to, and the text of every edit you saved.
-    wiki: await wikiExport(db, user.id),
+    // Wikis you belong to, the text of every edit you saved or proposed, and what
+    // you watch.
+    wiki: {
+      ...(await wikiExport(db, user.id)),
+      proposals: await proposalExport(db, user.id),
+      watching: await watchExport(db, user.id),
+    },
     // Passkeys by name (their keys are only useful to check signatures), and the log.
     security: {
       passkeys: (await listPasskeys(db, user.id)).map((key) => ({

@@ -7,10 +7,11 @@
  */
 import NoWiki from "../../../components/wiki/NoWiki.astro";
 import PageHeading from "../../../components/wiki/PageHeading.astro";
+import WatchButton from "../../../components/wiki/WatchButton.astro";
 import WikiLayout from "../../../layouts/WikiLayout.astro";
 import { noStoreRedirect } from "../../../lib/auth/redirect";
 import { stackTables } from "../../../lib/post-html";
-import { canEditPage } from "../../../lib/wiki/access";
+import { canEditPage, canProposeTo } from "../../../lib/wiki/access";
 import { generatedPage } from "../../../lib/wiki/generated";
 import { sourceFor } from "../../../lib/wiki/sources";
 import { recipesForItem } from "../../../lib/wiki/recipes";
@@ -20,6 +21,7 @@ import {
   mainSiteRedirect,
   openWiki,
   privateHeaders,
+  publicPath,
 } from "../../../lib/wiki/page";
 import {
   linkedKeys,
@@ -42,6 +44,7 @@ import {
   titleKey,
   titlePath,
 } from "../../../lib/wiki/titles";
+import { watching } from "../../../lib/wiki/watch";
 import { toolHref, wikiHref } from "../../../lib/wiki/wikis";
 import { formatWikiDate, wikiButton } from "../../../lib/wiki/ui";
 
@@ -144,6 +147,11 @@ if (wiki && !title) Astro.response.status = 404;
 
 const exists = view?.kind === "page" && view.generatedBy === null;
 const canEdit = access ? canEditPage(access, page ?? null) : false;
+const canPropose = access ? canProposeTo(access, page ?? null) : false;
+const watched =
+  db && wiki && title && context?.user
+    ? await watching(db, context.user.id, wiki.id, titleKey(title))
+    : null;
 const hidden = wiki ? isHidden(wiki) : true;
 const description =
   view?.kind === "page" && view.plain
@@ -200,6 +208,7 @@ const { infobox, rest: pageHtml } =
         exists={exists}
         generated={view?.kind === "page" && view.generatedBy !== null}
         canEdit={canEdit}
+        canPropose={canPropose}
         canManage={access.manage}
       />
 
@@ -257,14 +266,16 @@ const { infobox, rest: pageHtml } =
                 : `${wiki.name} has no page called “${title}” yet.`}
           </p>
           <div class="flex flex-wrap gap-3">
-            {canEdit && !view.deleted && (
+            {(canEdit || canPropose) && !view.deleted && (
               <a
                 href={toolHref(wiki, "edit", title)}
                 class={wikiButton("primary")}
               >
-                {namespaceOf(title) === "category"
-                  ? "Describe this category"
-                  : "Create this page"}
+                {canPropose
+                  ? "Propose this page"
+                  : namespaceOf(title) === "category"
+                    ? "Describe this category"
+                    : "Create this page"}
               </a>
             )}
             {view.deleted && access.manage && page && (
@@ -293,7 +304,7 @@ const { infobox, rest: pageHtml } =
           </div>
           {!access.signedIn && (
             <p class="text-sm text-muted">
-              Members of this wiki can write pages once signed in.
+              Sign in to propose this page: the wiki's members review proposals.
             </p>
           )}
         </div>
@@ -355,12 +366,25 @@ const { infobox, rest: pageHtml } =
         </footer>
       )}
 
-      {view?.kind === "page" && view.updatedAt && (
-        <p class="type-label text-muted">
-          Last edited {formatWikiDate(view.updatedAt)}
-          {page?.protection === "owners" &&
-            " · Protected: only owners can edit"}
-        </p>
+      {((view?.kind === "page" && view.updatedAt) || watched) && (
+        <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-1">
+          {view?.kind === "page" && view.updatedAt && (
+            <p class="type-label text-muted">
+              Last edited {formatWikiDate(view.updatedAt)}
+              {page?.protection === "owners" &&
+                " · Protected: only owners can edit"}
+            </p>
+          )}
+          {watched && !(view?.kind === "page" && view.generatedBy !== null) && (
+            <WatchButton
+              wiki={wiki}
+              title={title}
+              watching={watched.page}
+              wikiWatched={watched.wiki}
+              back={publicPath(Astro.url)}
+            />
+          )}
+        </div>
       )}
     </article>
   </WikiLayout>

@@ -31,6 +31,15 @@ const tools = [
   { label: "Wanted pages", href: toolHref(wiki, "wanted") },
   { label: "Components", href: toolHref(wiki, "components") },
   { label: "Log", href: toolHref(wiki, "log") },
+  ...(access?.signedIn
+    ? [
+        {
+          label: access.edit ? "Proposed edits" : "Your proposals",
+          href: toolHref(wiki, "proposals"),
+        },
+        { label: "Your watchlist", href: "/-/watchlist" },
+      ]
+    : []),
   ...(access?.edit
     ? [
         { label: "Create a page", href: toolHref(wiki, "create") },

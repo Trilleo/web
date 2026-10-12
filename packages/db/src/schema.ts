@@ -1339,6 +1339,8 @@ export const wikiLog = pgTable(
         "delete",
         "restore",
         "protect",
+        "proposal-approved",
+        "proposal-declined",
       ],
     }).notNull(),
     /** The page's title, when it's about one. */
@@ -1427,6 +1429,86 @@ export const wikiFiles = pgTable(
   ],
 );
 
+/** pending: waiting for a member; the rest are decided (or taken back). */
+export const wikiProposalStatus = pgEnum("wiki_proposal_status", [
+  "pending",
+  "approved",
+  "declined",
+  "withdrawn",
+]);
+
+/**
+ * An edit someone outside a wiki proposed (lib/wiki/proposals.ts): the page's new
+ * text, made from revision `baseRevisionId` (null: a new page). A member approves it
+ * (saved as the proposer's revision) or declines it with a note.
+ */
+export const wikiProposals = pgTable(
+  "wiki_proposals",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    wikiId: integer("wiki_id")
+      .notNull()
+      .references(() => wikis.id, { onDelete: "cascade" }),
+    /** The page's title when proposed. */
+    title: text("title").notNull(),
+    baseRevisionId: integer("base_revision_id"),
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    summary: text("summary").notNull().default(""),
+    status: wikiProposalStatus("status").notNull().default("pending"),
+    reviewerId: uuid("reviewer_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    /** Why it was declined (shown to the proposer). */
+    note: text("note").notNull().default(""),
+    /** The revision it became. */
+    revisionId: integer("revision_id"),
+    createdAt: createdAt(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("wiki_proposals_wiki_idx").on(
+      table.wikiId,
+      table.status,
+      table.createdAt,
+    ),
+    index("wiki_proposals_author_idx").on(table.authorId, table.createdAt),
+  ],
+);
+
+/**
+ * What someone watches: a page (by key) or, with an empty key, a whole wiki. Changes
+ * show on their watchlist and in the daily digest email.
+ */
+export const wikiWatches = pgTable(
+  "wiki_watches",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    wikiId: integer("wiki_id")
+      .notNull()
+      .references(() => wikis.id, { onDelete: "cascade" }),
+    /** A page's key, or "" for the whole wiki. */
+    pageKey: text("page_key").notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.wikiId, table.pageKey] }),
+    index("wiki_watches_page_idx").on(table.wikiId, table.pageKey),
+  ],
+);
+
+/** When someone's last watchlist digest went out: the next covers what came after. */
+export const wikiDigests = pgTable("wiki_digests", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  sentAt: timestamp("sent_at", { withTimezone: true }).notNull(),
+});
+
 /**
  * Signing in on wiki.trilleo.net with the session from www (lib/wiki/handoff.ts):
  * a one-time ticket, kept as its SHA-256, tied to the browser that asked for it by
@@ -1492,3 +1574,5 @@ export type WikiMember = typeof wikiMembers.$inferSelect;
 export type WikiPage = typeof wikiPages.$inferSelect;
 export type WikiRevision = typeof wikiRevisions.$inferSelect;
 export type WikiLogEntry = typeof wikiLog.$inferSelect;
+export type WikiProposal = typeof wikiProposals.$inferSelect;
+export type WikiProposalStatus = (typeof wikiProposalStatus.enumValues)[number];

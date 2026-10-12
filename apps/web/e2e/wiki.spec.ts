@@ -1,6 +1,14 @@
+import AxeBuilder from "@axe-core/playwright";
 import { randomBytes } from "node:crypto";
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { continueAs, freshLogin, hydrated } from "./support";
+import {
+  adminPage,
+  continueAs,
+  freshLogin,
+  hydrated,
+  openMail,
+} from "./support";
+import { githubEmail } from "./fake-github";
 
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
@@ -190,15 +198,15 @@ test("the admin starts a wiki, writes, moves and restores pages, and adds an edi
   await expect(admin.locator("[data-recent]")).toContainText(`@${login}`);
 });
 
-test("people outside a wiki can read it but not edit it", async ({
+test("people outside a wiki can read it, and propose edits once signed in", async ({
   browser,
   baseURL,
 }) => {
   const page = await wikiPage(browser, baseURL);
-  await signIn(page, freshLogin("reader"), "/skygrid/Main_Page");
+  await page.goto("/skygrid/Main_Page");
   await page.getByRole("link", { name: "View source" }).click();
   await expect(
-    page.getByText("Only this wiki's members can edit it."),
+    page.getByText("Sign in to edit: only this wiki's members can."),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Save" })).toHaveCount(0);
   // Posted from the page itself: the wiki's host only resolves in the browser.
@@ -210,6 +218,148 @@ test("people outside a wiki can read it but not edit it", async ({
     return response.status;
   });
   expect(status).toBe(403);
+
+  await signIn(page, freshLogin("reader"), "/skygrid/Main_Page");
+  await page.getByRole("link", { name: "Propose a change" }).click();
+  await expect(
+    page.getByText("your change goes to them as a proposal"),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Propose" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save" })).toHaveCount(0);
+});
+
+test("proposed edits are reviewed, and watchers hear about changes", async ({
+  browser,
+  baseURL,
+}) => {
+  // Three people, emails and a digest: longer than the default timeout.
+  test.slow();
+  const slug = `e2e-${randomBytes(3).toString("hex")}`;
+  const admin = await wikiPage(browser, baseURL);
+  await signIn(admin, "admin", "/");
+  await admin.goto("/-/new");
+  await admin.getByLabel("Address").fill(slug);
+  await admin
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("Proposals");
+  await admin.getByRole("textbox", { name: "Code", exact: true }).fill("prp");
+  await admin.getByRole("button", { name: "Create wiki" }).click();
+  await expect(admin).toHaveURL(`/${slug}/`);
+  await admin.goto(`/${slug}/-/edit/Rules`);
+  await admin.getByLabel("Text").fill("Be kind.\n");
+  await admin.getByRole("button", { name: "Save" }).click();
+
+  const editorLogin = freshLogin("reviewer");
+  const editor = await wikiPage(browser, baseURL);
+  await signIn(editor, editorLogin, "/");
+  await admin.goto(`/${slug}/-/settings`);
+  await admin.getByLabel("Username").fill(editorLogin);
+  await admin.getByRole("button", { name: "Add or change member" }).click();
+  await expect(admin.locator("[data-members]")).toContainText(
+    `@${editorLogin}`,
+  );
+
+  // Someone outside the wiki proposes a change.
+  const proposerLogin = freshLogin("proposer");
+  const proposer = await wikiPage(browser, baseURL);
+  await signIn(proposer, proposerLogin, `/${slug}/Rules`);
+  await proposer.getByRole("link", { name: "Propose a change" }).click();
+  await proposer.getByLabel("Text").fill("Be kind.\nNo griefing.\n");
+  await proposer.getByLabel("Summary of your change").fill("Add a rule");
+  await proposer.getByRole("button", { name: "Propose" }).click();
+  await expect(proposer).toHaveURL(new RegExp(`/${slug}/-/proposals/\\d+$`));
+  await expect(proposer.locator("[data-proposal-status]")).toHaveAttribute(
+    "data-proposal-status",
+    "pending",
+  );
+  await expect(proposer.locator("[data-diff-stats]")).toContainText(
+    "1 line added",
+  );
+
+  // The editor hears about it and approves it.
+  const mainAdmin = await adminPage(browser, baseURL);
+  const proposalMail = await openMail(
+    mainAdmin,
+    githubEmail(editorLogin) ?? "",
+    "wiki-proposal",
+  );
+  expect(proposalMail).toContain(`@${proposerLogin} proposed an edit`);
+  await editor.goto(`/${slug}/-/proposals`);
+  await editor.locator("[data-proposals]").getByRole("link").nth(1).click();
+  await editor.getByRole("button", { name: "Approve and save" }).click();
+  await expect(editor.getByRole("status")).toContainText("Approved");
+  await editor.goto(`/${slug}/Rules`);
+  await expect(editor.locator(".prose")).toContainText("No griefing.");
+  await editor.goto(`/${slug}/-/history/Rules`);
+  await expect(editor.locator("[data-revision]").first()).toContainText(
+    `@${proposerLogin}`,
+  );
+  const decision = await openMail(
+    mainAdmin,
+    githubEmail(proposerLogin) ?? "",
+    "wiki-decision",
+  );
+  expect(decision).toContain("Your edit is live");
+
+  // A second proposal is declined with a note.
+  await proposer.goto(`/${slug}/-/edit/Rules`);
+  await proposer.getByLabel("Text").fill("Anything goes.\n");
+  await proposer.getByRole("button", { name: "Propose" }).click();
+  const second = proposer.url();
+  await editor.goto(second);
+  await editor.getByLabel(/Why not/).fill("That undoes the rules.");
+  await editor.getByRole("button", { name: "Decline" }).click();
+  await proposer.goto(second);
+  await expect(proposer.locator("[data-proposal-status]")).toContainText(
+    "That undoes the rules.",
+  );
+
+  // The proposer watches the page now; the editor's edit shows on the watchlist
+  // and goes out in the digest.
+  await editor.goto(`/${slug}/-/edit/Rules`);
+  await editor.getByLabel("Text").fill("Be kind.\nNo griefing.\nNo spam.\n");
+  await editor.getByLabel("Summary of your change").fill("Spam rule");
+  await editor.getByRole("button", { name: "Save" }).click();
+  await proposer.goto("/-/watchlist");
+  await expect(proposer.locator("[data-watchlist]")).toContainText(
+    `@${editorLogin}`,
+  );
+  await expect(proposer.locator("[data-watches]")).toContainText("Rules");
+  await mainAdmin.goto("/admin/mail/");
+  await mainAdmin
+    .getByRole("button", { name: "Send due wiki digests" })
+    .click();
+  const digest = await openMail(
+    mainAdmin,
+    githubEmail(proposerLogin) ?? "",
+    "wiki-digest",
+  );
+  expect(digest).toContain(`Rules: an edit by @${editorLogin}`);
+
+  // The new pages pass axe, signed in.
+  for (const [who, path] of [
+    [proposer, "/-/watchlist"],
+    [proposer, second],
+    [editor, `/${slug}/-/proposals?show=all`],
+    [proposer, `/${slug}/-/edit/Rules`],
+  ] as const) {
+    await who.goto(path);
+    const { violations } = await new AxeBuilder({ page: who })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      .analyze();
+    expect(violations.map((v) => `${path} ${v.id}: ${v.help}`)).toEqual([]);
+  }
+
+  // Watching and unwatching by hand.
+  await proposer.goto(`/${slug}/Rules`);
+  await proposer.getByRole("button", { name: "Unwatch this page" }).click();
+  await expect(
+    proposer.getByRole("button", { name: "Watch this page" }),
+  ).toBeVisible();
+  await proposer.goto(`/${slug}/-/recent`);
+  await proposer.getByRole("button", { name: "Watch this wiki" }).click();
+  await proposer.goto(`/${slug}/Rules`);
+  await expect(proposer.getByText("Watched with the whole wiki")).toBeVisible();
 });
 
 test("pages use components: infobox beside the text, tabs, notices and stubs", async ({
