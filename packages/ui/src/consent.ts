@@ -34,7 +34,12 @@ export interface Consent extends ConsentChoice {
  * consent.test.ts checks it), and everything under these prefixes.
  */
 export const PREFERENCE_KEYS = ["trilleo-theme"] as const;
-export const PREFERENCE_PREFIXES = ["trilleo:tool:", "trilleo:game:"] as const;
+export const PREFERENCE_PREFIXES = [
+  "trilleo:tool:",
+  "trilleo:game:",
+  // Study progress (@trilleo/study's client store).
+  "trilleo:study:",
+] as const;
 
 type Win = Pick<Window, "localStorage" | "sessionStorage" | "navigator">;
 

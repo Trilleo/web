@@ -8,6 +8,7 @@ import { mailOf } from "../../lib/mail/outbox";
 import { minecraftExport } from "../../lib/minecraft/service";
 import { exportUserData } from "../../lib/profile/store";
 import { storageExport } from "../../lib/storage/account";
+import { studyExport } from "../../lib/study/records";
 import { proposalExport } from "../../lib/wiki/proposals";
 import { wikiExport } from "../../lib/wiki/store";
 import { watchExport } from "../../lib/wiki/watch";
@@ -26,6 +27,8 @@ export const GET: APIRoute = async (context) => {
     ...profile,
     storage: await storageExport(db, user.id),
     minecraft: await minecraftExport({ db }, user.id),
+    // Study progress: every review, answer and lesson finished, and the settings.
+    study: await studyExport(db, user.id),
     // Wikis you belong to, the text of every edit you saved or proposed, and what
     // you watch.
     wiki: {

@@ -1,4 +1,5 @@
 ---
+import { Dashboard } from "@trilleo/study/react";
 import DisplayTitle from "../../components/DisplayTitle.astro";
 import ExamList from "../../components/study/ExamList.astro";
 import StudyLayout from "../../components/study/StudyLayout.astro";
@@ -79,6 +80,25 @@ const features = [
         {STUDY_DESCRIPTION}
       </p>
     </div>
+
+    {subjects.length > 0 && (
+      <section
+        aria-labelledby="study-yours"
+        class="grid-swiss mt-14 gap-y-6 md:mt-20"
+      >
+        <h2 id="study-yours" class="type-label col-span-4 md:col-span-2">
+          Your study
+        </h2>
+        <div class="col-span-4 md:col-span-6 xl:col-span-10">
+          <Dashboard client:load />
+          <noscript>
+            <p class="study-panel-note">
+              Your reviews and progress need JavaScript; the lessons don’t.
+            </p>
+          </noscript>
+        </div>
+      </section>
+    )}
 
     <div class="grid-swiss mt-14 gap-y-10 md:mt-20">
       <h2 class="type-label col-span-4 md:col-span-2">Subjects</h2>

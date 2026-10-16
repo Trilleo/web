@@ -23,6 +23,7 @@
  * unit, `expression:` an algebraic answer (`variables: x, y` if not every name in it
  * is one), `text:` accepted words (`|` between alternatives), `>` the explanation.
  */
+import { splitPin } from "./ids";
 import {
   equivalent,
   namesIn,
@@ -45,6 +46,8 @@ export type QuestionKind =
 /** A question as written (Markdown sources), before rendering. */
 export interface QuestionSource {
   prompt: string;
+  /** A `{#name}` after the prompt: keeps the question's ID through rewording (ids.ts). */
+  pin: string | null;
   kind: QuestionKind;
   options: { text: string; correct: boolean }[];
   /** number: the answer as written ("0.5 A"); expression: the expression; text: alternatives joined by " | ". */
@@ -76,6 +79,7 @@ export function parseQuiz(body: string): QuizParse {
     else {
       questions.push({
         prompt: current.prompt,
+        pin: current.pin,
         kind: current.kind,
         options: current.options,
         answer: current.answer,
@@ -91,8 +95,10 @@ export function parseQuiz(body: string): QuizParse {
     const line = raw.trim();
     if (line.startsWith("?")) {
       finish();
+      const { text, pin } = splitPin(line.slice(1).trim());
       current = {
-        prompt: line.slice(1).trim(),
+        prompt: text,
+        pin,
         kind: "text",
         options: [],
         answer: "",

@@ -1528,6 +1528,52 @@ export const wikiSignInTickets = pgTable(
   (table) => [index("wiki_sign_in_tickets_expires_idx").on(table.expiresAt)],
 );
 
+/**
+ * The study section's learning record (packages/study's progress.ts): what someone
+ * did, one row per thing, as the browser recorded it. A review (a card graded 1–4),
+ * an attempt (a quiz answer, right or wrong), a lesson studied, a card made from a
+ * question. Schedules, mistakes and mastery are worked out from these, never stored,
+ * so the browser's copy and the account's can be merged by adding up the rows. `id`
+ * is the browser's own (a UUID), which makes sending the same rows twice harmless.
+ * Goes with the account.
+ */
+export const studyEvents = pgTable(
+  "study_events",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    id: uuid("id").notNull(),
+    kind: text("kind", {
+      enum: ["review", "attempt", "studied", "card"],
+    }).notNull(),
+    /** The subject's slug. */
+    subject: text("subject").notNull(),
+    /** What it's about: a card's, question's or lesson's ID within the subject. */
+    item: text("item").notNull(),
+    /** Per kind: { grade } for reviews, { correct, response } for attempts. */
+    data: jsonb("data").notNull(),
+    /** When it happened, as the browser saw it. */
+    at: timestamp("at", { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.id] }),
+    index("study_events_user_at_idx").on(table.userId, table.at),
+  ],
+);
+
+/** Someone's study settings (new cards a day, target recall). Goes with the account. */
+export const studySettings = pgTable("study_settings", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  settings: jsonb("settings").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type UserIdentity = typeof userIdentities.$inferSelect;
@@ -1576,3 +1622,5 @@ export type WikiRevision = typeof wikiRevisions.$inferSelect;
 export type WikiLogEntry = typeof wikiLog.$inferSelect;
 export type WikiProposal = typeof wikiProposals.$inferSelect;
 export type WikiProposalStatus = (typeof wikiProposalStatus.enumValues)[number];
+export type StudyEventRow = typeof studyEvents.$inferSelect;
+export type StudySettingsRow = typeof studySettings.$inferSelect;

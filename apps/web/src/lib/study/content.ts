@@ -7,6 +7,7 @@
  */
 import {
   createRenderer,
+  type Deck,
   lessonsOf,
   loadSubjects,
   mergeGlossary,
@@ -86,6 +87,8 @@ export function renderLesson(lesson: Lesson): Promise<RenderedLesson> {
   if (!result) {
     result = rendererFor(lesson.subject).then((renderer) => {
       const output = renderer.render({
+        subject: lesson.subject,
+        slug: lesson.slug,
         number: lesson.number,
         title: lesson.title,
         body: lesson.body,
@@ -168,6 +171,8 @@ export async function renderOverview(subject: Subject): Promise<string> {
   if (!subject.overview) return "";
   const renderer = await rendererFor(subject.slug);
   const output = renderer.render({
+    subject: subject.slug,
+    slug: "overview",
     number: "0",
     title: subject.title,
     body: subject.overview,
@@ -177,4 +182,41 @@ export async function renderOverview(subject: Subject): Promise<string> {
       `study/${subject.slug}/subject.md has problems:\n- ${output.errors.join("\n- ")}`,
     );
   return output.html;
+}
+
+/**
+ * A subject's deck: its lessons, flashcards and quiz questions, as the review,
+ * mistakes and practice pages (and the dashboard) use them in the browser. Served as
+ * /study/decks/<subject>.json.
+ */
+export async function subjectDeck(subject: Subject): Promise<Deck> {
+  const lessons = lessonsOf(subject);
+  const results = await Promise.all(lessons.map(renderLesson));
+  return {
+    subject: subject.slug,
+    title: subject.title,
+    zh: subject.zh,
+    exams: subject.exams,
+    lessons: lessons.map((lesson) => ({
+      slug: lesson.slug,
+      number: lesson.number,
+      title: lesson.title,
+    })),
+    cards: lessons.flatMap((lesson, index) =>
+      (results[index]?.cards ?? []).map((card) => ({
+        ...card,
+        lesson: lesson.slug,
+      })),
+    ),
+    questions: lessons.flatMap((lesson, index) =>
+      (results[index]?.islands ?? []).flatMap((island) =>
+        island.name === "quiz"
+          ? island.props.questions.map((question) => ({
+              ...question,
+              lesson: lesson.slug,
+            }))
+          : [],
+      ),
+    ),
+  };
 }

@@ -3,7 +3,7 @@
  * build used to read them (quiz.ts); the answer and its explanation open below each
  * one. Without JavaScript the questions still show, and "Show answer" still opens.
  */
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { checkAnswer, type CheckResult } from "../quiz";
 import type { QuizProps, QuizQuestion } from "../types";
 
@@ -26,7 +26,7 @@ function Question({
   question: QuizQuestion;
   index: number;
   quizId: string;
-  onResult: (result: CheckResult) => void;
+  onResult: (result: CheckResult, response: string) => void;
 }) {
   const [typed, setTyped] = useState("");
   const [chosen, setChosen] = useState<number[]>([]);
@@ -38,7 +38,17 @@ function Question({
   const check = () => {
     const next = checkAnswer(question.check, isChoice ? chosen : typed);
     setResult(next);
-    if (!next.message) onResult(next);
+    // Choices are kept as their numbers ("#1,#3"), so the mistake log can show them.
+    if (!next.message)
+      onResult(
+        next,
+        isChoice
+          ? [...chosen]
+              .sort((a, b) => a - b)
+              .map((option) => `#${String(option + 1)}`)
+              .join(",")
+          : typed.trim(),
+      );
   };
   const toggle = (option: number) => {
     setResult(null);
@@ -73,10 +83,15 @@ function Question({
             <p className="study-options-hint">Choose every right answer.</p>
           )}
           {question.options.map((option, optionIndex) => (
-            // eslint-disable-next-line jsx-a11y-x/label-has-associated-control -- the option's text is rendered HTML (maths), which the rule can't see
             <label key={optionIndex} className="study-option">
               <input
                 type={question.kind === "multiple" ? "checkbox" : "radio"}
+                // Empty for options with text of their own.
+                aria-label={
+                  question.optionLabels[optionIndex] === ""
+                    ? undefined
+                    : question.optionLabels[optionIndex]
+                }
                 name={id}
                 checked={chosen.includes(optionIndex)}
                 onChange={() => {
@@ -146,7 +161,24 @@ function Question({
   );
 }
 
-export function Quiz({ id, title, questions }: QuizProps) {
+export interface QuizHandlers {
+  /** Each checked answer (not ones refused unread, like an empty field). */
+  onAttempt?: (
+    question: QuizQuestion,
+    correct: boolean,
+    response: string,
+  ) => void;
+  /** Shown under the title (where answers are kept). */
+  note?: ReactNode;
+}
+
+export function Quiz({
+  id,
+  title,
+  questions,
+  onAttempt,
+  note,
+}: Omit<QuizProps, "subject" | "lesson"> & QuizHandlers) {
   // First attempt per question counts for the score; later tries don't change it.
   const [scores, setScores] = useState<Record<number, boolean>>({});
   const answered = Object.keys(scores).length;
@@ -162,6 +194,7 @@ export function Quiz({ id, title, questions }: QuizProps) {
             ? `${String(questions.length)} ${questions.length === 1 ? "question" : "questions"}`
             : `${String(right)} of ${String(answered)} right first time`}
         </p>
+        {note && <p className="study-quiz-note">{note}</p>}
       </div>
       <ol className="study-questions">
         {questions.map((question, index) => (
@@ -170,7 +203,8 @@ export function Quiz({ id, title, questions }: QuizProps) {
             question={question}
             index={index}
             quizId={id}
-            onResult={(result) => {
+            onResult={(result, response) => {
+              onAttempt?.(question, result.correct, response);
               setScores((current) =>
                 index in current
                   ? current

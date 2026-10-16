@@ -12,6 +12,7 @@ export {
   browserStorage,
   isStoredItem,
   moveItems,
+  preferenceStore,
 } from "./storage";
 export type { ToolStorage } from "./storage";
 export { useToolItems, useToolStorage } from "./useToolItems";

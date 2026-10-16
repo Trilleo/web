@@ -98,6 +98,8 @@ describe("openDatabase", () => {
       "skygrid_saves",
       "skygrid_trades",
       "storage_events",
+      "study_events",
+      "study_settings",
       "tool_data",
       "upload_strikes",
       "user_identities",

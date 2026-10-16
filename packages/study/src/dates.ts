@@ -14,6 +14,11 @@ export function daysUntil(date: string, now: Date): number {
   return Math.round((exam - today) / 86_400_000);
 }
 
+/** The day (YYYY-MM-DD) a moment falls on in China, where streaks and daily limits count. */
+export function dayOf(moment: Date): string {
+  return new Date(moment.getTime() + BEIJING).toISOString().slice(0, 10);
+}
+
 /** "today", "tomorrow", "in 12 days", "past". */
 export function daysLabel(days: number): string {
   if (days < 0) return "past";

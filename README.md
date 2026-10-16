@@ -103,7 +103,9 @@ The study section (`/study/`) is built from the Markdown in `study/`: each subje
 folder of numbered units and lessons, with maths, numbered definitions and formulas,
 quizzes, flashcards, plots and circuits (`study/README.md` says how to write them).
 `pnpm dev` also shows draft subjects, like the sample one; production builds leave them
-out. Lessons are checked as the site builds: a mistake fails the build.
+out. Lessons are checked as the site builds: a mistake fails the build. Progress
+(flashcard reviews scheduled with FSRS, quiz answers, the mistake log) is kept in the
+browser when signed out and in the account (`study_events`) when signed in.
 
 Lint, format, and TypeScript base configs live at the repo root (`eslint.config.js`,
 `.prettierrc.json`, `tsconfig.base.json`).

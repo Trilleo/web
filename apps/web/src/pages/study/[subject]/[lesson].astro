@@ -6,6 +6,7 @@ import {
   neighbours,
   studyPath,
 } from "@trilleo/study";
+import { LessonTracker } from "@trilleo/study/react";
 import { ArrowLeftIcon, ArrowRightIcon } from "@trilleo/ui";
 import type { GetStaticPaths } from "astro";
 import TableOfContents from "../../../components/TableOfContents.astro";
@@ -136,6 +137,12 @@ const meta = [
 
     <div class="study-prose prose col-span-4 md:col-span-7 xl:col-span-7 xl:col-start-3">
       <LessonBody lesson={rendered} />
+      <!-- Hydrates as the end of the lesson comes into view, which marks it studied. -->
+      <LessonTracker
+        client:visible
+        subject={subject.slug}
+        lesson={lesson.slug}
+      />
     </div>
 
     <nav

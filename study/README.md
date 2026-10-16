@@ -64,6 +64,11 @@ Quizzes: `?` starts a question; then options (`- [x]` right, `- [ ]` wrong), or
 `expression: u^2/R` (checked for equivalence; `variables: u, R`), or `text: farad | F`.
 `>` lines explain the answer. Write an explanation for every question.
 
+Review history follows each card's front and each question's prompt: change the
+text and it starts fresh. To reword one and keep its history, give it a name first:
+end the card's line, or the question's `?` line, with `{#name}` (lower-case letters,
+digits and hyphens, unique in the lesson).
+
 Circuits: parts between grid points, at least 2 apart: `R1 0,0 4,0 1k`, `C1 …`,
 `L1 …`, `V1 0,4 0,0 12V` (from − to +), `I1 0,4 0,0 3mA` (flowing first → second);
 `W 0,4 4,4 8,4` wires (a point on a wire joins it), `G 0,4` ground, `label out 4,0`.

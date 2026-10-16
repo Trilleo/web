@@ -9,7 +9,13 @@ const renderer = createRenderer({
     path === "figures/known.webp" ? "/_astro/known.webp" : null,
 });
 const render = (body: string) =>
-  renderer.render({ number: "2.3", title: "Lesson", body });
+  renderer.render({
+    subject: "circuits",
+    slug: "kcl",
+    number: "2.3",
+    title: "Lesson",
+    body,
+  });
 
 describe("lessons", () => {
   test("number their headings like a textbook", () => {
@@ -121,6 +127,58 @@ f(x) = x^2
     expect(result.errors).toHaveLength(4);
   });
 
+  test("give cards and questions stable IDs, pinned or from their text", () => {
+    const result = render(`::: cards
+Front :: Back
+Pinned front :: Back {#pinned}
+:::
+
+::: quiz
+? One?
+answer: 1
+
+? Two? {#two}
+answer: 2
+:::`);
+    expect(result.errors).toEqual([]);
+    const [plain, pinned] = result.cards;
+    expect(plain?.id).toMatch(/^c:kcl:[0-9a-z]{7}$/);
+    expect(pinned).toMatchObject({ id: "c:kcl:pinned", back: "Back" });
+    const quiz = result.islands[0];
+    if (quiz?.name !== "quiz") throw new Error("no quiz");
+    expect(quiz.props).toMatchObject({ subject: "circuits", lesson: "kcl" });
+    expect(quiz.props.questions.map((question) => question.id)).toEqual([
+      expect.stringMatching(/^q:kcl:[0-9a-z]{7}$/),
+      "q:kcl:two",
+    ]);
+    // The same text gives the same ID on every build; a change gives a new one.
+    expect(render("::: cards\nFront :: Other back\n:::").cards[0]?.id).toBe(
+      plain?.id,
+    );
+    expect(render("::: cards\nFront! :: Back\n:::").cards[0]?.id).not.toBe(
+      plain?.id,
+    );
+  });
+
+  test("name maths-only options in plain text", () => {
+    const quiz = render(
+      "::: quiz\n? Pick\n- [x] $u_{ab} = -u_{ba}$\n- [ ] **Never**\n:::",
+    ).islands[0];
+    if (quiz?.name !== "quiz") throw new Error("no quiz");
+    expect(quiz.props.questions[0]?.optionLabels).toEqual([
+      "u_{ab} = -u_{ba}",
+      "",
+    ]);
+  });
+
+  test("refuse two cards or questions with one ID", () => {
+    expect(render("::: cards\nA :: 1\nA :: 2\n:::").errors).toHaveLength(1);
+    expect(
+      render("::: quiz\n? A {#x}\nanswer: 1\n\n? B {#x}\nanswer: 2\n:::")
+        .errors,
+    ).toHaveLength(1);
+  });
+
   test("resolve figures", () => {
     expect(render("![A bridge](figures/known.webp)").html).toContain(
       'src="/_astro/known.webp"',
@@ -189,6 +247,8 @@ describe("study/ content", () => {
             figures.has(`${subject.slug}/${path}`) ? `/${path}` : null,
         });
         const result = lessonRenderer.render({
+          subject: subject.slug,
+          slug: lesson.slug,
           number: lesson.number,
           title: lesson.title,
           body: lesson.body,

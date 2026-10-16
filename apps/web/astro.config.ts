@@ -5,7 +5,7 @@ import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
 import type { AstroIntegration } from "astro";
 import { defineConfig } from "astro/config";
-import { SITE_URL, isPrivatePath } from "./src/lib/site";
+import { SITE_URL, inSitemap } from "./src/lib/site";
 
 /**
  * The app image has no node_modules (every new layer is a slow upload to SWR in
@@ -55,8 +55,9 @@ export default defineConfig({
   adapter: node({ mode: "standalone" }),
   integrations: [
     react(),
-    // The sitemap would also list server pages such as /admin/; leave those out.
-    sitemap({ filter: (page) => !isPrivatePath(new URL(page).pathname) }),
+    // The sitemap would also list server pages such as /admin/, and pages only about
+    // the visitor's own study records; leave those out.
+    sitemap({ filter: (page) => inSitemap(new URL(page).pathname) }),
     bundleServerDependencies,
   ],
   markdown: {

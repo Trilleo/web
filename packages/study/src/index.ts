@@ -5,6 +5,9 @@
  * widgets are `./react`; KaTeX's stylesheet is `./katex.css`.
  */
 export * from "./content";
+export * from "./ids";
+export * from "./progress";
+export { dayOf } from "./dates";
 export * from "./front-matter";
 export * from "./types";
 export * from "./render";

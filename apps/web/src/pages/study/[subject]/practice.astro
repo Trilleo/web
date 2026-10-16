@@ -1,0 +1,52 @@
+---
+import { findSubject, studyPath } from "@trilleo/study";
+import { Practice } from "@trilleo/study/react";
+import type { GetStaticPaths } from "astro";
+import StudyLayout from "../../../components/study/StudyLayout.astro";
+import { breadcrumbJsonLd } from "../../../lib/seo";
+import { studySubjects } from "../../../lib/study/content";
+
+export const getStaticPaths = (() =>
+  studySubjects().map((subject) => ({
+    params: { subject: subject.slug },
+  }))) satisfies GetStaticPaths;
+
+const subject = findSubject(studySubjects(), Astro.params.subject);
+if (!subject) return Astro.rewrite("/404");
+const path = `/study/${subject.slug}/practice/`;
+---
+
+<StudyLayout
+  title={`Practice · ${subject.title}`}
+  description={`Questions from ${subject.title}, leaning towards the ones you missed.`}
+  subject={subject}
+  current="practice"
+  noindex
+  crumbs={[
+    { label: subject.title, href: studyPath(subject.slug) },
+    { label: "Practice" },
+  ]}
+  jsonLd={[
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Study", path: "/study/" },
+      { name: subject.title, path: studyPath(subject.slug) },
+      { name: "Practice", path },
+    ]),
+  ]}
+>
+  <div class="grid-swiss px-page gap-y-8 pt-10 pb-24 md:pt-14">
+    <header class="col-span-4 flex flex-col gap-3 md:col-span-6 md:col-start-3 xl:col-span-7 xl:col-start-3">
+      <p class="type-label text-muted">{subject.title}</p>
+      <h1 class="study-heading text-[2.25rem] leading-tight md:text-5xl">
+        Practice
+      </h1>
+    </header>
+    <div class="col-span-4 md:col-span-6 md:col-start-3 xl:col-span-7 xl:col-start-3">
+      <Practice client:load subject={subject.slug} />
+      <noscript>
+        <p class="study-panel-note">Practice needs JavaScript.</p>
+      </noscript>
+    </div>
+  </div>
+</StudyLayout>

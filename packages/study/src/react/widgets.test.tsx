@@ -13,6 +13,8 @@ afterEach(cleanup);
 /** Widgets' props as a lesson's renderer makes them. */
 function island(body: string): Island {
   const [first] = createRenderer().render({
+    subject: "s",
+    slug: "l",
     number: "1.1",
     title: "T",
     body,

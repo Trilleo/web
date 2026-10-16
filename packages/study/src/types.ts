@@ -27,14 +27,24 @@ export interface FormulaEntry {
 }
 
 export interface CardEntry {
+  /** Stable within the subject (ids.ts): `c:<lesson>:<key>`. */
+  id: string;
   front: string;
   back: string;
 }
 
 export interface QuizQuestion {
+  /** Stable within the subject (ids.ts): `q:<lesson>:<key>`. */
+  id: string;
   kind: QuestionKind;
   prompt: string;
   options: string[];
+  /**
+   * For options with maths, plain text (maths as TeX) naming its button, since an
+   * option that's only maths has no text a label can use; "" for the others, which
+   * their visible text names.
+   */
+  optionLabels: string[];
   /** The right answer, shown on request (HTML). */
   answer: string;
   explanation: string;
@@ -43,6 +53,9 @@ export interface QuizQuestion {
 
 export interface QuizProps {
   id: string;
+  /** The subject's and lesson's slugs, for recording answers. */
+  subject: string;
+  lesson: string;
   title: string;
   questions: QuizQuestion[];
 }

@@ -18,6 +18,7 @@ const sections = [
   { slug: "storage", text: "Browser storage" },
   { slug: "control", text: "Your choices" },
 ] as const;
+import { STUDY_STORAGE_KEY } from "@trilleo/study/client";
 ---
 
 <InfoLayout path="/legal/cookies/" sections={sections} history>
@@ -171,11 +172,20 @@ const sections = [
         </td>
         <td>Your Skygrid island while signed out.</td>
       </tr>
+      <tr>
+        <td>
+          <code>{STUDY_STORAGE_KEY}</code>
+        </td>
+        <td>
+          Your study progress while signed out: flashcard reviews, quiz answers,
+          lessons finished and review settings.
+        </td>
+      </tr>
     </tbody>
   </table>
   <p>
-    When you sign in, a tool may offer to move what’s in your browser into your
-    account. Nothing moves unless you say so.
+    When you sign in, a tool or the study dashboard may offer to move what’s in
+    your browser into your account. Nothing moves unless you say so.
   </p>
 
   <h2 id="control">Your choices</h2>

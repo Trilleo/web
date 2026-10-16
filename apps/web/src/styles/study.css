@@ -859,6 +859,458 @@
   background-color: var(--tr-accent);
 }
 
+/* Records: notes on where progress is kept, links and errors. */
+.study-panel-note,
+.study-quiz-note,
+.study-tracker-kept {
+  color: var(--tr-muted);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.study-quiz-note {
+  flex-basis: 100%;
+}
+
+.study :is(.study-panel-note, .study-quiz-note, .study-tracker-kept) a,
+.study-link {
+  color: var(--tr-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.study-link {
+  border: 0;
+  background: none;
+  font: inherit;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+}
+
+.study-error {
+  color: var(--tr-ink);
+  border-bottom: 2px solid var(--tr-accent);
+}
+
+a.study-button {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.study kbd {
+  padding: 0.05rem 0.35rem;
+  border: 1px solid currentColor;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  opacity: 0.7;
+}
+
+/* The tracker at a lesson's end. */
+.study-tracker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 2px solid var(--tr-ink);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+}
+
+.study-tracker-status {
+  font-weight: 600;
+}
+
+.study-tracker-line {
+  color: var(--tr-muted);
+  font-size: 0.9375rem;
+}
+
+.study-tracker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+}
+
+/* Review sessions. */
+.study-review {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  font-family: var(--font-sans);
+}
+
+.study-review-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: var(--study-rule);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+.study-review-scope a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.study-flashcard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-height: 18rem;
+  padding: 1.5rem;
+  border: 1px solid var(--tr-ink);
+  animation: study-fade var(--tr-dur-base) var(--tr-ease-out);
+}
+
+.study-flashcard-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  color: var(--tr-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.study-flashcard-meta a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.study-flashcard-new {
+  padding: 0 0.35rem;
+  background-color: var(--tr-accent);
+  color: var(--tr-on-accent);
+}
+
+.study-flashcard-front {
+  font-family: var(--font-serif);
+  font-size: 1.375rem;
+  line-height: 1.45;
+}
+
+.study-flashcard-back {
+  padding-top: 1.25rem;
+  border-top: var(--study-rule);
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+  line-height: 1.55;
+  animation: study-fade var(--tr-dur-base) var(--tr-ease-out);
+}
+
+.study-flashcard-back > * + *,
+.study-flashcard-front > * + * {
+  margin-top: 0.6rem;
+}
+
+.study-show {
+  align-self: flex-start;
+  gap: 0.6rem;
+  margin-top: auto;
+}
+
+.study-grades {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin-top: auto;
+
+  @media (width >= 48rem) {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.study-grade {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 0.5rem;
+  min-height: 3.5rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--tr-ink);
+  background: transparent;
+  color: var(--tr-ink);
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--tr-dur-fast) var(--tr-ease),
+    color var(--tr-dur-fast) var(--tr-ease);
+}
+
+.study-grade:hover {
+  background-color: var(--tr-ink);
+  color: var(--tr-paper);
+}
+
+.study-grade[data-grade="1"] {
+  border-color: var(--tr-accent);
+}
+
+.study-grade-label {
+  font-weight: 600;
+}
+
+.study-grade-when {
+  grid-column: 1;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.study-grade kbd {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+}
+
+.study-review-done {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.5rem 0;
+  border-top: 2px solid var(--tr-ink);
+}
+
+.study-review-done .study-heading {
+  font-size: 1.75rem;
+}
+
+.study-review-done a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* The mistake log. */
+.study-mistake-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+  margin-top: 1.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.study-mistake {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.study-mistake .study-quiz {
+  margin-block: 0;
+}
+
+.study-mistake-yours {
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+}
+
+.study-mistake-response {
+  border-bottom: 2px solid var(--tr-accent);
+  font-family: var(--font-mono);
+}
+
+/* The dashboard. */
+.study-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  font-family: var(--font-sans);
+}
+
+.study-dashboard .study-callout {
+  margin: 0;
+}
+
+.study-today {
+  display: grid;
+  gap: 1px;
+  border: 1px solid var(--tr-hair);
+  background-color: var(--tr-hair);
+
+  @media (width >= 48rem) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.study-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  background-color: var(--tr-paper);
+  font-size: 0.9375rem;
+}
+
+.study-stat-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.study-stat-value {
+  font-family: var(--font-serif);
+  font-size: 3rem;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: lining-nums;
+}
+
+.study-stat-unit {
+  color: var(--tr-muted);
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.study-stat-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-family: var(--font-serif);
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.study-stat-link:hover > span:last-child {
+  text-decoration: underline;
+  text-decoration-color: var(--tr-accent);
+  text-underline-offset: 4px;
+}
+
+.study-stat-link .study-muted {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+}
+
+.study-activity {
+  display: grid;
+  grid-template-columns: repeat(15, 1fr);
+  gap: 3px;
+  width: 100%;
+  padding: 0;
+  list-style: none;
+}
+
+.study-activity li {
+  aspect-ratio: 1;
+  border: 1px solid var(--tr-hair);
+}
+
+.study-activity li[data-active] {
+  border-color: var(--tr-accent);
+  background-color: var(--tr-accent);
+}
+
+.study-mastery {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.study-mastery :is(th, td) {
+  padding: 0.6rem 1rem 0.6rem 0;
+  border-bottom: var(--study-rule);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.study-mastery thead th {
+  color: var(--tr-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.study-mastery tbody th a {
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+.study-mastery tbody th a:hover,
+.study-mastery-links a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.study-mastery td {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.study-mastery-links {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.study-meter {
+  display: inline-block;
+  width: 5rem;
+  height: 0.4rem;
+  vertical-align: middle;
+  background-color: var(--tr-chip);
+}
+
+.study-meter > span {
+  display: block;
+  height: 100%;
+  background-color: var(--tr-ink);
+}
+
+.study-dashboard-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.study-settings > summary {
+  width: fit-content;
+  font-size: 0.9375rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.study-settings form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  max-width: 28rem;
+  margin-top: 1rem;
+  font-size: 0.9375rem;
+}
+
+.study-settings label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.study-settings :is(input, select) {
+  min-height: 2.5rem;
+  min-width: 8rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--tr-ink);
+  background-color: var(--tr-paper);
+  color: var(--tr-ink);
+  font-family: var(--font-mono);
+}
+
 @keyframes study-fade {
   from {
     opacity: 0;

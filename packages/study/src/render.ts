@@ -36,6 +36,10 @@ export interface RendererOptions {
 }
 
 export interface LessonInput {
+  /** The subject's slug. */
+  subject: string;
+  /** The lesson's slug (cards' and questions' IDs start with it). */
+  slug: string;
   /** The lesson's number, "2.3". */
   number: string;
   title: string;
@@ -104,8 +108,14 @@ export interface LessonRenderer {
 export function createRenderer(options: RendererOptions = {}): LessonRenderer {
   const md = createMarkdown(options);
   return {
-    render({ number, title, body }) {
-      const resources: StudyResources = { number, counters: new Map() };
+    render({ subject, slug, number, title, body }) {
+      const resources: StudyResources = {
+        subject,
+        lesson: slug,
+        ids: new Set(),
+        number,
+        counters: new Map(),
+      };
       const host: ComponentHost = {
         href: (target) => target,
         link: () => undefined,

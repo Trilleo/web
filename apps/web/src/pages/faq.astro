@@ -14,6 +14,7 @@ const sections = [
   { slug: "comments", text: "Comments" },
   { slug: "site", text: "The site" },
 ] as const;
+import { DEFAULT_SETTINGS } from "@trilleo/study";
 ---
 
 <InfoLayout path="/faq/" sections={sections}>
@@ -156,10 +157,20 @@ const sections = [
     each subject names its teacher and course. The lessons are written from
     them: explanations, worked examples, formula sheets, quizzes and flashcards.
   </p>
-  <h3>Does it keep my quiz answers?</h3>
+  <h3>Does it keep my answers and reviews?</h3>
   <p>
-    Not yet. Quizzes check your answers in your browser, and nothing you type is
-    sent or kept; reloading the page starts afresh.
+    Yes, so it can schedule your flashcards and keep your mistake log. Signed
+    out, they stay in this browser (or only this tab, if you turned preferences
+    off in the cookie settings). Signed in, they go to your account and follow
+    you; the dashboard offers to move what this browser has. They’re in your
+    account export, and deleting your account deletes them.
+  </p>
+  <h3>How are reviews scheduled?</h3>
+  <p>
+    With FSRS, which works out from your own grades when you’re about to forget
+    each card. A lesson’s flashcards join your reviews when you finish it, up to{" "}
+    {DEFAULT_SETTINGS.newPerDay} new ones a day; you can change that and the
+    recall it aims for on the <a href="/study/">study dashboard</a>.
   </p>
   <h3>I found a mistake in a lesson.</h3>
   <p>

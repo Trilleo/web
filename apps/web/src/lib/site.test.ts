@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { SITE_NAME, formatTitle, isPrivatePath, transitionName } from "./site";
+import {
+  SITE_NAME,
+  formatTitle,
+  inSitemap,
+  isPrivatePath,
+  transitionName,
+} from "./site";
 
 describe("isPrivatePath", () => {
   it("covers the account pages", () => {
@@ -62,5 +68,16 @@ describe("transitionName", () => {
 
   it("never returns a bare prefix", () => {
     expect(transitionName("post", "!!!")).toBe("post-item");
+  });
+});
+
+describe("inSitemap", () => {
+  it("leaves out private pages and personal study pages", () => {
+    expect(inSitemap("/study/")).toBe(true);
+    expect(inSitemap("/study/circuits/ohms-law/")).toBe(true);
+    expect(inSitemap("/study/review/")).toBe(false);
+    expect(inSitemap("/study/mistakes/")).toBe(false);
+    expect(inSitemap("/study/circuits/practice/")).toBe(false);
+    expect(inSitemap("/admin/")).toBe(false);
   });
 });

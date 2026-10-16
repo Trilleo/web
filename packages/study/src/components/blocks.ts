@@ -12,6 +12,7 @@ import {
   type RenderContext,
 } from "@trilleo/wiki";
 import { drawCircuit } from "../circuit/draw";
+import { cardId, questionId, splitPin } from "../ids";
 import { parseCircuit } from "../circuit/parse";
 import { checkData, parseQuiz, type QuestionSource } from "../quiz";
 import type {
@@ -28,6 +29,11 @@ export const STUDY_SET = "study";
 
 /** What the lesson renderer lends components (context.resource("study")). */
 export interface StudyResources {
+  subject: string;
+  /** The lesson's slug. */
+  lesson: string;
+  /** Card and question IDs given out so far (two alike is a mistake). */
+  ids: Set<string>;
   /** The lesson's number, "2.3". */
   number: string;
   /** Counters per kind of numbered thing. */
@@ -36,7 +42,15 @@ export interface StudyResources {
 
 function study(context: RenderContext): StudyResources {
   const resources = context.resource("study") as StudyResources | undefined;
-  return resources ?? { number: "0", counters: new Map() };
+  return (
+    resources ?? {
+      subject: "",
+      lesson: "",
+      ids: new Set(),
+      number: "0",
+      counters: new Map(),
+    }
+  );
 }
 
 /** The next number for a kind of thing in this lesson: "2.3.1". */
@@ -263,6 +277,15 @@ $V_\\text{out} = I R_2 = 8$ V.
   },
 };
 
+/** "$u_{ab} = -u_{ba}$" → "u_{ab} = -u_{ba}"; "**Ohm's** law" → "Ohm's law". */
+export function plainOption(text: string): string {
+  return text
+    .replace(/\$/g, "")
+    .replace(/\*\*|__|`/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function answerHtml(question: QuestionSource, context: RenderContext): string {
   if (question.kind === "choice" || question.kind === "multiple")
     return question.options
@@ -300,14 +323,31 @@ expression: x + 2
     "answer: a number with its unit (prefixes are fine: 500 mA); tolerance: 2% or 0.01 A (1% by default).",
     "expression: an algebraic answer, checked for equivalence; variables: x, y when not every single letter is one.",
     "text: accepted words, “|” between alternatives. “>” lines explain the answer.",
+    "Answers are recorded by the question's prompt; end the “?” line with {#name} to keep them through rewording.",
   ],
   render({ argument, body }, context) {
     const { questions, errors } = parseQuiz(body);
     if (errors.length > 0) return context.error(errors.join(" "));
-    const rendered: QuizQuestion[] = questions.map((question) => ({
+    const resources = study(context);
+    const ids = questions.map((question) =>
+      questionId(resources.lesson, question.prompt, question.pin),
+    );
+    const repeated = ids.findIndex(
+      (id, index) => resources.ids.has(id) || ids.indexOf(id) !== index,
+    );
+    if (repeated !== -1)
+      return context.error(
+        `Question ${String(repeated + 1)} has the same ID as another: change its prompt or give it its own {#name}.`,
+      );
+    for (const id of ids) resources.ids.add(id);
+    const rendered: QuizQuestion[] = questions.map((question, index) => ({
+      id: ids[index] ?? "",
       kind: question.kind,
       prompt: context.markdown(question.prompt),
       options: question.options.map((option) => context.inline(option.text)),
+      optionLabels: question.options.map((option) =>
+        option.text.includes("$") ? plainOption(option.text) : "",
+      ),
       answer: answerHtml(question, context),
       explanation: question.explanation
         ? context.markdown(question.explanation)
@@ -321,7 +361,12 @@ expression: x + 2
     );
     return island(context, {
       name: "quiz",
-      props: { title: argument || "Check yourself", questions: rendered },
+      props: {
+        subject: resources.subject,
+        lesson: resources.lesson,
+        title: argument || "Check yourself",
+        questions: rendered,
+      },
     });
   },
 };
@@ -336,7 +381,10 @@ const cards: BlockComponent = {
 Unit of resistance? :: The ohm, Ω (欧姆)
 Ohm's law :: $V = IR$
 :::`,
-  notes: ["One card per line: front :: back."],
+  notes: [
+    "One card per line: front :: back.",
+    "A card's review history follows its front; end the line with {#name} to keep it through rewording.",
+  ],
   render({ argument, body }, context) {
     const lines = body
       .split("\n")
@@ -344,11 +392,28 @@ Ohm's law :: $V = IR$
       .filter(Boolean);
     const bad = lines.find((line) => !line.includes("::"));
     if (bad) return context.error(`“${bad}” isn't a card (front :: back).`);
-    const items = lines.map((line) => {
+    const resources = study(context);
+    const sources = lines.map((line) => {
       const split = line.indexOf("::");
+      const { text: back, pin } = splitPin(line.slice(split + 2).trim());
+      const front = line.slice(0, split).trim();
+      return { front, back, id: cardId(resources.lesson, front, pin) };
+    });
+    const repeated = sources.find(
+      (source) =>
+        resources.ids.has(source.id) ||
+        sources.filter((other) => other.id === source.id).length > 1,
+    );
+    if (repeated)
+      return context.error(
+        `Two cards share an ID (“${repeated.front}”): give one a different front or its own {#name}.`,
+      );
+    const items = sources.map((source) => {
+      resources.ids.add(source.id);
       const card: CardEntry = {
-        front: context.inline(line.slice(0, split).trim()),
-        back: context.inline(line.slice(split + 2).trim()),
+        id: source.id,
+        front: context.inline(source.front),
+        back: context.inline(source.back),
       };
       context.emit("card", card);
       return `<li><details class="study-card"><summary>${card.front}</summary><div class="study-card-back">${card.back}</div></details></li>`;

@@ -610,8 +610,8 @@
   mounts Quiz/Plot/Explore/CircuitLab (Astro only hydrates components it sees
   imported). They render on the server first; quizzes' answers open without JS.
   Browser code imports only the pure modules (quiz, expression, units, widgets,
-  circuit), never the index (KaTeX, markdown-it).
-- Quizzes check answers in the browser and keep nothing yet. Numbers with units
+  circuit, progress, client), never the index (KaTeX, markdown-it).
+- Quizzes check answers in the browser. Numbers with units
   (units.ts: SI prefixes, 1% default tolerance, a bare number reads in the answer's own
   prefix), expressions (expression.ts: a hand-written parser with implied
   multiplication, never eval; equivalence by evaluating at seeded random points), choices
@@ -631,6 +631,34 @@
 - SEO: Course JSON-LD on subjects, LearningResource on lessons, /og/study.png and
   /og/study/<subject>.png, a "## Study" section in llms.txt, lessons in the sitemap.
 - Prettier ignores study/**/*.md (it would rewrite maths and ::: blocks).
+- Progress (packages/study's progress.ts): someone's record is a list of events
+  (`review` grade 1–4, `attempt` right/wrong + what was answered, `studied` a lesson,
+  `card` a question made a flashcard). Everything else is derived, never stored:
+  FSRS schedules (ts-fsrs, replaying each card's reviews; fuzz on, seeded, so
+  deterministic), what's due, new cards (a lesson's cards join once it's studied, at
+  most `newPerDay` first reviews a China-time day), the mistake log (latest answer
+  wrong), mastery (latest quiz results and recall; a subject counts untouched lessons
+  as 0), streak and 30-day activity. So browser and account records merge by union.
+- Card and question IDs (ids.ts): `c:<lesson>:<hash of the front>` and
+  `q:<lesson>:<hash of the prompt>`; a trailing `{#name}` pins one, keeping its history
+  through rewording. Duplicates in a lesson are render errors.
+- Storage: signed out, `trilleo:study:records` in preferenceStore (a "preferences"
+  key, consent.ts's `trilleo:study:` prefix); signed in, study_events (PK user + the
+  browser's UUID, so resends are harmless; STUDY_LIMITS caps a request and a person)
+  and study_settings, through /api/study (lib/study/api.ts: GET answers 200
+  `{ signedIn: false }` signed out, so pages log no error; POST events and PUT
+  settings are same-origin and checked with parseEvent/parseSettings). The client
+  store (src/client/store.ts, one per page) records optimistically and retries
+  account saves; the dashboard offers to move browser records into the account. In
+  the account export; deleted with the account.
+- Decks: /study/decks/<subject>.json (prerendered: lessons, cards, questions with
+  their check data) and /study/decks/index.json feed the browser widgets.
+- Pages: lessons' quizzes are `LessonQuiz` (records attempts) and end with
+  `LessonTracker` (client:visible: hydrating means the reader reached the end, which
+  records `studied`); /study/ has the `Dashboard`; /study/review/ (`Review`: Space
+  turns the card, 1–4 grade), /study/mistakes/ and /study/<subject>/practice/
+  (`practiceSet` weights wrong ×4, untried ×2, right ×1) are noindex and out of the
+  sitemap (`inSitemap` in site.ts). Subjects can't be called review, mistakes or decks.
 - Importing a subject from Rain Classroom: the study-import skill
   (.claude/skills/study-import/SKILL.md). The person signs in themselves; materials go
   to study-sources/ (gitignored), never into git.

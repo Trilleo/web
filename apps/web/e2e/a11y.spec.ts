@@ -41,6 +41,9 @@ const PAGES = [
   "/study/sample/kirchhoff/",
   "/study/sample/glossary/",
   "/study/sample/formulas/",
+  "/study/sample/practice/",
+  "/study/review/",
+  "/study/mistakes/",
   // The wiki's host (wiki.localhost; see e2e/wiki.spec.ts).
   "wiki:/",
   "wiki:/skygrid/",

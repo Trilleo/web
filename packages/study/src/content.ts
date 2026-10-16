@@ -76,6 +76,9 @@ export class StudyContentError extends Error {
 
 export const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const NUMBERED = /^(\d{2})-([a-z0-9]+(?:-[a-z0-9]+)*)$/;
+/** The study section's own pages: subjects can't take these slugs. */
+export const RESERVED_SUBJECT_SLUGS = new Set(["review", "mistakes", "decks"]);
+
 /** A subject's own pages: lessons can't take these slugs. */
 export const RESERVED_LESSON_SLUGS = new Set([
   "glossary",
@@ -183,6 +186,12 @@ export function loadSubjects(
     const subject = parts[0] ?? "";
     if (parts.length < 2 || !SLUG.test(subject)) {
       problems.push(`${path}: subjects are folders named like “circuits”.`);
+      continue;
+    }
+    if (RESERVED_SUBJECT_SLUGS.has(subject)) {
+      problems.push(
+        `${subject}/: “${subject}” is one of the study section's own pages; pick another name.`,
+      );
       continue;
     }
     if (parts[1] === "figures" || !path.endsWith(".md")) continue;

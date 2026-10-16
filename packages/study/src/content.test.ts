@@ -106,6 +106,7 @@ describe("loadSubjects", () => {
       "circuits/02-ac/02-ohm.md": "---\ntitle: Again\n---\n",
       "circuits/notes.md": "",
       "Bad Name/subject.md": SUBJECT,
+      "review/subject.md": SUBJECT,
     });
     expect(problems).toEqual(
       expect.arrayContaining([
@@ -116,6 +117,9 @@ describe("loadSubjects", () => {
         expect.stringMatching(/“summary” is missing/),
         expect.stringMatching(/notes.md: lessons live in unit folders/),
         expect.stringMatching(/Bad Name/),
+        expect.stringMatching(
+          /“review” is one of the study section's own pages/,
+        ),
       ]),
     );
   });

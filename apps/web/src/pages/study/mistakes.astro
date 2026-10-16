@@ -1,0 +1,41 @@
+---
+import { Mistakes } from "@trilleo/study/react";
+import StudyLayout from "../../components/study/StudyLayout.astro";
+import { breadcrumbJsonLd } from "../../lib/seo";
+---
+
+<StudyLayout
+  title="Mistakes"
+  description="Quiz questions you got wrong, until you get them right."
+  current="mistakes"
+  crumbs={[{ label: "Mistakes" }]}
+  noindex
+  jsonLd={[
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Study", path: "/study/" },
+      { name: "Mistakes", path: "/study/mistakes/" },
+    ]),
+  ]}
+>
+  <div class="grid-swiss px-page gap-y-8 pt-10 pb-24 md:pt-14">
+    <header class="col-span-4 flex flex-col gap-3 md:col-span-6 md:col-start-3 xl:col-span-7 xl:col-start-3">
+      <h1 class="study-heading text-[2.25rem] leading-tight md:text-5xl">
+        Mistakes{" "}
+        <span class="study-zh" lang="zh-CN">
+          错题本
+        </span>
+      </h1>
+      <p class="type-dek text-muted">
+        Every question whose latest answer was wrong. Try it again here, or turn
+        it into a flashcard; it leaves the list once you get it right.
+      </p>
+    </header>
+    <div class="col-span-4 md:col-span-6 md:col-start-3 xl:col-span-7 xl:col-start-3">
+      <Mistakes client:load />
+      <noscript>
+        <p class="study-panel-note">The mistake log needs JavaScript.</p>
+      </noscript>
+    </div>
+  </div>
+</StudyLayout>

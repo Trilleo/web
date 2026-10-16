@@ -70,6 +70,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "legal",
     changes: [
       {
+        date: "2026-10-16",
+        note: "Study progress: what’s kept when you study signed in, and that it goes with your account.",
+      },
+      {
         date: "2026-10-12",
         note: "Added proposed wiki edits, wiki watchlists and their daily digest email.",
       },
@@ -109,6 +113,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "The cookies and browser storage the site uses, what each is for, and how to choose what’s kept.",
     group: "legal",
     changes: [
+      {
+        date: "2026-10-16",
+        note: "Listed the study progress kept in your browser while signed out (a preference).",
+      },
       {
         date: "2026-10-11",
         note: "Added the wiki’s sign-in cookie, and that the wiki keeps its cookies and choices apart.",
@@ -178,7 +186,7 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-16",
-        note: "Where the study lessons come from, and what their quizzes keep.",
+        note: "Where the study lessons come from, and how reviews and progress are kept.",
       },
       {
         date: "2026-10-12",
@@ -244,7 +252,7 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-16",
-        note: "Credited KaTeX, which sets the study lessons' maths.",
+        note: "Credited KaTeX (the study lessons' maths) and ts-fsrs (their flashcard reviews).",
       },
       {
         date: "2026-10-09",

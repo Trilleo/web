@@ -48,6 +48,25 @@ export function isPrivatePath(pathname: string): boolean {
   return PRIVATE_PATHS.some((prefix) => pathname.startsWith(prefix));
 }
 
+/**
+ * Public pages that are only about the visitor's own records (study reviews,
+ * mistakes, practice): noindex, and left out of the sitemap. Unlike PRIVATE_PATHS
+ * they stay crawlable, so search engines can see the noindex.
+ */
+const PERSONAL_PATHS = [
+  /^\/study\/(?:review|mistakes)\//,
+  /^\/study\/[^/]+\/practice\//,
+  /^\/study\/decks\//,
+];
+
+/** Whether a built page belongs in the sitemap. */
+export function inSitemap(pathname: string): boolean {
+  return (
+    !isPrivatePath(pathname) &&
+    !PERSONAL_PATHS.some((pattern) => pattern.test(pathname))
+  );
+}
+
 export interface NavItem {
   number: string;
   label: string;
