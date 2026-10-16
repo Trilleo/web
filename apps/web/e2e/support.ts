@@ -73,10 +73,14 @@ export async function openMail(
   return (await admin.locator("[data-mail-text]").textContent()) ?? "";
 }
 
-/** The 6-digit code in the newest code email to `address`, read as the admin. */
+/**
+ * The 6-digit code in the newest code email to `address`, read as the admin. The
+ * code sits on a line of its own; matching any six digits isn't enough, since the
+ * text also names the account (`@mailer-123456`: freshLogin's hex can be all digits).
+ */
 export async function codeSentTo(admin: Page, address: string) {
   const text = await openMail(admin, address, "email-code");
-  const code = /\b(\d{6})\b/.exec(text)?.[1] ?? "";
+  const code = /^\s*(\d{6})\s*$/m.exec(text)?.[1] ?? "";
   expect(code).toMatch(/^\d{6}$/);
   return code;
 }

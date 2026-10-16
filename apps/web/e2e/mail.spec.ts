@@ -1,6 +1,12 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { adminPage, continueAs, freshLogin, openMail } from "./support";
+import {
+  adminPage,
+  codeSentTo,
+  continueAs,
+  freshLogin,
+  openMail,
+} from "./support";
 
 // The e2e server captures mail (MAIL_CAPTURE=1): nothing is sent, and the admin
 // reads every message at /admin/mail/. Each test uses fresh accounts and addresses
@@ -35,9 +41,7 @@ async function addAddress(page: Page, admin: Page, address: string) {
   await page.getByRole("button", { name: "Send code" }).click();
   await expect(page.getByRole("status")).toContainText("Code sent");
 
-  const text = await openMail(admin, address, "email-code");
-  const code = /\b(\d{6})\b/.exec(text)?.[1] ?? "";
-  expect(code).toMatch(/^\d{6}$/);
+  const code = await codeSentTo(admin, address);
 
   await page.getByLabel(/^Code sent to/).fill(code);
   await page.getByRole("button", { name: "Confirm" }).click();
@@ -70,9 +74,8 @@ test("a new address is proved with a code, and switches save", async ({
   await expect(page.getByRole("alert")).toContainText("Wait a minute");
 
   const admin = await adminPage(browser, baseURL);
-  const text = await openMail(admin, address, "email-code");
+  const code = await codeSentTo(admin, address);
   await noViolations(admin);
-  const code = /\b(\d{6})\b/.exec(text)?.[1] ?? "";
   await page.goto("/account/email/");
   await page.getByLabel(/^Code sent to/).fill(code);
   await page.getByRole("button", { name: "Confirm" }).click();
