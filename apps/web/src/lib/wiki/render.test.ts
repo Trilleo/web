@@ -209,6 +209,16 @@ describe("components on wiki pages", () => {
     expect(unknown.html).toContain("wiki-error");
   });
 
+  it("lets components link to a section, here or on another page", async () => {
+    const page = await renderWikiPage(
+      "::: menu 1\n0: bell | Bank -> town menu#Town bank\n1: paper | Here -> #Uses\n:::",
+      { ...SKY, componentSets: ["minecraft"] },
+    );
+    expect(page.html).toContain('href="/sky/Town_menu#town-bank"');
+    expect(page.html).toContain('href="#uses"');
+    expect(page.links).toEqual([{ key: "town menu", title: "Town menu" }]);
+  });
+
   it("lifts the first top-level infobox out for the layout", async () => {
     const page = await renderWikiPage(
       [

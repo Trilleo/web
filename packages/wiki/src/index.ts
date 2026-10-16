@@ -16,6 +16,8 @@ export {
 } from "./plugin";
 export * from "./minecraft/text";
 export * from "./minecraft/items";
+export * from "./minecraft/icons";
+export { materialName, parseSlot, type MenuSlot } from "./components/menu";
 export {
   escapeHtml,
   firstWord,

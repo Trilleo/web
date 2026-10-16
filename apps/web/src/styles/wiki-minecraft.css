@@ -280,6 +280,11 @@
   font-size: 0.875rem;
 }
 
+/* §8 is the usual container-title colour; the game's #555 is too faint on the grey panel. */
+.mc-inventory-title .mc-c-8 {
+  color: #3f3f3f;
+}
+
 .mc-slots {
   display: grid;
   grid-template-columns: repeat(9, 2.25rem);
@@ -396,7 +401,7 @@
 }
 
 .mc-recipe-time {
-  color: #555555;
+  color: #4a4a4a;
 }
 
 .mc-recipe-body {
@@ -414,4 +419,94 @@
 .mc-recipe-output .mc-slot {
   width: 2.75rem;
   height: 2.75rem;
+}
+
+/* Pixel icons (::: menu): the wiki's own sprites as inline SVG. */
+.mc-pixel {
+  vertical-align: -0.3em;
+}
+
+.mc-pixel > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Menus: the filler panes sit in their slots without a tooltip. */
+.mc-filler .mc-icon {
+  width: 1.6rem;
+  height: 1.6rem;
+  margin: 0;
+  vertical-align: 0;
+}
+
+.mc-menu .mc-slot-item {
+  cursor: default;
+}
+
+.mc-menu a.mc-slot-item {
+  cursor: pointer;
+}
+
+/* Nine slots fit a phone's column with slightly smaller slots. */
+@media (width < 48rem) {
+  .mc-menu .mc-slots {
+    grid-template-columns: repeat(9, 2.125rem);
+  }
+
+  .mc-menu .mc-slot {
+    width: 2.125rem;
+    height: 2.125rem;
+  }
+
+  .mc-menu .mc-slot .mc-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+
+/* A lore divider: a rule in the game's dark grey. */
+.mc-rule {
+  height: 0;
+  margin: 0.45em 0;
+  border-top: 2px solid #555555;
+}
+
+/* The enchanted shine: a purple glow, and a sheen that passes over now and then. */
+.mc-slot-item.is-glowing {
+  position: relative;
+  overflow: hidden;
+}
+
+.mc-slot-item.is-glowing .mc-icon {
+  filter: drop-shadow(0 0 0.12rem rgb(196 120 255 / 0.95)) saturate(1.25);
+}
+
+.mc-slot-item.is-glowing::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgb(200 130 255 / 0.45) 50%,
+    transparent 70%
+  );
+  content: "";
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mc-slot-item.is-glowing::after {
+    background-size: 300% 100%;
+    animation: mc-glint 3s linear infinite;
+  }
+}
+
+@keyframes mc-glint {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
 }

@@ -40,6 +40,52 @@ async function signIn(page: Page, user: string, next = "/skygrid/") {
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
 }
 
+test("the TownyMenu wiki shows the plugin's menus, and they click through", async ({
+  browser,
+  baseURL,
+}) => {
+  const page = await wikiPage(browser, baseURL);
+  await page.goto("/townymenu/");
+  await expect(page.locator("[data-wiki-band]")).toContainText("TMN");
+
+  // The main menu: buttons with the game's tooltips.
+  const menu = page.getByRole("group", { name: "Towny" });
+  const town = menu.getByRole("link", { name: "Oakhaven" });
+  await town.hover();
+  await expect(
+    page.getByRole("tooltip").filter({ hasText: "Mayor: Rowan" }),
+  ).toBeVisible();
+
+  // Arrow keys move along the buttons, links or not.
+  await menu.getByRole("link", { name: "Rowan" }).focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(menu.getByRole("link", { name: "Northmark" })).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
+  await expect(town).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(menu.getByRole("link", { name: "Server Admin" })).toBeFocused();
+
+  // A button opens the page about its menu.
+  await town.click();
+  await expect(page).toHaveURL("/townymenu/Town_menu");
+  await expect(page.getByRole("group", { name: "Your Town" })).toBeVisible();
+  await page
+    .getByRole("group", { name: "Your Town" })
+    .getByRole("link", { name: "Claims" })
+    .click();
+  await expect(page).toHaveURL("/townymenu/Claiming_land");
+
+  // Switches glow while they're on.
+  await page.goto("/townymenu/Settings_menus");
+  const settings = page.getByRole("group", { name: "Town Settings" });
+  await expect(settings.getByRole("img", { name: "Open" })).toHaveClass(
+    /is-glowing/,
+  );
+  await expect(settings.getByRole("img", { name: "PvP" })).not.toHaveClass(
+    /is-glowing/,
+  );
+});
+
 test("the Skygrid wiki has written and generated pages", async ({
   browser,
   baseURL,

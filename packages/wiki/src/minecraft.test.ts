@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { linked, render } from "./test-render";
 import { itemKey, parseItemBlock } from "./minecraft/items";
+import { materialName, parseSlot } from "./components/menu";
 import { mcRuns, renderMcText, stripMcCodes } from "./minecraft/text";
 
 describe("Minecraft text", () => {
@@ -141,5 +142,89 @@ describe("Minecraft components", () => {
       ).html.match(/class="wiki-error"/g),
     ).toHaveLength(2);
     expect(render("::: inventory 20\n:::").html).toContain("1–12 rows");
+  });
+});
+
+describe("::: menu", () => {
+  it("reads a slot: material, count, glow, name, lore, rules and a link", () => {
+    expect(
+      parseSlot(
+        "Lime_Dye x3 glow | §aPvP | | §7Status: §aON | -- | §eClick! -> Town menu#Settings",
+      ),
+    ).toEqual({
+      material: "lime_dye",
+      count: 3,
+      glow: true,
+      name: "§aPvP",
+      lore: ["", "§7Status: §aON", null, "§eClick!"],
+      target: "Town menu#Settings",
+    });
+    expect(parseSlot("bell")).toEqual({
+      material: "bell",
+      count: null,
+      glow: false,
+      name: null,
+      lore: [],
+      target: null,
+    });
+    expect(parseSlot("Lime Dye glow x2")).toMatchObject({
+      material: "lime_dye",
+      count: 2,
+      glow: true,
+    });
+    expect(parseSlot("glow")).toMatchObject({ material: "glow", glow: false });
+    expect(parseSlot("not a <material>")).toContain("isn't a material");
+    expect(materialName("minecraft:black_stained_glass_pane")).toBe(
+      "Black Stained Glass Pane",
+    );
+  });
+
+  it("lays out a chest with filler, buttons, links and tooltips", () => {
+    linked.length = 0;
+    const { html } = render(
+      "::: menu 2 §8Town\nfill: black_stained_glass_pane\n0: bell | §6Riverside | Lore line | -- | §eClick! -> Town menu\n2, 4-5: paper x2 | Note\n10: lime_dye glow\n:::",
+    );
+    expect(html).toContain(
+      '<figure class="mc-inventory mc-menu" data-inventory>',
+    );
+    expect(html).toContain('role="group" aria-label="Town"');
+    expect(html.match(/class="mc-slot[ "]/g)).toHaveLength(18);
+    // Four buttons (0, 2, 4, 5) and the dye; the rest is filler without tooltips.
+    expect(html.match(/data-slot/g)).toHaveLength(5);
+    expect(html.match(/class="mc-slot mc-filler"/g)).toHaveLength(13);
+    expect(html.match(/role="tooltip"/g)).toHaveLength(5);
+    expect(html).toContain('href="/sky/Town_menu"');
+    expect(linked).toContain("Town menu");
+    expect(html).toContain(
+      '<span class="mc-line mc-rule" aria-hidden="true"></span>',
+    );
+    // Lore without a colour is grey; a name without one is white.
+    expect(html).toContain('<span class="mc-c-7">Lore line</span>');
+    expect(html).toContain('<span class="mc-c-f">Note</span>');
+    expect(html).toContain(
+      '<span class="mc-count" aria-hidden="true">2</span>',
+    );
+    // Unnamed slots are labelled with their material.
+    expect(html).toMatch(
+      /class="mc-slot-item is-glowing" role="img" tabindex="0" aria-label="Lime Dye"/,
+    );
+    expect(html).toContain('class="mc-icon mc-pixel"');
+  });
+
+  it("reports slots outside the menu and lines it can't read", () => {
+    const { html } = render("::: menu 1\n9: bell\nwhat\n0: <b>\n:::");
+    expect(html.match(/class="wiki-error"/g)).toHaveLength(3);
+    expect(html).toContain("outside a 1-row menu (slots 0–8)");
+    expect(html).not.toContain("<b>");
+    expect(render("::: menu 7\n:::").html).toContain("1–6 rows");
+  });
+
+  it("escapes names and lore", () => {
+    const { html } = render(
+      '::: menu 1\n0: bell | <img src=x> | "quoted" & <i>\n:::',
+    );
+    expect(html).not.toContain("<img src=x>");
+    expect(html).not.toContain("<i>");
+    expect(html).toContain("&lt;img src=x&gt;");
   });
 });

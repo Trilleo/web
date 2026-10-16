@@ -303,15 +303,24 @@ export async function renderWikiPage(
       depth: 0,
     },
   };
+  // Components may link to a section: "Title#Section".
+  const splitFragment = (title: string): [string, string] => {
+    const hash = title.indexOf("#");
+    return hash < 0
+      ? [title, ""]
+      : [title.slice(0, hash), title.slice(hash + 1).trim()];
+  };
   env.components.host = {
     href: (title) => {
-      const normal = normalizeTitle(title);
-      return normal
-        ? `/${target.slug}/${titlePath(normal)}`
-        : `/${target.slug}/`;
+      const [page, fragment] = splitFragment(title);
+      const normal = normalizeTitle(page);
+      if (normal)
+        return `/${target.slug}/${titlePath(normal)}${fragmentHref(fragment)}`;
+      // "#Section" alone: on this page.
+      return fragment ? fragmentHref(fragment) : `/${target.slug}/`;
     },
     link: (title) => {
-      const normal = normalizeTitle(title);
+      const normal = normalizeTitle(splitFragment(title)[0]);
       if (normal && !env.links.has(titleKey(normal)))
         env.links.set(titleKey(normal), normal);
     },

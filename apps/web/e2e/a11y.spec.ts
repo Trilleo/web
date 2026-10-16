@@ -51,6 +51,10 @@ const PAGES = [
   "wiki:/skygrid/Merchant",
   "wiki:/skygrid/Iron_Sword",
   "wiki:/skygrid/-/search?q=spider&fulltext=1",
+  "wiki:/townymenu/",
+  "wiki:/townymenu/Map",
+  "wiki:/townymenu/Reading_the_menus",
+  "wiki:/townymenu/-/components",
 ];
 
 /** A path, or "wiki:<path>" for the same path on the wiki's host. */

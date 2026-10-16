@@ -393,8 +393,9 @@ beacon shows it), so it lives in the code. Empty: no analytics.
 1. In Cloudflare, add `A  wiki  <SERVER_IP>` (or `CNAME wiki trilleo.net`), **Proxied**.
    The Origin certificate already covers `*.trilleo.net`, and Caddy's `wiki.trilleo.net`
    block ships in the web image.
-2. Deploy. The app creates the built-in wikis (Skygrid) the first time the wiki is
-   opened; check <https://wiki.trilleo.net/skygrid/>.
+2. Deploy. The app creates the built-in wikis (Skygrid, TownyMenu) the first time the
+   wiki is opened; check <https://wiki.trilleo.net/skygrid/> and
+   <https://wiki.trilleo.net/townymenu/>.
 3. Sign in on the wiki (it hands over from www) and start other wikis at
    <https://wiki.trilleo.net/-/new> (admin only).
 4. Optional: add `https://wiki.trilleo.net/` to Google Search Console and Bing (it's

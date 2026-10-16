@@ -612,7 +612,11 @@
   as wiki Markdown, rendered once per server (generated.ts). Their titles can't be
   written over. Skygrid's is sources/skygrid.ts (see Games).
 - Built-in wikis (seed.ts) are created once per database the first time the wiki is
-  used (`wikiDb()`), and never overwritten after.
+  used (`wikiDb()`), and never overwritten after: Skygrid, and TownyMenu
+  (seed-townymenu.ts: the docs for Trilleo's Towny GUI plugin, github.com/Trilleo/TownyMenu,
+  written pages whose `::: menu` mock-ups are built from its English lang file and
+  menu layouts; seed.test.ts checks every page, link and section link). A TownyMenu
+  change only reaches live wikis by editing the pages there.
 - Layout (WikiLayout): the site's tokens and grid, denser (`.prose-wiki` in
   styles/wiki.css), sidebar in columns 1–2, page in 3–9, contents in 10–12; no
   reveals, no morphs, cross-document view transitions off, buttons with the plain
@@ -638,7 +642,8 @@
   `{{mc §6text}}` / `::: mc` (§ codes, @trilleo/wiki's minecraft/text.ts; only §, not
   &), `::: item` on an `Item:<name>` page describes an item (name, rarity, type, icon,
   lore lines; other rows show in its infobox), `{{item Name x64}}`, `::: item-infobox
-Name`, `::: inventory 3x9 Title` (slots `5: Item x64`, ranges, `row 2: A, , B`). They
+Name`, `::: inventory 3x9 Title` (slots `5: Item x64`, ranges, `row 2: A, , B`),
+  `::: menu` (see Menus below). They
   look like the game in both themes (wiki-minecraft.css: game colours, tooltip, slots).
   Text is set in "Minecraft" by Jacob Debono, a free fan-made font (not Mojang's),
   committed as WOFF2 in packages/wiki/src/fonts (NOTICE.md); never ship Mojang's files.
@@ -647,7 +652,16 @@ Name`, `::: inventory 3x9 Title` (slots `5: Item x64`, ranges, `row 2: A, , B`).
   for re-rendering. `itemLookup` (lib/wiki/items.ts, cached per wiki) serves written
   items plus a source's `items()`. Components get it as the "items" resource; the
   renderer gives components a host (href, link, imageUrl, resources) and reads back
-  what they emit (`item`).
+  what they emit (`item`). `href`/`link` take `Title#Section` (or `#Section`).
+- Menus (minecraft set): `::: menu 6 Title` draws a plugin's chest GUI (1–6 rows of 9),
+  each slot written in place: `20: bell glow x3 | §6Name | lore | | -- | §eClick! -> Page`
+  (slots from 0 as plugins number them, ranges and lists; an empty part is a blank line,
+  `--` a rule; `fill: material` for empty slots, without tooltips). Buttons with `->`
+  link to the page they describe; the others are focusable `role="img"` slots, so
+  `enhanceInventories` moves along both. Icons are @trilleo/wiki's minecraft/icons.ts:
+  our own pixel sprites (shape families coloured per dye/tier, plus single drawings) as
+  inline SVG, never Mojang's textures; a material without one gets a lettered swatch.
+  icons.test.ts lists every material TownyMenu uses and checks each has a sprite.
 - Pictures: a wiki's Files page (/<wiki>/-/files, members) uploads to the `wiki-media`
   purpose, attaching each upload to the wiki as it starts (/<wiki>/-/files/attach). A
   member's attached file is published once scanned, without review (StorageDeps'

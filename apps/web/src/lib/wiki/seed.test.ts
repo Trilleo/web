@@ -2,7 +2,9 @@ import { openDatabase, type DatabaseHandle } from "@trilleo/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { upsertGitHubUser } from "../auth/accounts";
 import { seedBuiltInWikis } from "./seed";
-import { allPages, findPage, getWiki, savePage } from "./store";
+import { TOWNYMENU } from "./seed-townymenu";
+import { allPages, findPage, getWiki, savePage, wantedPages } from "./store";
+import { titleFromPath, titleKey } from "./titles";
 
 let handle: DatabaseHandle;
 
@@ -62,5 +64,45 @@ describe("built-in wikis", () => {
       canEditProtected: true,
     });
     expect(result).toEqual({ ok: false, error: "generated" });
+  });
+
+  it("include the TownyMenu wiki, whose pages and menu buttons all lead somewhere", async () => {
+    await seedBuiltInWikis(handle.db);
+    const wiki = await getWiki(handle.db, "townymenu");
+    if (!wiki) throw new Error("no TownyMenu wiki");
+    expect(wiki.componentSets).toContain("minecraft");
+    const pages = await allPages(handle.db, wiki);
+    expect(pages.map((page) => page.title).sort()).toEqual(
+      TOWNYMENU.pages.map((page) => page.title).sort(),
+    );
+    expect(await wantedPages(handle.db, wiki)).toEqual([]);
+
+    const html = new Map<string, string>();
+    for (const page of TOWNYMENU.pages) {
+      const found = await findPage(handle.db, wiki.id, titleKey(page.title));
+      if (!found) throw new Error(`${page.title} wasn't saved`);
+      expect(found.html, page.title).not.toContain("wiki-error");
+      html.set(titleKey(page.title), found.html);
+    }
+    // Every link to a section of another page finds its heading.
+    let sections = 0;
+    for (const [key, page] of html) {
+      for (const match of page.matchAll(
+        /href="\/townymenu\/([^"#]*)#([^"]+)"/g,
+      )) {
+        const target = titleFromPath(decodeURIComponent(match[1] ?? ""));
+        const body = html.get(titleKey(target ?? ""));
+        expect(body, `${key} → ${match[1] ?? ""}`).toBeDefined();
+        expect(body, `${key} → ${match[1] ?? ""}#${match[2] ?? ""}`).toContain(
+          `id="${decodeURIComponent(match[2] ?? "")}"`,
+        );
+        sections += 1;
+      }
+    }
+    expect(sections).toBeGreaterThan(20);
+    // The menus are drawn: the main page's main menu has its buttons.
+    const home = html.get("main page") ?? "";
+    expect(home).toContain('class="mc-inventory mc-menu"');
+    expect(home).toContain('href="/townymenu/Town_menu"');
   });
 });

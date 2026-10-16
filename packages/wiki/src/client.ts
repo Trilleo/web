@@ -116,10 +116,10 @@ export function enhanceInventories(root: ParentNode = document): void {
     const items = cells
       .map((cell, index) => ({
         index,
-        link: cell.querySelector<HTMLAnchorElement>("[data-slot]"),
+        link: cell.querySelector<HTMLElement>("[data-slot]"),
       }))
       .filter(
-        (entry): entry is { index: number; link: HTMLAnchorElement } =>
+        (entry): entry is { index: number; link: HTMLElement } =>
           entry.link !== null,
       );
     if (items.length === 0) continue;
@@ -127,7 +127,7 @@ export function enhanceInventories(root: ParentNode = document): void {
     items.forEach((entry, i) => {
       entry.link.tabIndex = i === 0 ? 0 : -1;
     });
-    const focus = (target: { link: HTMLAnchorElement } | undefined) => {
+    const focus = (target: { link: HTMLElement } | undefined) => {
       if (!target) return;
       for (const entry of items) entry.link.tabIndex = -1;
       target.link.tabIndex = 0;
@@ -141,7 +141,7 @@ export function enhanceInventories(root: ParentNode = document): void {
       if (!here) return;
       const row = Math.floor(here.index / columns);
       const column = here.index % columns;
-      let next: { index: number; link: HTMLAnchorElement } | undefined;
+      let next: { index: number; link: HTMLElement } | undefined;
       if (event.key === "ArrowRight") next = items[current + 1];
       else if (event.key === "ArrowLeft") next = items[current - 1];
       else if (event.key === "Home") next = items[0];

@@ -6,9 +6,10 @@
  */
 import type { Database } from "@trilleo/db";
 import { meta as skygridMeta } from "@trilleo/game-skygrid/meta";
+import { TOWNYMENU } from "./seed-townymenu";
 import { createWiki, getWiki, savePage, type WikiInput } from "./store";
 
-interface BuiltInWiki {
+export interface BuiltInWiki {
   wiki: WikiInput & { source: string | null };
   /** Written pages, saved as the first revision of each. */
   pages: { title: string; body: string }[];
@@ -97,7 +98,7 @@ Every resource has a collection (see [[Collections]]). Gather 50 [[Wheat]] and t
   ],
 };
 
-export const BUILT_IN_WIKIS: readonly BuiltInWiki[] = [SKYGRID];
+export const BUILT_IN_WIKIS: readonly BuiltInWiki[] = [SKYGRID, TOWNYMENU];
 
 let seeded: Promise<void> | undefined;
 

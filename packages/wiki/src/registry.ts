@@ -5,6 +5,7 @@
  */
 import { CALCULATOR_COMPONENTS } from "./components/calculators";
 import { CORE_COMPONENTS } from "./components/core";
+import { MENU_COMPONENTS } from "./components/menu";
 import { MINECRAFT_COMPONENTS } from "./components/minecraft";
 import type { ComponentSet, WikiComponent } from "./types";
 
@@ -20,7 +21,7 @@ export const COMPONENT_SETS: readonly ComponentSet[] = [
     id: "minecraft",
     label: "Minecraft",
     description:
-      "Minecraft text with § codes, items described on Item: pages with the game's tooltips, inventories, recipes and a raw-materials calculator.",
+      "Minecraft text with § codes, items described on Item: pages with the game's tooltips, inventories, plugin menus drawn with pixel icons, recipes and a raw-materials calculator.",
   },
 ];
 
@@ -28,6 +29,7 @@ export const COMPONENTS: readonly WikiComponent[] = [
   ...CORE_COMPONENTS,
   ...CALCULATOR_COMPONENTS,
   ...MINECRAFT_COMPONENTS,
+  ...MENU_COMPONENTS,
 ];
 
 /** The sets a wiki ends up with: what it chose (known ones only), plus the ones every wiki has. */
