@@ -35,6 +35,12 @@ const PAGES = [
   "/security/",
   "/colophon/",
   "/sitemap/",
+  "/study/",
+  "/study/sample/",
+  "/study/sample/ohms-law/",
+  "/study/sample/kirchhoff/",
+  "/study/sample/glossary/",
+  "/study/sample/formulas/",
   // The wiki's host (wiki.localhost; see e2e/wiki.spec.ts).
   "wiki:/",
   "wiki:/skygrid/",

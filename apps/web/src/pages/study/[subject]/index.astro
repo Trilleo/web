@@ -1,0 +1,216 @@
+---
+import { findSubject, lessonsOf, studyPath } from "@trilleo/study";
+import type { GetStaticPaths } from "astro";
+import ExamList from "../../../components/study/ExamList.astro";
+import StudyLayout from "../../../components/study/StudyLayout.astro";
+import { breadcrumbJsonLd, courseJsonLd, ogImagePath } from "../../../lib/seo";
+import {
+  renderOverview,
+  studySubjects,
+  subjectReference,
+} from "../../../lib/study/content";
+import { lessonCount, subjectCard } from "../../../lib/study/public";
+
+export const getStaticPaths = (() =>
+  studySubjects().map((subject) => ({
+    params: { subject: subject.slug },
+  }))) satisfies GetStaticPaths;
+
+const subject = findSubject(studySubjects(), Astro.params.subject);
+if (!subject) return Astro.rewrite("/404");
+
+const path = studyPath(subject.slug);
+const image = ogImagePath(`study/${subject.slug}`, subjectCard(subject));
+const overview = await renderOverview(subject);
+const reference = await subjectReference(subject);
+const lessons = lessonsOf(subject);
+const minutes = lessons.reduce((sum, lesson) => sum + lesson.minutes, 0);
+
+const facts = [
+  ["Course", subject.course],
+  ["Teacher", subject.teacher],
+  ["Term", subject.term],
+  [
+    "Lessons",
+    `${lessonCount(subject)}, about ${minutes < 90 ? `${String(minutes)} min` : `${String(Math.round(minutes / 60))} h`}`,
+  ],
+  [
+    "Practice",
+    `${String(reference.questions)} questions · ${String(reference.cards)} cards`,
+  ],
+  ["From", subject.source],
+] as const;
+---
+
+<StudyLayout
+  title={subject.title}
+  description={subject.summary}
+  {image}
+  subject={subject}
+  current="contents"
+  crumbs={[{ label: subject.title }]}
+  jsonLd={[
+    courseJsonLd({
+      name: subject.title,
+      description: subject.summary,
+      path,
+      image,
+      courseCode: subject.course,
+      teacher: subject.teacher,
+    }),
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Study", path: "/study/" },
+      { name: subject.title, path },
+    ]),
+  ]}
+>
+  <header class="grid-swiss px-page gap-y-8 pt-10 pb-12 md:pt-14 xl:pt-18 xl:pb-14">
+    <div class="col-span-4 flex animate-fade flex-col gap-5 md:col-span-6 md:col-start-3 md:row-start-1 xl:col-span-8 xl:col-start-3">
+      <p class="type-label text-muted">Course notes</p>
+      <h1 class="study-heading text-[2.5rem] leading-[1.05] md:text-5xl xl:text-6xl">
+        {subject.title}
+        {subject.zh && (
+          <span class="study-zh study-zh-block text-[0.5em]" lang="zh-CN">
+            {subject.zh}
+          </span>
+        )}
+      </h1>
+      <p class="type-dek max-w-[47.5rem] text-muted">{subject.summary}</p>
+    </div>
+    <dl class="type-label col-span-4 flex flex-col gap-3 md:col-span-2 md:col-start-1 md:row-start-1 md:pt-2">
+      {facts
+        .filter(([, value]) => value)
+        .map(([label, value]) => (
+          <div class="flex gap-3 md:flex-col md:gap-0.5">
+            <dt class="w-20 shrink-0 text-muted">{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+    </dl>
+  </header>
+
+  <div class="mx-page h-0.5 bg-ink"></div>
+
+  <div class="grid-swiss px-page gap-y-12 pt-10 pb-24 md:pt-12 xl:pb-32">
+    {overview && (
+      <>
+        <h2 class="type-label col-span-4 md:col-span-2">About</h2>
+        <div class="study-prose prose col-span-4 md:col-span-6 xl:col-span-7">
+          <Fragment set:html={overview} />
+        </div>
+      </>
+    )}
+
+    <h2
+      id="contents"
+      class="type-label col-span-4 md:col-span-2 xl:col-start-1"
+    >
+      Contents
+    </h2>
+    <ol class="col-span-4 flex flex-col gap-10 md:col-span-6 xl:col-span-7">
+      {subject.units.map((unit) => (
+        <li>
+          <h3 class="study-heading flex items-baseline gap-3 border-t border-ink pt-3 text-2xl">
+            <span class="study-secnum">Unit {unit.number}</span>
+            <span>
+              {unit.title}
+              {unit.zh && (
+                <span class="study-zh" lang="zh-CN">
+                  {unit.zh}
+                </span>
+              )}
+            </span>
+          </h3>
+          {unit.summary && (
+            <p class="mt-2 font-serif text-[17px] text-muted">{unit.summary}</p>
+          )}
+          <ol class="mt-4 flex flex-col">
+            {unit.lessons.map((lesson) => {
+              const counts = reference.lessons.get(lesson.slug);
+              return (
+                <li class="border-b border-hair">
+                  <a
+                    href={studyPath(subject.slug, lesson.slug)}
+                    class="group grid grid-cols-[3rem_1fr] gap-x-3 gap-y-1 py-4"
+                  >
+                    <span class="type-label pt-1 text-muted">
+                      {lesson.number}
+                    </span>
+                    <span class="flex flex-col gap-1">
+                      <span class="study-heading text-xl leading-snug">
+                        <span class="link-wipe">{lesson.title}</span>
+                        {lesson.zh && (
+                          <span class="study-zh" lang="zh-CN">
+                            {lesson.zh}
+                          </span>
+                        )}
+                      </span>
+                      <span class="font-serif text-base leading-normal text-muted">
+                        {lesson.summary}
+                      </span>
+                      <span class="type-label text-muted">
+                        {[
+                          `${String(lesson.minutes)} min`,
+                          counts?.questions
+                            ? `${String(counts.questions)} ${counts.questions === 1 ? "question" : "questions"}`
+                            : null,
+                          counts?.cards
+                            ? `${String(counts.cards)} cards`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </span>
+                  </a>
+                </li>
+              );
+            })}
+          </ol>
+        </li>
+      ))}
+    </ol>
+
+    <h2 class="type-label col-span-4 md:col-span-2 xl:col-start-1">
+      Reference
+    </h2>
+    <div class="col-span-4 grid border-t border-ink md:col-span-6 md:grid-cols-2 xl:col-span-7">
+      <a
+        href={`/study/${subject.slug}/formulas/`}
+        class="group flex flex-col gap-1 border-b border-hair py-4 md:pr-6"
+      >
+        <span class="font-semibold">
+          <span class="link-wipe">Formula sheet</span>
+        </span>
+        <span class="text-[15px] text-muted">
+          {reference.formulas.length} formulas, with their symbols. Prints on
+          its own.
+        </span>
+      </a>
+      <a
+        href={`/study/${subject.slug}/glossary/`}
+        class="group flex flex-col gap-1 border-b border-hair py-4"
+      >
+        <span class="font-semibold">
+          <span class="link-wipe">Glossary</span>
+        </span>
+        <span class="text-[15px] text-muted">
+          {reference.glossary.length} terms, in English and Chinese.
+        </span>
+      </a>
+    </div>
+
+    {subject.exams.length > 0 && (
+      <>
+        <h2 class="type-label col-span-4 md:col-span-2 xl:col-start-1">
+          Exams
+        </h2>
+        <ExamList
+          exams={subject.exams}
+          class="col-span-4 md:col-span-6 xl:col-span-7"
+        />
+      </>
+    )}
+  </div>
+</StudyLayout>

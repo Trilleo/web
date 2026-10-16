@@ -32,6 +32,7 @@ COPY packages/db/package.json packages/db/
 COPY packages/mail/package.json packages/mail/
 COPY packages/mc-files/package.json packages/mc-files/
 COPY packages/storage/package.json packages/storage/
+COPY packages/study/package.json packages/study/
 COPY packages/tool-kit/package.json packages/tool-kit/
 COPY packages/ui/package.json packages/ui/
 COPY packages/wiki/package.json packages/wiki/

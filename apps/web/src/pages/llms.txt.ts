@@ -7,6 +7,8 @@ import { TOOLS } from "../lib/tools/registry";
 import { typeInfo } from "../lib/minecraft/catalog";
 import { projectPath } from "../lib/minecraft/paths";
 import { listedProjectPaths } from "../lib/minecraft/store";
+import { studyPath } from "@trilleo/study";
+import { studySubjects } from "../lib/study/content";
 
 export const prerender = false;
 
@@ -26,6 +28,11 @@ export const GET: APIRoute = async () => {
       summary: project.summary,
       path: projectPath(project),
       kind: typeInfo(project.type).label,
+    })),
+    studySubjects().map((subject) => ({
+      title: subject.title,
+      summary: subject.summary,
+      path: studyPath(subject.slug),
     })),
   );
   return new Response(text, {

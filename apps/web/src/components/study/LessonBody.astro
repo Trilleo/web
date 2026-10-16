@@ -1,0 +1,26 @@
+---
+/**
+ * A lesson's HTML with its widgets mounted where the renderer left placeholders.
+ * Astro hydrates only components it sees imported, so each widget is named here;
+ * they render on the server first, so the page reads without JavaScript.
+ */
+import { splitIslands, type RenderedLesson } from "@trilleo/study";
+import { CircuitLab, Explore, Plot, Quiz } from "@trilleo/study/react";
+
+interface Props {
+  lesson: RenderedLesson;
+}
+
+const { lesson } = Astro.props;
+const parts = splitIslands(lesson.html, lesson.islands);
+---
+
+{parts.map((part) => {
+  if (part.kind === "html") return <Fragment set:html={part.html} />;
+  const { island } = part;
+  if (island.name === "quiz") return <Quiz client:visible {...island.props} />;
+  if (island.name === "plot") return <Plot client:visible {...island.props} />;
+  if (island.name === "explore")
+    return <Explore client:visible {...island.props} />;
+  return <CircuitLab client:visible {...island.props} />;
+})}

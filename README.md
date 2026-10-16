@@ -1,7 +1,7 @@
 # web
 
-Personal site, blog, tools, games, a Minecraft creator platform, file storage, and a
-wiki for each project behind <https://www.trilleo.net> and <https://wiki.trilleo.net>. A pnpm + Turborepo monorepo with an Astro site and shared
+Personal site, blog, tools, games, a Minecraft creator platform, study notes, file
+storage, and a wiki for each project behind <https://www.trilleo.net> and <https://wiki.trilleo.net>. A pnpm + Turborepo monorepo with an Astro site and shared
 React UI.
 
 ## Prerequisites
@@ -52,6 +52,9 @@ packages/mc-files   @trilleo/mc-files: reads Minecraft files in the browser (NBT
                     pack metadata, builds' blocks, 3D preview format and mesher)
 packages/wiki       @trilleo/wiki: wiki components (infobox, notice, tabs, …): registry,
                     markdown-it plugin, and the tabs script
+packages/study      @trilleo/study: the study section's engine (content loader, lesson
+                    renderer with KaTeX, quizzes, circuits, React widgets)
+study/              Study subjects: Markdown lessons, one folder per subject (see study/README.md)
 deploy/             Caddy config, server compose file, deploy and backup scripts, runbooks
 Dockerfile          Production images: `web` (Caddy + static site) and `app` (Node server)
 ```
@@ -95,6 +98,12 @@ wiki, whose reference pages are generated from the game's data
 (`apps/web/src/lib/wiki/sources/`). Signing in there goes through the main site at
 `localhost:4321`. Anyone signed in can propose edits for a wiki's members to review,
 and watch pages (a watchlist, plus a daily digest email).
+
+The study section (`/study/`) is built from the Markdown in `study/`: each subject is a
+folder of numbered units and lessons, with maths, numbered definitions and formulas,
+quizzes, flashcards, plots and circuits (`study/README.md` says how to write them).
+`pnpm dev` also shows draft subjects, like the sample one; production builds leave them
+out. Lessons are checked as the site builds: a mistake fails the build.
 
 Lint, format, and TypeScript base configs live at the repo root (`eslint.config.js`,
 `.prettierrc.json`, `tsconfig.base.json`).

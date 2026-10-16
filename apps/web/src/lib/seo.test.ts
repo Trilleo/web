@@ -19,6 +19,7 @@ import {
   websiteJsonLd,
 } from "./seo";
 import { SITE_DESCRIPTION } from "./site";
+import { courseJsonLd, learningResourceJsonLd } from "./seo";
 
 group("htmlToText", () => {
   it("keeps the reading text and drops markup, code and footnotes", () => {
@@ -168,5 +169,41 @@ group("structured data", () => {
     expect(json).not.toMatch(/[<>&\u2028]/);
     const parsed = JSON.parse(json) as { "@graph": { name: string }[] };
     expect(parsed["@graph"][0]?.name).toBe(title);
+  });
+});
+
+group("study structured data", () => {
+  it("describes a subject as a course and a lesson as part of it", () => {
+    const course = courseJsonLd({
+      name: "Circuits",
+      description: "DC and AC.",
+      path: "/study/circuits/",
+      image: "/og/study/circuits.png?v=1",
+      courseCode: "EE101",
+      teacher: "Ms Li",
+    });
+    expect(course).toMatchObject({
+      "@type": "Course",
+      "@id": "https://www.trilleo.net/study/circuits/#course",
+      courseCode: "EE101",
+      contributor: { "@type": "Person", name: "Ms Li" },
+    });
+    const lesson = learningResourceJsonLd({
+      name: "Ohm's law",
+      description: "u = Ri.",
+      path: "/study/circuits/ohms-law/",
+      coursePath: "/study/circuits/",
+      minutes: 12,
+    });
+    expect(lesson).toMatchObject({
+      "@type": "LearningResource",
+      isPartOf: { "@id": course["@id"] },
+      timeRequired: "PT12M",
+    });
+    expect(
+      courseJsonLd({
+        ...{ name: "A", description: "B", path: "/", image: "/i" },
+      }),
+    ).not.toHaveProperty("courseCode");
   });
 });

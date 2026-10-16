@@ -1,0 +1,110 @@
+---
+import { findSubject, studyPath } from "@trilleo/study";
+import type { GetStaticPaths } from "astro";
+import StudyLayout from "../../../components/study/StudyLayout.astro";
+import { breadcrumbJsonLd, ogImagePath } from "../../../lib/seo";
+import { studySubjects, subjectReference } from "../../../lib/study/content";
+import { subjectCard } from "../../../lib/study/public";
+
+export const getStaticPaths = (() =>
+  studySubjects().map((subject) => ({
+    params: { subject: subject.slug },
+  }))) satisfies GetStaticPaths;
+
+const subject = findSubject(studySubjects(), Astro.params.subject);
+if (!subject) return Astro.rewrite("/404");
+const { glossary } = await subjectReference(subject);
+const path = `/study/${subject.slug}/glossary/`;
+
+// Grouped by first letter, like a book's glossary.
+const groups = new Map<string, typeof glossary>();
+for (const entry of glossary) {
+  const letter = entry.term.charAt(0).toUpperCase();
+  const key = /[A-Z]/.test(letter) ? letter : "#";
+  groups.set(key, [...(groups.get(key) ?? []), entry]);
+}
+---
+
+<StudyLayout
+  title={`Glossary · ${subject.title}`}
+  description={`The terms of ${subject.title}, in English and Chinese, with where each is explained.`}
+  image={ogImagePath(`study/${subject.slug}`, subjectCard(subject))}
+  subject={subject}
+  current="glossary"
+  printable
+  crumbs={[
+    { label: subject.title, href: studyPath(subject.slug) },
+    { label: "Glossary" },
+  ]}
+  jsonLd={[
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Study", path: "/study/" },
+      { name: subject.title, path: studyPath(subject.slug) },
+      { name: "Glossary", path },
+    ]),
+  ]}
+>
+  <div class="grid-swiss px-page gap-y-10 pt-10 pb-24 md:pt-14">
+    <header class="col-span-4 flex flex-col gap-4 md:col-span-6 md:col-start-3 xl:col-span-7 xl:col-start-3">
+      <p class="type-label text-muted">{subject.title}</p>
+      <h1 class="study-heading text-[2.25rem] leading-tight md:text-5xl">
+        Glossary{" "}
+        <span class="study-zh" lang="zh-CN">
+          术语表
+        </span>
+      </h1>
+      <p class="type-dek text-muted">
+        {glossary.length} terms. Each links to the lesson that explains it.
+      </p>
+    </header>
+    {glossary.length === 0 ? (
+      <p class="col-span-4 text-muted md:col-span-6 md:col-start-3">
+        No terms yet.
+      </p>
+    ) : (
+      [...groups].map(([letter, entries]) => (
+        <section
+          aria-labelledby={`letter-${letter}`}
+          class="col-span-4 grid gap-y-2 md:col-span-8 md:grid-cols-subgrid xl:col-span-12"
+        >
+          <h2
+            id={`letter-${letter}`}
+            class="study-heading text-3xl md:col-span-2"
+          >
+            {letter}
+          </h2>
+          <dl class="flex flex-col border-t border-ink md:col-span-6 xl:col-span-7">
+            {entries.map((entry) => (
+              <div class="grid gap-x-6 gap-y-1 border-b border-hair py-4 md:grid-cols-[minmax(10rem,14rem)_1fr]">
+                <dt class="flex flex-col">
+                  <span class="study-heading text-lg">{entry.term}</span>
+                  {entry.zh && (
+                    <span class="study-zh study-zh-block" lang="zh-CN">
+                      {entry.zh}
+                    </span>
+                  )}
+                </dt>
+                <dd class="flex flex-col gap-2">
+                  {entry.definition && (
+                    <div
+                      class="study-prose prose text-base"
+                      set:html={entry.definition}
+                    />
+                  )}
+                  <a
+                    href={`${studyPath(subject.slug, entry.lesson)}${entry.anchor ? `#${entry.anchor}` : ""}`}
+                    class="type-label self-start text-muted underline-offset-3 hover:underline"
+                  >
+                    {entry.definition ? "Defined in" : "In"}{" "}
+                    {entry.lessonNumber} {entry.lessonTitle}
+                  </a>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ))
+    )}
+  </div>
+</StudyLayout>

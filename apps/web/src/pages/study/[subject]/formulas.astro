@@ -1,0 +1,108 @@
+---
+import { findSubject, studyPath } from "@trilleo/study";
+import type { GetStaticPaths } from "astro";
+import StudyLayout from "../../../components/study/StudyLayout.astro";
+import { breadcrumbJsonLd, ogImagePath } from "../../../lib/seo";
+import { studySubjects, subjectReference } from "../../../lib/study/content";
+import { subjectCard } from "../../../lib/study/public";
+
+export const getStaticPaths = (() =>
+  studySubjects().map((subject) => ({
+    params: { subject: subject.slug },
+  }))) satisfies GetStaticPaths;
+
+const subject = findSubject(studySubjects(), Astro.params.subject);
+if (!subject) return Astro.rewrite("/404");
+const { formulas } = await subjectReference(subject);
+const path = `/study/${subject.slug}/formulas/`;
+
+// By unit, in the order they're taught.
+const byUnit = subject.units
+  .map((unit) => ({
+    unit,
+    formulas: formulas.filter((formula) =>
+      unit.lessons.some((lesson) => lesson.slug === formula.lesson.slug),
+    ),
+  }))
+  .filter((group) => group.formulas.length > 0);
+---
+
+<StudyLayout
+  title={`Formula sheet · ${subject.title}`}
+  description={`Every formula in ${subject.title} on one page, with what its symbols mean.`}
+  image={ogImagePath(`study/${subject.slug}`, subjectCard(subject))}
+  subject={subject}
+  current="formulas"
+  printable
+  crumbs={[
+    { label: subject.title, href: studyPath(subject.slug) },
+    { label: "Formulas" },
+  ]}
+  jsonLd={[
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Study", path: "/study/" },
+      { name: subject.title, path: studyPath(subject.slug) },
+      { name: "Formula sheet", path },
+    ]),
+  ]}
+>
+  <div class="grid-swiss px-page gap-y-10 pt-10 pb-24 md:pt-14">
+    <header class="col-span-4 flex flex-col gap-4 md:col-span-6 md:col-start-3 xl:col-span-7 xl:col-start-3">
+      <p class="type-label text-muted">{subject.title}</p>
+      <h1 class="study-heading text-[2.25rem] leading-tight md:text-5xl">
+        Formula sheet{" "}
+        <span class="study-zh" lang="zh-CN">
+          公式表
+        </span>
+      </h1>
+      <p class="type-dek text-muted">
+        {formulas.length} formulas, numbered as in the lessons.
+        <span class="study-print-hide">
+          It prints on its own (without the site around it).
+        </span>
+      </p>
+    </header>
+    {byUnit.length === 0 ? (
+      <p class="col-span-4 text-muted md:col-span-6 md:col-start-3">
+        No formulas yet.
+      </p>
+    ) : (
+      byUnit.map(({ unit, formulas: entries }) => (
+        <section
+          aria-labelledby={`unit-${unit.slug}`}
+          class="col-span-4 grid gap-y-2 md:col-span-8 md:grid-cols-subgrid xl:col-span-12"
+        >
+          <h2 id={`unit-${unit.slug}`} class="type-label md:col-span-2">
+            Unit {unit.number} · {unit.title}
+          </h2>
+          <div class="study-prose prose md:col-span-6 xl:col-span-7">
+            {entries.map((formula) => (
+              <figure class="study-formula" id={formula.anchor}>
+                <figcaption>
+                  <span class="study-box-kind">({formula.number})</span>{" "}
+                  {formula.name}
+                  {formula.zh && (
+                    <span class="study-zh" lang="zh-CN">
+                      {formula.zh}
+                    </span>
+                  )}
+                </figcaption>
+                <div class="study-formula-equation">
+                  <Fragment set:html={formula.equation} />
+                  <a
+                    class="study-eqno study-print-hide no-underline"
+                    href={`${studyPath(subject.slug, formula.lesson.slug)}#${formula.anchor}`}
+                  >
+                    Lesson {formula.lesson.number}
+                  </a>
+                </div>
+                <Fragment set:html={formula.symbols} />
+              </figure>
+            ))}
+          </div>
+        </section>
+      ))
+    )}
+  </div>
+</StudyLayout>

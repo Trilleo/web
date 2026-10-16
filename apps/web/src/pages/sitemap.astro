@@ -15,6 +15,8 @@ import { TOOLS, toolPath } from "../lib/tools/registry";
 import { PROJECT_TYPES } from "../lib/minecraft/catalog";
 import { projectPath, typePath } from "../lib/minecraft/paths";
 import { listedProjectPaths } from "../lib/minecraft/store";
+import { lessonsOf, studyPath } from "@trilleo/study";
+import { studySubjects } from "../lib/study/content";
 
 // Lists the posts, which live in the database.
 export const prerender = false;
@@ -23,6 +25,7 @@ const posts = await listPublicPosts(await getDb());
 const projects = await listedProjectPaths(await getDb());
 const tools = TOOLS.filter((tool) => tool.status !== "planned");
 const games = GAMES.filter((game) => game.status !== "planned");
+const subjects = studySubjects();
 const groups: readonly InfoGroup[] = ["help", "legal", "site"];
 
 const sections = [
@@ -31,6 +34,7 @@ const sections = [
   { slug: "tools", text: "Tools" },
   { slug: "games", text: "Games" },
   { slug: "minecraft", text: "Minecraft" },
+  { slug: "study", text: "Study" },
   ...groups.map((group) => ({ slug: group, text: INFO_GROUP_LABELS[group] })),
   { slug: "machines", text: "For machines" },
 ];
@@ -102,6 +106,32 @@ const sections = [
               ))}
           </ul>
         )}
+      </li>
+    ))}
+  </ul>
+
+  <h2 id="study">Study</h2>
+  <ul>
+    <li>
+      <a href="/study/">Study</a>: lessons made from class materials
+    </li>
+    {subjects.map((subject) => (
+      <li>
+        <a href={studyPath(subject.slug)}>{subject.title}</a>
+        <ul>
+          {lessonsOf(subject).map((lesson) => (
+            <li>
+              <a href={studyPath(subject.slug, lesson.slug)}>
+                {lesson.number} {lesson.title}
+              </a>
+            </li>
+          ))}
+          <li>
+            <a href={`${studyPath(subject.slug)}formulas/`}>Formula sheet</a>
+            {" · "}
+            <a href={`${studyPath(subject.slug)}glossary/`}>Glossary</a>
+          </li>
+        </ul>
       </li>
     ))}
   </ul>

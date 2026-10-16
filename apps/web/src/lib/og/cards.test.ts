@@ -53,6 +53,18 @@ describe("resolveCard", () => {
     expect(await resolveCard(database, "tools/nope", now)).toBeUndefined();
   });
 
+  it("draws the study section and its subjects", async () => {
+    expect((await resolveCard(database, "study", now))?.card.title).toBe(
+      "Study",
+    );
+    // Tests see drafts, so the sample subject is there.
+    const resolved = await resolveCard(database, "study/sample", now);
+    expect(resolved?.card.section).toBe("(06) Study");
+    expect(resolved?.card.meta).toBe("SAMPLE 101 · Autumn 2026 · 3 lessons");
+    expect(resolved?.href).toMatch(/^\/og\/study\/sample\.png\?v=/);
+    expect(await resolveCard(database, "study/nope", now)).toBeUndefined();
+  });
+
   it("draws games that exist", async () => {
     const resolved = await resolveCard(database, "games/skygrid", now);
     expect(resolved?.card).toMatchObject({

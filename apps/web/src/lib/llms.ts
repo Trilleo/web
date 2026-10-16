@@ -1,7 +1,7 @@
 /**
  * /llms.txt (https://llmstxt.org): a plain Markdown map of the site for AI
  * assistants and their crawlers: what it is, then links to every public post,
- * tool and game with a line on each.
+ * tool, game, Minecraft project and study subject with a line on each.
  */
 import type { GameMeta, ToolMeta } from "@trilleo/tool-kit";
 import { gamePath } from "./games/registry";
@@ -16,6 +16,12 @@ export interface LlmsProject {
   path: string;
   /** "Mod", "World", … */
   kind: string;
+}
+
+export interface LlmsSubject {
+  title: string;
+  summary: string;
+  path: string;
 }
 
 export interface LlmsPost {
@@ -45,6 +51,7 @@ export function llmsTxt(
   tools: readonly ToolMeta[],
   games: readonly GameMeta[] = [],
   projects: readonly LlmsProject[] = [],
+  subjects: readonly LlmsSubject[] = [],
 ): string {
   const live = tools.filter((tool) => tool.status !== "planned");
   const playable = games.filter((game) => game.status !== "planned");
@@ -96,6 +103,21 @@ export function llmsTxt(
               project.path,
               `${project.kind}. ${project.summary}`,
             ),
+          ),
+          "",
+        ]
+      : []),
+    ...(subjects.length > 0
+      ? [
+          "## Study",
+          "",
+          item(
+            "Study",
+            "/study/",
+            "Lessons made from class materials: worked examples, quizzes, formula sheets and flashcards.",
+          ),
+          ...subjects.map((subject) =>
+            item(subject.title, subject.path, subject.summary),
           ),
           "",
         ]

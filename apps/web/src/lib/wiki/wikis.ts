@@ -51,6 +51,7 @@ export const RESERVED_WIKI_SLUGS: ReadonlySet<string> = new Set([
   "sign-up",
   "sitemap",
   "static",
+  "study",
   "tools",
   "wiki",
   "writing",

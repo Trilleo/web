@@ -1,7 +1,7 @@
 /**
  * Which card each share image URL draws: /og/site.png, /og/posts/<slug>.png,
- * /og/tools/<slug>.png, /og/games/<slug>.png, /og/minecraft.png and
- * /og/minecraft/<slug>.png. The pages link them through ogImagePath, with the same
+ * /og/tools/<slug>.png, /og/games/<slug>.png, /og/minecraft.png,
+ * /og/minecraft/<slug>.png, /og/study.png and /og/study/<subject>.png. The pages link them through ogImagePath, with the same
  * card, so the `v` in their URLs matches.
  */
 import { findPublicPost, listPublicPosts, toBlogPost } from "../blog/store";
@@ -17,6 +17,9 @@ import {
 } from "../seo";
 import { findGame } from "../games/registry";
 import { findTool } from "../tools/registry";
+import { findSubject } from "@trilleo/study";
+import { studySubjects } from "../study/content";
+import { STUDY_CARD, subjectCard } from "../study/public";
 import { compareVersions } from "../minecraft/game-versions";
 import { SECTION_CARD, projectCard } from "../minecraft/public";
 import {
@@ -44,6 +47,7 @@ export async function resolveCard(
   });
   if (path === "site") return resolved(SITE_CARD);
   if (path === "minecraft") return resolved(SECTION_CARD);
+  if (path === "study") return resolved(STUDY_CARD);
 
   const [kind, slug, ...rest] = path.split("/");
   if (!slug || rest.length > 0) return undefined;
@@ -58,6 +62,10 @@ export async function resolveCard(
     return game && game.status !== "planned"
       ? resolved(gameCard(game))
       : undefined;
+  }
+  if (kind === "study") {
+    const subject = findSubject(studySubjects(), slug);
+    return subject ? resolved(subjectCard(subject)) : undefined;
   }
   if (kind === "minecraft") {
     // Public projects (listed or unlisted), by their current slug.

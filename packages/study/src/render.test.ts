@@ -1,0 +1,198 @@
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
+import { describe, expect, test } from "vitest";
+import { lessonsOf, loadSubjects } from "./content";
+import { createRenderer, mergeGlossary, splitIslands } from "./render";
+
+const renderer = createRenderer({
+  figure: (path) =>
+    path === "figures/known.webp" ? "/_astro/known.webp" : null,
+});
+const render = (body: string) =>
+  renderer.render({ number: "2.3", title: "Lesson", body });
+
+describe("lessons", () => {
+  test("number their headings like a textbook", () => {
+    const { html, toc } = render(
+      "# First\n\n## Second\n\n### Inside\n\n## Third",
+    );
+    expect(toc.map((heading) => `${heading.number} ${heading.text}`)).toEqual([
+      "2.3.1 First",
+      "2.3.2 Second",
+      "2.3.2.1 Inside",
+      "2.3.3 Third",
+    ]);
+    expect(html).toContain(
+      '<h2 id="first"><span class="study-secnum">2.3.1</span> First</h2>',
+    );
+    expect(html).not.toContain("data-number");
+  });
+
+  test("render maths with KaTeX, and leave prices alone", () => {
+    const { html, errors } = render(
+      "Inline $x^2$ and $$\\frac{a}{b}$$ costs $5 and $10.\n\n$$\nE = mc^2\n$$\n\n$\\ce{H2O}$",
+    );
+    expect(errors).toEqual([]);
+    expect(html).toContain('<span class="katex">');
+    expect(html).toContain(
+      '<div class="study-math"><span class="katex-display">',
+    );
+    expect(html).toContain("costs $5 and $10.");
+    expect(html.match(/class="katex"/g)?.length).toBe(4);
+  });
+
+  test("report maths KaTeX can't read", () => {
+    const { html, errors } = render("Broken $\\frac{1}$ here.");
+    expect(errors).toHaveLength(1);
+    expect(html).toContain("study-math-error");
+  });
+
+  test("number boxes and collect the glossary and formulas", () => {
+    const result = render(`::: define Resistance | 电阻
+Opposition to current.
+:::
+
+{{term node | 节点}}
+
+::: formula Ohm's law | 欧姆定律
+$$u = Ri$$
+--
+u | voltage | V
+:::
+
+::: example Second example?
+Problem.
+== Step ==
+Do it.
+:::`);
+    expect(result.errors).toEqual([]);
+    expect(result.html).toContain("Definition 2.3.1");
+    expect(result.html).toContain('lang="zh-CN"');
+    expect(result.html).toContain("Formula (2.3.1)");
+    expect(result.html).toContain("Example 2.3.1");
+    expect(result.html).toContain('<details class="study-step">');
+    expect(
+      result.glossary.map((entry) => [entry.term, entry.zh, entry.anchor]),
+    ).toEqual([
+      ["Resistance", "电阻", "def-resistance"],
+      ["node", "节点", null],
+    ]);
+    expect(result.formulas[0]).toMatchObject({
+      name: "Ohm's law",
+      zh: "欧姆定律",
+      number: "2.3.1",
+      anchor: "eq-2-3-1",
+    });
+  });
+
+  test("leave placeholders for widgets", () => {
+    const result = render(`Before.
+
+::: quiz
+? What's 1 + 1?
+answer: 2
+:::
+
+Between.
+
+::: plot
+f(x) = x^2
+:::`);
+    expect(result.errors).toEqual([]);
+    expect(result.islands.map((entry) => entry.name)).toEqual(["quiz", "plot"]);
+    expect(result.questions).toBe(1);
+    const parts = splitIslands(result.html, result.islands);
+    expect(parts.map((part) => part.kind)).toEqual([
+      "html",
+      "island",
+      "html",
+      "island",
+    ]);
+    const quiz = result.islands[0];
+    expect(quiz?.name === "quiz" && quiz.props.questions[0]?.check.answer).toBe(
+      "2",
+    );
+  });
+
+  test("show mistakes in components as errors", () => {
+    const result = render(
+      "::: quiz\n? No answer\n:::\n\n::: circuit\nR1 0,0 1,1 1k\n:::\n\n::: nothing\n:::\n\n![x](figures/missing.webp)",
+    );
+    expect(result.errors).toHaveLength(4);
+  });
+
+  test("resolve figures", () => {
+    expect(render("![A bridge](figures/known.webp)").html).toContain(
+      'src="/_astro/known.webp"',
+    );
+  });
+
+  test("keep HTML as text", () => {
+    expect(render("<script>alert(1)</script>").html).not.toContain("<script>");
+  });
+});
+
+test("mergeGlossary keeps one entry per term, preferring definitions", () => {
+  const lesson = { lesson: "a", lessonTitle: "A", lessonNumber: "1.1" };
+  const merged = mergeGlossary([
+    { term: "Node", zh: null, definition: null, anchor: null, ...lesson },
+    {
+      term: "node",
+      zh: "节点",
+      definition: "<p>Where parts meet.</p>",
+      anchor: "def-node",
+      ...lesson,
+    },
+    { term: "Loop", zh: "回路", definition: null, anchor: null, ...lesson },
+  ]);
+  expect(
+    merged.map((entry) => [entry.term, entry.zh, Boolean(entry.definition)]),
+  ).toEqual([
+    ["Loop", "回路", false],
+    ["node", "节点", true],
+  ]);
+});
+
+/** The repository's own study/ folder: every subject loads and every lesson renders cleanly. */
+describe("study/ content", () => {
+  const root = new URL("../../../study/", import.meta.url).pathname;
+  const files: Record<string, string> = {};
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir)) {
+      const path = join(dir, name);
+      if (statSync(path).isDirectory()) walk(path);
+      else if (name.endsWith(".md") && relative(root, path) !== "README.md")
+        files[relative(root, path)] = readFileSync(path, "utf8");
+    }
+  };
+  walk(root);
+  const subjects = loadSubjects(files, { drafts: true });
+  const figures = new Set(
+    Object.keys(files).length
+      ? subjects.flatMap((subject) => {
+          try {
+            return readdirSync(join(root, subject.slug, "figures")).map(
+              (name) => `${subject.slug}/figures/${name}`,
+            );
+          } catch {
+            return [];
+          }
+        })
+      : [],
+  );
+
+  for (const subject of subjects)
+    for (const lesson of lessonsOf(subject))
+      test(`${subject.slug}/${lesson.slug} renders without errors`, () => {
+        const lessonRenderer = createRenderer({
+          figure: (path) =>
+            figures.has(`${subject.slug}/${path}`) ? `/${path}` : null,
+        });
+        const result = lessonRenderer.render({
+          number: lesson.number,
+          title: lesson.title,
+          body: lesson.body,
+        });
+        expect(result.errors).toEqual([]);
+      });
+});

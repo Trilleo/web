@@ -28,6 +28,7 @@
     "@trilleo/mail": "workspace:*",
     "@trilleo/mc-files": "workspace:*",
     "@trilleo/storage": "workspace:*",
+    "@trilleo/study": "workspace:*",
     "@trilleo/tool-color": "workspace:*",
     "@trilleo/tool-convert": "workspace:*",
     "@trilleo/tool-inspect": "workspace:*",

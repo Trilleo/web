@@ -177,6 +177,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "help",
     changes: [
       {
+        date: "2026-10-16",
+        note: "Where the study lessons come from, and what their quizzes keep.",
+      },
+      {
         date: "2026-10-12",
         note: "Proposing wiki edits, and following changes with a watchlist.",
       },
@@ -238,6 +242,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "How Trilleo Network is built and hosted, its typefaces, and the open-source work it stands on.",
     group: "site",
     changes: [
+      {
+        date: "2026-10-16",
+        note: "Credited KaTeX, which sets the study lessons' maths.",
+      },
       {
         date: "2026-10-09",
         note: "Mentioned how email is sent, and credited Nodemailer.",

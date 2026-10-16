@@ -1,0 +1,186 @@
+---
+import {
+  findLesson,
+  findSubject,
+  lessonsOf,
+  neighbours,
+  studyPath,
+} from "@trilleo/study";
+import { ArrowLeftIcon, ArrowRightIcon } from "@trilleo/ui";
+import type { GetStaticPaths } from "astro";
+import TableOfContents from "../../../components/TableOfContents.astro";
+import LessonBody from "../../../components/study/LessonBody.astro";
+import StudyLayout from "../../../components/study/StudyLayout.astro";
+import {
+  breadcrumbJsonLd,
+  learningResourceJsonLd,
+  ogImagePath,
+} from "../../../lib/seo";
+import { renderLesson, studySubjects } from "../../../lib/study/content";
+import { subjectCard } from "../../../lib/study/public";
+
+export const getStaticPaths = (() =>
+  studySubjects().flatMap((subject) =>
+    lessonsOf(subject).map((lesson) => ({
+      params: { subject: subject.slug, lesson: lesson.slug },
+    })),
+  )) satisfies GetStaticPaths;
+
+const subject = findSubject(studySubjects(), Astro.params.subject);
+const lesson = subject ? findLesson(subject, Astro.params.lesson) : undefined;
+if (!subject || !lesson) return Astro.rewrite("/404");
+
+const unit = subject.units.find((entry) => entry.slug === lesson.unit);
+const rendered = await renderLesson(lesson);
+const { previous, next } = neighbours(subject, lesson);
+const path = studyPath(subject.slug, lesson.slug);
+const subjectPath = studyPath(subject.slug);
+const contents = rendered.toc.filter((heading) => heading.depth === 2);
+const meta = [
+  lesson.source,
+  `${String(lesson.minutes)} min`,
+  rendered.questions > 0
+    ? `${String(rendered.questions)} ${rendered.questions === 1 ? "question" : "questions"}`
+    : null,
+].filter(Boolean);
+---
+
+<StudyLayout
+  title={`${lesson.title} · ${subject.title}`}
+  description={lesson.summary}
+  image={ogImagePath(`study/${subject.slug}`, subjectCard(subject))}
+  subject={subject}
+  crumbs={[
+    { label: subject.title, href: subjectPath },
+    { label: `${lesson.number} ${lesson.title}` },
+  ]}
+  jsonLd={[
+    learningResourceJsonLd({
+      name: lesson.title,
+      description: lesson.summary,
+      path,
+      coursePath: subjectPath,
+      minutes: lesson.minutes,
+    }),
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Study", path: "/study/" },
+      { name: subject.title, path: subjectPath },
+      { name: lesson.title, path },
+    ]),
+  ]}
+>
+  <article class="grid-swiss px-page gap-y-10 pt-10 pb-16 md:pt-14 md:pb-24">
+    <!-- The subject's lessons, beside the text on desktop. -->
+    <nav
+      aria-label={`Lessons in ${subject.title}`}
+      class="hidden xl:col-span-2 xl:row-span-2 xl:block"
+    >
+      <ol class="type-label sticky top-6 flex flex-col gap-5">
+        {subject.units.map((entry) => (
+          <li class="flex flex-col gap-2">
+            <span class="text-muted">
+              {entry.number} {entry.title}
+            </span>
+            <ol class="flex flex-col gap-2 normal-case">
+              {entry.lessons.map((item) => (
+                <li>
+                  <a
+                    href={studyPath(subject.slug, item.slug)}
+                    class="study-lesson-link group flex gap-2 text-muted"
+                    aria-current={
+                      item.slug === lesson.slug ? "page" : undefined
+                    }
+                  >
+                    <span
+                      class="study-lesson-mark mt-[0.35em] size-1.5 shrink-0 bg-hair"
+                      aria-hidden="true"
+                    />
+                    <span class="link-wipe self-start">
+                      {item.number} {item.title}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </li>
+        ))}
+      </ol>
+    </nav>
+
+    <header class="col-span-4 flex animate-fade flex-col gap-5 md:col-span-7 xl:col-span-7 xl:col-start-3">
+      <p class="type-label text-muted">
+        Lesson {lesson.number}
+        {unit && ` · Unit ${unit.number}, ${unit.title}`}
+      </p>
+      <h1 class="study-heading text-[2.25rem] leading-[1.08] md:text-5xl">
+        {lesson.title}
+        {lesson.zh && (
+          <span class="study-zh study-zh-block text-[0.55em]" lang="zh-CN">
+            {lesson.zh}
+          </span>
+        )}
+      </h1>
+      <p class="type-dek text-muted">{lesson.summary}</p>
+      <p class="type-label text-muted">{meta.join(" · ")}</p>
+    </header>
+
+    {contents.length > 1 && (
+      <aside
+        aria-label="On this page"
+        class="hidden xl:col-span-3 xl:col-start-10 xl:row-span-2 xl:block"
+      >
+        <TableOfContents headings={contents} />
+      </aside>
+    )}
+
+    <div class="study-prose prose col-span-4 md:col-span-7 xl:col-span-7 xl:col-start-3">
+      <LessonBody lesson={rendered} />
+    </div>
+
+    <nav
+      aria-label="Next and previous lessons"
+      class="col-span-4 grid gap-4 border-t border-ink pt-4 md:col-span-7 md:grid-cols-2 xl:col-span-7 xl:col-start-3"
+    >
+      {previous ? (
+        <a
+          href={studyPath(subject.slug, previous.slug)}
+          class="group flex flex-col gap-1"
+        >
+          <span class="type-label inline-flex items-center gap-2 text-muted">
+            <ArrowLeftIcon size={14} /> Previous
+          </span>
+          <span class="study-heading text-lg">
+            <span class="link-wipe">
+              {previous.number} {previous.title}
+            </span>
+          </span>
+        </a>
+      ) : (
+        <a href={subjectPath} class="group flex flex-col gap-1">
+          <span class="type-label inline-flex items-center gap-2 text-muted">
+            <ArrowLeftIcon size={14} /> Contents
+          </span>
+          <span class="study-heading text-lg">
+            <span class="link-wipe">{subject.title}</span>
+          </span>
+        </a>
+      )}
+      {next && (
+        <a
+          href={studyPath(subject.slug, next.slug)}
+          class="group flex flex-col gap-1 md:items-end md:text-right"
+        >
+          <span class="type-label inline-flex items-center gap-2 text-muted">
+            Next <ArrowRightIcon size={14} />
+          </span>
+          <span class="study-heading text-lg">
+            <span class="link-wipe">
+              {next.number} {next.title}
+            </span>
+          </span>
+        </a>
+      )}
+    </nav>
+  </article>
+</StudyLayout>

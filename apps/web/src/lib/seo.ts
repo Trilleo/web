@@ -299,6 +299,61 @@ export function gameJsonLd(
   };
 }
 
+export interface CourseInput {
+  name: string;
+  description: string;
+  path: string;
+  image: string;
+  /** The school's name for it (code, class). */
+  courseCode?: string | null;
+  teacher?: string | null;
+}
+
+/** A study subject: free course notes, written by the author from a class's materials. */
+export function courseJsonLd(course: CourseInput): JsonLd {
+  const url = absolute(course.path);
+  return {
+    "@type": "Course",
+    "@id": `${url}#course`,
+    name: course.name,
+    description: course.description,
+    url,
+    image: absolute(course.image),
+    provider: { "@id": AUTHOR_ID },
+    author: { "@id": AUTHOR_ID },
+    inLanguage: "en",
+    isAccessibleForFree: true,
+    ...(course.courseCode && { courseCode: course.courseCode }),
+    ...(course.teacher && {
+      contributor: { "@type": "Person", name: course.teacher },
+    }),
+  };
+}
+
+export interface LessonInput {
+  name: string;
+  description: string;
+  path: string;
+  coursePath: string;
+  minutes: number;
+}
+
+/** One lesson of a subject. */
+export function learningResourceJsonLd(lesson: LessonInput): JsonLd {
+  return {
+    "@type": "LearningResource",
+    name: lesson.name,
+    description: lesson.description,
+    url: absolute(lesson.path),
+    learningResourceType: "Lesson",
+    isPartOf: { "@id": `${absolute(lesson.coursePath)}#course` },
+    timeRequired: `PT${String(lesson.minutes)}M`,
+    author: { "@id": AUTHOR_ID },
+    inLanguage: "en",
+    isAccessibleForFree: true,
+  };
+}
+
 /**
  * The page's JSON-LD as one `@graph`, safe inside <script>: `<` is escaped so a
  * title containing "</script>" can't end the element early (the same for `>`, `&`

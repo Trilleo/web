@@ -1,0 +1,52 @@
+---
+/**
+ * Upcoming exams with a countdown. The page is built ahead of time, so the days
+ * are counted in the browser; without JavaScript the dates still show.
+ */
+import type { Exam } from "@trilleo/study";
+import { formatPostDate } from "../../lib/listings";
+
+interface Props {
+  exams: readonly (Exam & { subject?: { title: string; href: string } })[];
+  class?: string;
+}
+
+const { exams, class: className } = Astro.props;
+---
+
+<ol class:list={["flex flex-col border-t border-ink", className]}>
+  {exams.map((exam) => (
+    <li class="grid grid-cols-[7.5rem_1fr_auto] items-baseline gap-x-4 border-b border-hair py-3">
+      <time class="type-label" datetime={exam.date}>
+        {formatPostDate(new Date(`${exam.date}T00:00:00Z`))}
+      </time>
+      <span class="text-[15px] leading-snug">
+        {exam.subject && (
+          <a
+            href={exam.subject.href}
+            class="font-semibold underline-offset-3 hover:underline"
+          >
+            {exam.subject.title}
+          </a>
+        )}
+        {exam.subject && " · "}
+        {exam.name}
+      </span>
+      <span
+        class="type-label text-right text-muted"
+        data-days-until={exam.date}
+      />
+    </li>
+  ))}
+</ol>
+
+<script>
+  import { daysLabel, daysUntil } from "@trilleo/study/dates";
+
+  for (const element of document.querySelectorAll<HTMLElement>(
+    "[data-days-until]",
+  )) {
+    const date = element.dataset.daysUntil;
+    if (date) element.textContent = daysLabel(daysUntil(date, new Date()));
+  }
+</script>

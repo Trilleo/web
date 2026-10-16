@@ -30,6 +30,8 @@ const e2eEnv = {
   MAIL_CAPTURE: "1",
   // Analytics loads (after consent) with this fake token; the specs stub the beacon.
   PUBLIC_CF_ANALYTICS_TOKEN: "e2e-analytics-token",
+  // The sample study subject (a draft) is built and served.
+  STUDY_DRAFTS: "1",
   // Minecraft versions: the list kept in the code, never Mojang's manifest.
   MINECRAFT_VERSION_MANIFEST: "off",
   MIGRATIONS_DIR: fileURLToPath(

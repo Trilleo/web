@@ -76,4 +76,20 @@ describe("llmsTxt", () => {
   it("says so when there's nothing yet", () => {
     expect(llmsTxt([], [])).toContain("No posts yet.");
   });
+
+  it("lists study subjects after the section's own link", () => {
+    const text = llmsTxt(
+      [],
+      [],
+      [],
+      [],
+      [{ title: "Circuits", summary: "DC and AC.", path: "/study/circuits/" }],
+    );
+    expect(text).toContain("## Study");
+    expect(text).toContain("- [Study](https://www.trilleo.net/study/)");
+    expect(text).toContain(
+      "- [Circuits](https://www.trilleo.net/study/circuits/): DC and AC.",
+    );
+    expect(llmsTxt([], [])).not.toContain("## Study");
+  });
 });

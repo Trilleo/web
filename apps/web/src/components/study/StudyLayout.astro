@@ -1,0 +1,81 @@
+---
+/**
+ * Pages in /study/. The site's header and grid, set like a textbook (styles/
+ * study.css): a band with the trail and, inside a subject, its own pages (contents,
+ * glossary, formula sheet). No scroll reveals or morphs: only short fades.
+ */
+import type { Subject } from "@trilleo/study";
+import "@trilleo/study/katex.css";
+import Breadcrumb, { type Crumb } from "../Breadcrumb.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import type { JsonLd } from "../../lib/seo";
+import { STUDY_LABEL } from "../../lib/study/public";
+
+interface Props {
+  title: string;
+  description: string;
+  image?: string;
+  jsonLd?: readonly JsonLd[];
+  /** The trail after "(06) Study"; the last one is this page. */
+  crumbs?: readonly Crumb[];
+  subject?: Subject;
+  /** Which of the subject's own pages this is. */
+  current?: "contents" | "glossary" | "formulas";
+  /** Prints as a plain page (formula sheet, glossary). */
+  printable?: boolean;
+}
+
+const {
+  title,
+  description,
+  image,
+  jsonLd = [],
+  crumbs = [],
+  subject,
+  current,
+  printable = false,
+} = Astro.props;
+
+const links = subject
+  ? ([
+      ["contents", "Contents", `/study/${subject.slug}/`],
+      ["glossary", "Glossary", `/study/${subject.slug}/glossary/`],
+      ["formulas", "Formulas", `/study/${subject.slug}/formulas/`],
+    ] as const)
+  : [];
+const trail: Crumb[] =
+  crumbs.length > 0
+    ? [{ label: STUDY_LABEL, href: "/study/" }, ...crumbs]
+    : [{ label: STUDY_LABEL }];
+---
+
+<BaseLayout {title} {description} {image} {jsonLd}>
+  <div class:list={["study", printable && "study-printable"]}>
+    <div class="study-band grid-swiss px-page type-label gap-y-2 border-b border-hair py-3 xl:py-4">
+      <Breadcrumb
+        class="col-span-4 md:col-span-5 xl:col-span-8"
+        items={trail}
+      />
+      {subject && (
+        <nav
+          aria-label={`${subject.title}: pages`}
+          class="col-span-4 flex gap-x-5 md:col-span-3 md:justify-end xl:col-span-4"
+        >
+          {links.map(([key, label, href]) => (
+            <a
+              href={href}
+              class:list={[
+                "group inline-flex min-h-6 items-center",
+                key === current ? "text-ink" : "text-muted",
+              ]}
+              aria-current={key === current ? "page" : undefined}
+            >
+              <span class="link-wipe">{label}</span>
+            </a>
+          ))}
+        </nav>
+      )}
+    </div>
+    <slot />
+  </div>
+</BaseLayout>

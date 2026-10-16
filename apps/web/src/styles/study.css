@@ -1,0 +1,889 @@
+/*
+ * The study section (/study/), set like a textbook: serif headings with section
+ * numbers, numbered boxes for definitions, laws and examples, equations numbered at
+ * the right margin, figures captioned below. Quieter than the rest of the site: no
+ * scroll reveals or morphs, only short fades. Colours are the --tr-* tokens, so
+ * both themes work; the accent marks state (wrong answers, the current lesson),
+ * never text on paper.
+ */
+
+.study {
+  --study-rule: 1px solid var(--tr-hair);
+}
+
+/* Headings in the serif, numbered: "2.3.1 Kirchhoff's laws". */
+.study-heading,
+.study-prose :is(h2, h3, h4) {
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.study-prose h2 {
+  padding-top: 0.75rem;
+  border-top: var(--study-rule);
+}
+
+.study-secnum {
+  margin-right: 0.5em;
+  color: var(--tr-muted);
+  font-family: var(--font-mono);
+  font-size: 0.7em;
+  font-weight: 400;
+  letter-spacing: 0;
+  vertical-align: 0.15em;
+}
+
+.study-zh,
+.study-term-zh {
+  margin-left: 0.4em;
+  color: var(--tr-muted);
+  font-family: var(--font-cjk);
+  font-size: 0.9em;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* Under the English, as its own line (titles, glossary terms). */
+.study-zh-block {
+  display: block;
+  margin: 0.35rem 0 0;
+}
+
+.study-term-en {
+  font-style: italic;
+}
+
+.study-term-zh::before {
+  content: "（";
+}
+
+.study-term-zh::after {
+  content: "）";
+}
+
+.study-term .study-term-zh {
+  margin-left: 0.1em;
+}
+
+/* Maths: display equations scroll sideways on phones instead of overflowing. */
+.study .katex {
+  font-size: 1.08em;
+}
+
+.study .katex-display {
+  margin: 0;
+  padding-block: 0.35rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.study-math {
+  margin-block: 1.75rem;
+}
+
+.study-math-error {
+  border-bottom: 2px solid var(--tr-accent);
+}
+
+/* Numbered boxes: definitions, laws, theorems, examples. */
+.study-box {
+  margin-block: 2rem;
+  padding: 1rem 0 1rem 1.25rem;
+  border-left: 2px solid var(--tr-ink);
+}
+
+.study-box > * + * {
+  margin-top: 0.85rem;
+}
+
+.study-box[data-kind="example"] {
+  padding: 1.25rem;
+  border: var(--study-rule);
+  border-top: 2px solid var(--tr-ink);
+}
+
+.study-box-label {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.study-box-kind {
+  margin-right: 0.35em;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.study-box-label dfn,
+.study-box-title {
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+  font-weight: 600;
+  font-style: normal;
+}
+
+/* Worked examples: steps open one at a time. */
+.study-steps {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  list-style: none;
+  border-top: var(--study-rule);
+}
+
+.study-step {
+  border-bottom: var(--study-rule);
+}
+
+.study-step > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding-block: 0.6rem;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.study-step > summary::-webkit-details-marker {
+  display: none;
+}
+
+.study-step > summary::after {
+  content: "Show";
+  margin-left: auto;
+  color: var(--tr-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.study-step[open] > summary::after {
+  content: "Hide";
+}
+
+.study-step-number {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid var(--tr-ink);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.study-step-body {
+  padding: 0 0 1rem 2.25rem;
+  animation: study-fade var(--tr-dur-base) var(--tr-ease-out);
+}
+
+.study-step-body > * + * {
+  margin-top: 0.75rem;
+}
+
+/* Callouts: a square marker and a label, like a note in the margin. */
+.study-callout {
+  margin-block: 2rem;
+  padding: 1rem 1.25rem;
+  background-color: var(--tr-fig);
+  font-size: 0.95em;
+}
+
+.study-callout > * + * {
+  margin-top: 0.75rem;
+}
+
+.study-callout-label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.study-callout-label::before {
+  content: "";
+  flex-shrink: 0;
+  width: 0.55rem;
+  height: 0.55rem;
+  background-color: var(--tr-ink);
+}
+
+.study-callout:is(
+    [data-kind="pitfall"],
+    [data-kind="warning"],
+    [data-kind="exam"]
+  )
+  .study-callout-label::before {
+  background-color: var(--tr-accent);
+}
+
+.study-callout-title {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Formulas: the equation centred, its number at the right margin. */
+.study-formula {
+  margin-block: 2rem;
+  border-top: var(--study-rule);
+  border-bottom: var(--study-rule);
+}
+
+.study-formula figcaption {
+  padding-top: 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.study-formula-equation {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 1rem;
+}
+
+.study-formula-equation .study-math {
+  margin-block: 0.75rem;
+}
+
+.study-eqno {
+  color: var(--tr-muted);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.study-symbols {
+  width: 100%;
+  margin-bottom: 0.75rem;
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+}
+
+.study-symbols :is(th, td) {
+  padding: 0.35rem 0.75rem 0.35rem 0;
+  border-top: var(--study-rule);
+  text-align: left;
+  vertical-align: baseline;
+}
+
+.study-symbols thead th {
+  border-top: 0;
+  color: var(--tr-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.study-symbols .study-symbol {
+  width: 4rem;
+}
+
+.study-symbols td:last-child {
+  width: 4rem;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+/* Tables scroll inside the column. */
+.study-table {
+  overflow-x: auto;
+}
+
+/* Figures: drawings and widgets, captioned below. */
+.study-figure {
+  margin-block: 2.25rem;
+}
+
+.study-figure > * + * {
+  margin-top: 1rem;
+}
+
+.study-figure figcaption {
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+.study-figure-note {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--tr-muted);
+  font-size: 0.875rem;
+}
+
+.study-figure-art {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  padding: 1rem;
+  background-color: var(--tr-fig);
+}
+
+.study-widget {
+  padding-top: 1rem;
+  border-top: 2px solid var(--tr-ink);
+}
+
+/* Circuits (packages/study/src/circuit/draw.ts). */
+.study-circuit {
+  max-width: 100%;
+  height: auto;
+  color: var(--tr-ink);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.study-circuit .sc-body {
+  fill: var(--tr-fig);
+}
+
+.study-circuit .sc-fill {
+  fill: currentColor;
+  stroke: none;
+}
+
+.study-circuit text {
+  fill: currentColor;
+  stroke: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.study-circuit .sc-name {
+  font-weight: 600;
+}
+
+.study-circuit .sc-value,
+.study-circuit .sc-node {
+  fill: var(--tr-muted);
+}
+
+.study-circuit .sc-note {
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--tr-fig);
+  stroke-width: 4px;
+}
+
+/* Plots. */
+.study-plot svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  background-color: var(--tr-fig);
+  touch-action: pan-y;
+}
+
+.study-plot svg:focus-visible {
+  outline-offset: 2px;
+}
+
+.plot-grid line {
+  stroke: var(--tr-fig-grid);
+  stroke-width: 1;
+}
+
+.plot-axes :is(line, rect) {
+  fill: none;
+  stroke: var(--tr-muted);
+  stroke-width: 1;
+}
+
+.plot-labels text {
+  fill: var(--tr-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.plot-labels .plot-axis-title {
+  fill: var(--tr-ink);
+  font-size: 12px;
+}
+
+.plot-curve {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.plot-curve-0 {
+  stroke: var(--tr-accent);
+}
+
+.plot-curve-1 {
+  stroke: var(--tr-ink);
+}
+
+.plot-curve-2 {
+  stroke: var(--tr-muted);
+  stroke-dasharray: 6 4;
+}
+
+.plot-curve-3 {
+  stroke: var(--tr-ink);
+  stroke-dasharray: 1.5 4;
+}
+
+.plot-cursor line {
+  stroke: var(--tr-ink);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.plot-cursor circle {
+  fill: var(--tr-paper);
+  stroke: var(--tr-ink);
+  stroke-width: 1.5;
+}
+
+.study-plot-reading {
+  margin-top: 0.5rem;
+  min-height: 1.5em;
+  color: var(--tr-muted);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+.study-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+}
+
+.study-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.study-swatch {
+  width: 1.5rem;
+  height: 0;
+  border-top: 2px solid;
+}
+
+.study-swatch.plot-curve-0 {
+  border-color: var(--tr-accent);
+}
+
+.study-swatch.plot-curve-1 {
+  border-color: var(--tr-ink);
+}
+
+.study-swatch.plot-curve-2 {
+  border-top-style: dashed;
+  border-color: var(--tr-muted);
+}
+
+.study-swatch.plot-curve-3 {
+  border-top-style: dotted;
+  border-color: var(--tr-ink);
+}
+
+/* Sliders and results. */
+.study-sliders {
+  display: grid;
+  gap: 0.75rem 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.study-slider-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.study-slider-name {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  font-style: italic;
+}
+
+.study-slider-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.study-slider input[type="range"] {
+  width: 100%;
+  min-height: 2rem;
+  accent-color: var(--tr-accent);
+}
+
+.study-results {
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  border: 1px solid var(--tr-hair);
+  background-color: var(--tr-hair);
+}
+
+.study-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--tr-paper);
+}
+
+.study-result dt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.8125rem;
+}
+
+.study-result-label {
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+
+.study-result dd {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.study-readings {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.study-readings :is(th, td) {
+  padding: 0.45rem 1rem 0.45rem 0;
+  border-bottom: var(--study-rule);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.study-readings thead th {
+  color: var(--tr-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.study-readings td {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.study-muted {
+  color: var(--tr-muted);
+  font-weight: 400;
+}
+
+/* Quizzes. */
+.study-quiz {
+  margin-block: 2.5rem;
+  border-top: 2px solid var(--tr-ink);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+}
+
+.study-quiz-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding-block: 0.75rem;
+}
+
+.study-quiz-title {
+  font-weight: 600;
+}
+
+.study-quiz-score {
+  color: var(--tr-muted);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+.study-questions {
+  padding: 0;
+  list-style: none;
+}
+
+.study-question {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1.25rem 0 1.25rem 1rem;
+  border-top: var(--study-rule);
+  border-left: 2px solid transparent;
+  transition: border-color var(--tr-dur-base) var(--tr-ease);
+}
+
+.study-question[data-state="right"] {
+  border-left-color: var(--tr-ink);
+}
+
+.study-question[data-state="wrong"] {
+  border-left-color: var(--tr-accent);
+}
+
+.study-question-head {
+  display: flex;
+  gap: 0.85rem;
+}
+
+.study-question-number {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+.study-question-prompt {
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  line-height: 1.55;
+}
+
+.study-question-prompt > * + * {
+  margin-top: 0.5rem;
+}
+
+.study-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.study-options-hint {
+  color: var(--tr-muted);
+  font-size: 0.875rem;
+}
+
+.study-option {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border: var(--study-rule);
+  cursor: pointer;
+  transition: border-color var(--tr-dur-fast) var(--tr-ease);
+}
+
+.study-option:hover,
+.study-option:has(input:checked) {
+  border-color: var(--tr-ink);
+}
+
+.study-option input {
+  accent-color: var(--tr-ink);
+}
+
+.study-response input {
+  width: 100%;
+  max-width: 24rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--tr-ink);
+  background-color: transparent;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+}
+
+.study-response input::placeholder {
+  color: var(--tr-muted);
+}
+
+.study-question-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.study-button {
+  min-height: 2.75rem;
+  padding: 0.5rem 1.25rem;
+  border: 1px solid var(--tr-ink);
+  background-color: var(--tr-ink);
+  color: var(--tr-paper);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--tr-dur-fast) var(--tr-ease);
+}
+
+.study-button:hover {
+  background-color: transparent;
+  color: var(--tr-ink);
+}
+
+.study-feedback {
+  font-size: 0.9375rem;
+}
+
+.study-question[data-state] .study-feedback {
+  animation: study-fade var(--tr-dur-base) var(--tr-ease-out);
+}
+
+.study-question[data-state="right"] .study-feedback::before {
+  content: "✓ ";
+}
+
+.study-answer > summary {
+  width: fit-content;
+  color: var(--tr-muted);
+  font-size: 0.875rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.study-answer[open] > :not(summary) {
+  margin-top: 0.75rem;
+  animation: study-fade var(--tr-dur-base) var(--tr-ease-out);
+}
+
+.study-answer > :not(summary) {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+}
+
+.study-answer-label {
+  margin-right: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+/* Flashcards: fronts in a column, answers open beneath. */
+.study-cards {
+  margin-block: 2.25rem;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+}
+
+.study-cards-label {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding-block: 0.75rem;
+  border-top: 2px solid var(--tr-ink);
+  font-weight: 600;
+}
+
+.study-cards-label span {
+  color: var(--tr-muted);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.study-cards ul {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+
+  @media (width >= 48rem) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.study-card {
+  height: 100%;
+  border: var(--study-rule);
+}
+
+.study-card > summary {
+  min-height: 3.5rem;
+  padding: 0.85rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.study-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.study-card[open] {
+  border-color: var(--tr-ink);
+}
+
+.study-card-back {
+  padding: 0 1rem 0.85rem;
+  font-family: var(--font-serif);
+  animation: study-fade var(--tr-dur-base) var(--tr-ease-out);
+}
+
+/* The lesson list in the left column; the current one is marked. */
+.study-lesson-link[aria-current="page"] {
+  color: var(--tr-ink);
+  font-weight: 600;
+}
+
+.study-lesson-link[aria-current="page"] .study-lesson-mark {
+  background-color: var(--tr-accent);
+}
+
+@keyframes study-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .study * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* The formula sheet and glossary print as plain pages. */
+@media print {
+  body:has(.study-printable)
+    :is(header, footer, .study-band, .study-print-hide) {
+    display: none !important;
+  }
+
+  .study-printable {
+    color: #000;
+  }
+
+  .study-printable .study-formula {
+    break-inside: avoid;
+  }
+}

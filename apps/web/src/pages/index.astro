@@ -19,6 +19,12 @@ import {
   countLabel,
 } from "../lib/minecraft/public";
 import { listProjects } from "../lib/minecraft/store";
+import { studySubjects } from "../lib/study/content";
+import {
+  STUDY_DESCRIPTION,
+  STUDY_NUMBER,
+  lessonCount,
+} from "../lib/study/public";
 
 const tools = toolListings();
 const toolCount = `${String(tools.length)} ${tools.length === 1 ? "tool" : "tools"}`;
@@ -36,6 +42,9 @@ const creations = await listProjects(await getDb(), {
   sort: "updated",
   perPage: 3,
 });
+
+const subjects = studySubjects();
+const HOME_SUBJECT_COUNT = 4;
 
 const pageLinkClass =
   "group flex min-h-12 items-center justify-between border-b border-ink font-semibold";
@@ -179,6 +188,66 @@ const pageArrowClass =
           <p class="type-lead col-span-4 md:col-span-8 xl:col-span-12 text-muted">
             {MINECRAFT_DESCRIPTION}{" "}
             <a href="/minecraft/" class="link-wipe text-ink">
+              Have a look
+            </a>
+            .
+          </p>
+        </div>
+      )}
+    </div>
+  </section>
+
+  <section
+    id="study"
+    aria-labelledby="study-title"
+    class="px-page pt-16 md:pt-24 xl:pt-30"
+  >
+    <SectionHeader
+      number={STUDY_NUMBER}
+      title="Study"
+      headingId="study-title"
+      meta={
+        subjects.length > 0
+          ? `All ${String(subjects.length)} ${subjects.length === 1 ? "subject" : "subjects"}`
+          : "Browse"
+      }
+      href="/study/"
+    />
+    <div class="mt-6 md:mt-8 xl:mt-10">
+      {subjects.length > 0 ? (
+        <ol class="grid-swiss border-t border-ink" data-reveal>
+          {subjects.slice(0, HOME_SUBJECT_COUNT).map((subject) => (
+            <li class="col-span-4 border-b border-hair md:col-span-8 xl:col-span-12">
+              <a
+                href={`/study/${subject.slug}/`}
+                class="group grid-swiss items-baseline gap-y-1 py-4"
+              >
+                <span class="type-label col-span-4 text-muted md:col-span-2">
+                  {subject.course ?? "Course"}
+                </span>
+                <span class="col-span-4 font-serif text-xl font-semibold md:col-span-4 xl:col-span-7">
+                  <span class="link-wipe">{subject.title}</span>
+                  {subject.zh && (
+                    <span
+                      lang="zh-CN"
+                      class="ml-2 font-cjk text-base font-normal text-muted"
+                    >
+                      {subject.zh}
+                    </span>
+                  )}
+                </span>
+                <span class="type-label col-span-4 text-muted md:col-span-2 md:text-right xl:col-span-3">
+                  {lessonCount(subject)}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <div class="grid-swiss border-t border-ink pt-6">
+          <p class="type-lead col-span-4 text-muted md:col-span-8 xl:col-span-12">
+            {STUDY_DESCRIPTION}{" "}
+            <a href="/study/" class="link-wipe text-ink">
               Have a look
             </a>
             .

@@ -28,3 +28,6 @@ playwright/.cache/
 # OS
 .DS_Store
 Thumbs.db
+
+# Raw class materials for study subjects (see .claude/skills/study-import)
+study-sources/

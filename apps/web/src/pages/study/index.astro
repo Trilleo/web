@@ -1,0 +1,157 @@
+---
+import DisplayTitle from "../../components/DisplayTitle.astro";
+import ExamList from "../../components/study/ExamList.astro";
+import StudyLayout from "../../components/study/StudyLayout.astro";
+import { breadcrumbJsonLd, ogImagePath } from "../../lib/seo";
+import { studySubjects } from "../../lib/study/content";
+import {
+  STUDY_CARD,
+  STUDY_DESCRIPTION,
+  STUDY_LABEL,
+  lessonCount,
+} from "../../lib/study/public";
+
+const subjects = studySubjects();
+const count = `${String(subjects.length)} ${subjects.length === 1 ? "subject" : "subjects"}`;
+// Every exam still to come is checked in the browser; the build leaves out ones long past.
+const builtOn = new Date().toISOString().slice(0, 10);
+const exams = subjects
+  .flatMap((subject) =>
+    subject.exams.map((exam) => ({
+      ...exam,
+      subject: { title: subject.title, href: `/study/${subject.slug}/` },
+    })),
+  )
+  .filter((exam) => exam.date >= builtOn)
+  .sort((a, b) => a.date.localeCompare(b.date));
+
+const features = [
+  [
+    "Lessons",
+    "Numbered like a textbook, with definitions, laws and the Chinese term beside each English one.",
+  ],
+  [
+    "Worked examples",
+    "Steps that stay closed until you've tried them yourself.",
+  ],
+  [
+    "Quizzes",
+    "Numbers with units, algebra and choices, checked as you answer, each with its explanation.",
+  ],
+  [
+    "Formula sheets",
+    "Every formula in a subject on one printable page, with what its symbols mean.",
+  ],
+  ["Flashcards", "The facts worth knowing by heart, gathered per lesson."],
+  [
+    "Things to try",
+    "Graphs with sliders, formulas to explore, and circuits you can change and measure.",
+  ],
+] as const;
+---
+
+<StudyLayout
+  title="Study"
+  description={STUDY_DESCRIPTION}
+  image={ogImagePath("study", STUDY_CARD)}
+  jsonLd={[
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Study", path: "/study/" },
+    ]),
+  ]}
+>
+  <section
+    aria-labelledby="study-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <div class="grid-swiss type-label">
+      <span class="col-span-2 md:col-span-4 xl:col-span-2">{STUDY_LABEL}</span>
+      <span class="col-span-2 text-right text-muted md:col-span-4 xl:col-span-3 xl:col-start-10">
+        {count}
+      </span>
+    </div>
+
+    <DisplayTitle id="study-title">Study</DisplayTitle>
+
+    <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <p class="type-lead col-span-4 md:col-span-8 xl:col-span-9">
+        {STUDY_DESCRIPTION}
+      </p>
+    </div>
+
+    <div class="grid-swiss mt-14 gap-y-10 md:mt-20">
+      <h2 class="type-label col-span-4 md:col-span-2">Subjects</h2>
+      <div class="col-span-4 md:col-span-6 xl:col-span-7">
+        {subjects.length === 0 ? (
+          <p class="type-dek text-muted">
+            Subjects arrive as the term goes on, each made from its class's own
+            materials.
+          </p>
+        ) : (
+          <ol class="flex flex-col border-t border-ink">
+            {subjects.map((subject) => (
+              <li class="border-b border-hair">
+                <a
+                  href={`/study/${subject.slug}/`}
+                  class="group grid gap-x-6 gap-y-2 py-5 md:grid-cols-[8rem_1fr]"
+                >
+                  <span class="type-label text-muted">
+                    {subject.course ?? lessonCount(subject)}
+                  </span>
+                  <span class="flex flex-col gap-2">
+                    <span class="study-heading text-2xl leading-tight">
+                      <span class="link-wipe">{subject.title}</span>
+                      {subject.zh && (
+                        <span class="study-zh" lang="zh-CN">
+                          {subject.zh}
+                        </span>
+                      )}
+                    </span>
+                    <span class="font-serif text-[17px] leading-normal text-muted">
+                      {subject.summary}
+                    </span>
+                    <span class="type-label text-muted">
+                      {[
+                        subject.teacher,
+                        subject.term,
+                        `${String(subject.units.length)} ${subject.units.length === 1 ? "unit" : "units"}`,
+                        lessonCount(subject),
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+
+      {exams.length > 0 && (
+        <>
+          <h2 class="type-label col-span-4 md:col-span-2 xl:col-start-1">
+            Exams
+          </h2>
+          <ExamList
+            exams={exams}
+            class="col-span-4 md:col-span-6 xl:col-span-7"
+          />
+        </>
+      )}
+
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-start-1">
+        In every subject
+      </h2>
+      <dl class="col-span-4 grid gap-x-8 border-t border-ink md:col-span-6 md:grid-cols-2 xl:col-span-7">
+        {features.map(([name, text]) => (
+          <div class="border-b border-hair py-4">
+            <dt class="font-semibold">{name}</dt>
+            <dd class="mt-1 text-[15px] leading-normal text-muted">{text}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  </section>
+</StudyLayout>
