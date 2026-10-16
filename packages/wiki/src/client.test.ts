@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest";
-import { enhanceTabs } from "./client";
+import { CURSOR_OFFSET, enhanceTabs, placeTooltips } from "./client";
 
 beforeEach(() => {
   document.body.innerHTML = `<div class="wiki-tabs" data-tabs>
@@ -152,5 +152,75 @@ describe("live calculators", () => {
     expect(totals()).toContain("480 × Diamond");
     type(document.querySelector('[data-have="diamond"]'), "80");
     expect(totals()).toContain("400 × Diamond");
+  });
+});
+
+describe("placeTooltips", () => {
+  placeTooltips(document);
+
+  /** A slot with a 200×80 tooltip (jsdom lays nothing out), its box at 100,100–136,136. */
+  function slot(): { link: HTMLElement; tooltip: HTMLElement } {
+    document.body.innerHTML = `<span class="mc-slot mc-item"><a data-slot href="#">x</a><span class="mc-tooltip" role="tooltip">Tip</span></span>`;
+    const link = document.querySelector<HTMLElement>("[data-slot]");
+    const tooltip = document.querySelector<HTMLElement>(".mc-tooltip");
+    if (!link || !tooltip) throw new Error("no slot");
+    Object.defineProperty(tooltip, "offsetWidth", { value: 200 });
+    Object.defineProperty(tooltip, "offsetHeight", { value: 80 });
+    const item = tooltip.parentElement;
+    if (item)
+      item.getBoundingClientRect = () =>
+        DOMRect.fromRect({ x: 100, y: 100, width: 36, height: 36 });
+    return { link, tooltip };
+  }
+
+  function point(
+    target: Element,
+    type: string,
+    x: number,
+    y: number,
+    pointerType = "mouse",
+  ): void {
+    const event = new MouseEvent(type, {
+      bubbles: true,
+      clientX: x,
+      clientY: y,
+    });
+    Object.defineProperty(event, "pointerType", { value: pointerType });
+    target.dispatchEvent(event);
+  }
+
+  it("follows a mouse, right of the cursor and a little above", () => {
+    const { link, tooltip } = slot();
+    point(link, "pointerover", 110, 300);
+    expect([
+      tooltip.style.position,
+      tooltip.style.left,
+      tooltip.style.top,
+    ]).toEqual([
+      "fixed",
+      `${String(110 + CURSOR_OFFSET.x)}px`,
+      `${String(300 + CURSOR_OFFSET.y)}px`,
+    ]);
+    point(link, "pointermove", 130, 310);
+    expect(tooltip.style.left).toBe(`${String(130 + CURSOR_OFFSET.x)}px`);
+    expect(tooltip.style.top).toBe(`${String(310 + CURSOR_OFFSET.y)}px`);
+  });
+
+  it("flips to the cursor's left near the right edge, and stays on screen", () => {
+    const { link, tooltip } = slot();
+    point(link, "pointermove", window.innerWidth - 50, window.innerHeight - 5);
+    expect(tooltip.style.left).toBe(
+      `${String(window.innerWidth - 50 - CURSOR_OFFSET.x - 200)}px`,
+    );
+    expect(tooltip.style.top).toBe(`${String(window.innerHeight - 8 - 80)}px`);
+  });
+
+  it("sits under the item for keyboard focus and touch", () => {
+    const { link, tooltip } = slot();
+    link.focus();
+    expect([tooltip.style.left, tooltip.style.top]).toEqual(["100px", "142px"]);
+    tooltip.style.top = "";
+    point(link, "pointerover", 300, 300, "touch");
+    expect(tooltip.style.top).toBe("142px");
   });
 });

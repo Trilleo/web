@@ -199,39 +199,77 @@ export function animateObfuscated(root: ParentNode = document): void {
   }, 60);
 }
 
+/** Where the game draws a tooltip: right of the cursor and a little above it. */
+export const CURSOR_OFFSET = { x: 12, y: -12 } as const;
+const EDGE = 8;
+
+function tooltipFor(target: EventTarget | null): HTMLElement | null {
+  if (!(target instanceof Element)) return null;
+  return (
+    target
+      .closest(".mc-item")
+      ?.querySelector<HTMLElement>(":scope > .mc-tooltip") ?? null
+  );
+}
+
+function pin(tooltip: HTMLElement, left: number, top: number): void {
+  tooltip.style.position = "fixed";
+  tooltip.style.left = `${String(left)}px`;
+  tooltip.style.top = `${String(top)}px`;
+}
+
 /**
- * Item tooltips: CSS shows them on hover and focus. This pins the open one to the
- * viewport, so a table or inventory that scrolls can't clip it, and keeps it on
- * screen (above the item when there's no room below).
+ * Item tooltips: CSS shows them on hover and focus; this pins the open one to the
+ * viewport, so a table or inventory that scrolls can't clip it. Under a mouse it
+ * follows the cursor as in the game (right of it and a little above, flipped to the
+ * left near the window's edge); otherwise (keyboard focus, touch) it sits under the
+ * item, or above it when there's no room below.
  */
 export function placeTooltips(root: Document = document): void {
-  const place = (target: EventTarget | null) => {
-    if (!(target instanceof Element)) return;
-    const item = target.closest(".mc-item");
-    const tooltip = item?.querySelector<HTMLElement>(":scope > .mc-tooltip");
-    if (!item || !tooltip) return;
+  const view = root.defaultView ?? window;
+  const underItem = (target: EventTarget | null) => {
+    const tooltip = tooltipFor(target);
+    const item = tooltip?.parentElement;
+    if (!tooltip || !item) return;
     const anchor = item.getBoundingClientRect();
     tooltip.style.position = "fixed";
     const width = tooltip.offsetWidth;
     const height = tooltip.offsetHeight;
     const gap = 6;
     const left = Math.max(
-      8,
-      Math.min(anchor.left, window.innerWidth - width - 8),
+      EDGE,
+      Math.min(anchor.left, view.innerWidth - width - EDGE),
     );
     const below = anchor.bottom + gap;
     const top =
-      below + height > window.innerHeight - 8
-        ? Math.max(8, anchor.top - gap - height)
+      below + height > view.innerHeight - EDGE
+        ? Math.max(EDGE, anchor.top - gap - height)
         : below;
-    tooltip.style.left = `${String(left)}px`;
-    tooltip.style.top = `${String(top)}px`;
+    pin(tooltip, left, top);
   };
-  root.addEventListener("pointerover", (event) => {
-    place(event.target);
-  });
+  const atCursor = (event: PointerEvent) => {
+    if (event.pointerType !== "mouse") {
+      underItem(event.target);
+      return;
+    }
+    const tooltip = tooltipFor(event.target);
+    if (!tooltip) return;
+    tooltip.style.position = "fixed";
+    const width = tooltip.offsetWidth;
+    const height = tooltip.offsetHeight;
+    let left = event.clientX + CURSOR_OFFSET.x;
+    if (left + width > view.innerWidth - EDGE)
+      left = event.clientX - CURSOR_OFFSET.x - width;
+    const top = Math.min(
+      event.clientY + CURSOR_OFFSET.y,
+      view.innerHeight - EDGE - height,
+    );
+    pin(tooltip, Math.max(EDGE, left), Math.max(EDGE, top));
+  };
+  root.addEventListener("pointerover", atCursor);
+  root.addEventListener("pointermove", atCursor);
   root.addEventListener("focusin", (event) => {
-    place(event.target);
+    underItem(event.target);
   });
 }
 

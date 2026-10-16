@@ -238,6 +238,13 @@
   display: block;
 }
 
+/* One tooltip at a time, as in the game: the hovered item's wins over a focused one. */
+:root:has(.mc-item:hover)
+  .mc-item:not(:hover)
+  > .mc-tooltip:not([data-static]) {
+  display: none;
+}
+
 .mc-tooltip[data-static] {
   position: static;
   display: block;

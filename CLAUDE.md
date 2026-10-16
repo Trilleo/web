@@ -645,6 +645,8 @@
 Name`, `::: inventory 3x9 Title` (slots `5: Item x64`, ranges, `row 2: A, , B`),
   `::: menu` (see Menus below). They
   look like the game in both themes (wiki-minecraft.css: game colours, tooltip, slots).
+  Tooltips follow a mouse cursor as the game's do, one at a time (`placeTooltips` in
+  @trilleo/wiki's client.ts); keyboard focus and touch place them under the item.
   Text is set in "Minecraft" by Jacob Debono, a free fan-made font (not Mojang's),
   committed as WOFF2 in packages/wiki/src/fonts (NOTICE.md); never ship Mojang's files.
 - Items: saving an Item: page records its item in wiki_items (`recordItem`, in
