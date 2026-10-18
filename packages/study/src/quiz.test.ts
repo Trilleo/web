@@ -72,6 +72,19 @@ describe("checkAnswer", () => {
     expect(checkAnswer(data, "").message).toMatch(/first/);
   });
 
+  test("unitless answers can be fractions, worked out or per cent", () => {
+    const data = only("? P?\nanswer: 7/48");
+    expect(checkAnswer(data, "7/48").correct).toBe(true);
+    expect(checkAnswer(data, "0.1458").correct).toBe(true);
+    expect(checkAnswer(data, "14.58%").correct).toBe(true);
+    expect(checkAnswer(data, "1/6").correct).toBe(false);
+    const counted = only("? P?\nanswer: C(8,4)^2/C(16,8)");
+    expect(checkAnswer(counted, "0.3807").correct).toBe(true);
+    const normal = only("? P?\nanswer: 0.9973\ntolerance: 0.0001");
+    expect(checkAnswer(normal, "2Phi(3) - 1").correct).toBe(true);
+    expect(parseQuiz("? P?\nanswer: 1/0").errors).toHaveLength(1);
+  });
+
   test("a bare number reads in the answer's own prefix", () => {
     const data = only("? I?\nanswer: 4 mA");
     expect(checkAnswer(data, "4").correct).toBe(true);

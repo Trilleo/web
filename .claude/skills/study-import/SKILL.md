@@ -33,6 +33,9 @@ subject, ask which lectures are new.
   then `/api/v3/lesson-summary/student/presentation?…&presentation_id=`) lists the
   slide images. Decks are re-shown across lectures: keep the newest copy, and move
   slides repeated across lectures aside before reading.
+  Slides with in-class questions carry `problem` (type, options) and `result`
+  (`correctAnswer`): save them as the deck's answer key. Exercise sets and past papers
+  (the log's type-5 activities) are graded quizzes: don't open or copy them.
 - Read slides with subagents, one per deck, on the **Sonnet** model
   (`model: "sonnet"`), each writing a faithful transcription (text, LaTeX formulas,
   circuits described, worked examples, exercises) to

@@ -18,6 +18,12 @@
       <excludeFolder url="file://$MODULE_DIR$/apps/web/playwright-report" />
       <excludeFolder url="file://$MODULE_DIR$/packages/db/.turbo" />
       <excludeFolder url="file://$MODULE_DIR$/packages/tool-kit/.turbo" />
+      <excludeFolder url="file://$MODULE_DIR$/packages/mail/.turbo" />
+      <excludeFolder url="file://$MODULE_DIR$/packages/mc-files/.turbo" />
+      <excludeFolder url="file://$MODULE_DIR$/packages/storage/.turbo" />
+      <excludeFolder url="file://$MODULE_DIR$/packages/study/.turbo" />
+      <excludeFolder url="file://$MODULE_DIR$/packages/wiki/.turbo" />
+      <excludeFolder url="file://$MODULE_DIR$/study-sources" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

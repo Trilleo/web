@@ -7,6 +7,7 @@ import {
   logicVariables,
   mintermsOf,
   parseLogic,
+  setLatex,
 } from "./logic";
 
 const truth = (source: string, variables: string[]) =>
@@ -71,5 +72,24 @@ describe("parseLogic", () => {
       "101",
       "100",
     ]);
+  });
+});
+
+describe("set notation", () => {
+  test("reads unions, intersections, differences, Ω and ∅", () => {
+    expect(truth("A ∪ B", ["A", "B"])).toEqual(truth("A + B", ["A", "B"]));
+    expect(truth("A ∩ B", ["A", "B"])).toEqual([3]);
+    expect(truth("A − B", ["A", "B"])).toEqual([2]);
+    expect(truth("A \\ B", ["A", "B"])).toEqual([2]);
+    expect(truth("A - (BC)", ["A", "B", "C"])).toEqual([4, 5, 6]);
+    expect(truth("Ω", ["A"])).toEqual([0, 1]);
+    expect(truth("A ∩ ∅", ["A"])).toEqual([]);
+  });
+
+  test("writes set LaTeX", () => {
+    expect(setLatex(parseLogic("A ∪ B'"))).toBe("A \\cup \\overline{B}");
+    expect(setLatex(parseLogic("A - B"))).toBe("A - B");
+    expect(setLatex(parseLogic("(A + B)C"))).toBe("(A \\cup B) \\cap C");
+    expect(setLatex(parseLogic("AB + C"))).toBe("(A \\cap B) \\cup C");
   });
 });

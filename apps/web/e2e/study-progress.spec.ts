@@ -110,7 +110,7 @@ test("practice draws a subject's or a lesson's questions and records answers", a
   await expect(practice.getByText("Set 2")).toBeVisible();
 
   await page.goto("/study/sample/practice/");
-  await expect(page.locator(".study-practice .study-question")).toHaveCount(8);
+  await expect(page.locator(".study-practice .study-question")).toHaveCount(10);
 });
 
 test("signed in, progress is kept in the account, on every device", async ({

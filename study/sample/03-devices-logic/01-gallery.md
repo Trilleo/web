@@ -1,7 +1,7 @@
 ---
 title: Parts and logic gallery
 zh: 器件与逻辑示例
-summary: Every kind of part a schematic can show, plus gate symbols, a Karnaugh map and the logic lab.
+summary: Every kind of part a schematic can show, gate symbols, a Karnaugh map, the logic lab, and the probability figures (Venn diagrams, distribution bars, shaded regions).
 source: Written for the study platform
 ---
 
@@ -72,3 +72,61 @@ inputs: A B
 Y = A B' + A' B
 Z = A ⊕ B
 :::
+
+## Events as sets
+
+Shading what an expression in events means, one panel per expression:
+
+::: venn De Morgan's law: the two panels agree
+shade: (A ∪ B)'
+shade: A'B'
+:::
+
+::: venn Three events
+sets: A B C
+shade: A - B
+shade: AB ∪ C
+:::
+
+## Distributions
+
+Bars stand at whole numbers; a curve can run over them.
+
+::: plot Binomial B(n, p) and its Poisson approximation
+x: 0 .. 15
+xlabel: k
+bars P(k) = comb(n, k) p^k (1 - p)^(n - k)
+bars Q(k) = e^(-n p) (n p)^k / k!
+slider n: 1 .. 60 = 30 | | step 1
+slider p: 0.01 .. 0.5 = 0.1
+:::
+
+::: plot The normal density and Φ
+x: -4 .. 4
+f(x) = e^(-x^2/2) / sqrt(2 pi)
+F(x) = Phi(x)
+:::
+
+## Regions
+
+::: plot Where 0 < y < x < 1, and below x + y = z
+x: 0 .. 1.2
+y: 0 .. 1.2
+region G: 0 < y < x < 1
+region H: 0 < y < x < 1, x + y <= z
+f(x) = x
+g(x) = z - x
+slider z: 0 .. 2 = 1
+:::
+
+::: quiz Worked-out answers
+? Three cards from ten, four of them red. The chance that all three are red?
+answer: C(4,3)/C(10,3)
+> $\binom43/\binom{10}3 = 4/120 = 1/30$; typing 1/30 or 0.0333 is right too.
+
+? $P\{|X-\mu| < 3\sigma\}$ for a normal $X$?
+answer: 2 Phi(3) - 1
+tolerance: 0.0001
+> $2\Phi(3) - 1 \approx 0.9973$.
+:::
+

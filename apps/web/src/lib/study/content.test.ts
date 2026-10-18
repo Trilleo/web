@@ -38,7 +38,7 @@ describe("study content", () => {
       lesson: "ohms-law",
       anchor: "def-resistance",
     });
-    expect(reference.questions).toBe(8);
+    expect(reference.questions).toBe(10);
     expect(reference.lessons.get("kirchhoff")?.cards).toBe(3);
   });
 });

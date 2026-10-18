@@ -72,3 +72,31 @@ describe("equivalent", () => {
     expect(same("1/x", "x", ["x"])).toBe(false);
   });
 });
+
+describe("probability functions", () => {
+  test("factorials, combinations and arrangements", () => {
+    expect(value("5!")).toBe(120);
+    expect(value("0!")).toBe(1);
+    expect(value("3!^2")).toBe(36);
+    expect(value("comb(16, 8)")).toBe(12870);
+    expect(value("C(5, 2)")).toBe(10);
+    expect(value("C(5, 7)")).toBe(0);
+    expect(value("perm(5, 2)")).toBe(20);
+    expect(value("A(5, 2)")).toBe(20);
+    expect(value("gamma(0.5)")).toBeCloseTo(Math.sqrt(Math.PI), 12);
+  });
+
+  test("C and A stay names unless they're called", () => {
+    expect(value("1/(R C)", { R: 2, C: 4 })).toBe(0.125);
+    expect(value("A k", { A: 3, k: 2 })).toBe(6);
+  });
+
+  test("the normal distribution function", () => {
+    expect(value("Phi(0)")).toBe(0.5);
+    expect(value("Phi(1.96)")).toBeCloseTo(0.975, 4);
+    expect(value("2 Phi(3) - 1")).toBeCloseTo(0.9973, 4);
+    expect(value("Φ(-1)")).toBeCloseTo(0.158655, 6);
+    expect(value("erf(1)")).toBeCloseTo(0.8427007929, 9);
+    expect(1 - value("Phi(6)")).toBeCloseTo(9.8659e-10, 13);
+  });
+});

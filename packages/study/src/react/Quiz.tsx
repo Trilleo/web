@@ -4,7 +4,7 @@
  * one. Without JavaScript the questions still show, and "Show answer" still opens.
  */
 import { useState, type ReactNode } from "react";
-import { checkAnswer, type CheckResult } from "../quiz";
+import { checkAnswer, readNumber, type CheckResult } from "../quiz";
 import type { QuizProps, QuizQuestion } from "../types";
 
 const PLACEHOLDERS = {
@@ -13,6 +13,15 @@ const PLACEHOLDERS = {
   logic: "A logic expression, e.g. A B' + C",
   text: "Your answer",
 } as const;
+
+function placeholder(question: QuizQuestion): string {
+  if (
+    question.kind === "number" &&
+    readNumber(question.check.answer)?.unit === ""
+  )
+    return "A number or a fraction, e.g. 3/8";
+  return PLACEHOLDERS[question.kind as keyof typeof PLACEHOLDERS];
+}
 
 function html(content: string) {
   return { __html: content };
@@ -113,9 +122,7 @@ function Question({
             type="text"
             autoComplete="off"
             spellCheck={false}
-            placeholder={
-              PLACEHOLDERS[question.kind as keyof typeof PLACEHOLDERS]
-            }
+            placeholder={placeholder(question)}
             value={typed}
             onChange={(event) => {
               setTyped(event.currentTarget.value);

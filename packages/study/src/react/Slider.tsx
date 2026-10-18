@@ -27,25 +27,44 @@ export function Slider({
       <div className="study-slider-label">
         <label htmlFor={id} className="study-slider-name">
           {spec.name}
+          {spec.label && (
+            <span className="study-slider-label-text">{spec.label}</span>
+          )}
         </label>
         <output htmlFor={id} className="study-slider-value">
           {shown}
         </output>
       </div>
-      <input
-        id={id}
-        type="range"
-        min={0}
-        max={STEPS}
-        step={1}
-        value={Math.round(sliderPosition(spec, value) * STEPS)}
-        aria-valuetext={`${spec.name} = ${shown}`}
-        onChange={(event) => {
-          onChange(
-            sliderValue(spec, Number(event.currentTarget.value) / STEPS),
-          );
-        }}
-      />
+      {spec.step && !spec.log ? (
+        // Whole steps (n = 1, 2, 3 …): the input's own values, so each arrow key is one step.
+        <input
+          id={id}
+          type="range"
+          min={spec.min}
+          max={spec.max}
+          step={spec.step}
+          value={value}
+          aria-valuetext={`${spec.label ?? spec.name} = ${shown}`}
+          onChange={(event) => {
+            onChange(Number(event.currentTarget.value));
+          }}
+        />
+      ) : (
+        <input
+          id={id}
+          type="range"
+          min={0}
+          max={STEPS}
+          step={1}
+          value={Math.round(sliderPosition(spec, value) * STEPS)}
+          aria-valuetext={`${spec.label ?? spec.name} = ${shown}`}
+          onChange={(event) => {
+            onChange(
+              sliderValue(spec, Number(event.currentTarget.value) / STEPS),
+            );
+          }}
+        />
+      )}
     </div>
   );
 }

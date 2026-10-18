@@ -1,5 +1,6 @@
 /**
- * `::: plot`: curves on axes with ticks, sliders for parameters, and a crosshair
+ * `::: plot`: curves (lines, or bars at whole numbers for discrete distributions)
+ * and shaded regions on axes with ticks, sliders for parameters, and a crosshair
  * that reads every curve's value at the pointer (or at the x a keyboard user
  * steps to with the arrow keys). Drawn as SVG; the server renders the first frame,
  * so the graph is there before (and without) JavaScript. Without a y range, the
@@ -14,7 +15,7 @@ import {
 } from "react";
 import { evaluate } from "../expression";
 import { formatNumber } from "../units";
-import { parsePlot, ticks, type PlotSpec } from "../widgets";
+import { inRegion, parsePlot, ticks, type PlotSpec } from "../widgets";
 import type { WidgetProps } from "../types";
 import { Slider } from "./Slider";
 
@@ -22,25 +23,41 @@ const WIDTH = 640;
 const HEIGHT = 360;
 const MARGIN = { top: 14, right: 16, bottom: 40, left: 52 };
 const SAMPLES = 360;
+const MAX_BARS = 200;
+/** Cells a region is sampled on (its edges are as fine as a cell). */
+const REGION_COLUMNS = 240;
+const REGION_ROWS = 150;
 
 interface Sampled {
   name: string;
   source: string;
+  kind: "line" | "bars";
   points: { x: number; y: number }[];
 }
 
-function sample(spec: PlotSpec, scope: Record<string, number>): Sampled[] {
+/** Where a curve is drawn: across the range, or at each whole number in it. */
+function positions(spec: PlotSpec, kind: "line" | "bars"): number[] {
   const [low, high] = spec.x;
+  if (kind === "bars") {
+    const first = Math.ceil(low);
+    const count = Math.min(MAX_BARS, Math.floor(high) - first + 1);
+    return Array.from({ length: Math.max(0, count) }, (_, i) => first + i);
+  }
+  return Array.from(
+    { length: SAMPLES + 1 },
+    (_, i) => low + ((high - low) * i) / SAMPLES,
+  );
+}
+
+function sample(spec: PlotSpec, scope: Record<string, number>): Sampled[] {
   return spec.curves.map((curve) => ({
     name: curve.name,
     source: curve.source,
-    points: Array.from({ length: SAMPLES + 1 }, (_, i) => {
-      const x = low + ((high - low) * i) / SAMPLES;
-      return {
-        x,
-        y: evaluate(curve.expression, { ...scope, [spec.variable]: x }),
-      };
-    }),
+    kind: curve.kind,
+    points: positions(spec, curve.kind).map((x) => ({
+      x,
+      y: evaluate(curve.expression, { ...scope, [spec.variable]: x }),
+    })),
   }));
 }
 
@@ -55,6 +72,11 @@ function yRange(spec: PlotSpec, curves: Sampled[]): [number, number] {
   const trim = Math.floor(values.length * 0.01);
   let low = values[trim] ?? 0;
   let high = values[values.length - 1 - trim] ?? 0;
+  // Bars stand on zero.
+  if (curves.some((curve) => curve.kind === "bars")) {
+    low = Math.min(low, 0);
+    high = Math.max(high, 0);
+  }
   if (high - low < 1e-9) {
     low -= 1;
     high += 1;
@@ -88,12 +110,41 @@ export function Plot({ id, title, source, label }: WidgetProps) {
     );
     return yRange(spec, sample(spec, start));
   }, [spec]);
+  // Each region as runs of cells along each row, so a few rectangles draw it.
+  const regionCells = useMemo(() => {
+    if (!spec || !fitted || spec.regions.length === 0) return [];
+    const [left, right] = spec.x;
+    const [bottom, top] = fitted;
+    return spec.regions.map((region) => {
+      const runs: { column: number; row: number; length: number }[] = [];
+      for (let row = 0; row < REGION_ROWS; row += 1) {
+        const y = top - ((row + 0.5) / REGION_ROWS) * (top - bottom);
+        let start = -1;
+        for (let column = 0; column <= REGION_COLUMNS; column += 1) {
+          const x = left + ((column + 0.5) / REGION_COLUMNS) * (right - left);
+          const inside =
+            column < REGION_COLUMNS &&
+            inRegion(region, { ...values, [spec.variable]: x, y });
+          if (inside && start < 0) start = column;
+          if (!inside && start >= 0) {
+            runs.push({ column: start, row, length: column - start });
+            start = -1;
+          }
+        }
+      }
+      return { name: region.name, runs };
+    });
+  }, [spec, fitted, values]);
+
   if (!spec || !fitted)
     return (
       <p className="wiki-error">{parsed.ok ? "" : parsed.errors.join(" ")}</p>
     );
 
-  const [x0, x1] = spec.x;
+  // Bars at the ends of the range would be cut in half: leave room for them.
+  const pad = spec.curves.some((curve) => curve.kind === "bars") ? 0.6 : 0;
+  const x0 = spec.x[0] - pad;
+  const x1 = spec.x[1] + pad;
   const [y0, y1] = fitted;
   const plotWidth = WIDTH - MARGIN.left - MARGIN.right;
   const plotHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
@@ -102,6 +153,7 @@ export function Plot({ id, title, source, label }: WidgetProps) {
     MARGIN.top + (1 - (y - y0) / (y1 - y0)) * plotHeight;
 
   const paths = curves.map((curve) => {
+    if (curve.kind === "bars") return "";
     let d = "";
     let drawing = false;
     let previous: number | null = null;
@@ -123,15 +175,43 @@ export function Plot({ id, title, source, label }: WidgetProps) {
     return d.trim();
   });
 
+  // Bars: side by side when there are two sets, each set its own colour.
+  const barSets = curves.filter((curve) => curve.kind === "bars");
+  const unit = plotWidth / (x1 - x0);
+  const barWidth = Math.min(28, unit * 0.7) / Math.max(1, barSets.length);
+  const bars = barSets.flatMap((curve, set) =>
+    curve.points
+      .filter((point) => Number.isFinite(point.y))
+      .map((point) => {
+        const left =
+          sx(point.x) - (barWidth * barSets.length) / 2 + barWidth * set;
+        const top = sy(Math.max(point.y, 0));
+        const bottom = sy(Math.min(point.y, 0));
+        return {
+          key: `${curve.name}-${String(point.x)}`,
+          set,
+          x: left,
+          y: top,
+          width: barWidth,
+          height: Math.max(0, bottom - top),
+        };
+      }),
+  );
+  const regions = regionCells;
   const xTicks = ticks(x0, x1);
   const yTicks = ticks(y0, y1, 5);
   const readings =
     cursor === null
       ? null
-      : spec.curves.map((curve) => ({
-          name: curve.name,
-          y: evaluate(curve.expression, { ...values, [spec.variable]: cursor }),
-        }));
+      : spec.curves.map((curve) => {
+          const at = curve.kind === "bars" ? Math.round(cursor) : cursor;
+          return {
+            name: curve.name,
+            at,
+            kind: curve.kind,
+            y: evaluate(curve.expression, { ...values, [spec.variable]: at }),
+          };
+        });
 
   const move = (event: PointerEvent<SVGSVGElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
@@ -163,7 +243,15 @@ export function Plot({ id, title, source, label }: WidgetProps) {
         <svg
           viewBox={`0 0 ${String(WIDTH)} ${String(HEIGHT)}`}
           role="img"
-          aria-label={`${title}: ${spec.curves.map((curve) => `${curve.name}(${spec.variable}) = ${curve.source}`).join("; ")}. Use the arrow keys to read values.`}
+          aria-label={`${title}: ${[
+            ...spec.curves.map(
+              (curve) =>
+                `${curve.kind === "bars" ? "bars at whole numbers, " : ""}${curve.name}(${spec.variable}) = ${curve.source}`,
+            ),
+            ...spec.regions.map(
+              (region) => `region ${region.name} shaded: ${region.source}`,
+            ),
+          ].join("; ")}. Use the arrow keys to read values.`}
           tabIndex={0}
           onPointerMove={move}
           onPointerLeave={() => {
@@ -265,13 +353,49 @@ export function Plot({ id, title, source, label }: WidgetProps) {
             </clipPath>
           </defs>
           <g clipPath={`url(#${id}-clip)`}>
-            {paths.map((d, index) => (
-              <path
-                key={index}
-                d={d}
-                className={`plot-curve plot-curve-${String(index)}`}
+            {regions.map((region, index) => (
+              <g
+                key={region.name}
+                className={`plot-region plot-region-${String(index)}`}
+              >
+                {region.runs.map((run) => (
+                  <rect
+                    key={`${String(run.row)}-${String(run.column)}`}
+                    x={sx(
+                      spec.x[0] +
+                        (run.column / REGION_COLUMNS) * (spec.x[1] - spec.x[0]),
+                    )}
+                    y={MARGIN.top + (run.row / REGION_ROWS) * plotHeight}
+                    width={
+                      (run.length / REGION_COLUMNS) *
+                        (spec.x[1] - spec.x[0]) *
+                        unit +
+                      0.4
+                    }
+                    height={plotHeight / REGION_ROWS + 0.4}
+                  />
+                ))}
+              </g>
+            ))}
+            {bars.map((bar) => (
+              <rect
+                key={bar.key}
+                x={bar.x}
+                y={bar.y}
+                width={bar.width}
+                height={bar.height}
+                className={`plot-bar plot-bar-${String(bar.set)}`}
               />
             ))}
+            {paths.map((d, index) =>
+              d ? (
+                <path
+                  key={index}
+                  d={d}
+                  className={`plot-curve plot-curve-${String(index)}`}
+                />
+              ) : null,
+            )}
           </g>
           {cursor !== null && (
             <g className="plot-cursor">
@@ -287,7 +411,7 @@ export function Plot({ id, title, source, label }: WidgetProps) {
                 reading.y <= y1 ? (
                   <circle
                     key={index}
-                    cx={sx(cursor)}
+                    cx={sx(reading.at)}
                     cy={sy(reading.y)}
                     r={3.5}
                     className={`plot-dot-${String(index)}`}
@@ -301,8 +425,10 @@ export function Plot({ id, title, source, label }: WidgetProps) {
           {cursor === null
             ? "Point at the graph (or focus it and use the arrow keys) to read values."
             : `${spec.variable} = ${formatNumber(cursor)}: ${(readings ?? [])
-                .map(
-                  (reading) => `${reading.name} = ${formatNumber(reading.y)}`,
+                .map((reading) =>
+                  reading.kind === "bars"
+                    ? `${reading.name}(${formatNumber(reading.at)}) = ${formatNumber(reading.y)}`
+                    : `${reading.name} = ${formatNumber(reading.y)}`,
                 )
                 .join(", ")}`}
         </p>
@@ -311,11 +437,30 @@ export function Plot({ id, title, source, label }: WidgetProps) {
         {spec.curves.map((curve, index) => (
           <li key={curve.name}>
             <span
-              className={`study-swatch plot-curve-${String(index)}`}
+              className={
+                curve.kind === "bars"
+                  ? `study-swatch study-swatch-block plot-bar-${String(
+                      spec.curves
+                        .filter((other) => other.kind === "bars")
+                        .indexOf(curve),
+                    )}`
+                  : `study-swatch plot-curve-${String(index)}`
+              }
               aria-hidden="true"
             />
             <code>
               {curve.name}({spec.variable}) = {curve.source}
+            </code>
+          </li>
+        ))}
+        {spec.regions.map((region, index) => (
+          <li key={region.name}>
+            <span
+              className={`study-swatch study-swatch-block plot-region-${String(index)}`}
+              aria-hidden="true"
+            />
+            <code>
+              {region.name}: {region.source}
             </code>
           </li>
         ))}

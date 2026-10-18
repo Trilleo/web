@@ -7,6 +7,10 @@
  * A·B. NOT is a trailing `'` or a leading `!`, `~`, `¬`; AND is writing terms side by
  * side, or `·`, `*`, `&`; OR is `+`, `|`, `∨`; XOR `⊕` or `^`; XNOR `⊙`; `0` and `1`
  * are constants. NOT binds tightest, then AND, then XOR/XNOR, then OR.
+ *
+ * Events and sets read the same way (Venn diagrams): `∪` is OR, `∩` is AND, `A − B`
+ * (or `A - B`, `A \ B`) is A·B′ at AND's level (bracket a longer right side:
+ * `A − (BC)`), `Ω` the certain event (1) and `∅` the impossible one (0).
  */
 
 export type LogicExpression =
@@ -42,6 +46,11 @@ const OPS: Readonly<Record<string, string>> = {
   "^": "^",
   "⊕": "^",
   "⊙": "=",
+  "∪": "|",
+  "∩": "&",
+  "-": "-",
+  "−": "-",
+  "\\": "-",
   "(": "(",
   ")": ")",
 };
@@ -55,8 +64,11 @@ function tokenize(source: string): Token[] {
       i += 1;
       continue;
     }
-    if (char === "0" || char === "1") {
-      tokens.push({ kind: "const", value: char === "1" ? 1 : 0 });
+    if (char === "0" || char === "1" || char === "Ω" || char === "∅") {
+      tokens.push({
+        kind: "const",
+        value: char === "1" || char === "Ω" ? 1 : 0,
+      });
       i += 1;
       continue;
     }
@@ -126,6 +138,10 @@ class Parser {
       if (this.isOp("&")) {
         this.index += 1;
         left = { type: "and", left, right: this.not() };
+      } else if (this.isOp("-")) {
+        // A − B: what's in A and not in B.
+        this.index += 1;
+        left = { type: "and", left, right: { type: "not", arg: this.not() } };
       } else if (this.startsFactor()) {
         left = { type: "and", left, right: this.not() };
       } else return left;
@@ -234,6 +250,45 @@ export function logicLatex(expression: LogicExpression, parent = 0): string {
               : " \\odot ";
       const text = `${logicLatex(expression.left, own)}${op}${logicLatex(expression.right, own + (expression.type === "and" ? 0 : 0.5))}`;
       return own < parent ? `(${text})` : text;
+    }
+  }
+}
+
+const SET_PRECEDENCE = { or: 1, xor: 2, xnor: 2, and: 3 } as const;
+
+/** LaTeX as set theory writes it: ∪, ∩, A − B, and overbars for complements. */
+export function setLatex(expression: LogicExpression, parent = 0): string {
+  switch (expression.type) {
+    case "const":
+      return expression.value ? "\\Omega" : "\\varnothing";
+    case "var":
+      return variableLatex(expression.name);
+    case "not":
+      return `\\overline{${setLatex(expression.arg)}}`;
+    default: {
+      const own = SET_PRECEDENCE[expression.type];
+      const { left, right } = expression;
+      if (
+        expression.type === "and" &&
+        right.type === "not" &&
+        left.type !== "not"
+      ) {
+        const text = `${setLatex(left, own)} - ${setLatex(right.arg, own + 0.5)}`;
+        return own < parent || (parent > 0 && parent < 2) ? `(${text})` : text;
+      }
+      const op =
+        expression.type === "and"
+          ? " \\cap "
+          : expression.type === "or"
+            ? " \\cup "
+            : expression.type === "xor"
+              ? " \\mathbin{\\triangle} "
+              : " \\odot ";
+      const text = `${setLatex(left, own)}${op}${setLatex(right, own + 0.5)}`;
+      // Readers don't know ∩ binds tighter than ∪: bracket it anyway.
+      return own < parent || (own === 3 && parent > 0 && parent < 2)
+        ? `(${text})`
+        : text;
     }
   }
 }

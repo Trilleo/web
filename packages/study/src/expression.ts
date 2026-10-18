@@ -8,6 +8,10 @@
  * tighter than a leading minus (`-x^2` is −(x²)) and groups to the right. A name
  * that isn't a variable, constant or function, but is made of variables (`xy`),
  * means their product.
+ *
+ * Probability adds `n!`, `comb(n, k)` (also `C(n, k)` when C isn't a variable),
+ * `perm(n, k)`, `gamma(x)`, `erf(x)` and `Phi(x)` (`Φ`), the standard normal
+ * distribution function.
  */
 
 export type Expression =
@@ -21,6 +25,117 @@ export type Expression =
       right: Expression;
     }
   | { type: "call"; fn: string; args: Expression[] };
+
+/** Lanczos' approximation (g = 7), good to about 15 digits. */
+const LANCZOS = [
+  0.9999999999998099, 676.5203681218851, -1259.1392167224028, 771.3234287776531,
+  -176.6150291621406, 12.507343278686905, -0.13857109526572012,
+  9.984369578019572e-6, 1.5056327351493116e-7,
+];
+
+export function gamma(x: number): number {
+  if (Number.isInteger(x) && x <= 0) return NaN;
+  if (x < 0.5) return Math.PI / (Math.sin(Math.PI * x) * gamma(1 - x));
+  if (Number.isInteger(x) && x <= 171) {
+    let product = 1;
+    for (let k = 2; k < x; k += 1) product *= k;
+    return product;
+  }
+  const z = x - 1;
+  let sum = LANCZOS[0] ?? 1;
+  for (let k = 1; k < LANCZOS.length; k += 1)
+    sum += (LANCZOS[k] ?? 0) / (z + k);
+  const t = z + 7.5;
+  return Math.sqrt(2 * Math.PI) * t ** (z + 0.5) * Math.exp(-t) * sum;
+}
+
+export function factorial(n: number): number {
+  return gamma(n + 1);
+}
+
+/** Binomial coefficient; 0 outside 0 ≤ k ≤ n, as counting expects. */
+export function comb(n: number, k: number): number {
+  if (Number.isInteger(n) && Number.isInteger(k)) {
+    if (k < 0 || k > n) return 0;
+    let result = 1;
+    for (let i = 1; i <= Math.min(k, n - k); i += 1)
+      result = (result * (n - Math.min(k, n - k) + i)) / i;
+    return Math.round(result);
+  }
+  return gamma(n + 1) / (gamma(k + 1) * gamma(n - k + 1));
+}
+
+/** Arrangements of k out of n (A or P in Chinese textbooks). */
+export function perm(n: number, k: number): number {
+  if (Number.isInteger(n) && Number.isInteger(k) && (k < 0 || k > n)) return 0;
+  return gamma(n + 1) / gamma(n - k + 1);
+}
+
+/** The error function, by W. J. Cody's rational approximations (about 1e-15). */
+export function erf(x: number): number {
+  if (x < 0) return -erf(-x);
+  if (x < 0.5) {
+    const t = x * x;
+    const top =
+      (((0.18577770618460315 * t + 3.1611237438705655) * t +
+        113.86415415105016) *
+        t +
+        377.485237685302) *
+        t +
+      3209.3775891384694;
+    const bottom =
+      (((t + 23.601290952344122) * t + 244.02463793444417) * t +
+        1282.6165260773723) *
+        t +
+      2844.236833439171;
+    return (x * top) / bottom;
+  }
+  return 1 - erfc(x);
+}
+
+function erfc(x: number): number {
+  if (x < 4) {
+    const p = [
+      0.5641884969886701, 8.883149794388377, 66.11919063714163,
+      298.6351381974001, 881.952221241769, 1712.0476126340707,
+      2051.0783778260716, 1230.3393547979972, 2.1531153547440383e-8,
+    ];
+    const q = [
+      15.744926110709835, 117.6939508913125, 537.1811018620099,
+      1621.3895745666903, 3290.7992357334597, 4362.619090143247,
+      3439.3676741437216, 1230.3393548037495,
+    ];
+    let top = (p[8] ?? 0) * x;
+    let bottom = x;
+    for (let i = 0; i < 7; i += 1) {
+      top = (top + (p[i] ?? 0)) * x;
+      bottom = (bottom + (q[i] ?? 0)) * x;
+    }
+    return (Math.exp(-x * x) * (top + (p[7] ?? 0))) / (bottom + (q[7] ?? 0));
+  }
+  const p = [
+    0.30532663496123236, 0.36034489994980445, 0.12578172611122926,
+    0.016083785148742275, 0.0006587491615298378, 0.016315387137302097,
+  ];
+  const q = [
+    2.568520192289822, 1.8729528499234673, 0.5279051029514285,
+    0.06051834131244132, 0.0023352049762686918,
+  ];
+  const z = 1 / (x * x);
+  let top = (p[5] ?? 0) * z;
+  let bottom = z;
+  for (let i = 0; i < 4; i += 1) {
+    top = (top + (p[i] ?? 0)) * z;
+    bottom = (bottom + (q[i] ?? 0)) * z;
+  }
+  const r = (z * (top + (p[4] ?? 0))) / (bottom + (q[4] ?? 0));
+  return (Math.exp(-x * x) / x) * (1 / Math.sqrt(Math.PI) - r);
+}
+
+/** The standard normal distribution function Φ. */
+export function normalCdf(x: number): number {
+  return 0.5 * (1 + erf(x / Math.SQRT2));
+}
 
 const FUNCTIONS: Record<string, (...args: number[]) => number> = {
   sin: Math.sin,
@@ -49,7 +164,19 @@ const FUNCTIONS: Record<string, (...args: number[]) => number> = {
   min: Math.min,
   max: Math.max,
   atan2: Math.atan2,
+  gamma,
+  fact: factorial,
+  comb,
+  binom: comb,
+  C: comb,
+  perm,
+  A: perm,
+  erf,
+  Phi: normalCdf,
+  Φ: normalCdf,
 };
+
+const BRACKETED_ONLY: ReadonlySet<string> = new Set(["C", "A"]);
 
 export const FUNCTION_NAMES: readonly string[] = Object.keys(FUNCTIONS);
 
@@ -111,7 +238,7 @@ function tokenize(source: string): Token[] {
       continue;
     }
     const op = OPERATOR_ALIASES[char] ?? char;
-    if ("+-*/^(),".includes(op)) {
+    if ("+-*/^(),!".includes(op)) {
       tokens.push({ kind: "op", value: op });
       i += 1;
       continue;
@@ -202,7 +329,11 @@ class Parser {
   }
 
   private power(): Expression {
-    const base = this.atom();
+    let base = this.atom();
+    while (this.isOp("!")) {
+      this.index += 1;
+      base = { type: "call", fn: "fact", args: [base] };
+    }
     if (!this.isOp("^")) return base;
     this.index += 1;
     // Right-associative, and the exponent may carry its own sign: e^-x.
@@ -228,7 +359,10 @@ class Parser {
 
   private named(name: string): Expression {
     if (this.variables.has(name)) return { type: "name", name };
-    if (name in FUNCTIONS) return this.call(name);
+    // C and A are textbook names for comb and perm, but only as C(n, k): alone they
+    // stay ordinary names (a capacitance, an amplitude).
+    if (name in FUNCTIONS && (!BRACKETED_ONLY.has(name) || this.isOp("(")))
+      return this.call(name);
     if (name in CONSTANTS) return { type: "name", name };
     // `xy` written for x·y, when every letter is a variable (or constant).
     const letters = name.match(/./gu) ?? [];

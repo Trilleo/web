@@ -613,8 +613,10 @@
   circuit, progress, client), never the index (KaTeX, markdown-it).
 - Quizzes check answers in the browser. Numbers with units
   (units.ts: SI prefixes, 1% default tolerance, a bare number reads in the answer's own
-  prefix), expressions (expression.ts: a hand-written parser with implied
-  multiplication, never eval; equivalence by evaluating at seeded random points), logic
+  prefix; unitless answers may be worked out or typed as fractions, `readNumber`),
+  expressions (expression.ts: a hand-written parser with implied multiplication, never
+  eval; equivalence by evaluating at seeded random points; `n!`, comb/C, perm/A, gamma,
+  erf and Phi for probability), logic
   answers (the same truth table; `dontcare:` minterm numbers, counted over the
   question's `variables:`, are skipped), choices and words.
 - Circuits (circuit/): a grid text format (parse.ts: R C L V I, plus A D Z S and the
@@ -628,7 +630,13 @@
 - Logic (logic.ts: a hand-written Boolean parser, `A'`, side-by-side AND, `+`, `⊕`,
   `⊙`; evaluation, LaTeX, minterms, Gray code) feeds components/logic.ts: `::: logic`
   (the LogicLab island), `::: kmap` (groups are product terms, checked against the
-  1s and ×s) and `::: gates` (national-standard and distinctive symbols).
+  1s and ×s) and `::: gates` (national-standard and distinctive symbols). The same
+  parser reads events as sets (`∪ ∩ −`, Ω, ∅) for `::: venn` (components/sets.ts:
+  Venn diagrams in plain SVG, one panel per `shade:` line, cells shaded by
+  masks and clips, so the shading is worked out from the expression).
+- Plots (widgets.ts, react/Plot.tsx) also draw `bars` (discrete distributions, at whole
+  numbers) and shade `region`s (comparison chains in x and y, sampled on a grid), and
+  sliders can move in steps and carry a label.
 - Look: textbook-like and quieter than the rest of the site (styles/study.css): serif
   headings with section numbers, numbered boxes, equation numbers at the right margin,
   captions below figures, Chinese in `font-cjk` with lang="zh-CN". No reveals or

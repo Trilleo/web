@@ -87,6 +87,40 @@ describe("Plot", () => {
   });
 });
 
+describe("Plot bars and regions", () => {
+  test("draws a bar per whole number and reads the nearest one", () => {
+    const plot = island(
+      "::: plot Binomial\nx: 0 .. 4\nbars P(k) = comb(4, k) / 16\n:::",
+    );
+    if (plot.name === "quiz" || plot.name === "logic")
+      throw new Error("not a widget");
+    const { container } = render(<Plot {...plot.props} />);
+    expect(container.querySelectorAll(".plot-bar")).toHaveLength(5);
+    const graph = screen.getByRole("img", { name: /Binomial/ });
+    fireEvent.keyDown(graph, { key: "ArrowRight" });
+    expect(screen.getByText(/^k = 2\.\d+: P\(2\) = 0\.375$/)).toBeTruthy();
+  });
+
+  test("shades a region and moves it with a stepped slider", () => {
+    const plot = island(
+      "::: plot Below a line\nx: 0 .. 1\ny: 0 .. 1\nregion G: y < a x\nslider a: 0 .. 1 = 1 | | step 0.5\n:::",
+    );
+    if (plot.name === "quiz" || plot.name === "logic")
+      throw new Error("not a widget");
+    const { container } = render(<Plot {...plot.props} />);
+    const area = () =>
+      [...container.querySelectorAll(".plot-region rect")].reduce(
+        (sum, rect) => sum + Number(rect.getAttribute("width")),
+        0,
+      );
+    const full = area();
+    expect(full).toBeGreaterThan(0);
+    const slider = screen.getByLabelText("a");
+    fireEvent.change(slider, { target: { value: "0.5" } });
+    expect(area()).toBeCloseTo(full / 2, -2);
+  });
+});
+
 describe("CircuitLab", () => {
   test("solves the circuit and re-solves when a part changes", () => {
     const lab = island(

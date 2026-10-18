@@ -56,14 +56,17 @@ Blocks (`::: name argument` … `:::`):
 | `::: cards Title`               | Flashcards, one per line: `front :: back`                            |
 | `::: circuit Title`             | A schematic drawn from a grid description (below)                    |
 | `::: circuit-sim Title`         | The same, with a slider per part and live DC readings                |
-| `::: plot Title`                | Curves with sliders: `f(x) = …`, `x: 0 .. 10`, `slider a: 0 .. 3 = 1` |
+| `::: plot Title`                | Curves with sliders: `f(x) = …`, `x: 0 .. 10`, `slider a: 0 .. 3 = 1`; bars and shaded regions (below) |
 | `::: explore Title`             | Sliders and results: `slider V: 0 .. 12 = 5 \| V`, `P = V I \| W \| Power` |
 | `::: logic Title`               | A logic lab: `inputs: A B`, `Y = A B' + A' B` (switches, lamps, truth table) |
 | `::: kmap Y`                    | A Karnaugh map: `vars: A B C D`, `ones: 0 2 5`, `dont-care: 1`, `group: B D'` |
 | `::: gates`                     | Gate symbols (both shapes), expressions, truth tables: `and or not xor` |
+| `::: venn Title`                | Venn diagrams: one panel per `shade: (A ∪ B)'` line (up to 4; `sets: A B C`) |
 
 Quizzes: `?` starts a question; then options (`- [x]` right, `- [ ]` wrong), or
-`answer: 0.5 A` (a number with its unit; `tolerance: 2%`, 1% by default), or
+`answer: 0.5 A` (a number with its unit; `tolerance: 2%`, 1% by default; without a
+unit it may be worked out, `answer: C(4,2)/C(10,3)`, and readers may type a fraction,
+`7/48`, an expression or a percentage), or
 `expression: u^2/R` (checked for equivalence; `variables: u, R`), `logic: A ⊕ B`
 (a Boolean expression, right when its truth table matches: `A'B + AB'` passes; add
 `variables: A, B, C` and `dontcare: 0, 3` to skip those minterms' rows, first variable
@@ -97,9 +100,24 @@ show.
 `circuit-sim` takes only R, C, L, V, I and switches (not E or F), with numeric values; `[low..high]`
 after a value sets its slider's range.
 
-Logic expressions (`::: logic`, `::: kmap`): variables are one letter, optionally with
-digits (A, D0); NOT `A'` or `!A`, AND by writing side by side (`AB`) or `·`, OR `+`, XOR
-`⊕`, XNOR `⊙`. In a Karnaugh map each `group:` is the product term it stands for; the
+Maths in plots, explorers and answers: `+ - * / ^`, implied multiplication (`2x`,
+`a sin(b x)`), `sqrt ln log exp sin … abs floor min max`, and for probability `n!`,
+`comb(n, k)` (or `C(n, k)`), `perm(n, k)` (or `A(n, k)`), `gamma(x)`, `erf(x)` and
+`Phi(x)` (`Φ`, the standard normal distribution function). `C` and `A` alone stay
+ordinary names.
+
+Plots: `bars P(k) = comb(n, k) p^k (1 - p)^(n - k)` draws bars at the whole numbers in
+the x range (up to 2 sets, side by side, beside up to 4 curves), for discrete
+distributions; `region G: 0 < y < x < 1, x + y <= z` shades the points where every
+comparison holds (chains like `0 < y < x`, conditions joined by commas; up to 3
+regions, in x and y; give `y:` when there are no curves). `slider n: 1 .. 50 = 20 | |
+step 1` moves in steps. Any other text after a slider's unit is its label, shown
+beside its name: `slider p: 0 .. 1 = 0.8 | | prior trust`.
+
+Logic expressions (`::: logic`, `::: kmap`, `::: venn`): variables are one letter,
+optionally with digits (A, D0); NOT `A'` or `!A`, AND by writing side by side (`AB`) or
+`·`, OR `+`, XOR `⊕`, XNOR `⊙`. As sets: `∪`, `∩`, `A − B` (A·B′; bracket a longer
+right side, `A − (BC)`), `Ω` and `∅`. In a Karnaugh map each `group:` is the product term it stands for; the
 map checks it covers only 1s and ×s, and that every 1 is covered.
 
 Every block is documented with an example in `packages/study/src/components/blocks.ts`.

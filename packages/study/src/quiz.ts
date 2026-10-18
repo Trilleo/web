@@ -20,7 +20,8 @@
  *
  * `?` starts a question (its prompt may run on over the next lines), `- [x]`/`- [ ]`
  * are options (more than one right: tick all of them), `answer:` a number with its
- * unit, `expression:` an algebraic answer (`variables: x, y` if not every name in it
+ * unit (or, without one, worked out: `7/48`, `C(4,2)/C(10,2)`, `1 - Phi(1.5)`, `35%`),
+ * `expression:` an algebraic answer (`variables: x, y` if not every name in it
  * is one), `text:` accepted words (`|` between alternatives), `>` the explanation.
  */
 import { splitPin } from "./ids";
@@ -34,6 +35,7 @@ import {
 } from "./logic";
 import {
   equivalent,
+  evaluate,
   namesIn,
   parseExpression,
   ExpressionError,
@@ -46,7 +48,28 @@ import {
   withinTolerance,
   writtenFactor,
   type Tolerance,
+  type Quantity,
 } from "./units";
+
+/**
+ * A number answer: a quantity with its unit ("0.5 mA"), or a unitless value worked
+ * out from an expression without variables ("7/48", "C(5,2)/C(10,3)", "35%").
+ */
+export function readNumber(text: string): Quantity | null {
+  const trimmed = text.trim();
+  const percent = trimmed.endsWith("%");
+  const body = percent ? trimmed.slice(0, -1) : trimmed;
+  let value: number;
+  try {
+    value = evaluate(parseExpression(body, { variables: [] }));
+  } catch {
+    // Not arithmetic: read it as a quantity with a unit.
+    return percent ? null : parseQuantity(trimmed);
+  }
+  return Number.isFinite(value)
+    ? { value: percent ? value / 100 : value, unit: "" }
+    : null;
+}
 
 export type QuestionKind =
   "choice" | "multiple" | "number" | "expression" | "logic" | "text";
@@ -225,7 +248,7 @@ function checkQuestion(
     return "it has no answer (answer:, expression:, logic:, text:, or options).";
   if (answers.length > 1) return "it has more than one kind of answer.";
   if (question.kind === "number") {
-    const quantity = parseQuantity(question.answer);
+    const quantity = readNumber(question.answer);
     if (!quantity) return `“${question.answer}” isn't a number with a unit.`;
   }
   if (question.kind === "expression") {
@@ -342,13 +365,14 @@ export function checkAnswer(data: CheckData, response: Response): CheckResult {
   if (!typed) return { correct: false, message: "Type an answer first." };
 
   if (data.kind === "number") {
-    const expected = parseQuantity(data.answer);
-    const given = parseQuantity(typed);
+    const expected = readNumber(data.answer);
+    const given = readNumber(typed);
     if (!expected) return { correct: false };
     if (!given)
       return {
         correct: false,
-        message: "Write a number, with its unit if it has one.",
+        message:
+          "Write a number (a fraction such as 3/8 works too), with its unit if it has one.",
       };
     let value = given.value;
     if (given.unit === "" && expected.unit !== "") {

@@ -446,6 +446,37 @@
   stroke-dasharray: 1.5 4;
 }
 
+/* Bars (discrete distributions) and shaded regions (sets of points). */
+.plot-bar-0 {
+  fill: var(--tr-accent);
+}
+
+.plot-bar-1 {
+  fill: var(--tr-ink);
+  fill-opacity: 0.55;
+}
+
+.plot-region rect {
+  stroke: none;
+  shape-rendering: crispEdges;
+}
+
+/* Opacity on the whole group, so the rows' overlapping edges don't show as stripes. */
+g.plot-region-0 {
+  fill: var(--tr-accent);
+  opacity: 0.28;
+}
+
+g.plot-region-1 {
+  fill: var(--tr-ink);
+  opacity: 0.2;
+}
+
+g.plot-region-2 {
+  fill: var(--tr-accent);
+  opacity: 0.65;
+}
+
 .plot-cursor line {
   stroke: var(--tr-ink);
   stroke-width: 1;
@@ -505,6 +536,36 @@
   border-color: var(--tr-ink);
 }
 
+.study-swatch.study-swatch-block {
+  width: 1rem;
+  height: 0.75rem;
+  border: 0;
+}
+
+.study-swatch-block.plot-bar-0,
+.study-swatch-block.plot-region-0 {
+  background: var(--tr-accent);
+}
+
+.study-swatch-block.plot-region-0 {
+  opacity: 0.4;
+}
+
+.study-swatch-block.plot-bar-1 {
+  background: var(--tr-ink);
+  opacity: 0.55;
+}
+
+.study-swatch-block.plot-region-1 {
+  background: var(--tr-ink);
+  opacity: 0.2;
+}
+
+.study-swatch-block.plot-region-2 {
+  background: var(--tr-accent);
+  opacity: 0.75;
+}
+
 /* Sliders and results. */
 .study-sliders {
   display: grid;
@@ -524,6 +585,14 @@
   font-family: var(--font-serif);
   font-size: 1rem;
   font-style: italic;
+}
+
+.study-slider-label-text {
+  margin-left: 0.5rem;
+  color: var(--tr-muted);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-style: normal;
 }
 
 .study-slider-value {
@@ -1602,4 +1671,50 @@ a.study-button {
   > li
   + li {
   margin-top: 0;
+}
+
+/* Venn diagrams (::: venn): panels side by side, the shaded part in the accent. */
+.study-venn-panels {
+  display: grid;
+  /* auto-fill counts columns by their minimum: two fit on a phone. */
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 1rem 1.5rem;
+}
+
+.study-venn-panel {
+  max-width: 15rem;
+  margin: 0;
+}
+
+.study-venn-panel figcaption {
+  margin-top: 0.25rem;
+  text-align: center;
+}
+
+.study-venn-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.study-venn-svg .venn-shade {
+  fill: var(--tr-accent);
+  fill-opacity: 0.45;
+}
+
+.study-venn-svg .venn-line {
+  fill: none;
+  stroke: var(--tr-ink);
+  stroke-width: 1.5;
+}
+
+.study-venn-svg .venn-label {
+  fill: var(--tr-ink);
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-style: italic;
+}
+
+.study-venn-svg .venn-omega {
+  font-style: normal;
 }

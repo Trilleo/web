@@ -11,7 +11,21 @@
  *   f(t) = e^(-k t) cos(w t)
  *   g(t) = e^(-k t)
  *   slider k: 0 .. 1 = 0.2
- *   slider w: 0.5 .. 6 = 3 | rad/s
+ *   slider w: 0.5 .. 6 = 3 | rad/s | angular frequency     (a label after the unit)
+ *   :::
+ *
+ *   ::: plot Binomial and its Poisson approximation
+ *   x: 0 .. 12
+ *   bars P(k) = comb(n, k) p^k (1 - p)^(n - k)     (drawn at whole numbers)
+ *   bars Q(k) = e^(-n p) (n p)^k / k!
+ *   slider n: 1 .. 50 = 20 | | step 1
+ *   :::
+ *
+ *   ::: plot Where 0 < y < x < 1
+ *   x: 0 .. 1.2
+ *   y: 0 .. 1.2
+ *   region G: 0 < y < x < 1                       (shaded; conditions joined by ,)
+ *   f(x) = x
  *   :::
  *
  *   ::: explore Power in a resistor
@@ -21,7 +35,12 @@
  *   P = V I | W | Power
  *   :::
  */
-import { evaluate, parseExpression, type Expression } from "./expression";
+import {
+  evaluate,
+  parseExpression,
+  type Expression,
+  type Scope,
+} from "./expression";
 import { parseQuantity } from "./units";
 
 export interface Slider {
@@ -32,12 +51,33 @@ export interface Slider {
   unit: string;
   /** Moves on a log scale (values spanning decades: resistances, frequencies). */
   log: boolean;
+  /** Snaps to multiples of this (whole numbers for n in a binomial: 1). */
+  step?: number | null;
+  /** What it stands for, shown beside its name ("prior trust"). */
+  label?: string;
 }
 
 export interface Curve {
   name: string;
   source: string;
   expression: Expression;
+  /** A line through the range, or bars at the whole numbers in it. */
+  kind: "line" | "bars";
+}
+
+export type Comparison = "<" | "<=" | ">" | ">=";
+
+/** A chain like 0 < y < x < 1: terms with a comparison between each pair. */
+export interface Condition {
+  terms: Expression[];
+  comparisons: Comparison[];
+}
+
+/** A shaded set of points: every condition holds (in the plot's x and y). */
+export interface Region {
+  name: string;
+  source: string;
+  conditions: Condition[];
 }
 
 export interface PlotSpec {
@@ -47,6 +87,7 @@ export interface PlotSpec {
   xLabel: string;
   yLabel: string;
   curves: Curve[];
+  regions: Region[];
   sliders: Slider[];
 }
 
@@ -97,7 +138,7 @@ function parseSlider(rest: string, errors: string[]): Slider | null {
     errors.push(`“slider ${rest}”: write it as “slider a: 0 .. 3 = 1”.`);
     return null;
   }
-  const [spec = "", unit = "", flag = ""] = rest
+  const [spec = "", unit = "", ...extras] = rest
     .slice(colon + 1)
     .split("|")
     .map((part) => part.trim());
@@ -114,14 +155,41 @@ function parseSlider(rest: string, errors: string[]): Slider | null {
     );
     return null;
   }
-  const log = flag === "log";
-  if (flag !== "" && !log)
-    errors.push(`Slider ${name}: “${flag}” isn't an option (only “log”).`);
+  // After the unit: “log”, “step 1”, and any other text is the slider's label.
+  let log = false;
+  let step: number | null = null;
+  const labels: string[] = [];
+  for (const extra of extras) {
+    if (extra === "") continue;
+    const stepMatch = /^step\s+(.+)$/.exec(extra);
+    if (extra === "log") log = true;
+    else if (stepMatch) {
+      step = number(stepMatch[1] ?? "");
+      if (!(step !== null && step > 0)) {
+        errors.push(`Slider ${name}: a step is a number above 0 (“step 1”).`);
+        return null;
+      }
+    } else labels.push(extra);
+  }
+  if (labels.length > 1)
+    errors.push(
+      `Slider ${name}: one label only (“${labels.join("”, “")}”); options are “log” and “step 1”.`,
+    );
   if (log && limits[0] <= 0) {
     errors.push(`Slider ${name}: a log slider's range must be above 0.`);
     return null;
   }
-  return { name, min: limits[0], max: limits[1], value, unit, log };
+  const label = labels[0];
+  return {
+    name,
+    min: limits[0],
+    max: limits[1],
+    value,
+    unit,
+    log,
+    step,
+    ...(label ? { label } : {}),
+  };
 }
 
 function compile(
@@ -140,10 +208,90 @@ function compile(
   }
 }
 
+const COMPARISON = /(<=|>=|≤|≥|<|>)/;
+
+/** Splits on commas outside brackets (comb(n, k) keeps its comma). */
+function splitTopLevel(text: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (char === "(") depth += 1;
+    else if (char === ")") depth -= 1;
+    else if ((char === "," || char === ";") && depth === 0) {
+      parts.push(text.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(text.slice(start));
+  return parts.map((part) => part.trim()).filter((part) => part !== "");
+}
+
+function parseRegion(
+  name: string,
+  source: string,
+  variables: string[],
+  errors: string[],
+): Region | null {
+  const conditions: Condition[] = [];
+  for (const part of splitTopLevel(source)) {
+    const pieces = part.split(COMPARISON);
+    if (pieces.length < 3) {
+      errors.push(
+        `Region ${name}: “${part}” needs a comparison (<, <=, >, >=).`,
+      );
+      return null;
+    }
+    const terms: Expression[] = [];
+    const comparisons: Comparison[] = [];
+    pieces.forEach((piece, index) => {
+      if (index % 2 === 1) {
+        comparisons.push(
+          piece === "≤" ? "<=" : piece === "≥" ? ">=" : (piece as Comparison),
+        );
+        return;
+      }
+      const term = compile(piece.trim(), variables, `Region ${name}`, errors);
+      if (term) terms.push(term);
+    });
+    if (terms.length !== comparisons.length + 1) return null;
+    conditions.push({ terms, comparisons });
+  }
+  if (conditions.length === 0) {
+    errors.push(`Region ${name} has no conditions (like 0 < y < x).`);
+    return null;
+  }
+  return { name, source, conditions };
+}
+
+/** Whether a point is in a region (every condition holds). */
+export function inRegion(region: Region, scope: Scope): boolean {
+  return region.conditions.every((condition) =>
+    condition.comparisons.every((comparison, index) => {
+      const left = condition.terms[index];
+      const right = condition.terms[index + 1];
+      if (!left || !right) return false;
+      const a = evaluate(left, scope);
+      const b = evaluate(right, scope);
+      if (comparison === "<") return a < b;
+      if (comparison === "<=") return a <= b;
+      if (comparison === ">") return a > b;
+      return a >= b;
+    }),
+  );
+}
+
 export function parsePlot(body: string): Parsed<PlotSpec> {
   const errors: string[] = [];
   const sliders: Slider[] = [];
-  const curveLines: { name: string; variable: string; source: string }[] = [];
+  const curveLines: {
+    name: string;
+    variable: string;
+    source: string;
+    kind: "line" | "bars";
+  }[] = [];
+  const regionLines: { name: string; source: string }[] = [];
   let x: [number, number] | null = null;
   let y: [number, number] | null = null;
   let xLabel = "";
@@ -156,15 +304,26 @@ export function parsePlot(body: string): Parsed<PlotSpec> {
       if (slider) sliders.push(slider);
       continue;
     }
+    const region = /^region(?:\s+([\p{L}_][\p{L}\p{N}_]*))?\s*:\s*(.+)$/u.exec(
+      line,
+    );
+    if (region) {
+      regionLines.push({
+        name: region[1] ?? `R${String(regionLines.length + 1)}`,
+        source: region[2] ?? "",
+      });
+      continue;
+    }
     const curve =
-      /^([\p{L}_][\p{L}\p{N}_]*)\(\s*([\p{L}_][\p{L}\p{N}_]*)\s*\)\s*=\s*(.+)$/u.exec(
+      /^(bars\s+)?([\p{L}_][\p{L}\p{N}_]*)\(\s*([\p{L}_][\p{L}\p{N}_]*)\s*\)\s*=\s*(.+)$/u.exec(
         line,
       );
     if (curve) {
       curveLines.push({
-        name: curve[1] ?? "",
-        variable: curve[2] ?? "",
-        source: curve[3] ?? "",
+        name: curve[2] ?? "",
+        variable: curve[3] ?? "",
+        source: curve[4] ?? "",
+        kind: curve[1] ? "bars" : "line",
       });
       continue;
     }
@@ -181,12 +340,15 @@ export function parsePlot(body: string): Parsed<PlotSpec> {
       continue;
     }
     errors.push(
-      `“${line}” isn't part of a plot (a curve like f(x) = …, x:, y:, xlabel:, ylabel:, or slider).`,
+      `“${line}” isn't part of a plot (a curve like f(x) = …, bars p(k) = …, region: …, x:, y:, xlabel:, ylabel:, or slider).`,
     );
   }
-  if (curveLines.length === 0)
-    errors.push("The plot has no curves (like f(x) = x^2).");
+  if (curveLines.length === 0 && regionLines.length === 0)
+    errors.push("The plot has no curves (like f(x) = x^2) or regions.");
   if (curveLines.length > 4) errors.push("A plot shows at most 4 curves.");
+  if (regionLines.length > 3) errors.push("A plot shades at most 3 regions.");
+  if (curveLines.filter((curve) => curve.kind === "bars").length > 2)
+    errors.push("A plot shows at most 2 sets of bars.");
   const variable = curveLines[0]?.variable ?? "x";
   if (curveLines.some((curve) => curve.variable !== variable))
     errors.push(`Every curve should use the same variable (${variable}).`);
@@ -199,9 +361,24 @@ export function parsePlot(body: string): Parsed<PlotSpec> {
       errors,
     );
     return expression
-      ? [{ name: curve.name, source: curve.source, expression }]
+      ? [
+          {
+            name: curve.name,
+            source: curve.source,
+            expression,
+            kind: curve.kind,
+          },
+        ]
       : [];
   });
+  if (regionLines.length > 0 && variable === "y")
+    errors.push("A plot with regions uses x across and y up (not y as x).");
+  const regions = regionLines.flatMap((line) => {
+    const region = parseRegion(line.name, line.source, [...names, "y"], errors);
+    return region ? [region] : [];
+  });
+  if (regionLines.length > 0 && y === null && curveLines.length === 0)
+    errors.push("A plot of regions only needs a y range (y: 0 .. 1).");
   if (errors.length > 0) return { ok: false, errors };
   return {
     ok: true,
@@ -212,6 +389,7 @@ export function parsePlot(body: string): Parsed<PlotSpec> {
       xLabel: xLabel || variable,
       yLabel,
       curves,
+      regions,
       sliders,
     },
   };
@@ -282,9 +460,13 @@ export function exploreResults(
 /** Slider position (0–1) ↔ value, linear or logarithmic. */
 export function sliderValue(slider: Slider, position: number): number {
   const t = Math.min(1, Math.max(0, position));
-  return slider.log
+  const value = slider.log
     ? slider.min * (slider.max / slider.min) ** t
     : slider.min + (slider.max - slider.min) * t;
+  if (!slider.step) return value;
+  const snapped =
+    slider.min + Math.round((value - slider.min) / slider.step) * slider.step;
+  return Number(Math.min(slider.max, snapped).toPrecision(12));
 }
 
 export function sliderPosition(slider: Slider, value: number): number {

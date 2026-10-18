@@ -213,6 +213,53 @@ answer: 2
     expect(render("::: logic\ninputs: A\nY = A B\n:::").errors).toHaveLength(1);
   });
 
+  test("draw Venn diagrams, one panel per shaded event", () => {
+    const venn = render(
+      "::: venn De Morgan\nshade: (A ∪ B)'\nshade: A'B'\n:::",
+    );
+    expect(venn.errors).toEqual([]);
+    expect(venn.html.match(/class="study-venn-panel"/g)).toHaveLength(2);
+    // Outside both circles: one cell, so one mask each.
+    expect(venn.html.match(/<mask /g)).toHaveLength(2);
+    expect(venn.html).toContain("outside A and B");
+    const three = render("::: venn\nsets: A B C\nshade: A - B\n:::");
+    expect(three.html.match(/<mask /g)).toHaveLength(2);
+    expect(render("::: venn\nshade: A +\n:::").errors).toHaveLength(1);
+    expect(render("::: venn\nsets: A\nshade: B\n:::").errors).toHaveLength(1);
+    expect(render("::: venn\nshade: A B C D\n:::").errors).toHaveLength(1);
+  });
+
+  test("plot bars and regions", () => {
+    const plot = render(
+      "::: plot Binomial\nx: 0 .. 10\nbars P(k) = comb(n, k) p^k (1 - p)^(n - k)\nslider n: 1 .. 10 = 10 | | step 1\nslider p: 0 .. 1 = 0.3\n:::",
+    );
+    expect(plot.errors).toEqual([]);
+    expect(
+      render("::: plot G\ny: 0 .. 1\nregion G: 0 < y < x < 1, x + y <= 1\n:::")
+        .errors,
+    ).toEqual([]);
+    expect(render("::: plot G\nregion G: 0 < y < x\n:::").errors).toHaveLength(
+      1,
+    );
+    expect(
+      render("::: plot G\ny: 0 .. 1\nregion: x + y\n:::").errors,
+    ).toHaveLength(1);
+    expect(
+      render("::: plot\nf(x) = x\nslider n: 1 .. 5 = 2 | | step 0\n:::").errors,
+    ).toHaveLength(1);
+    const labelled = render(
+      "::: explore Bayes\nslider p: 0 .. 1 = 0.8 | | prior trust\nslider n: 1 .. 5 = 2 | | step 1 | lies told\nq = p\n:::",
+    );
+    expect(labelled.errors).toEqual([]);
+    const island = labelled.islands[0];
+    expect(island?.name === "explore" && island.props.source).toContain(
+      "prior trust",
+    );
+    expect(
+      render("::: explore\nslider p: 0 .. 1 | | one | two\nq = p\n:::").errors,
+    ).toHaveLength(1);
+  });
+
   test("resolve figures", () => {
     expect(render("![A bridge](figures/known.webp)").html).toContain(
       'src="/_astro/known.webp"',
