@@ -14,23 +14,29 @@
  *   D1 0,0 4,0 1N4007    a diode, anode first (label optional)
  *   Z1 4,4 4,0 6V        a Zener diode, anode first (label optional)
  *   S1 0,0 2,0 closed    a switch, open (the default) or closed
+ *   F1 4,4 4,0 gmUgs     a controlled (dependent) current source, flowing from the
+ *                        first point to the second; E1 … a controlled voltage source,
+ *                        − to + (diamonds; the label says what controls them)
  *   Q1 npn 2,2           a BJT: base at 2,2, collector at 4,0, emitter at 4,4
  *                        (pnp; add "left" to face left, "flip" to swap C and E)
  *   M1 nmos 2,2          a MOSFET (nmos, pmos, nmos-d, pmos-d for depletion) or a
  *                        JFET (njfet, pjfet): gate 2,2, drain 4,0, source 4,4
  *   U1 opamp 2,2         an op-amp: − input 2,1, + input 2,3, output 6,2
  *                        ("plus-top" puts + at 2,1)
+ *   T1 transformer 2,0   a transformer: primary 2,0–2,4, secondary 4,0–4,4
+ *                        (centre-tap adds a tap at 4,2; "left" puts the primary right)
  *   W 0,4 4,4 8,4        a wire through points (a point on a wire joins it)
  *   G 0,4                ground (0 V)
  *   label +VCC 4,0       names a node
  *   # a comment
  *
  * Two-terminal parts need at least 2 grid squares (their symbol fills the middle).
- * Text after a transistor's or op-amp's options is shown beside it ("β=50").
+ * Text after a transistor's, op-amp's or transformer's options is shown beside it ("β=50").
  */
 import { parseQuantity, splitUnit } from "../units";
 
-export type ElementKind = "R" | "C" | "L" | "V" | "I" | "A" | "D" | "Z" | "S";
+export type ElementKind =
+  "R" | "C" | "L" | "V" | "I" | "A" | "D" | "Z" | "S" | "E" | "F";
 
 /** Parts with a value the simulator uses; the others carry a label. */
 export const VALUED_KINDS: readonly ElementKind[] = ["R", "C", "L", "V", "I"];
@@ -45,6 +51,8 @@ export const ELEMENT_UNITS: Readonly<Record<ElementKind, string>> = {
   D: "",
   Z: "",
   S: "",
+  E: "",
+  F: "",
 };
 
 export const ELEMENT_NAMES: Readonly<Record<ElementKind, string>> = {
@@ -57,14 +65,17 @@ export const ELEMENT_NAMES: Readonly<Record<ElementKind, string>> = {
   D: "diode",
   Z: "Zener diode",
   S: "switch",
+  E: "controlled voltage source",
+  F: "controlled current source",
 };
 
-export type DeviceKind = "Q" | "M" | "U";
+export type DeviceKind = "Q" | "M" | "U" | "T";
 
 export const DEVICE_MODELS: Readonly<Record<DeviceKind, readonly string[]>> = {
   Q: ["npn", "pnp"],
   M: ["nmos", "pmos", "nmos-d", "pmos-d", "njfet", "pjfet"],
   U: ["opamp"],
+  T: ["transformer", "centre-tap"],
 };
 
 export const MODEL_NAMES: Readonly<Record<string, string>> = {
@@ -77,6 +88,8 @@ export const MODEL_NAMES: Readonly<Record<string, string>> = {
   njfet: "N-channel JFET",
   pjfet: "P-channel JFET",
   opamp: "op-amp",
+  transformer: "transformer",
+  "centre-tap": "centre-tapped transformer",
 };
 
 export interface Point {
@@ -97,7 +110,7 @@ export interface CircuitElement {
   range?: [number, number];
 }
 
-/** A transistor or op-amp: one point places it, its pins sit around it. */
+/** A transistor, op-amp or transformer: one point places it, its pins sit around it. */
 export interface CircuitDevice {
   kind: DeviceKind;
   name: string;
@@ -107,7 +120,7 @@ export interface CircuitDevice {
   left: boolean;
   /** Collector/drain and emitter/source swapped; for an op-amp, + on top. */
   flip: boolean;
-  /** Pin name → grid point: b c e, g d s, or minus plus out. */
+  /** Pin name → grid point: b c e, g d s, minus plus out, or p1 p2 s1 s2 (ct). */
   pins: Record<string, Point>;
   text: string;
 }
@@ -175,12 +188,21 @@ export function devicePins(
   at: Point,
   left: boolean,
   flip: boolean,
+  model = "",
 ): Record<string, Point> {
   const dir = left ? -1 : 1;
   const side = (dx: number, dy: number): Point => ({
     x: at.x + dir * dx,
     y: at.y + dy,
   });
+  if (kind === "T")
+    return {
+      p1: side(0, 0),
+      p2: side(0, 4),
+      s1: side(2, 0),
+      s2: side(2, 4),
+      ...(model === "centre-tap" && { ct: side(2, 2) }),
+    };
   if (kind === "U")
     return flip
       ? { plus: side(0, -1), minus: side(0, 1), out: side(4, 0) }
@@ -251,7 +273,7 @@ export function parseCircuit(body: string): CircuitParse {
       return;
     }
 
-    const device = /^([QMU])([A-Za-z0-9_]*)$/.exec(head);
+    const device = /^([QMUT])([A-Za-z0-9_]*)$/.exec(head);
     if (device) {
       const kind = device[1] as DeviceKind;
       if (names.has(head)) {
@@ -273,11 +295,12 @@ export function parseCircuit(body: string): CircuitParse {
       while (options.length > 0) {
         const option = options[0];
         if (option === "left") left = true;
-        else if (option === "flip" || option === "plus-top") flip = true;
+        else if (kind !== "T" && (option === "flip" || option === "plus-top"))
+          flip = true;
         else break;
         options.shift();
       }
-      const pins = devicePins(kind, at, left, flip);
+      const pins = devicePins(kind, at, left, flip, model);
       if (Object.values(pins).some((pin) => pin.x < 0 || pin.y < 0)) {
         errors.push(`${where}: ${head}'s pins would go off the grid.`);
         return;
@@ -295,10 +318,10 @@ export function parseCircuit(body: string): CircuitParse {
       return;
     }
 
-    const element = /^([RCLVIADZS])([A-Za-z0-9_]*)$/.exec(head);
+    const element = /^([RCLVIADZSEF])([A-Za-z0-9_]*)$/.exec(head);
     if (!element) {
       errors.push(
-        `${where}: “${head}” isn't a part (R, C, L, V, I, A, D, Z, S, Q, M, U, W, G or label).`,
+        `${where}: “${head}” isn't a part (R, C, L, V, I, A, D, Z, S, E, F, Q, M, U, T, W, G or label).`,
       );
       return;
     }

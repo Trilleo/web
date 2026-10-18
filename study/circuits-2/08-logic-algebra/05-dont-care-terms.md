@@ -270,6 +270,8 @@ Algebraic vs map simplification :: Algebra: any number of variables, needs skill
 
 ? Simplify $F(A,B,C) = \sum m(2, 4) + \sum d(0, 3, 5, 6, 7)$ to the fewest terms.
 logic: C'
+variables: A, B, C
+dontcare: 0, 3, 5, 6, 7
 > Columns $BC = 00$ and $10$ wrap into a group $m_0, m_2, m_4, m_6$ ($m_0$, $m_6$ are ×) with only $C = 0$ in common: $F = \overline{C}$.
 
 ? Without using the don't-cares, how many product terms does that same $F$ need?
@@ -279,18 +281,21 @@ tolerance: 0
 
 ? Simplify $Y(A,B,C,D) = \sum m(0, 2, 4, 6, 8) + \sum d(10, 11, 12, 13, 14, 15)$ to the fewest terms.
 logic: D'
+variables: A, B, C, D
+dontcare: 10, 11, 12, 13, 14, 15
 > Columns $CD = 00$ and $10$ (wrapping) make a group of eight with the ×s at $m_{10}$, $m_{12}$, $m_{14}$: only $D = 0$ is common.
 
 ? Simplify $Y(A,B,C,D) = \sum m(1, 7, 8) + \sum d(3, 5, 9, 10, 12, 14, 15)$ to the fewest terms.
 logic: A' D + A D'
+variables: A, B, C, D
+dontcare: 3, 5, 9, 10, 12, 14, 15
 > $m_1, m_3, m_5, m_7$ → $\overline{A}D$; $m_8, m_{10}, m_{12}, m_{14}$ → $A\overline{D}$. So $Y = A \oplus D$.
 
-? Which is a minimal sum of products of $F(A,B,C,D) = \sum m(3, 6, 8, 9, 11, 12) + \sum d(0, 1, 2, 13, 14, 15)$?
-- [x] $A\overline{C} + \overline{B}D + BC\overline{D}$
-- [ ] $A\overline{C} + \overline{B}D$
-- [ ] $A\overline{B}\,\overline{C} + \overline{A}\,\overline{B}CD + \overline{A}BC\overline{D} + AB\overline{C}\,\overline{D} + A\overline{B}D$
-- [ ] $A + \overline{B}D + C\overline{D}$
-> $A\overline{C}$ covers $m_8, m_9, m_{12}$ (with × $m_{13}$); $\overline{B}D$ covers $m_3, m_9, m_{11}$ (with × $m_1$); $m_6$ still needs a pair, $BC\overline{D}$ (with × $m_{14}$). Two terms leave $m_6$ uncovered; the five-term option covers every 1 but isn't minimal; $A$ would include the 0 at $m_{10}$, and $C\overline{D}$ the 0 at $m_{10}$ too. (Pairing $m_6$ with $m_2$ instead, $\overline{A}C\overline{D}$, is equally minimal.)
+? Simplify $F(A,B,C,D) = \sum m(3, 6, 8, 9, 11, 12) + \sum d(0, 1, 2, 13, 14, 15)$ to a minimal sum of products.
+logic: A C' + B' D + B C D'
+variables: A, B, C, D
+dontcare: 0, 1, 2, 13, 14, 15
+> $A\overline{C}$ covers $m_8, m_9, m_{12}$ (with × $m_{13}$); $\overline{B}D$ covers $m_3, m_9, m_{11}$ (with × $m_1$); $m_6$ still needs a pair, $BC\overline{D}$ (with × $m_{14}$). Pairing $m_6$ with $m_2$ instead, $\overline{A}C\overline{D}$, is equally minimal, and is accepted too.
 
 ? Three people share one pen and $F = 1$ when someone is writing. What is the constraint on $A$, $B$, $C$?
 - [x] $AB + BC + AC = 0$

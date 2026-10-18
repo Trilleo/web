@@ -79,13 +79,17 @@ A {{term transformer | 变压器}} first steps the mains voltage $u_1$ down to a
 $u_2 = \sqrt2 U_2 \sin\omega t$ ($U_2$ is its rms value). A diode VD in series then
 feeds the load $R_L$.
 
-::: circuit Half-wave rectifier (u2 is the transformer's secondary)
-A1 0,4 0,0 u2
-D1 0,0 4,0 VD
-R1 4,0 4,4 RL
-W 0,4 4,4
-G 0,4
-label uo 4,0
+::: circuit Half-wave rectifier
+A1 0,4 0,0 u1
+W 0,0 2,0
+W 0,4 2,4
+T1 transformer 2,0
+D1 4,0 8,0 VD
+R1 8,0 8,4 RL
+W 4,4 8,4
+G 4,4
+label u2 4,0
+label uo 8,0
 :::
 
 How it works, with an ideal diode:

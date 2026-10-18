@@ -62,6 +62,8 @@ export interface QuestionSource {
   answer: string;
   tolerance: Tolerance;
   variables: string[];
+  /** logic: minterm numbers (over `variables`, first most significant) whose value doesn't matter. */
+  dontcare: number[];
   explanation: string;
 }
 
@@ -70,7 +72,8 @@ export interface QuizParse {
   errors: string[];
 }
 
-const FIELD = /^(answer|tolerance|expression|logic|variables|text):\s*(.*)$/;
+const FIELD =
+  /^(answer|tolerance|expression|logic|variables|dontcare|text):\s*(.*)$/;
 const OPTION = /^[-*]\s*\[( |x|X)\]\s*(.*)$/;
 
 export function parseQuiz(body: string): QuizParse {
@@ -93,6 +96,7 @@ export function parseQuiz(body: string): QuizParse {
         answer: current.answer,
         tolerance: current.tolerance,
         variables: current.variables,
+        dontcare: current.dontcare,
         explanation: current.explanation,
       });
     }
@@ -112,6 +116,7 @@ export function parseQuiz(body: string): QuizParse {
         answer: "",
         tolerance: DEFAULT_TOLERANCE,
         variables: [],
+        dontcare: [],
         explanation: "",
         fields: new Set(),
       };
@@ -164,6 +169,19 @@ export function parseQuiz(body: string): QuizParse {
         if (tolerance) current.tolerance = tolerance;
         else
           errors.push(`“${value}” isn't a tolerance (try “2%” or “0.01 A”).`);
+      } else if (key === "dontcare") {
+        const numbers = value
+          .split(",")
+          .map((part) => part.trim())
+          .filter(Boolean);
+        if (numbers.length === 0 || numbers.some((part) => !/^\d+$/.test(part)))
+          errors.push(
+            `“${value}” isn't a list of minterm numbers (try “dontcare: 3, 7”).`,
+          );
+        else
+          current.dontcare = [...new Set(numbers.map(Number))].sort(
+            (a, b) => a - b,
+          );
       } else {
         current.variables = value
           .split(",")
@@ -224,12 +242,31 @@ function checkQuestion(
     }
   }
   if (question.kind === "logic") {
+    let expression: LogicExpression;
     try {
-      parseLogic(question.answer);
+      expression = parseLogic(question.answer);
     } catch (error) {
       return `the logic expression “${question.answer}” can't be read: ${error instanceof Error ? error.message : "it's invalid"}`;
     }
-  }
+    if (question.fields.has("dontcare")) {
+      // Minterm numbers mean nothing without the variables' order, and a simplified
+      // answer may leave a variable out.
+      if (question.variables.length === 0)
+        return "dontcare: needs variables: (in order, first most significant), like “variables: A, B, C”.";
+      if (question.variables.some((name) => !/^[A-Za-z]\d*$/.test(name)))
+        return "variables: for a logic answer are names like A, B, D0.";
+      const missing = logicVariables(expression).filter(
+        (name) => !question.variables.includes(name),
+      );
+      if (missing.length > 0)
+        return `the answer uses ${missing.join(", ")}, which variables: doesn't list.`;
+      const rows = 2 ** question.variables.length;
+      const outside = question.dontcare.find((number) => number >= rows);
+      if (outside !== undefined)
+        return `don't-care ${String(outside)} is past the last minterm (${String(rows - 1)}).`;
+    }
+  } else if (question.fields.has("dontcare"))
+    return "dontcare: only goes with a logic: answer.";
   if (
     question.kind === "text" &&
     !question.answer.split("|").some((part) => part.trim())
@@ -260,7 +297,7 @@ export type Response = readonly number[] | string;
 /** What a quiz needs in the browser to check one question. */
 export type CheckData = Pick<
   QuestionSource,
-  "kind" | "answer" | "tolerance" | "variables"
+  "kind" | "answer" | "tolerance" | "variables" | "dontcare"
 > & {
   /** Indexes of the right options. */
   correct: number[];
@@ -272,6 +309,7 @@ export function checkData(question: QuestionSource): CheckData {
     answer: question.answer,
     tolerance: question.tolerance,
     variables: question.variables,
+    dontcare: question.dontcare,
     correct: question.options.flatMap((option, index) =>
       option.correct ? [index] : [],
     ),
@@ -361,13 +399,24 @@ export function checkAnswer(data: CheckData, response: Response): CheckResult {
       };
     }
     const expected = parseLogic(data.answer);
-    // The same truth table, over every variable either side uses.
+    // The same truth table, over every variable either side uses, except on the
+    // don't-care rows (numbered over the question's variables).
+    const order = data.dontcare.length > 0 ? data.variables : [];
     const names = [
-      ...new Set([...logicVariables(expected), ...logicVariables(given)]),
+      ...new Set([
+        ...order,
+        ...logicVariables(expected),
+        ...logicVariables(given),
+      ]),
     ];
+    const dontcare = new Set(data.dontcare);
+    const minterm = (row: Record<string, 0 | 1>) =>
+      order.reduce((number, name) => number * 2 + (row[name] ?? 0), 0);
     return {
       correct: assignments(names).every(
-        (row) => evaluateLogic(given, row) === evaluateLogic(expected, row),
+        (row) =>
+          (order.length > 0 && dontcare.has(minterm(row))) ||
+          evaluateLogic(given, row) === evaluateLogic(expected, row),
       ),
     };
   }

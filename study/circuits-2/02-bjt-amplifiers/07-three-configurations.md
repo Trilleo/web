@@ -155,7 +155,7 @@ make $\dot I_e = (1+\beta)\dot I_b$, which flows out through $R_e /\!/ R_L$.
 W 0,0 2,0
 R1 2,0 2,6 Rb
 R2 2,0 6,0 rbe
-I1 6,6 6,0 βIb
+F1 6,6 6,0 βIb
 W 6,0 12,0
 R3 9,0 9,6 Re
 R4 12,0 12,6 RL
@@ -272,7 +272,7 @@ collector and emitter.
 W 0,0 4,0
 R1 2,0 2,4 Re
 R2 4,0 4,4 rbe
-I1 8,0 5,0 βIb
+F1 8,0 5,0 βIb
 W 4,0 5,0
 W 8,0 14,0
 R3 11,0 11,4 Rc

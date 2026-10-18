@@ -267,7 +267,7 @@ expression: x + 2
     "“?” starts a question; options are “- [x]” (right) and “- [ ]”.",
     "answer: a number with its unit (prefixes are fine: 500 mA); tolerance: 2% or 0.01 A (1% by default).",
     "expression: an algebraic answer, checked for equivalence; variables: x, y when not every single letter is one.",
-    "logic: a Boolean expression (A' for NOT, AB for AND, + for OR, ⊕, ⊙), right if it has the same truth table.",
+    "logic: a Boolean expression (A' for NOT, AB for AND, + for OR, ⊕, ⊙), right if it has the same truth table. With dontcare: 3, 7 (minterm numbers over variables: A, B, C, first most significant), those rows don't count.",
     "text: accepted words, “|” between alternatives. “>” lines explain the answer.",
     "Answers are recorded by the question's prompt; end the “?” line with {#name} to keep them through rewording.",
   ],
@@ -384,6 +384,7 @@ label out 4,0
   notes: [
     "Parts: R, C, L, V (from − to +), I (flows from the first point to the second), each between two grid points at least 2 apart, with a value (the unit may be left out).",
     "W x,y x,y … is a wire; G x,y ground; label a x,y names a node. Points that meet are joined.",
+    "Drawn only: A (AC source), D, Z, S, E and F (controlled voltage and current sources, diamonds), and parts placed at one point: Q, M, U, T (transformer). study/README.md lists them all.",
   ],
   render({ argument, body }, context) {
     const { circuit: parsed, errors } = parseCircuit(body);

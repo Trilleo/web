@@ -65,7 +65,9 @@ Blocks (`::: name argument` … `:::`):
 Quizzes: `?` starts a question; then options (`- [x]` right, `- [ ]` wrong), or
 `answer: 0.5 A` (a number with its unit; `tolerance: 2%`, 1% by default), or
 `expression: u^2/R` (checked for equivalence; `variables: u, R`), `logic: A ⊕ B`
-(a Boolean expression, right when its truth table matches: `A'B + AB'` passes), or
+(a Boolean expression, right when its truth table matches: `A'B + AB'` passes; add
+`variables: A, B, C` and `dontcare: 0, 3` to skip those minterms' rows, first variable
+most significant, so any answer that agrees on the other rows is right), or
 `text: farad | F`.
 `>` lines explain the answer. Write an explanation for every question.
 
@@ -77,17 +79,22 @@ digits and hyphens, unique in the lesson).
 Circuits: parts between grid points, at least 2 apart: `R1 0,0 4,0 1k`, `C1 …`,
 `L1 …`, `V1 0,4 0,0 12V` (from − to +), `I1 0,4 0,0 3mA` (flowing first → second),
 `A1 0,4 0,0 u2` (AC source), `D1 0,0 4,0 1N4007` (diode, anode first), `Z1 4,4 4,0 6V`
-(Zener, anode first), `S1 0,0 2,0 closed` (switch). A symbol instead of a value
-(`R2 4,0 4,4 Rc`, `R3 0,0 4,0 R/2`, `C2 … 2C`) labels a part in a drawing; one that
-repeats the name (`R1 … R1`) is drawn once. Transistors and op-amps sit at one point
+(Zener, anode first), `S1 0,0 2,0 closed` (switch), `F1 4,4 4,0 gmUgs` (controlled
+current source, flowing first → second) and `E1 0,4 0,0 μu1` (controlled voltage
+source, − to +), drawn as diamonds. A symbol instead of a value (`R2 4,0 4,4 Rc`,
+`R3 0,0 4,0 R/2`, `C2 … 2C`) labels a part in a drawing; one that repeats the name
+(`R1 … R1`) is drawn once. Transistors, op-amps and transformers sit at one point
 with pins around it: `Q1 npn 2,2` (base 2,2, collector 4,0, emitter 4,4; `pnp`, add
 `left` to face left, `flip` to swap collector and emitter, then any text such as
 `β=50`), `M1 nmos 2,2` (gate, drain 4,0, source 4,4; `pmos`, `nmos-d`, `pmos-d`,
-`njfet`, `pjfet`), `U1 opamp 2,2` (− at 2,1, + at 2,3, output 6,2; `plus-top`).
+`njfet`, `pjfet`), `U1 opamp 2,2` (− at 2,1, + at 2,3, output 6,2; `plus-top`),
+`T1 transformer 2,0` (primary 2,0–2,4, secondary 4,0–4,4; `centre-tap` adds a tap at
+4,2; `left` puts the primary on the right; text such as `220V/u2` goes under it).
 `W 0,4 4,4 8,4` wires (a point on a wire joins it), `G 0,4` ground, `label +VCC 4,0`.
-A transistor or op-amp with some pins wired and one left loose is a render error (a
-wire that stops a square short); one with no pins wired is a symbol on show.
-`circuit-sim` takes only R, C, L, V, I and switches, with numeric values; `[low..high]`
+A transistor, op-amp or transformer with some pins wired and one left loose is a
+render error (a wire that stops a square short); one with no pins wired is a symbol on
+show.
+`circuit-sim` takes only R, C, L, V, I and switches (not E or F), with numeric values; `[low..high]`
 after a value sets its slider's range.
 
 Logic expressions (`::: logic`, `::: kmap`): variables are one letter, optionally with

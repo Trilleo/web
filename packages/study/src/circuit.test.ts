@@ -140,6 +140,80 @@ describe("devices and other parts", () => {
     expect(svg).toContain("U1, op-amp");
   });
 
+  test("controlled sources are diamonds, drawn but not simulated", () => {
+    const { circuit, errors } = parseCircuit(
+      "F1 4,4 4,0 gmUgs\nE1 0,4 0,0 μu1\nR1 0,0 4,0 1k\nW 0,4 4,4\nG 0,4",
+    );
+    expect(errors).toEqual([]);
+    expect(circuit.elements.map((e) => [e.kind, e.valueText])).toEqual([
+      ["F", "gmUgs"],
+      ["E", "μu1"],
+      ["R", "1 kΩ"],
+    ]);
+    const svg = drawCircuit(circuit, { title: "Dependent", id: "dep" });
+    expect(svg).toContain("F1, controlled current source, gmUgs");
+    expect(svg).toContain("E1, controlled voltage source, μu1");
+    // Each is a four-cornered polygon (the diamond).
+    expect(
+      svg.match(
+        /<polygon points="(?:[\d.]+,[\d.]+ ){3}[\d.]+,[\d.]+" class="sc-body"/g,
+      )?.length,
+    ).toBeGreaterThanOrEqual(3);
+    const sim = solveCircuit(circuit);
+    expect(sim.ok ? "" : sim.error).toMatch(/F1 \(controlled current source\)/);
+  });
+
+  test("transformers: four pins, a centre tap, mirrored with left", () => {
+    const { circuit, errors } = parseCircuit(
+      "T1 transformer 2,0 220V:u2\nT2 centre-tap 10,0\nT3 transformer 18,0 left",
+    );
+    expect(errors).toEqual([]);
+    expect(circuit.devices.map((device) => device.pins)).toEqual([
+      {
+        p1: { x: 2, y: 0 },
+        p2: { x: 2, y: 4 },
+        s1: { x: 4, y: 0 },
+        s2: { x: 4, y: 4 },
+      },
+      {
+        p1: { x: 10, y: 0 },
+        p2: { x: 10, y: 4 },
+        s1: { x: 12, y: 0 },
+        s2: { x: 12, y: 4 },
+        ct: { x: 12, y: 2 },
+      },
+      {
+        p1: { x: 18, y: 0 },
+        p2: { x: 18, y: 4 },
+        s1: { x: 16, y: 0 },
+        s2: { x: 16, y: 4 },
+      },
+    ]);
+    const svg = drawCircuit(circuit, { title: "Transformers", id: "t" });
+    expect(svg).toContain("T1, transformer, 220V:u2");
+    expect(svg).toContain("T2, centre-tapped transformer");
+    expect(svg).toContain(">220V:u2</text>");
+    // Mirrored coils sweep the other way.
+    expect(svg).toMatch(/A12 12 0 0 1/);
+    expect(svg).toMatch(/A12 12 0 0 0/);
+    expect(parseCircuit("T1 transformer 1,0 left").errors[0]).toMatch(
+      /off the grid/,
+    );
+    const loose = parseCircuit(
+      "A1 0,4 0,0 u1\nW 0,0 2,0\nW 0,4 2,4\nT1 transformer 2,0\nR1 4,0 4,4 1k",
+    ).circuit;
+    expect(loosePins(loose)).toEqual([]);
+    const short = parseCircuit(
+      "A1 0,4 0,0 u1\nW 0,0 2,0\nW 0,4 2,4\nT1 transformer 2,0\nR1 5,0 5,4 RL",
+    ).circuit;
+    expect(loosePins(short)).toEqual([
+      "T1 secondary (top)",
+      "T1 secondary (bottom)",
+    ]);
+    const sim = solveCircuit(loose);
+    expect(sim.ok ? "" : sim.error).toMatch(/can only be drawn/);
+  });
+
   test("pins left unconnected on a wired-in device are reported", () => {
     const wired = parseCircuit(
       "U1 opamp 4,2\nR1 0,1 4,1 10k\nW 4,3 4,5\nG 4,5\nW 8,2 10,2",

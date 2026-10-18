@@ -70,8 +70,8 @@ parallel with $1/h_{22}$ (labelled $r_{ce}$ in the drawing).
 
 ::: circuit The full h-parameter model
 R1 0,0 4,0 h11
-V1 4,4 4,0 h12Uce
-I1 8,0 8,4 h21Ib
+E1 4,4 4,0 h12Uce
+F1 8,0 8,4 h21Ib
 R2 10,0 10,4 rce
 W 8,0 12,0
 W 4,4 12,4
@@ -80,8 +80,8 @@ label c 12,0
 label e 6,4
 :::
 
-The two sources here are *controlled* sources (diamonds in the textbook); the drawing
-format only has round ones.
+The two sources here are *controlled* sources, so they are diamonds: their values
+depend on $\dot U_{ce}$ and $\dot I_b$ elsewhere in the circuit.
 
 ## The simplified model
 
@@ -97,7 +97,7 @@ collector to emitter, controlled by the base current.
 ::: circuit The simplified small-signal model of a BJT
 W 0,0 2,0
 R1 2,0 2,4 rbe
-I1 6,0 6,4 βIb
+F1 6,0 6,4 βIb
 W 6,0 8,0
 W 0,4 8,4
 label b 0,0
@@ -199,7 +199,7 @@ W 0,0 6,0
 R1 2,0 2,4 Rb1
 R2 4,0 4,4 Rb2
 R3 6,0 6,4 rbe
-I1 9,0 9,4 βIb
+F1 9,0 9,4 βIb
 W 9,0 14,0
 R4 11,0 11,4 Rc
 R5 14,0 14,4 RL
@@ -309,7 +309,7 @@ In its equivalent circuit the single $R_b$ takes the place of $R_{b1}$ and $R_{b
 W 0,0 4,0
 R1 2,0 2,4 Rb
 R2 4,0 4,4 rbe
-I1 7,0 7,4 βIb
+F1 7,0 7,4 βIb
 W 7,0 12,0
 R3 9,0 9,4 Rc
 R4 12,0 12,4 RL

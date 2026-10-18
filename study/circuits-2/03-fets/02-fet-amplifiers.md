@@ -284,7 +284,7 @@ out.
 ::: circuit Small-signal model of a FET (g–s open)
 label g 0,0
 W 0,4 6,4
-I1 3,0 3,4 gmUgs
+F1 3,0 3,4 gmUgs
 R1 6,0 6,4 rds
 W 3,0 6,0
 label d 6,0
@@ -313,7 +313,7 @@ R2 4,0 4,4 Rg1
 R3 6,0 6,4 Rg2
 W 2,0 8,0
 label g 8,0
-I1 10,0 10,4 gmUgs
+F1 10,0 10,4 gmUgs
 R4 12,0 12,4 Rd
 R5 14,0 14,4 RL
 W 10,0 14,0

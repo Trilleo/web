@@ -118,7 +118,7 @@ export function connectivity(circuit: Circuit): {
 }
 
 /**
- * Transistor and op-amp pins that nothing reaches ("Q1 base"), on devices that are
+ * Transistor, op-amp and transformer pins that nothing reaches ("Q1 base"), on devices that are
  * otherwise wired in: a wire that stops one square short still parses and draws, so
  * the renderer reports these. A device with no pin wired is a symbol on show.
  */
@@ -157,6 +157,11 @@ export function loosePins(circuit: Circuit): string[] {
     minus: "− input",
     plus: "+ input",
     out: "output",
+    p1: "primary (top)",
+    p2: "primary (bottom)",
+    s1: "secondary (top)",
+    s2: "secondary (bottom)",
+    ct: "centre tap",
   };
   const isLoose = (point: Point) => {
     const key = pointKey(point);

@@ -614,14 +614,16 @@
 - Quizzes check answers in the browser. Numbers with units
   (units.ts: SI prefixes, 1% default tolerance, a bare number reads in the answer's own
   prefix), expressions (expression.ts: a hand-written parser with implied
-  multiplication, never eval; equivalence by evaluating at seeded random points), choices
-  and words.
-- Circuits (circuit/): a grid text format (parse.ts: R C L V I, plus A D Z S, and
-  transistors/op-amps Q M U placed at one point with fixed pins, `devicePins`), DC
-  modified nodal analysis (solve.ts: capacitors open, inductors and closed switches
-  shorted, a tiny conductance to ground; passive sign convention; `simulationProblem`
-  refuses diodes, transistors, op-amps and symbolic values) and GB/IEC-style SVG
-  schematics (draw.ts: boxes for resistors, currentColor, so both themes work). `loosePins`
+  multiplication, never eval; equivalence by evaluating at seeded random points), logic
+  answers (the same truth table; `dontcare:` minterm numbers, counted over the
+  question's `variables:`, are skipped), choices and words.
+- Circuits (circuit/): a grid text format (parse.ts: R C L V I, plus A D Z S and the
+  controlled sources E F, and transistors/op-amps/transformers Q M U T placed at one
+  point with fixed pins, `devicePins`), DC modified nodal analysis (solve.ts:
+  capacitors open, inductors and closed switches shorted, a tiny conductance to ground;
+  passive sign convention; `simulationProblem` refuses diodes, controlled sources,
+  devices and symbolic values) and GB/IEC-style SVG schematics (draw.ts: boxes for
+  resistors, diamonds for controlled sources, currentColor, so both themes work). `loosePins`
   (solve.ts) makes a wired-in device with an unconnected pin a render error.
 - Logic (logic.ts: a hand-written Boolean parser, `A'`, side-by-side AND, `+`, `⊕`,
   `⊙`; evaluation, LaTeX, minterms, Gray code) feeds components/logic.ts: `::: logic`

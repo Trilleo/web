@@ -1,6 +1,6 @@
 /**
  * Draws a circuit as an SVG schematic, in the style of Chinese (GB/IEC) textbooks:
- * resistors are boxes, sources are circles. Lines and text use currentColor, so the
+ * resistors are boxes, sources are circles, controlled sources diamonds. Lines and text use currentColor, so the
  * page's colours (both themes) apply; class names let the stylesheet set the type.
  * Pure string building: the server draws static circuits, the simulator redraws
  * with its readings.
@@ -77,7 +77,29 @@ function arrow(from: XY, tip: XY, size = 7): string {
   );
 }
 
-/** A transistor or op-amp, drawn around its placing point. */
+/** A coil down the page at grid offset `gx`, its humps bulging right (`bulge` 1) or left (−1) on the page. */
+function coil(
+  at: (gx: number, gy: number) => XY,
+  gx: number,
+  bulge: number,
+): string {
+  const humps = 4;
+  const from = 0.8;
+  const to = 3.2;
+  const step = (to - from) / humps;
+  const start = at(gx, from);
+  let d = `M${String(round(start.x))} ${String(round(start.y))}`;
+  for (let i = 1; i <= humps; i += 1) {
+    const end = at(gx, from + i * step);
+    const radius = round((step * GRID) / 2);
+    // Going down the page, a clockwise arc (sweep 1) bulges to the right.
+    const sweep = bulge > 0 ? 1 : 0;
+    d += ` A${String(radius)} ${String(radius)} 0 0 ${String(sweep)} ${String(round(end.x))} ${String(round(end.y))}`;
+  }
+  return `<path d="${d}" class="sc-line"/>`;
+}
+
+/** A transistor, op-amp or transformer, drawn around its placing point. */
 function drawDevice(device: CircuitDevice, px: (point: Point) => XY): string[] {
   const origin = px(device.at);
   const dir = device.left ? -1 : 1;
@@ -87,6 +109,23 @@ function drawDevice(device: CircuitDevice, px: (point: Point) => XY): string[] {
     y: origin.y + gy * GRID,
   });
   const out: string[] = [];
+  if (device.kind === "T") {
+    // Two coils facing each other across an iron core (two lines).
+    out.push(
+      polyline([at(0, 0), at(0, 0.8)]),
+      polyline([at(0, 3.2), at(0, 4)]),
+      polyline([at(2, 0), at(2, 0.8)]),
+      polyline([at(2, 3.2), at(2, 4)]),
+      coil(at, 0, dir),
+      coil(at, 2, -dir),
+    );
+    for (const gx of [0.9, 1.1]) {
+      const top = at(gx, 0.7);
+      const bottom = at(gx, 3.3);
+      out.push(line(top.x, top.y, bottom.x, bottom.y));
+    }
+    return out;
+  }
   if (device.kind === "U") {
     const top = device.flip ? "+" : "−";
     const bottom = device.flip ? "−" : "+";
@@ -229,11 +268,13 @@ export function circuitSize(circuit: Circuit): {
     ...circuit.labels.map((label) => label.at),
     ...circuit.devices.flatMap((device) => [
       ...Object.values(device.pins),
-      // Room for the name beside it.
-      {
-        x: Math.max(0, device.at.x + (device.left ? -3 : 3)),
-        y: device.at.y,
-      },
+      // Room for the name beside it (a transformer's goes above and below).
+      device.kind === "T"
+        ? device.at
+        : {
+            x: Math.max(0, device.at.x + (device.left ? -3 : 3)),
+            y: device.at.y,
+          },
     ]),
   ];
   const xs = points.map((point) => point.x);
@@ -333,6 +374,28 @@ export function drawCircuit(circuit: Circuit, options: DrawOptions): string {
         `<circle cx="${String(round(pivot.x))}" cy="${String(round(pivot.y))}" r="2.5" class="sc-fill"/>`,
         `<circle cx="${String(round(contact.x))}" cy="${String(round(contact.y))}" r="2.5" class="sc-body"/>`,
       );
+    } else if (element.kind === "E" || element.kind === "F") {
+      // Controlled sources are diamonds: + and − for voltage, an arrow for current.
+      lead(16);
+      symbol.push(
+        polygon(
+          [at(c - 16, 0), at(c, -16), at(c + 16, 0), at(c, 16)],
+          "sc-body",
+        ),
+      );
+      if (element.kind === "E") {
+        const plus = at(c + 7, 0);
+        const minus = at(c - 7, 0);
+        symbol.push(
+          line(plus.x - 3.5, plus.y, plus.x + 3.5, plus.y),
+          line(plus.x, plus.y - 3.5, plus.x, plus.y + 3.5),
+          line(minus.x - 3.5, minus.y, minus.x + 3.5, minus.y),
+        );
+      } else
+        symbol.push(
+          seg(c - 8, 0, c + 4, 0),
+          polygon([at(c + 9, 0), at(c + 3, -4), at(c + 3, 4)], "sc-fill"),
+        );
     } else if (element.kind === "L") {
       lead(BODY);
       let d = "";
@@ -397,11 +460,7 @@ export function drawCircuit(circuit: Circuit, options: DrawOptions): string {
     } else {
       const y =
         mid.y -
-        (element.kind === "C"
-          ? 20
-          : element.kind === "V" || element.kind === "I" || element.kind === "A"
-            ? 22
-            : 14);
+        (element.kind === "C" ? 20 : "VIAEF".includes(element.kind) ? 22 : 14);
       parts.push(
         text(mid.x, y - 14, element.name, "middle", "sc-name"),
         text(mid.x, y, valueLabel, "middle", "sc-value"),
@@ -409,12 +468,22 @@ export function drawCircuit(circuit: Circuit, options: DrawOptions): string {
     }
   }
 
-  // Transistors and op-amps, with their name (and text) beside them.
+  // Transistors and op-amps, with their name (and text) beside them; a
+  // transformer's name above it, its text (a ratio, voltages) below.
   for (const device of circuit.devices) {
     parts.push(
       `<g class="sc-part" data-part="${escapeHtml(device.name)}">${drawDevice(device, px).join("")}</g>`,
     );
     const origin = px(device.at);
+    if (device.kind === "T") {
+      const x = origin.x + (device.left ? -1 : 1) * GRID;
+      parts.push(text(x, origin.y - 8, device.name, "middle", "sc-name"));
+      if (device.text)
+        parts.push(
+          text(x, origin.y + 4 * GRID + 18, device.text, "middle", "sc-value"),
+        );
+      continue;
+    }
     const dir = device.left ? -1 : 1;
     const anchor = device.left ? "end" : "start";
     const x = origin.x + dir * (device.kind === "U" ? 2.2 : 2.35) * GRID;

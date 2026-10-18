@@ -45,7 +45,7 @@ $C_{gd}$ from gate to drain, and $C_{ds}$ from drain to source.
 label g 0,0
 C1 0,0 0,4 Cgs
 C2 0,0 4,0 Cgd
-I1 4,0 4,4 gmUgs
+F1 4,0 4,4 gmUgs
 R1 6,0 6,4 rds
 C3 8,0 8,4 Cds
 W 4,0 8,0
@@ -164,7 +164,7 @@ R2 4,0 4,4 Rg1
 R3 6,0 6,4 Rg2
 C1 8,0 8,4 C'gs
 W 2,0 8,0
-I1 10,0 10,4 gmUgs
+F1 10,0 10,4 gmUgs
 R4 12,0 12,4 Rd
 R5 14,0 14,4 RL
 W 10,0 14,0

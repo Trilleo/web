@@ -97,6 +97,45 @@ describe("checkAnswer", () => {
     expect(parseQuiz("? Q\nlogic: A +").errors[0]).toMatch(/can't be read/);
   });
 
+  test("logic answers ignore don't-care rows", () => {
+    const f = only(
+      "? Q\nlogic: A C' + B' D + B C D'\nvariables: A, B, C, D\ndontcare: 0, 1, 2, 13, 14, 15",
+    );
+    expect(f.dontcare).toEqual([0, 1, 2, 13, 14, 15]);
+    // The other minimal answer, and one that takes no don't-care as 1.
+    expect(checkAnswer(f, "AC' + B'D + A'CD'").correct).toBe(true);
+    expect(
+      checkAnswer(f, "AB'C' + A'B'CD + A'BCD' + ABC'D' + AB'D").correct,
+    ).toBe(true);
+    // Wrong on a care row (m6 left out).
+    expect(checkAnswer(f, "AC' + B'D").correct).toBe(false);
+    // Variables count from the first: C' over A, B, C is 1 at m0, m2, m4, m6.
+    const c = only(
+      "? Q\nlogic: C'\nvariables: A, B, C\ndontcare: 0, 3, 5, 6, 7",
+    );
+    expect(checkAnswer(c, "A'BC' + AB'C'").correct).toBe(true);
+    expect(checkAnswer(c, "A'").correct).toBe(false);
+    // Without don't-cares the rows all count.
+    expect(checkAnswer(only("? Q\nlogic: C'"), "A'BC' + AB'C'").correct).toBe(
+      false,
+    );
+  });
+
+  test("don't-cares are checked", () => {
+    const error = (body: string) => parseQuiz(body).errors[0];
+    expect(error("? Q\nlogic: A\ndontcare: 1")).toMatch(/needs variables/);
+    expect(error("? Q\nlogic: A\nvariables: A, B\ndontcare: 4")).toMatch(
+      /past the last minterm \(3\)/,
+    );
+    expect(error("? Q\nlogic: AC\nvariables: A, B\ndontcare: 1")).toMatch(
+      /uses C/,
+    );
+    expect(error("? Q\nlogic: A\nvariables: A\ndontcare: x")).toMatch(
+      /minterm numbers/,
+    );
+    expect(error("? Q\nanswer: 2\ndontcare: 1")).toMatch(/only goes with/);
+  });
+
   test("expressions and words", () => {
     const expression = only("? Q\nexpression: u^2 / R\nvariables: u, R");
     expect(checkAnswer(expression, "u*u/R").correct).toBe(true);

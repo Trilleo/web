@@ -88,13 +88,17 @@ low-voltage supplies; for a 20 V secondary it's a few per cent.
 The simplest rectifier is a single diode in series with the load. It's called
 half-wave because current flows through the load for only half of each cycle.
 
-::: circuit Single-phase half-wave rectifier (the AC source is the transformer's secondary)
-A1 0,4 0,0 u2
-D1 0,0 4,0 VD
-R1 4,0 4,4 RL
-W 0,4 4,4
-G 0,4
-label uO 4,0
+::: circuit Single-phase half-wave rectifier
+A1 0,4 0,0 u1
+W 0,0 2,0
+W 0,4 2,4
+T1 transformer 2,0
+D1 4,0 8,0 VD
+R1 8,0 8,4 RL
+W 4,4 8,4
+G 4,4
+label u2 4,0
+label uO 8,0
 :::
 
 ::: define Single-phase half-wave rectifier | 单相半波整流电路
@@ -216,23 +220,28 @@ four diodes so that *both* halves drive current through the load in the same
 direction: the negative half-cycle is flipped over instead of discarded.
 
 ::: circuit Single-phase bridge rectifier
-A1 8,4 4,4 u2
-D1 4,4 4,0
-D4 4,8 4,4
-D2 8,4 8,0
-D3 8,8 8,4
-W 4,0 8,0 12,0
-W 4,8 8,8 12,8
-R1 12,0 12,8 RL
-G 12,8
-label a 4,4
-label b 8,4
-label uO 12,0
+A1 2,7 2,3 u1
+W 2,3 4,3
+W 2,7 4,7
+T1 transformer 4,3
+W 6,3 6,2 0,2
+W 6,7 8,7
+D1 0,2 0,0
+D4 0,9 0,2
+D2 8,7 8,0
+D3 8,9 8,7
+W 0,0 8,0 10,0
+W 0,9 8,9 10,9
+R1 10,0 10,9 RL
+G 10,9
+label a 0,2
+label b 8,7
+label uO 10,0
 :::
 
-In this drawing the secondary (the AC source) sits between node $a$ (its + end) and
-node $b$. The top rail, where the cathodes of D1 and D2 meet, is the output's +; the
-bottom rail, where the anodes of D3 and D4 meet, is its −.
+In this drawing the transformer's secondary feeds node $a$ (its + end) and node $b$.
+The top rail, where the cathodes of D1 and D2 meet, is the output's +; the bottom
+rail, where the anodes of D3 and D4 meet, is its −.
 
 ::: define Single-phase bridge rectifier | 单相桥式整流电路
 A rectifier of four diodes connected as a bridge on one transformer winding. In each

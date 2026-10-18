@@ -52,7 +52,7 @@ A1 0,6 0,2 Us
 R1 0,0 4,0 Rs
 W 0,2 0,0
 R2 4,0 4,6 Ri
-A2 8,6 8,2 Uo'
+E1 8,6 8,2 Uo'
 W 8,2 8,0
 R3 8,0 12,0 Ro
 R4 12,0 12,6 RL
@@ -63,8 +63,7 @@ label uo 12,0
 :::
 
 The source $U_o'$ is controlled by the input (it is $A_{uo}\dot U_i$, where $A_{uo}$ is
-the gain with no load); the drawing shows it as an ordinary source because the format
-has no diamond-shaped controlled source.
+the gain with no load), so it is drawn as a diamond: a controlled source.
 
 We describe the signals with phasors: $\dot U_i$, $\dot I_i$ at the input (current
 flowing in) and $\dot U_o$, $\dot I_o$ at the output (current flowing out into the load).
