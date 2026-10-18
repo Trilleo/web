@@ -1311,6 +1311,240 @@ a.study-button {
   font-family: var(--font-mono);
 }
 
+/* Logic gates (::: gates). */
+.study-gates table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+}
+
+.study-gates :is(th, td) {
+  padding: 0.5rem 1rem 0.5rem 0;
+  border-bottom: var(--study-rule);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.study-gates thead th {
+  color: var(--tr-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.study-gate {
+  display: block;
+  color: var(--tr-ink);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.study-gate .sc-body {
+  fill: var(--tr-fig);
+}
+
+.study-gate .study-gate-mark {
+  fill: currentColor;
+  stroke: none;
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.study-gate-table {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+/* Karnaugh maps (::: kmap). */
+.study-kmap table {
+  margin-inline: auto;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.study-kmap :is(th, td) {
+  min-width: 3.5rem;
+  height: 3.25rem;
+  border: 1px solid var(--tr-hair);
+  text-align: center;
+}
+
+.study-kmap thead th,
+.study-kmap tbody th {
+  border: 0;
+  color: var(--tr-muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.study-kmap td {
+  position: relative;
+  border-color: var(--tr-ink);
+}
+
+.study-kmap td[data-grouped] {
+  background-color: var(--tr-chip);
+}
+
+.study-kmap-value {
+  font-size: 1.125rem;
+}
+
+.study-kmap td[data-value="0"] .study-kmap-value {
+  color: var(--tr-muted);
+}
+
+.study-kmap-m {
+  position: absolute;
+  bottom: 0.15rem;
+  left: 0.25rem;
+  color: var(--tr-muted);
+  font-size: 0.625rem;
+}
+
+.study-kmap-tags {
+  position: absolute;
+  top: 0.15rem;
+  right: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.study-kmap-groups {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem 1.5rem;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+}
+
+.study-kmap-tag {
+  display: inline-grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  background-color: var(--tr-ink);
+  color: var(--tr-paper);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.study-kmap-result {
+  text-align: center;
+}
+
+/* The logic lab (::: logic). */
+.study-logic-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 2.5rem;
+  padding: 1rem;
+  background-color: var(--tr-fig);
+}
+
+.study-logic-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.study-logic-switch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 3.25rem;
+  min-height: 3.25rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--tr-ink);
+  background-color: var(--tr-paper);
+  color: var(--tr-ink);
+  cursor: pointer;
+  transition:
+    background-color var(--tr-dur-fast) var(--tr-ease),
+    color var(--tr-dur-fast) var(--tr-ease);
+}
+
+.study-logic-switch[aria-pressed="true"] {
+  background-color: var(--tr-ink);
+  color: var(--tr-paper);
+}
+
+.study-logic-name {
+  font-family: var(--font-serif);
+  font-style: italic;
+}
+
+.study-logic-bit {
+  font-family: var(--font-mono);
+  font-size: 1.125rem;
+}
+
+.study-logic-outputs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.study-logic-outputs li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.study-logic-lamp {
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid var(--tr-ink);
+  border-radius: 50%;
+  background-color: var(--tr-paper);
+  transition: background-color var(--tr-dur-fast) var(--tr-ease);
+}
+
+.study-logic-outputs li[data-on] .study-logic-lamp {
+  border-color: var(--tr-accent);
+  background-color: var(--tr-accent);
+}
+
+.study-truth {
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.study-truth :is(th, td) {
+  min-width: 2.25rem;
+  padding: 0.25rem 0.5rem;
+  border-bottom: var(--study-rule);
+  text-align: center;
+}
+
+.study-truth .study-truth-out {
+  border-left: var(--study-rule);
+  font-weight: 600;
+}
+
+.study-truth tr[aria-current] td {
+  background-color: var(--tr-chip);
+}
+
+.study-truth tr[aria-current] td:first-child {
+  box-shadow: inset 3px 0 0 var(--tr-accent);
+}
+
 @keyframes study-fade {
   from {
     opacity: 0;
@@ -1338,4 +1572,34 @@ a.study-button {
   .study-printable .study-formula {
     break-inside: avoid;
   }
+}
+
+/* Lists the study widgets lay out themselves: no reading-text bullets or indents. */
+.prose
+  :is(
+    .study-kmap-groups,
+    .study-logic-outputs,
+    .study-legend,
+    .study-cards ul,
+    .study-steps,
+    .study-questions,
+    .study-mistake-list
+  ) {
+  padding-left: 0;
+  list-style: none;
+}
+
+.prose
+  :is(
+    .study-kmap-groups,
+    .study-logic-outputs,
+    .study-legend,
+    .study-cards ul,
+    .study-steps,
+    .study-questions,
+    .study-mistake-list
+  )
+  > li
+  + li {
+  margin-top: 0;
 }

@@ -13,91 +13,34 @@ import {
 } from "@trilleo/wiki";
 import { drawCircuit } from "../circuit/draw";
 import { cardId, questionId, splitPin } from "../ids";
-import { parseCircuit } from "../circuit/parse";
+import { parseCircuit, simulationProblem } from "../circuit/parse";
+import { loosePins } from "../circuit/solve";
 import { checkData, parseQuiz, type QuestionSource } from "../quiz";
 import type {
   CardEntry,
   FormulaEntry,
   GlossaryEntry,
-  QuizProps,
   QuizQuestion,
-  WidgetProps,
 } from "../types";
 import { parseExplore, parsePlot } from "../widgets";
+import { logicLatex, parseLogic } from "../logic";
+import { LOGIC_COMPONENTS } from "./logic";
+import {
+  STUDY_SET,
+  chinese,
+  island,
+  nextNumber,
+  slugify,
+  splitBilingual,
+  study,
+} from "./shared";
 
-export const STUDY_SET = "study";
-
-/** What the lesson renderer lends components (context.resource("study")). */
-export interface StudyResources {
-  subject: string;
-  /** The lesson's slug. */
-  lesson: string;
-  /** Card and question IDs given out so far (two alike is a mistake). */
-  ids: Set<string>;
-  /** The lesson's number, "2.3". */
-  number: string;
-  /** Counters per kind of numbered thing. */
-  counters: Map<string, number>;
-}
-
-function study(context: RenderContext): StudyResources {
-  const resources = context.resource("study") as StudyResources | undefined;
-  return (
-    resources ?? {
-      subject: "",
-      lesson: "",
-      ids: new Set(),
-      number: "0",
-      counters: new Map(),
-    }
-  );
-}
-
-/** The next number for a kind of thing in this lesson: "2.3.1". */
-function nextNumber(context: RenderContext, kind: string): string {
-  const resources = study(context);
-  const count = (resources.counters.get(kind) ?? 0) + 1;
-  resources.counters.set(kind, count);
-  return `${resources.number}.${String(count)}`;
-}
-
-export function slugify(text: string): string {
-  return (
-    text
-      .toLowerCase()
-      .normalize("NFKD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[^\p{L}\p{N}]+/gu, "-")
-      .replace(/^-+|-+$/g, "") || "item"
-  );
-}
-
-/** "English | 中文" → ["English", "中文" or null]. */
-export function splitBilingual(text: string): [string, string | null] {
-  const bar = text.indexOf("|");
-  if (bar === -1) return [text.trim(), null];
-  return [text.slice(0, bar).trim(), text.slice(bar + 1).trim() || null];
-}
-
-function chinese(
-  zh: string | null,
-  context: RenderContext,
-  className = "study-zh",
-): string {
-  return zh
-    ? `<span class="${className}" lang="zh-CN">${context.escape(zh)}</span>`
-    : "";
-}
-
-type IslandInput =
-  | { name: "quiz"; props: Omit<QuizProps, "id"> }
-  | { name: "plot" | "explore" | "circuit"; props: Omit<WidgetProps, "id"> };
-
-function island(context: RenderContext, value: IslandInput): string {
-  const id = context.id("study-island");
-  context.emit("island", { ...value, id, props: { ...value.props, id } });
-  return `<study-island data-id="${id}"></study-island>\n`;
-}
+export {
+  STUDY_SET,
+  slugify,
+  splitBilingual,
+  type StudyResources,
+} from "./shared";
 
 const CALLOUT_KINDS = {
   note: "Note",
@@ -294,6 +237,8 @@ function answerHtml(question: QuestionSource, context: RenderContext): string {
       .join("; ");
   if (question.kind === "expression")
     return `<code>${context.escape(question.answer)}</code>`;
+  if (question.kind === "logic")
+    return context.inline(`$${logicLatex(parseLogic(question.answer))}$`);
   if (question.kind === "text")
     return context.escape(question.answer.split("|")[0]?.trim() ?? "");
   return context.escape(question.answer);
@@ -322,6 +267,7 @@ expression: x + 2
     "“?” starts a question; options are “- [x]” (right) and “- [ ]”.",
     "answer: a number with its unit (prefixes are fine: 500 mA); tolerance: 2% or 0.01 A (1% by default).",
     "expression: an algebraic answer, checked for equivalence; variables: x, y when not every single letter is one.",
+    "logic: a Boolean expression (A' for NOT, AB for AND, + for OR, ⊕, ⊙), right if it has the same truth table.",
     "text: accepted words, “|” between alternatives. “>” lines explain the answer.",
     "Answers are recorded by the question's prompt; end the “?” line with {#name} to keep them through rewording.",
   ],
@@ -442,6 +388,11 @@ label out 4,0
   render({ argument, body }, context) {
     const { circuit: parsed, errors } = parseCircuit(body);
     if (errors.length > 0) return context.error(errors.join(" "));
+    const loose = loosePins(parsed);
+    if (loose.length > 0)
+      return context.error(
+        `Nothing is connected to ${loose.join(", ")}: check where the wires end (pins sit at fixed points around the device).`,
+      );
     const number = nextNumber(context, "figure");
     const title = argument || "Circuit";
     const svg = drawCircuit(parsed, { title, id: context.id("circuit") });
@@ -531,7 +482,11 @@ G 0,4
   [
     "Written like ::: circuit. Each part gets a slider: [low..high] after its value sets the range.",
   ],
-  (body) => parseCircuit(body).errors,
+  (body) => {
+    const { circuit: parsed, errors } = parseCircuit(body);
+    const problem = errors.length === 0 ? simulationProblem(parsed) : null;
+    return problem ? [problem] : errors;
+  },
 );
 
 const term: InlineComponent = {
@@ -581,4 +536,5 @@ export const STUDY_COMPONENTS = [
   explore,
   term,
   zh,
+  ...LOGIC_COMPONENTS,
 ] as const;

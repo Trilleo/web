@@ -10,8 +10,10 @@ import { formatQuantity } from "../units";
 import {
   ELEMENT_NAMES,
   ELEMENT_UNITS,
+  MODEL_NAMES,
   pointKey,
   type Circuit,
+  type CircuitDevice,
   type Point,
 } from "./parse";
 import { connectivity } from "./solve";
@@ -46,6 +48,164 @@ function line(
   return `<line x1="${String(round(x1))}" y1="${String(round(y1))}" x2="${String(round(x2))}" y2="${String(round(y2))}"${extra}/>`;
 }
 
+interface XY {
+  x: number;
+  y: number;
+}
+
+function polygon(points: readonly XY[], className: string): string {
+  return `<polygon points="${points.map((p) => `${String(round(p.x))},${String(round(p.y))}`).join(" ")}" class="${className}"/>`;
+}
+
+function polyline(points: readonly XY[]): string {
+  return `<path d="${points.map((p, i) => `${i === 0 ? "M" : "L"}${String(round(p.x))} ${String(round(p.y))}`).join(" ")}" class="sc-line"/>`;
+}
+
+/** An arrowhead at `tip`, pointing from `from` towards it. */
+function arrow(from: XY, tip: XY, size = 7): string {
+  const length = Math.hypot(tip.x - from.x, tip.y - from.y) || 1;
+  const ux = (tip.x - from.x) / length;
+  const uy = (tip.y - from.y) / length;
+  const base = { x: tip.x - ux * size, y: tip.y - uy * size };
+  return polygon(
+    [
+      tip,
+      { x: base.x - uy * size * 0.5, y: base.y + ux * size * 0.5 },
+      { x: base.x + uy * size * 0.5, y: base.y - ux * size * 0.5 },
+    ],
+    "sc-fill",
+  );
+}
+
+/** A transistor or op-amp, drawn around its placing point. */
+function drawDevice(device: CircuitDevice, px: (point: Point) => XY): string[] {
+  const origin = px(device.at);
+  const dir = device.left ? -1 : 1;
+  // Grid offsets from the placing point → page coordinates (mirrored when facing left).
+  const at = (gx: number, gy: number): XY => ({
+    x: origin.x + dir * gx * GRID,
+    y: origin.y + gy * GRID,
+  });
+  const out: string[] = [];
+  if (device.kind === "U") {
+    const top = device.flip ? "+" : "−";
+    const bottom = device.flip ? "−" : "+";
+    out.push(
+      polygon([at(0.5, -1.7), at(0.5, 1.7), at(3.4, 0)], "sc-body"),
+      polyline([at(0, -1), at(0.5, -1)]),
+      polyline([at(0, 1), at(0.5, 1)]),
+      polyline([at(3.4, 0), at(4, 0)]),
+    );
+    const sign = (where: XY, symbol: string) => {
+      out.push(line(where.x - 4, where.y, where.x + 4, where.y));
+      if (symbol === "+")
+        out.push(line(where.x, where.y - 4, where.x, where.y + 4));
+    };
+    sign(at(0.8, -1), top);
+    sign(at(0.8, 1), bottom);
+    return out;
+  }
+  const up = device.flip ? 1 : -1; // where the collector/drain goes
+  if (device.kind === "Q") {
+    const barTop = at(0.9, -0.5);
+    const barBottom = at(0.9, 0.5);
+    const centre = at(1.35, 0);
+    out.push(
+      `<circle cx="${String(round(centre.x))}" cy="${String(round(centre.y))}" r="${String(0.85 * GRID)}" class="sc-body"/>`,
+      polyline([at(0, 0), at(0.9, 0)]),
+      line(barTop.x, barTop.y, barBottom.x, barBottom.y, ' stroke-width="3"'),
+      polyline([at(0.9, up * 0.25), at(2, up * 1), at(2, up * 2)]),
+      polyline([at(0.9, -up * 0.25), at(2, -up * 1), at(2, -up * 2)]),
+    );
+    // The emitter's arrow points out of an NPN, into a PNP.
+    const start = at(0.9, -up * 0.25);
+    const end = at(2, -up * 1);
+    const middle = {
+      x: start.x * 0.35 + end.x * 0.65,
+      y: start.y * 0.35 + end.y * 0.65,
+    };
+    out.push(
+      device.model === "npn"
+        ? arrow(start, middle)
+        : arrow(end, {
+            x: start.x * 0.75 + end.x * 0.25,
+            y: start.y * 0.75 + end.y * 0.25,
+          }),
+    );
+    return out;
+  }
+  // FETs: gate on the left, channel, drain and source on the right.
+  const jfet = device.model.endsWith("jfet");
+  const nType = device.model.startsWith("n");
+  const depletion = device.model.endsWith("-d") || jfet;
+  const channelX = jfet ? 0.9 : 1.05;
+  if (jfet) {
+    out.push(
+      line(
+        at(channelX, -0.6).x,
+        at(channelX, -0.6).y,
+        at(channelX, 0.6).x,
+        at(channelX, 0.6).y,
+        ' stroke-width="3"',
+      ),
+      polyline([at(0, 0), at(channelX, 0)]),
+      nType
+        ? arrow(at(0.2, 0), at(channelX, 0))
+        : arrow(at(channelX, 0), at(0.25, 0)),
+    );
+  } else {
+    const gate = 0.8;
+    out.push(
+      polyline([at(0, 0), at(gate, 0)]),
+      line(
+        at(gate, -0.55).x,
+        at(gate, -0.55).y,
+        at(gate, 0.55).x,
+        at(gate, 0.55).y,
+      ),
+    );
+    // The channel: one bar when it's there already (depletion), three dashes when it must be induced.
+    if (depletion)
+      out.push(
+        line(
+          at(channelX, -0.6).x,
+          at(channelX, -0.6).y,
+          at(channelX, 0.6).x,
+          at(channelX, 0.6).y,
+          ' stroke-width="2.5"',
+        ),
+      );
+    else
+      for (const [from, to] of [
+        [-0.6, -0.25],
+        [-0.15, 0.15],
+        [0.25, 0.6],
+      ] as const)
+        out.push(
+          line(
+            at(channelX, from).x,
+            at(channelX, from).y,
+            at(channelX, to).x,
+            at(channelX, to).y,
+            ' stroke-width="2.5"',
+          ),
+        );
+    // The substrate arrow points into an N channel, out of a P channel, and the substrate joins the source.
+    out.push(
+      polyline([at(2, 0), at(channelX, 0)]),
+      nType
+        ? arrow(at(2, 0), at(channelX + 0.1, 0))
+        : arrow(at(channelX, 0), at(1.85, 0)),
+      polyline([at(2, 0), at(2, -up * 0.4)]),
+    );
+  }
+  out.push(
+    polyline([at(channelX, up * 0.4), at(2, up * 0.4), at(2, up * 2)]),
+    polyline([at(channelX, -up * 0.4), at(2, -up * 0.4), at(2, -up * 2)]),
+  );
+  return out;
+}
+
 function text(
   x: number,
   y: number,
@@ -67,6 +227,14 @@ export function circuitSize(circuit: Circuit): {
     ...circuit.wires.flat(),
     ...circuit.grounds,
     ...circuit.labels.map((label) => label.at),
+    ...circuit.devices.flatMap((device) => [
+      ...Object.values(device.pins),
+      // Room for the name beside it.
+      {
+        x: Math.max(0, device.at.x + (device.left ? -3 : 3)),
+        y: device.at.y,
+      },
+    ]),
   ];
   const xs = points.map((point) => point.x);
   const ys = points.map((point) => point.y);
@@ -138,6 +306,33 @@ export function drawCircuit(circuit: Circuit, options: DrawOptions): string {
     } else if (element.kind === "C") {
       lead(4);
       symbol.push(seg(c - 4, -14, c - 4, 14), seg(c + 4, -14, c + 4, 14));
+    } else if (element.kind === "D" || element.kind === "Z") {
+      // A triangle pointing from anode to cathode, and the cathode's bar.
+      lead(10);
+      symbol.push(
+        polygon([at(c - 10, -9), at(c - 10, 9), at(c + 8, 0)], "sc-body"),
+        seg(c + 10, 0, c + 8, 0),
+      );
+      if (element.kind === "D") symbol.push(seg(c + 8, -9, c + 8, 9));
+      else
+        symbol.push(
+          polyline([
+            at(c + 4, -12),
+            at(c + 8, -9),
+            at(c + 8, 9),
+            at(c + 12, 12),
+          ]),
+        );
+    } else if (element.kind === "S") {
+      lead(12);
+      const pivot = at(c - 12, 0);
+      const contact = at(c + 12, 0);
+      const blade = element.value === 1 ? at(c + 12, 0) : at(c + 8, -12);
+      symbol.push(
+        line(pivot.x, pivot.y, blade.x, blade.y),
+        `<circle cx="${String(round(pivot.x))}" cy="${String(round(pivot.y))}" r="2.5" class="sc-fill"/>`,
+        `<circle cx="${String(round(contact.x))}" cy="${String(round(contact.y))}" r="2.5" class="sc-body"/>`,
+      );
     } else if (element.kind === "L") {
       lead(BODY);
       let d = "";
@@ -154,7 +349,13 @@ export function drawCircuit(circuit: Circuit, options: DrawOptions): string {
       symbol.push(
         `<circle cx="${String(round(centre.x))}" cy="${String(round(centre.y))}" r="16" class="sc-body"/>`,
       );
-      if (element.kind === "V") {
+      if (element.kind === "A") {
+        // A sine wave, always drawn upright.
+        const centre2 = at(c, 0);
+        symbol.push(
+          `<path d="M${String(round(centre2.x - 9))} ${String(round(centre2.y))} q4.5 -10 9 0 t9 0" class="sc-line"/>`,
+        );
+      } else if (element.kind === "V") {
         // + by the second point, − by the first; signs stay upright.
         const plus = at(c + 8, 0);
         const minus = at(c - 8, 0);
@@ -180,9 +381,11 @@ export function drawCircuit(circuit: Circuit, options: DrawOptions): string {
     // Name and value beside the symbol: above a part that runs across, right of one that runs down.
     const shown = options.values?.[element.name];
     const valueLabel =
-      shown === undefined
-        ? element.valueText
-        : formatQuantity(shown, ELEMENT_UNITS[element.kind]);
+      element.kind === "S" || element.valueText === element.name
+        ? ""
+        : shown === undefined
+          ? element.valueText
+          : formatQuantity(shown, ELEMENT_UNITS[element.kind]);
     const mid = at(c, 0);
     if (Math.abs(dy) > 0.5) {
       const x =
@@ -196,7 +399,7 @@ export function drawCircuit(circuit: Circuit, options: DrawOptions): string {
         mid.y -
         (element.kind === "C"
           ? 20
-          : element.kind === "V" || element.kind === "I"
+          : element.kind === "V" || element.kind === "I" || element.kind === "A"
             ? 22
             : 14);
       parts.push(
@@ -204,6 +407,21 @@ export function drawCircuit(circuit: Circuit, options: DrawOptions): string {
         text(mid.x, y, valueLabel, "middle", "sc-value"),
       );
     }
+  }
+
+  // Transistors and op-amps, with their name (and text) beside them.
+  for (const device of circuit.devices) {
+    parts.push(
+      `<g class="sc-part" data-part="${escapeHtml(device.name)}">${drawDevice(device, px).join("")}</g>`,
+    );
+    const origin = px(device.at);
+    const dir = device.left ? -1 : 1;
+    const anchor = device.left ? "end" : "start";
+    const x = origin.x + dir * (device.kind === "U" ? 2.2 : 2.35) * GRID;
+    const y = device.kind === "U" ? origin.y - 1.2 * GRID : origin.y - 4;
+    parts.push(text(x, y, device.name, anchor, "sc-name"));
+    if (device.text)
+      parts.push(text(x, y + 15, device.text, anchor, "sc-value"));
   }
 
   // Grounds.
@@ -228,10 +446,13 @@ export function drawCircuit(circuit: Circuit, options: DrawOptions): string {
     bump(a);
     bump(b);
   }
+  const pins = circuit.devices.flatMap((device) => Object.values(device.pins));
+  for (const pin of pins) bump(pin);
   const allPoints = new Map<string, Point>();
   for (const point of [
     ...circuit.elements.flatMap((e) => [e.from, e.to]),
     ...segments.flat(),
+    ...pins,
   ])
     allPoints.set(pointKey(point), point);
   for (const point of allPoints.values())
@@ -267,12 +488,18 @@ export function drawCircuit(circuit: Circuit, options: DrawOptions): string {
     parts.push(text(x + 6, y - 7, note.text, "start", "sc-note"));
   }
 
-  const description = circuit.elements
-    .map(
-      (element) =>
-        `${element.name}, ${ELEMENT_NAMES[element.kind]}, ${element.valueText}`,
-    )
-    .join("; ");
+  const description = [
+    ...circuit.elements.map((element) =>
+      [element.name, ELEMENT_NAMES[element.kind], element.valueText]
+        .filter(Boolean)
+        .join(", "),
+    ),
+    ...circuit.devices.map((device) =>
+      [device.name, MODEL_NAMES[device.model] ?? device.model, device.text]
+        .filter(Boolean)
+        .join(", "),
+    ),
+  ].join("; ");
   const titleId = `${options.id}-title`;
   return `<svg xmlns="http://www.w3.org/2000/svg" class="study-circuit" viewBox="0 0 ${String(width)} ${String(height)}" width="${String(round(width * DISPLAY_SCALE))}" height="${String(round(height * DISPLAY_SCALE))}" role="img" aria-labelledby="${titleId}"><title id="${titleId}">${escapeHtml(`${options.title}. ${description}.`)}</title>${parts.join("")}</svg>`;
 }

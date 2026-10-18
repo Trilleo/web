@@ -8,3 +8,4 @@ export { Review } from "./Review";
 export { Mistakes } from "./Mistakes";
 export { Practice } from "./Practice";
 export { Dashboard } from "./Dashboard";
+export { LogicLab } from "./LogicLab";

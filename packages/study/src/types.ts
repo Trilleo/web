@@ -69,9 +69,20 @@ export interface WidgetProps {
   label: string;
 }
 
+export interface LogicProps {
+  id: string;
+  title: string;
+  /** "Figure 2.3.1" */
+  label: string;
+  inputs: string[];
+  /** Each output's name, its expression as written (the lab evaluates it), and as KaTeX HTML. */
+  outputs: { name: string; source: string; html: string }[];
+}
+
 export type Island =
   | { id: string; name: "quiz"; props: QuizProps }
-  | { id: string; name: "plot" | "explore" | "circuit"; props: WidgetProps };
+  | { id: string; name: "plot" | "explore" | "circuit"; props: WidgetProps }
+  | { id: string; name: "logic"; props: LogicProps };
 
 export interface Heading {
   depth: 2 | 3;

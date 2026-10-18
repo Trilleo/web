@@ -10,6 +10,7 @@
  */
 import {
   pointKey,
+  simulationProblem,
   type Circuit,
   type CircuitElement,
   type Point,
@@ -97,6 +98,7 @@ export function connectivity(circuit: Circuit): {
   }
   for (const point of circuit.grounds) add(point);
   for (const label of circuit.labels) add(label.at);
+  for (const device of circuit.devices) Object.values(device.pins).forEach(add);
   const segments: [Point, Point][] = [];
   for (const wire of circuit.wires) {
     wire.forEach(add);
@@ -113,6 +115,59 @@ export function connectivity(circuit: Circuit): {
     for (const [a, b] of segments)
       if (onSegment(point, a, b)) groups.union(pointKey(point), pointKey(a));
   return { groups, segments, points: [...points.values()] };
+}
+
+/**
+ * Transistor and op-amp pins that nothing reaches ("Q1 base"), on devices that are
+ * otherwise wired in: a wire that stops one square short still parses and draws, so
+ * the renderer reports these. A device with no pin wired is a symbol on show.
+ */
+export function loosePins(circuit: Circuit): string[] {
+  const { groups, points } = connectivity(circuit);
+  const uses = new Map<string, number>();
+  const mark = (point: Point) => {
+    const key = pointKey(point);
+    uses.set(key, (uses.get(key) ?? 0) + 1);
+  };
+  for (const element of circuit.elements) {
+    mark(element.from);
+    mark(element.to);
+  }
+  circuit.grounds.forEach(mark);
+  circuit.labels.forEach((label) => {
+    mark(label.at);
+  });
+  circuit.wires.forEach((wire) => {
+    wire.forEach(mark);
+  });
+  for (const device of circuit.devices)
+    Object.values(device.pins).forEach(mark);
+  const size = new Map<string, number>();
+  for (const point of points) {
+    const root = groups.find(pointKey(point));
+    size.set(root, (size.get(root) ?? 0) + 1);
+  }
+  const PIN_NAMES: Readonly<Record<string, string>> = {
+    b: "base",
+    c: "collector",
+    e: "emitter",
+    g: "gate",
+    d: "drain",
+    s: "source",
+    minus: "− input",
+    plus: "+ input",
+    out: "output",
+  };
+  const isLoose = (point: Point) => {
+    const key = pointKey(point);
+    return (uses.get(key) ?? 0) < 2 && (size.get(groups.find(key)) ?? 0) < 2;
+  };
+  return circuit.devices.flatMap((device) => {
+    const pins = Object.entries(device.pins);
+    const loose = pins.filter(([, point]) => isLoose(point));
+    if (loose.length === pins.length) return [];
+    return loose.map(([pin]) => `${device.name} ${PIN_NAMES[pin] ?? pin}`);
+  });
 }
 
 /** Solves A·x = b in place by Gaussian elimination with partial pivoting. */
@@ -185,6 +240,8 @@ export function solveCircuit(
   };
   const node = (point: Point): number => nodeAt(point) ?? 0;
 
+  const problem = simulationProblem(circuit);
+  if (problem) return { ok: false, error: problem };
   const firstSource = circuit.elements.find((element) => element.kind === "V");
   const groundPoint =
     circuit.grounds[0] ?? firstSource?.from ?? circuit.elements[0]?.from;
@@ -202,8 +259,12 @@ export function solveCircuit(
   const index = (n: number): number => (n < ground ? n : n - 1); // ground has no row
   const value = (element: CircuitElement) =>
     values[element.name] ?? element.value;
+  // A closed switch is a short circuit, like an inductor at DC.
   const branches = circuit.elements.filter(
-    (element) => element.kind === "V" || element.kind === "L",
+    (element) =>
+      element.kind === "V" ||
+      element.kind === "L" ||
+      (element.kind === "S" && element.value === 1),
   );
   const size = count - 1 + branches.length;
   if (size <= 0)
@@ -272,7 +333,7 @@ export function solveCircuit(
     let current = 0;
     if (element.kind === "R") current = voltage / value(element);
     else if (element.kind === "I") current = value(element);
-    else if (element.kind === "V" || element.kind === "L")
+    else if (branches.includes(element))
       current = -(x[count - 1 + branches.indexOf(element)] ?? 0);
     return {
       name: element.name,

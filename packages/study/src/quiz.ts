@@ -25,6 +25,14 @@
  */
 import { splitPin } from "./ids";
 import {
+  LogicError,
+  assignments,
+  evaluateLogic,
+  logicVariables,
+  parseLogic,
+  type LogicExpression,
+} from "./logic";
+import {
   equivalent,
   namesIn,
   parseExpression,
@@ -41,7 +49,7 @@ import {
 } from "./units";
 
 export type QuestionKind =
-  "choice" | "multiple" | "number" | "expression" | "text";
+  "choice" | "multiple" | "number" | "expression" | "logic" | "text";
 
 /** A question as written (Markdown sources), before rendering. */
 export interface QuestionSource {
@@ -62,7 +70,7 @@ export interface QuizParse {
   errors: string[];
 }
 
-const FIELD = /^(answer|tolerance|expression|variables|text):\s*(.*)$/;
+const FIELD = /^(answer|tolerance|expression|logic|variables|text):\s*(.*)$/;
 const OPTION = /^[-*]\s*\[( |x|X)\]\s*(.*)$/;
 
 export function parseQuiz(body: string): QuizParse {
@@ -145,6 +153,9 @@ export function parseQuiz(body: string): QuizParse {
       } else if (key === "expression") {
         current.kind = "expression";
         current.answer = value.trim();
+      } else if (key === "logic") {
+        current.kind = "logic";
+        current.answer = value.trim();
       } else if (key === "text") {
         current.kind = "text";
         current.answer = value.trim();
@@ -180,7 +191,7 @@ function checkQuestion(
 ): string | null {
   question.prompt = question.prompt.trim();
   if (!question.prompt) return "it has no prompt.";
-  const answers = ["answer", "expression", "text"].filter((key) =>
+  const answers = ["answer", "expression", "logic", "text"].filter((key) =>
     question.fields.has(key),
   );
   if (question.options.length > 0) {
@@ -193,7 +204,7 @@ function checkQuestion(
     return null;
   }
   if (answers.length === 0)
-    return "it has no answer (answer:, expression:, text:, or options).";
+    return "it has no answer (answer:, expression:, logic:, text:, or options).";
   if (answers.length > 1) return "it has more than one kind of answer.";
   if (question.kind === "number") {
     const quantity = parseQuantity(question.answer);
@@ -210,6 +221,13 @@ function checkQuestion(
         variables.length > 0 ? variables : namesIn(expression);
     } catch (error) {
       return `the expression “${question.answer}” can't be read: ${error instanceof Error ? error.message : "it's invalid"}`;
+    }
+  }
+  if (question.kind === "logic") {
+    try {
+      parseLogic(question.answer);
+    } catch (error) {
+      return `the logic expression “${question.answer}” can't be read: ${error instanceof Error ? error.message : "it's invalid"}`;
     }
   }
   if (
@@ -327,6 +345,31 @@ export function checkAnswer(data: CheckData, response: Response): CheckResult {
       };
     }
     return { correct: equivalent(given, expected, data.variables) };
+  }
+
+  if (data.kind === "logic") {
+    let given: LogicExpression;
+    try {
+      given = parseLogic(typed);
+    } catch (error) {
+      return {
+        correct: false,
+        message:
+          error instanceof LogicError
+            ? `That can't be read: ${error.message}`
+            : "That can't be read.",
+      };
+    }
+    const expected = parseLogic(data.answer);
+    // The same truth table, over every variable either side uses.
+    const names = [
+      ...new Set([...logicVariables(expected), ...logicVariables(given)]),
+    ];
+    return {
+      correct: assignments(names).every(
+        (row) => evaluateLogic(given, row) === evaluateLogic(expected, row),
+      ),
+    };
   }
 
   const answer = normalizeText(typed);

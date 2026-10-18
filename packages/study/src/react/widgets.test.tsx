@@ -5,6 +5,7 @@ import { createRenderer } from "../render";
 import type { Island } from "../types";
 import { CircuitLab } from "./CircuitLab";
 import { Explore } from "./Explore";
+import { LogicLab } from "./LogicLab";
 import { Plot } from "./Plot";
 import { Quiz } from "./Quiz";
 
@@ -64,7 +65,8 @@ describe("Explore", () => {
     const explore = island(
       "::: explore\nslider V: 0 .. 10 = 5 | V\nslider R: 1 .. 100 = 10 | Ω\nI = V / R | A | Current\n:::",
     );
-    if (explore.name === "quiz") throw new Error("not a widget");
+    if (explore.name === "quiz" || explore.name === "logic")
+      throw new Error("not a widget");
     render(<Explore {...explore.props} />);
     expect(screen.getByText("500 mA")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("V"), { target: { value: "1000" } });
@@ -75,7 +77,8 @@ describe("Explore", () => {
 describe("Plot", () => {
   test("draws a curve per function and reads values with the keyboard", () => {
     const plot = island("::: plot Lines\nx: 0 .. 10\nf(x) = 2x\ng(x) = x\n:::");
-    if (plot.name === "quiz") throw new Error("not a widget");
+    if (plot.name === "quiz" || plot.name === "logic")
+      throw new Error("not a widget");
     const { container } = render(<Plot {...plot.props} />);
     expect(container.querySelectorAll(".plot-curve")).toHaveLength(2);
     const graph = screen.getByRole("img", { name: /Lines/ });
@@ -89,7 +92,8 @@ describe("CircuitLab", () => {
     const lab = island(
       "::: circuit-sim\nV1 0,4 0,0 10V\nR1 0,0 4,0 1k\nR2 4,0 4,4 1k\nW 0,4 4,4\nG 0,4\n:::",
     );
-    if (lab.name === "quiz") throw new Error("not a widget");
+    if (lab.name === "quiz" || lab.name === "logic")
+      throw new Error("not a widget");
     render(<CircuitLab {...lab.props} />);
     const r2 = () => screen.getByRole("row", { name: /R2/ });
     expect(r2().textContent).toContain("5 V");
@@ -104,8 +108,27 @@ describe("CircuitLab", () => {
     const lab = island(
       "::: circuit-sim\nV1 0,4 0,0 5V\nV2 2,4 2,0 3V\nW 0,0 2,0\nW 0,4 2,4\n:::",
     );
-    if (lab.name === "quiz") throw new Error("not a widget");
+    if (lab.name === "quiz" || lab.name === "logic")
+      throw new Error("not a widget");
     render(<CircuitLab {...lab.props} />);
     expect(screen.getByText(/no single solution/)).toBeTruthy();
+  });
+});
+
+describe("LogicLab", () => {
+  test("switches inputs and follows the truth table", () => {
+    const lab = island("::: logic XOR\ninputs: A B\nY = A B' + A' B\n:::");
+    if (lab.name !== "logic") throw new Error("not a lab");
+    const { container } = render(<LogicLab {...lab.props} />);
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(4);
+    expect(screen.getByText("Y is").parentElement?.textContent).toContain("0");
+    fireEvent.click(screen.getByRole("button", { name: /A/ }));
+    expect(
+      screen.getByRole("button", { name: /A/ }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(screen.getByText("Y is").parentElement?.textContent).toContain("1");
+    expect(container.querySelector("tr[aria-current]")?.textContent).toBe(
+      "101",
+    );
   });
 });

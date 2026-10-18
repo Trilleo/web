@@ -5,7 +5,13 @@
  * they render on the server first, so the page reads without JavaScript.
  */
 import { splitIslands, type RenderedLesson } from "@trilleo/study";
-import { CircuitLab, Explore, LessonQuiz, Plot } from "@trilleo/study/react";
+import {
+  CircuitLab,
+  Explore,
+  LessonQuiz,
+  LogicLab,
+  Plot,
+} from "@trilleo/study/react";
 
 interface Props {
   lesson: RenderedLesson;
@@ -21,6 +27,8 @@ const parts = splitIslands(lesson.html, lesson.islands);
   if (island.name === "quiz")
     return <LessonQuiz client:visible {...island.props} />;
   if (island.name === "plot") return <Plot client:visible {...island.props} />;
+  if (island.name === "logic")
+    return <LogicLab client:visible {...island.props} />;
   if (island.name === "explore")
     return <Explore client:visible {...island.props} />;
   return <CircuitLab client:visible {...island.props} />;

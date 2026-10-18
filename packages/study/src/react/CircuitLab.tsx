@@ -8,6 +8,7 @@ import { drawCircuit } from "../circuit/draw";
 import {
   ELEMENT_NAMES,
   ELEMENT_UNITS,
+  VALUED_KINDS,
   parseCircuit,
   type CircuitElement,
   type Point,
@@ -67,7 +68,10 @@ export function CircuitLab({ id, title, source, label }: WidgetProps) {
   const parsed = useMemo(() => parseCircuit(source), [source]);
   const sliderId = useId();
   const sliders = useMemo(
-    () => parsed.circuit.elements.map(partSlider),
+    () =>
+      parsed.circuit.elements
+        .filter((element) => VALUED_KINDS.includes(element.kind))
+        .map(partSlider),
     [parsed],
   );
   const [values, setValues] = useState<Record<string, number>>(() =>

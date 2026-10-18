@@ -86,6 +86,17 @@ describe("checkAnswer", () => {
     expect(checkAnswer(multiple, []).message).toBeDefined();
   });
 
+  test("logic answers, by their truth table", () => {
+    const xor = only("? Q\nlogic: A ⊕ B");
+    expect(checkAnswer(xor, "A'B + AB'").correct).toBe(true);
+    expect(checkAnswer(xor, "(A + B)(AB)'").correct).toBe(true);
+    expect(checkAnswer(xor, "A + B").correct).toBe(false);
+    expect(checkAnswer(xor, "A +").message).toMatch(/can't be read/);
+    // A variable the answer doesn't use must not matter.
+    expect(checkAnswer(only("? Q\nlogic: A"), "A + AC").correct).toBe(true);
+    expect(parseQuiz("? Q\nlogic: A +").errors[0]).toMatch(/can't be read/);
+  });
+
   test("expressions and words", () => {
     const expression = only("? Q\nexpression: u^2 / R\nvariables: u, R");
     expect(checkAnswer(expression, "u*u/R").correct).toBe(true);

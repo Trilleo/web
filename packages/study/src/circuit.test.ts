@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { drawCircuit } from "./circuit/draw";
 import { parseCircuit, parseValue } from "./circuit/parse";
-import { solveCircuit } from "./circuit/solve";
+import { loosePins, solveCircuit } from "./circuit/solve";
 
 const DIVIDER = `V1 0,4 0,0 12V
 R1 0,0 4,0 1k
@@ -108,5 +108,90 @@ describe("drawCircuit", () => {
     expect(drawCircuit(circuit, { title: "<b>", id: "x" })).not.toContain(
       "<b>",
     );
+  });
+});
+
+describe("devices and other parts", () => {
+  test("place transistor and op-amp pins around their point", () => {
+    const { circuit, errors } = parseCircuit(
+      "Q1 npn 2,2 β=50\nQ2 pnp 8,4 left flip\nM1 nmos 2,8\nU1 opamp 10,10 plus-top",
+    );
+    expect(errors).toEqual([]);
+    expect(circuit.devices.map((device) => device.pins)).toEqual([
+      { b: { x: 2, y: 2 }, c: { x: 4, y: 0 }, e: { x: 4, y: 4 } },
+      { b: { x: 8, y: 4 }, c: { x: 6, y: 6 }, e: { x: 6, y: 2 } },
+      { g: { x: 2, y: 8 }, d: { x: 4, y: 6 }, s: { x: 4, y: 10 } },
+      { plus: { x: 10, y: 9 }, minus: { x: 10, y: 11 }, out: { x: 14, y: 10 } },
+    ]);
+    expect(circuit.devices[0]?.text).toBe("β=50");
+    expect(parseCircuit("Q1 npn 0,0").errors[0]).toMatch(/off the grid/);
+    expect(parseCircuit("Q1 fet 2,2").errors[0]).toMatch(/npn, pnp/);
+  });
+
+  test("draw every kind of part, and describe them", () => {
+    const { circuit, errors } = parseCircuit(
+      "A1 0,4 0,0 u2\nD1 0,0 4,0 1N4007\nZ1 4,4 4,0 6V\nS1 4,4 6,4 closed\nR1 6,4 8,4 RL\nQ1 npn 10,2\nM1 pjfet 14,2\nU1 opamp 18,2",
+    );
+    expect(errors).toEqual([]);
+    const svg = drawCircuit(circuit, { title: "All", id: "all" });
+    expect(svg.match(/data-part=/g)).toHaveLength(8);
+    expect(svg).toContain("D1, diode, 1N4007");
+    expect(svg).toContain("Q1, NPN transistor");
+    expect(svg).toContain("U1, op-amp");
+  });
+
+  test("pins left unconnected on a wired-in device are reported", () => {
+    const wired = parseCircuit(
+      "U1 opamp 4,2\nR1 0,1 4,1 10k\nW 4,3 4,5\nG 4,5\nW 8,2 10,2",
+    ).circuit;
+    expect(loosePins(wired)).toEqual([]);
+    const short = parseCircuit(
+      "U1 opamp 4,2\nR1 0,1 4,1 10k\nW 4,3 4,5\nG 4,5\nW 9,2 10,2",
+    ).circuit;
+    expect(loosePins(short)).toEqual(["U1 output"]);
+    expect(loosePins(parseCircuit("Q1 npn 2,2").circuit)).toEqual([]);
+  });
+
+  test("symbols as values: R/2 and 2C, and a name that repeats itself is drawn once", () => {
+    const { circuit, errors } = parseCircuit(
+      "R1 0,0 4,0 R1\nR2 4,0 8,0 R/2\nC1 8,0 8,4 2C",
+    );
+    expect(errors).toEqual([]);
+    expect(circuit.elements.map((e) => e.valueText)).toEqual([
+      "R1",
+      "R/2",
+      "2C",
+    ]);
+    const svg = drawCircuit(circuit, { title: "Symbols", id: "symbols" });
+    expect(svg.match(/>R1</g)).toHaveLength(1);
+    expect(svg).toContain(">R/2<");
+    expect(parseCircuit("R1 0,0 4,0 1/2").errors).not.toEqual([]);
+  });
+
+  test("the simulator takes switches, and refuses what it can only draw", () => {
+    const closed = parseCircuit(
+      "V1 0,4 0,0 10V\nS1 0,0 4,0 closed\nR1 4,0 4,4 1k\nW 0,4 4,4\nG 0,4",
+    );
+    const solved = solveCircuit(closed.circuit);
+    expect(
+      solved.ok &&
+        solved.solution.elements.find((e) => e.name === "R1")?.current,
+    ).toBeCloseTo(0.01);
+    const open = parseCircuit(
+      "V1 0,4 0,0 10V\nS1 0,0 4,0 open\nR1 4,0 4,4 1k\nW 0,4 4,4\nG 0,4",
+    );
+    const off = solveCircuit(open.circuit);
+    expect(
+      off.ok && off.solution.elements.find((e) => e.name === "R1")?.current,
+    ).toBeCloseTo(0);
+    const diode = solveCircuit(
+      parseCircuit("V1 0,4 0,0 5V\nD1 0,0 4,0\nR1 4,0 4,4 1k\nW 0,4 4,4")
+        .circuit,
+    );
+    expect(diode.ok ? "" : diode.error).toMatch(/can only be drawn/);
+    const labelled = solveCircuit(
+      parseCircuit("V1 0,4 0,0 5V\nR1 0,0 4,0 RL\nW 4,0 4,4 0,4").circuit,
+    );
+    expect(labelled.ok ? "" : labelled.error).toMatch(/needs numbers/);
   });
 });

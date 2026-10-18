@@ -616,10 +616,17 @@
   prefix), expressions (expression.ts: a hand-written parser with implied
   multiplication, never eval; equivalence by evaluating at seeded random points), choices
   and words.
-- Circuits (circuit/): a grid text format (parse.ts), DC modified nodal analysis
-  (solve.ts: capacitors open, inductors shorted, a tiny conductance to ground; passive
-  sign convention) and GB/IEC-style SVG schematics (draw.ts: boxes for resistors,
-  currentColor, so both themes work).
+- Circuits (circuit/): a grid text format (parse.ts: R C L V I, plus A D Z S, and
+  transistors/op-amps Q M U placed at one point with fixed pins, `devicePins`), DC
+  modified nodal analysis (solve.ts: capacitors open, inductors and closed switches
+  shorted, a tiny conductance to ground; passive sign convention; `simulationProblem`
+  refuses diodes, transistors, op-amps and symbolic values) and GB/IEC-style SVG
+  schematics (draw.ts: boxes for resistors, currentColor, so both themes work). `loosePins`
+  (solve.ts) makes a wired-in device with an unconnected pin a render error.
+- Logic (logic.ts: a hand-written Boolean parser, `A'`, side-by-side AND, `+`, `⊕`,
+  `⊙`; evaluation, LaTeX, minterms, Gray code) feeds components/logic.ts: `::: logic`
+  (the LogicLab island), `::: kmap` (groups are product terms, checked against the
+  1s and ×s) and `::: gates` (national-standard and distinctive symbols).
 - Look: textbook-like and quieter than the rest of the site (styles/study.css): serif
   headings with section numbers, numbered boxes, equation numbers at the right margin,
   captions below figures, Chinese in `font-cjk` with lang="zh-CN". No reveals or

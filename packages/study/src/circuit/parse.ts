@@ -1,23 +1,39 @@
 /**
- * Circuits written on a grid. Every part runs straight between two grid points, so
+ * Circuits written on a grid. Every part runs straight between two grid points (or,
+ * for transistors and op-amps, sits at one point with its pins in fixed places), so
  * the text says both what the circuit is (for the solver) and where it goes (for the
  * drawing); points that meet are connected.
  *
  *   V1 0,4 0,0 5V        a voltage source from − (first point) to + (second)
  *   R1 0,0 4,0 1k        a resistor; the unit may be left out (Ω)
  *   R2 4,0 4,4 2k [100..10k]   a range for the simulator's slider
+ *   R3 4,0 8,0 RL        a symbol instead of a value: drawn, but not simulated
  *   C1 6,0 6,4 10u       capacitor (F), L1 … inductor (H)
  *   I1 8,4 8,0 2mA       a current source, flowing from the first point to the second
+ *   A1 0,4 0,0 u2        an AC source (any label)
+ *   D1 0,0 4,0 1N4007    a diode, anode first (label optional)
+ *   Z1 4,4 4,0 6V        a Zener diode, anode first (label optional)
+ *   S1 0,0 2,0 closed    a switch, open (the default) or closed
+ *   Q1 npn 2,2           a BJT: base at 2,2, collector at 4,0, emitter at 4,4
+ *                        (pnp; add "left" to face left, "flip" to swap C and E)
+ *   M1 nmos 2,2          a MOSFET (nmos, pmos, nmos-d, pmos-d for depletion) or a
+ *                        JFET (njfet, pjfet): gate 2,2, drain 4,0, source 4,4
+ *   U1 opamp 2,2         an op-amp: − input 2,1, + input 2,3, output 6,2
+ *                        ("plus-top" puts + at 2,1)
  *   W 0,4 4,4 8,4        a wire through points (a point on a wire joins it)
  *   G 0,4                ground (0 V)
- *   label a 4,0          names a node
+ *   label +VCC 4,0       names a node
  *   # a comment
  *
- * Parts need at least 2 grid squares (their symbol fills the middle).
+ * Two-terminal parts need at least 2 grid squares (their symbol fills the middle).
+ * Text after a transistor's or op-amp's options is shown beside it ("β=50").
  */
 import { parseQuantity, splitUnit } from "../units";
 
-export type ElementKind = "R" | "C" | "L" | "V" | "I";
+export type ElementKind = "R" | "C" | "L" | "V" | "I" | "A" | "D" | "Z" | "S";
+
+/** Parts with a value the simulator uses; the others carry a label. */
+export const VALUED_KINDS: readonly ElementKind[] = ["R", "C", "L", "V", "I"];
 
 export const ELEMENT_UNITS: Readonly<Record<ElementKind, string>> = {
   R: "Ω",
@@ -25,6 +41,10 @@ export const ELEMENT_UNITS: Readonly<Record<ElementKind, string>> = {
   L: "H",
   V: "V",
   I: "A",
+  A: "",
+  D: "",
+  Z: "",
+  S: "",
 };
 
 export const ELEMENT_NAMES: Readonly<Record<ElementKind, string>> = {
@@ -33,6 +53,30 @@ export const ELEMENT_NAMES: Readonly<Record<ElementKind, string>> = {
   L: "inductor",
   V: "voltage source",
   I: "current source",
+  A: "AC source",
+  D: "diode",
+  Z: "Zener diode",
+  S: "switch",
+};
+
+export type DeviceKind = "Q" | "M" | "U";
+
+export const DEVICE_MODELS: Readonly<Record<DeviceKind, readonly string[]>> = {
+  Q: ["npn", "pnp"],
+  M: ["nmos", "pmos", "nmos-d", "pmos-d", "njfet", "pjfet"],
+  U: ["opamp"],
+};
+
+export const MODEL_NAMES: Readonly<Record<string, string>> = {
+  npn: "NPN transistor",
+  pnp: "PNP transistor",
+  nmos: "N-channel enhancement MOSFET",
+  pmos: "P-channel enhancement MOSFET",
+  "nmos-d": "N-channel depletion MOSFET",
+  "pmos-d": "P-channel depletion MOSFET",
+  njfet: "N-channel JFET",
+  pjfet: "P-channel JFET",
+  opamp: "op-amp",
 };
 
 export interface Point {
@@ -45,16 +89,32 @@ export interface CircuitElement {
   name: string;
   from: Point;
   to: Point;
-  /** In base units (Ω, F, H, V, A). */
+  /** In base units (Ω, F, H, V, A); for a switch 1 closed, 0 open; NaN for labels. */
   value: number;
-  /** As written, unit included ("1 kΩ"). */
+  /** As written, unit included ("1 kΩ"), or the part's label. */
   valueText: string;
   /** The simulator's slider, if given. */
   range?: [number, number];
 }
 
+/** A transistor or op-amp: one point places it, its pins sit around it. */
+export interface CircuitDevice {
+  kind: DeviceKind;
+  name: string;
+  model: string;
+  at: Point;
+  /** Faces left (pins mirrored). */
+  left: boolean;
+  /** Collector/drain and emitter/source swapped; for an op-amp, + on top. */
+  flip: boolean;
+  /** Pin name → grid point: b c e, g d s, or minus plus out. */
+  pins: Record<string, Point>;
+  text: string;
+}
+
 export interface Circuit {
   elements: CircuitElement[];
+  devices: CircuitDevice[];
   wires: Point[][];
   grounds: Point[];
   labels: { name: string; at: Point }[];
@@ -109,8 +169,40 @@ function valueText(text: string, kind: ElementKind): string {
   return `${number.replace("-", "−")} ${suffix}`;
 }
 
+/** Where a device's pins are, from its placing point and options. */
+export function devicePins(
+  kind: DeviceKind,
+  at: Point,
+  left: boolean,
+  flip: boolean,
+): Record<string, Point> {
+  const dir = left ? -1 : 1;
+  const side = (dx: number, dy: number): Point => ({
+    x: at.x + dir * dx,
+    y: at.y + dy,
+  });
+  if (kind === "U")
+    return flip
+      ? { plus: side(0, -1), minus: side(0, 1), out: side(4, 0) }
+      : { minus: side(0, -1), plus: side(0, 1), out: side(4, 0) };
+  const top = flip ? 2 : -2;
+  const [input, upper, lower] =
+    kind === "Q" ? ["b", "c", "e"] : ["g", "d", "s"];
+  return {
+    [input]: side(0, 0),
+    [upper]: side(2, top),
+    [lower]: side(2, -top),
+  };
+}
+
 export function parseCircuit(body: string): CircuitParse {
-  const circuit: Circuit = { elements: [], wires: [], grounds: [], labels: [] };
+  const circuit: Circuit = {
+    elements: [],
+    devices: [],
+    wires: [],
+    grounds: [],
+    labels: [],
+  };
   const errors: string[] = [];
   const names = new Set<string>();
 
@@ -149,16 +241,64 @@ export function parseCircuit(body: string): CircuitParse {
     if (head === "label") {
       const point = parsePoint(words[2] ?? "");
       const name = words[1] ?? "";
-      if (!point || !/^[\p{L}\p{N}_']{1,6}$/u.test(name) || words.length !== 3)
+      if (
+        !point ||
+        !/^[\p{L}\p{N}_'+\-.]{1,8}$/u.test(name) ||
+        words.length !== 3
+      )
         errors.push(`${where}: write a node's label as “label a 4,0”.`);
       else circuit.labels.push({ name, at: point });
       return;
     }
 
-    const element = /^([RCLVI])([A-Za-z0-9_]*)$/.exec(head);
+    const device = /^([QMU])([A-Za-z0-9_]*)$/.exec(head);
+    if (device) {
+      const kind = device[1] as DeviceKind;
+      if (names.has(head)) {
+        errors.push(`${where}: there's already a part called ${head}.`);
+        return;
+      }
+      names.add(head);
+      const model = words[1] ?? "";
+      const at = parsePoint(words[2] ?? "");
+      if (!DEVICE_MODELS[kind].includes(model) || !at) {
+        errors.push(
+          `${where}: write ${head} as “${head} ${DEVICE_MODELS[kind][0] ?? ""} 2,2” (${DEVICE_MODELS[kind].join(", ")}).`,
+        );
+        return;
+      }
+      const options = words.slice(3);
+      let left = false;
+      let flip = false;
+      while (options.length > 0) {
+        const option = options[0];
+        if (option === "left") left = true;
+        else if (option === "flip" || option === "plus-top") flip = true;
+        else break;
+        options.shift();
+      }
+      const pins = devicePins(kind, at, left, flip);
+      if (Object.values(pins).some((pin) => pin.x < 0 || pin.y < 0)) {
+        errors.push(`${where}: ${head}'s pins would go off the grid.`);
+        return;
+      }
+      circuit.devices.push({
+        kind,
+        name: head,
+        model,
+        at,
+        left,
+        flip,
+        pins,
+        text: options.join(" "),
+      });
+      return;
+    }
+
+    const element = /^([RCLVIADZS])([A-Za-z0-9_]*)$/.exec(head);
     if (!element) {
       errors.push(
-        `${where}: “${head}” isn't a part (R, C, L, V, I, W, G or label).`,
+        `${where}: “${head}” isn't a part (R, C, L, V, I, A, D, Z, S, Q, M, U, W, G or label).`,
       );
       return;
     }
@@ -183,6 +323,38 @@ export function parseCircuit(body: string): CircuitParse {
       return;
     }
     let rest = words.slice(3).join(" ");
+
+    if (!VALUED_KINDS.includes(kind)) {
+      if (kind === "S") {
+        if (rest !== "" && rest !== "open" && rest !== "closed") {
+          errors.push(`${where}: a switch is “open” or “closed”.`);
+          return;
+        }
+        circuit.elements.push({
+          kind,
+          name: head,
+          from,
+          to,
+          value: rest === "closed" ? 1 : 0,
+          valueText: rest === "closed" ? "closed" : "open",
+        });
+        return;
+      }
+      if (rest.length > 16) {
+        errors.push(`${where}: ${head}'s label is too long (16 characters).`);
+        return;
+      }
+      circuit.elements.push({
+        kind,
+        name: head,
+        from,
+        to,
+        value: NaN,
+        valueText: rest,
+      });
+      return;
+    }
+
     let range: [number, number] | undefined;
     const bracket = /\[([^\]]*)\]\s*$/.exec(rest);
     if (bracket) {
@@ -205,6 +377,23 @@ export function parseCircuit(body: string): CircuitParse {
       return;
     }
     const value = parseValue(rest, kind);
+    // A symbol instead of a value ("RL", "Rb", "R/2", "2C"), as textbooks label parts:
+    // drawn, not simulated.
+    if (
+      value === null &&
+      !range &&
+      /^(?=.*\p{L})[\p{L}\p{N}_'][\p{L}\p{N}_'/]{0,7}$/u.test(rest)
+    ) {
+      circuit.elements.push({
+        kind,
+        name: head,
+        from,
+        to,
+        value: NaN,
+        valueText: rest,
+      });
+      return;
+    }
     if (value === null) {
       errors.push(
         `${where}: “${rest}” isn't a value in ${ELEMENT_UNITS[kind]}.`,
@@ -226,7 +415,32 @@ export function parseCircuit(body: string): CircuitParse {
     });
   });
 
-  if (circuit.elements.length === 0 && errors.length === 0)
+  if (
+    circuit.elements.length === 0 &&
+    circuit.devices.length === 0 &&
+    errors.length === 0
+  )
     errors.push("The circuit has no parts.");
   return { circuit, errors };
+}
+
+/** Why the DC simulator can't take a circuit (diodes, transistors, …), or null. */
+export function simulationProblem(circuit: Circuit): string | null {
+  const unvalued = circuit.elements.find(
+    (entry) => VALUED_KINDS.includes(entry.kind) && Number.isNaN(entry.value),
+  );
+  if (unvalued)
+    return `The simulator needs numbers: ${unvalued.name} is labelled “${unvalued.valueText}”.`;
+  const element = circuit.elements.find(
+    (entry) => !VALUED_KINDS.includes(entry.kind) && entry.kind !== "S",
+  );
+  const device = circuit.devices[0];
+  const part = element
+    ? `${element.name} (${ELEMENT_NAMES[element.kind]})`
+    : device
+      ? `${device.name} (${MODEL_NAMES[device.model] ?? device.model})`
+      : null;
+  return part
+    ? `The simulator works with R, C, L, V, I and switches; ${part} can only be drawn (use ::: circuit).`
+    : null;
 }

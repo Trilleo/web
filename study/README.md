@@ -58,10 +58,15 @@ Blocks (`::: name argument` … `:::`):
 | `::: circuit-sim Title`         | The same, with a slider per part and live DC readings                |
 | `::: plot Title`                | Curves with sliders: `f(x) = …`, `x: 0 .. 10`, `slider a: 0 .. 3 = 1` |
 | `::: explore Title`             | Sliders and results: `slider V: 0 .. 12 = 5 \| V`, `P = V I \| W \| Power` |
+| `::: logic Title`               | A logic lab: `inputs: A B`, `Y = A B' + A' B` (switches, lamps, truth table) |
+| `::: kmap Y`                    | A Karnaugh map: `vars: A B C D`, `ones: 0 2 5`, `dont-care: 1`, `group: B D'` |
+| `::: gates`                     | Gate symbols (both shapes), expressions, truth tables: `and or not xor` |
 
 Quizzes: `?` starts a question; then options (`- [x]` right, `- [ ]` wrong), or
 `answer: 0.5 A` (a number with its unit; `tolerance: 2%`, 1% by default), or
-`expression: u^2/R` (checked for equivalence; `variables: u, R`), or `text: farad | F`.
+`expression: u^2/R` (checked for equivalence; `variables: u, R`), `logic: A ⊕ B`
+(a Boolean expression, right when its truth table matches: `A'B + AB'` passes), or
+`text: farad | F`.
 `>` lines explain the answer. Write an explanation for every question.
 
 Review history follows each card's front and each question's prompt: change the
@@ -70,9 +75,25 @@ end the card's line, or the question's `?` line, with `{#name}` (lower-case lett
 digits and hyphens, unique in the lesson).
 
 Circuits: parts between grid points, at least 2 apart: `R1 0,0 4,0 1k`, `C1 …`,
-`L1 …`, `V1 0,4 0,0 12V` (from − to +), `I1 0,4 0,0 3mA` (flowing first → second);
-`W 0,4 4,4 8,4` wires (a point on a wire joins it), `G 0,4` ground, `label out 4,0`.
-In `circuit-sim`, `[low..high]` after a value sets its slider's range.
+`L1 …`, `V1 0,4 0,0 12V` (from − to +), `I1 0,4 0,0 3mA` (flowing first → second),
+`A1 0,4 0,0 u2` (AC source), `D1 0,0 4,0 1N4007` (diode, anode first), `Z1 4,4 4,0 6V`
+(Zener, anode first), `S1 0,0 2,0 closed` (switch). A symbol instead of a value
+(`R2 4,0 4,4 Rc`, `R3 0,0 4,0 R/2`, `C2 … 2C`) labels a part in a drawing; one that
+repeats the name (`R1 … R1`) is drawn once. Transistors and op-amps sit at one point
+with pins around it: `Q1 npn 2,2` (base 2,2, collector 4,0, emitter 4,4; `pnp`, add
+`left` to face left, `flip` to swap collector and emitter, then any text such as
+`β=50`), `M1 nmos 2,2` (gate, drain 4,0, source 4,4; `pmos`, `nmos-d`, `pmos-d`,
+`njfet`, `pjfet`), `U1 opamp 2,2` (− at 2,1, + at 2,3, output 6,2; `plus-top`).
+`W 0,4 4,4 8,4` wires (a point on a wire joins it), `G 0,4` ground, `label +VCC 4,0`.
+A transistor or op-amp with some pins wired and one left loose is a render error (a
+wire that stops a square short); one with no pins wired is a symbol on show.
+`circuit-sim` takes only R, C, L, V, I and switches, with numeric values; `[low..high]`
+after a value sets its slider's range.
+
+Logic expressions (`::: logic`, `::: kmap`): variables are one letter, optionally with
+digits (A, D0); NOT `A'` or `!A`, AND by writing side by side (`AB`) or `·`, OR `+`, XOR
+`⊕`, XNOR `⊙`. In a Karnaugh map each `group:` is the product term it stands for; the
+map checks it covers only 1s and ×s, and that every 1 is covered.
 
 Every block is documented with an example in `packages/study/src/components/blocks.ts`.
 

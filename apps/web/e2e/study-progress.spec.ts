@@ -131,7 +131,7 @@ test("signed in, progress is kept in the account, on every device", async ({
   const dashboard = await hydrated(laptop.locator(".study-dashboard"));
   await expect(
     dashboard.getByRole("row", { name: /Sample subject/ }),
-  ).toContainText("1 / 3");
+  ).toContainText("1 / 4");
   await laptop.context().close();
 });
 
@@ -150,7 +150,7 @@ test("signing in offers to move this browser's progress into the account", async
   await expect(dashboard.getByText("Moved 1.")).toBeVisible();
   await expect(
     dashboard.getByRole("row", { name: /Sample subject/ }),
-  ).toContainText("1 / 3");
+  ).toContainText("1 / 4");
 
   // It's in the account export.
   const exported = (await (

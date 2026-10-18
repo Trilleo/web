@@ -179,6 +179,40 @@ answer: 2
     ).toHaveLength(1);
   });
 
+  test("draw Karnaugh maps, checking their groups", () => {
+    const good = render(
+      "::: kmap Y\nvars: A B C D\nones: 0 2 5 7 8 10 13 15\ngroup: B D\ngroup: B' D'\n:::",
+    );
+    expect(good.errors).toEqual([]);
+    expect(good.html).toContain("study-kmap");
+    expect(good.html.match(/data-value="1"/g)).toHaveLength(8);
+    expect(
+      render("::: kmap\nvars: A B\nexpression: A B'\n:::").html.match(
+        /data-value="1"/g,
+      ),
+    ).toHaveLength(1);
+    // A group that covers a 0, or leaves a 1 out.
+    expect(
+      render("::: kmap\nvars: A B\nones: 3\ngroup: A\n:::").errors,
+    ).toHaveLength(1);
+    expect(
+      render("::: kmap\nvars: A B\nones: 1 3\ngroup: A B\n:::").errors,
+    ).toHaveLength(1);
+    expect(render("::: kmap\nvars: A\nones: 1\n:::").errors).toHaveLength(1);
+  });
+
+  test("draw gate symbols and leave a logic lab", () => {
+    const gates = render("::: gates\nand nor xnor\n:::");
+    expect(gates.errors).toEqual([]);
+    expect(gates.html.match(/class="study-gate"/g)).toHaveLength(6);
+    expect(render("::: gates\nmaybe\n:::").errors).toHaveLength(1);
+    const lab = render("::: logic XOR\nY = A B' + A' B\n:::");
+    expect(lab.errors).toEqual([]);
+    const island = lab.islands[0];
+    expect(island?.name === "logic" && island.props.inputs).toEqual(["A", "B"]);
+    expect(render("::: logic\ninputs: A\nY = A B\n:::").errors).toHaveLength(1);
+  });
+
   test("resolve figures", () => {
     expect(render("![A bridge](figures/known.webp)").html).toContain(
       'src="/_astro/known.webp"',

@@ -10,6 +10,7 @@ import type { QuizProps, QuizQuestion } from "../types";
 const PLACEHOLDERS = {
   number: "A number and its unit, e.g. 0.5 A",
   expression: "An expression, e.g. 2x + 1",
+  logic: "A logic expression, e.g. A B' + C",
   text: "Your answer",
 } as const;
 
