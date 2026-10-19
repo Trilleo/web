@@ -230,12 +230,13 @@ Conversely, any table of numbers with these two properties is the joint law of s
 It's usually written as a table: rows for the values of $X$, columns for the values of
 $Y$, the probability $p_{ij}$ where row $i$ meets column $j$.
 
-| $X$ \ $Y$ | $y_1$ | $y_2$ | $\cdots$ | $y_j$ | $\cdots$ |
-| --- | --- | --- | --- | --- | --- |
-| $x_1$ | $p_{11}$ | $p_{12}$ | $\cdots$ | $p_{1j}$ | $\cdots$ |
-| $x_2$ | $p_{21}$ | $p_{22}$ | $\cdots$ | $p_{2j}$ | $\cdots$ |
-| $\vdots$ | $\vdots$ | $\vdots$ |  | $\vdots$ |  |
-| $x_i$ | $p_{i1}$ | $p_{i2}$ | $\cdots$ | $p_{ij}$ | $\cdots$ |
+$$\begin{array}{c|ccccc}
+X \backslash Y & y_1 & y_2 & \cdots & y_j & \cdots \\ \hline
+x_1 & p_{11} & p_{12} & \cdots & p_{1j} & \cdots \\
+x_2 & p_{21} & p_{22} & \cdots & p_{2j} & \cdots \\
+\vdots & \vdots & \vdots &  & \vdots &  \\
+x_i & p_{i1} & p_{i2} & \cdots & p_{ij} & \cdots
+\end{array}$$
 
 Every probability about $(X,Y)$ is a sum of cells: $P\{(X,Y)\in G\}$ adds the $p_{ij}$ of
 the grid points in $G$, and $F(x,y)=\sum_{x_i\le x}\sum_{y_j\le y}p_{ij}$.
@@ -277,12 +278,13 @@ slides write the dot as $p_{i\bullet}$ or $P_{i\cdot}$; it's the same thing. The
 written in the margins of the table — an extra column on the right, an extra row at the
 bottom, and the corner is 1:
 
-| $X$ \ $Y$ | $y_1$ | $y_2$ | $\cdots$ | $p_{i\cdot}$ |
-| --- | --- | --- | --- | --- |
-| $x_1$ | $p_{11}$ | $p_{12}$ | $\cdots$ | $p_{1\cdot}$ |
-| $x_2$ | $p_{21}$ | $p_{22}$ | $\cdots$ | $p_{2\cdot}$ |
-| $\vdots$ | $\vdots$ | $\vdots$ |  | $\vdots$ |
-| $p_{\cdot j}$ | $p_{\cdot1}$ | $p_{\cdot2}$ | $\cdots$ | $1$ |
+$$\begin{array}{c|ccc|c}
+X \backslash Y & y_1 & y_2 & \cdots & p_{i\cdot} \\ \hline
+x_1 & p_{11} & p_{12} & \cdots & p_{1\cdot} \\
+x_2 & p_{21} & p_{22} & \cdots & p_{2\cdot} \\
+\vdots & \vdots & \vdots &  & \vdots \\ \hline
+p_{\cdot j} & p_{\cdot1} & p_{\cdot2} & \cdots & 1
+\end{array}$$
 
 ### Building a joint table from a story
 
@@ -298,7 +300,7 @@ $P\{Y=j\mid X=i\}=\tfrac1i$ for $1\le j\le i$ and 0 for $j>i$.
 == The table ==
 $p_{ij}=\dfrac{1}{4i}$ for $1\le j\le i\le4$, and 0 when $j>i$:
 
-| $X$ \ $Y$ | 1 | 2 | 3 | 4 | $p_{i\cdot}$ |
+| $X$ \ $Y$ | 1 | 2 | 3 | 4 | Marginal $p_{i\cdot}$ |
 | --- | --- | --- | --- | --- | --- |
 | 1 | $1/4$ | 0 | 0 | 0 | $1/4$ |
 | 2 | $1/8$ | $1/8$ | 0 | 0 | $1/4$ |
@@ -343,7 +345,7 @@ Likewise $P\{X=0,Y=1\}=\tfrac13$.
 Row $X=0$: $0+\tfrac13+p=\tfrac12$ gives $P\{X=0,Y=2\}=\tfrac16$; row $X=1$ gives
 $P\{X=1,Y=2\}=\tfrac16$ too. Check column 2: $\tfrac16+\tfrac16=\tfrac13$. ✓
 
-| $X$ \ $Y$ | 0 | 1 | 2 | $p_{i\cdot}$ |
+| $X$ \ $Y$ | 0 | 1 | 2 | Marginal $p_{i\cdot}$ |
 | --- | --- | --- | --- | --- |
 | 0 | 0 | $1/3$ | $1/6$ | $1/2$ |
 | 1 | $1/3$ | 0 | $1/6$ | $1/2$ |
@@ -362,7 +364,7 @@ It sums to $\tfrac12$ and only the $X=0$ cell is left: $P\{X=0,Y=1\}=\tfrac12$.
 Row $X=0$ already has its $\tfrac12$, so $P\{X=0,Y=0\}=0$; rows $X=\pm1$ put their
 $\tfrac14$ in column 0.
 
-| $X$ \ $Y$ | 0 | 1 | $p_{i\cdot}$ |
+| $X$ \ $Y$ | 0 | 1 | Marginal $p_{i\cdot}$ |
 | --- | --- | --- | --- |
 | $-1$ | $1/4$ | 0 | $1/4$ |
 | 0 | 0 | $1/2$ | $1/2$ |
@@ -404,7 +406,7 @@ Joint distribution function $F(x,y)$ :: $P\{X\le x,\ Y\le y\}$: the probability 
 $F(-\infty,y)$, $F(x,-\infty)$, $F(+\infty,+\infty)$ :: $0$, $0$ and $1$
 Is $F(+\infty,y)$ equal to 1? :: No: it is $F_Y(y)=P\{Y\le y\}$
 Monotonicity and continuity of $F(x,y)$ :: Non-decreasing and right-continuous in each variable separately
-$P\{x_1<X\le x_2,\ y_1<Y\le y_2\}$ :: $F(x_2,y_2)-F(x_1,y_2)-F(x_2,y_1)+F(x_1,y_1)$
+$P\{x_1<X\le x_2,\ y_1<Y\le y_2\}$ from $F(x,y)$ :: $F(x_2,y_2)-F(x_1,y_2)-F(x_2,y_1)+F(x_1,y_1)$
 Which property rules out $F=1$ on $x+y\ge0$, 0 otherwise? :: Property 4: some rectangle gets negative probability
 Marginal distribution function $F_X(x)$ :: $F(x,+\infty)=\lim_{y\to+\infty}F(x,y)$
 Joint distribution law (联合分布列) :: $p_{ij}=P\{X=x_i,\ Y=y_j\}$, with $p_{ij}\ge0$ and $\sum_i\sum_j p_{ij}=1$

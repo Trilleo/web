@@ -371,9 +371,9 @@ Random trial (随机试验): three features :: Repeatable under the same conditi
 Sample space (样本空间) :: The set $\Omega$ (or $S$) of all possible results of a trial; its elements are sample points.
 Random event (随机事件) :: A subset of the sample space; it happens when the result lies in it.
 Certain and impossible events :: $\Omega$ (always happens) and $\varnothing$ (never happens); they are complements of each other.
-$A \cup B$ :: At least one of $A$, $B$ happens (also written $A + B$).
-$AB$ :: $A$ and $B$ both happen ($A \cap B$).
-$A - B$ :: $A$ happens and $B$ doesn't; equals $A\overline{B}$.
+The union $A \cup B$ :: At least one of $A$, $B$ happens (also written $A + B$).
+The product $AB$ :: $A$ and $B$ both happen ($A \cap B$).
+The difference $A - B$ :: $A$ happens and $B$ doesn't; equals $A\overline{B}$.
 Mutually exclusive (互斥) :: $AB = \varnothing$: they never happen together.
 Complementary (对立) :: $AB = \varnothing$ and $A \cup B = \Omega$: exactly one happens.
 Complementary vs mutually exclusive :: Complementary implies mutually exclusive; not conversely.

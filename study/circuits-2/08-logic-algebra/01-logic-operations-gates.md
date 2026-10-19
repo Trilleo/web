@@ -112,12 +112,12 @@ label A 4,0
 label B 4,2
 :::
 
-| Switch A | Switch B | Lamp Y |     | A   | B   | Y   |
-| -------- | -------- | ------ | --- | --- | --- | --- |
-| open     | open     | off    |     | 0   | 0   | 0   |
-| open     | closed   | on     |     | 0   | 1   | 1   |
-| closed   | open     | on     |     | 1   | 0   | 1   |
-| closed   | closed   | on     |     | 1   | 1   | 1   |
+| Switch A | Switch B | Lamp Y | A   | B   | Y   |
+| -------- | -------- | ------ | --- | --- | --- |
+| open     | open     | off    | 0   | 0   | 0   |
+| open     | closed   | on     | 0   | 1   | 1   |
+| closed   | open     | on     | 1   | 0   | 1   |
+| closed   | closed   | on     | 1   | 1   | 1   |
 
 ::: define OR | 或逻辑
 The event $Y$ happens when **at least one** of its conditions $A, B, C, \ldots$ is met. It
@@ -147,10 +147,10 @@ W 0,4 4,4
 label A 7,0
 :::
 
-| Switch A | Lamp Y |     | A   | Y   |
-| -------- | ------ | --- | --- | --- |
-| open     | on     |     | 0   | 1   |
-| closed   | off    |     | 1   | 0   |
+| Switch A | Lamp Y | A   | Y   |
+| -------- | ------ | --- | --- |
+| open     | on     | 0   | 1   |
+| closed   | off    | 1   | 0   |
 
 ::: define NOT | 非逻辑
 The negation of a condition: when the condition $A$ is met the event does not happen,
@@ -248,7 +248,7 @@ A, B | inputs | —
 Y | 1 when $A$ and $B$ are the same, 0 when they differ | —
 :::
 
-| A   | B   | $A \oplus B$ | $A \odot B$ |
+| A   | B   | XOR $A \oplus B$ | XNOR $A \odot B$ |
 | --- | --- | ------------ | ----------- |
 | 0   | 0   | 0            | 1           |
 | 0   | 1   | 1            | 0           |

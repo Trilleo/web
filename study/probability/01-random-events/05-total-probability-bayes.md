@@ -145,7 +145,7 @@ grade}\}$.
 == Each cause on its own ==
 $P(A\mid H_1)=10/50=1/5$ and $P(A\mid H_2)=18/30=3/5$.
 == Total probability ==
-$$P(A)=P(H_1)P(A\mid H_1)+P(H_2)P(A\mid H_2)=\frac12\cdot\frac{10}{50}+\frac12\cdot\frac{18}{30}=\frac1{10}+\frac3{10}=\frac25.$$
+$$\begin{aligned}P(A) &= P(H_1)P(A\mid H_1)+P(H_2)P(A\mid H_2)\\&= \frac12\cdot\frac{10}{50}+\frac12\cdot\frac{18}{30}\\&= \frac1{10}+\frac3{10}\\&= \frac25.\end{aligned}$$
 :::
 
 ::: callout pitfall Don't just pool the boxes
@@ -167,7 +167,7 @@ $P(A\mid B_1)=0.1$, $P(A\mid B_2)=0.2$, $P(A\mid B_3)=0.3$.
 $$P(A)=\frac12\times0.1+\frac14\times0.2+\frac14\times0.3=0.05+0.05+0.075=0.175.$$
 :::
 
-| Cause $B_i$ | $P(B_i)$ | $P(A\mid B_i)$ | $P(B_i)P(A\mid B_i)$ |
+| Cause $B_i$ | Prior $P(B_i)$ | Likelihood $P(A\mid B_i)$ | Product $P(B_i)P(A\mid B_i)$ |
 | --- | --- | --- | --- |
 | 甲 | 0.5 | 0.1 | 0.05 |
 | 乙 | 0.25 | 0.2 | 0.05 |
@@ -218,7 +218,7 @@ In the bulb example, the bulb taken is defective. Find the probability that each
 factory made it, and say which factory is most responsible.
 == Shares of the total ==
 From the table, $P(A)=0.175$. Then
-$$P(B_1\mid A)=\frac{P(B_1)P(A\mid B_1)}{P(A)}=\frac{\frac12\times0.1}{\frac12\times0.1+\frac14\times0.2+\frac14\times0.3}=\frac{0.05}{0.175}=\frac27,$$
+$$\begin{aligned}P(B_1\mid A) &= \frac{P(B_1)P(A\mid B_1)}{P(A)}\\&= \frac{\frac12\times0.1}{\frac12\times0.1+\frac14\times0.2+\frac14\times0.3}\\&= \frac{0.05}{0.175}\\&= \frac27,\end{aligned}$$
 and in the same way $P(B_2\mid A)=0.05/0.175=2/7$, $P(B_3\mid A)=0.075/0.175=3/7$.
 == Check and conclude ==
 $2/7+2/7+3/7=1$, as it must be: given $A$, exactly one factory made the bulb.
@@ -266,7 +266,7 @@ untrustworthy one with $P(A\mid\overline{B})=0.5$.
 Find how far the villagers' trust falls after the boy's first lie, and after his
 second.
 == First lie ==
-$$P(B\mid A)=\frac{P(B)P(A\mid B)}{P(B)P(A\mid B)+P(\overline{B})P(A\mid\overline{B})}=\frac{0.8\times0.1}{0.8\times0.1+0.2\times0.5}=\frac{0.08}{0.18}\approx0.444.$$
+$$\begin{aligned}P(B\mid A) &= \frac{P(B)P(A\mid B)}{P(B)P(A\mid B)+P(\overline{B})P(A\mid\overline{B})}\\&= \frac{0.8\times0.1}{0.8\times0.1+0.2\times0.5}\\&= \frac{0.08}{0.18}\\&\approx 0.444.\end{aligned}$$
 Trust falls from $0.8$ to $0.444$.
 == Second lie: yesterday's posterior is today's prior ==
 Now the villagers start from $P(B)=0.444$, $P(\overline{B})=0.556$:
@@ -310,7 +310,7 @@ when the 4 inspected glasses are all good.
 The 4 glasses are a random set of 4 out of 20; she buys when all 4 come from the
 good ones. With $C_n^k=\binom nk$ (the number of ways to choose $k$ from $n$;
 Lesson 1.2):
-$$P(A\mid B_0)=1,\quad P(A\mid B_1)=\frac{C_{19}^4}{C_{20}^4}=\frac{3876}{4845}=0.8,\quad P(A\mid B_2)=\frac{C_{18}^4}{C_{20}^4}=\frac{3060}{4845}\approx0.632.$$
+$$\begin{gathered}P(A\mid B_0)=1,\\P(A\mid B_1)=\frac{C_{19}^4}{C_{20}^4}=\frac{3876}{4845}=0.8,\\P(A\mid B_2)=\frac{C_{18}^4}{C_{20}^4}=\frac{3060}{4845}\approx0.632.\end{gathered}$$
 == (1) Total probability ==
 $$P(A)=0.8\times1+0.1\times0.8+0.1\times0.632\approx0.943\approx0.94.$$
 == (2) Bayes ==
@@ -328,7 +328,7 @@ that the machine is well adjusted?
 $A=\{\text{the product passes}\}$, $B=\{\text{the machine is well adjusted}\}$:
 $P(A\mid B)=0.98$, $P(A\mid\overline{B})=0.55$, $P(B)=0.95$, $P(\overline{B})=0.05$.
 == Bayes with two causes ==
-$$P(B\mid A)=\frac{P(A\mid B)P(B)}{P(A\mid B)P(B)+P(A\mid\overline{B})P(\overline{B})}=\frac{0.98\times0.95}{0.98\times0.95+0.55\times0.05}=\frac{0.931}{0.9585}\approx0.97.$$
+$$\begin{aligned}P(B\mid A) &= \frac{P(A\mid B)P(B)}{P(A\mid B)P(B)+P(A\mid\overline{B})P(\overline{B})}\\&= \frac{0.98\times0.95}{0.98\times0.95+0.55\times0.05}\\&= \frac{0.931}{0.9585}\\&\approx 0.97.\end{aligned}$$
 == Prior and posterior ==
 The prior $0.95$ comes from long experience; the posterior $0.97$ is that experience
 corrected by today's news, a good first product.
@@ -346,7 +346,7 @@ corrected by today's news, a good first product.
 - Together they describe how we **revise what we know as new information arrives**.
 :::
 
-| | Law of total probability | Bayes' formula |
+| Aspect | Law of total probability | Bayes' formula |
 | --- | --- | --- |
 | Known | causes $P(B_i)$, and $P(A\mid B_i)$ | the same, plus: $A$ happened |
 | Asked | $P(A)$, the chance of the result | $P(B_i\mid A)$, the chance of a cause |

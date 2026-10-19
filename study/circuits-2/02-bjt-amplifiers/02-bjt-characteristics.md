@@ -418,7 +418,7 @@ Chinese part numbers follow the national standard. Take **3DG110B**:
 So the 3DG110B is a high-frequency, low-power silicon NPN transistor. Some types from
 the slides, with their limits:
 
-| Type | $P_{CM}$ | $I_{CM}$ | $U_{(BR)CBO}$ | $U_{(BR)CEO}$ | $I_{CBO}$ | $f_T$ (MHz) |
+| Type | Power $P_{CM}$ | Current $I_{CM}$ | Breakdown $U_{(BR)CBO}$ | Breakdown $U_{(BR)CEO}$ | Leakage $I_{CBO}$ | $f_T$ (MHz) |
 | --- | --- | --- | --- | --- | --- | --- |
 | 3AX31D | 125 mW | 125 mA | 20 V | 12 V | ≤ 6 μA | ≥ 8 * |
 | 3DG123C | 500 mW | 50 mA | 40 V | 30 V | 0.35 μA | — |
@@ -443,8 +443,8 @@ Amplification region: junction biases :: Emitter junction forward, collector jun
 Saturation region: junction biases :: Both junctions forward (or collector barely reverse); $u_{CE}$ small, $i_C < \beta i_B$.
 Cutoff region: junction biases :: Both junctions reverse; $i_C \approx 0$.
 NPN in amplification: order of the pin voltages :: $U_C > U_B > U_E$ (PNP: $U_C < U_B < U_E$).
-$f_T$ :: The frequency where $\beta$ falls to 1; $f_T \approx \beta_0 f_\beta \approx f_\alpha$.
-$f_\beta$ :: The frequency where $\beta$ falls to $\beta_0/\sqrt{2}$.
+Transition frequency $f_T$ :: The frequency where $\beta$ falls to 1; $f_T \approx \beta_0 f_\beta \approx f_\alpha$.
+Cut-off frequency $f_\beta$ :: The frequency where $\beta$ falls to $\beta_0/\sqrt{2}$.
 The three limit parameters that bound the safe operating area :: $I_{CM}$, $P_{CM}$ and $U_{(BR)CEO}$.
 Order of the breakdown voltages :: $U_{(BR)CBO} \approx U_{(BR)CES} > U_{(BR)CER} > U_{(BR)CEO} > U_{(BR)EBO}$
 Temperature: $I_{CBO}$ :: Doubles for every 10 ℃ rise.

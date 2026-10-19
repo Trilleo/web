@@ -314,7 +314,7 @@ $f_P = \dfrac{1}{2\pi RC}$, whatever $R_L$ is.
 
 The slides compare the two families:
 
-| | Passive filter | Active filter |
+| Feature | Passive filter | Active filter |
 | --- | --- | --- |
 | Parts | R, C, L (inductors are big and heavy) | op-amp, R, C: no inductors, small and light |
 | Effect of the load | gain and cutoff change with the load | high input and low output impedance buffer the signal, so the parameters don't change |

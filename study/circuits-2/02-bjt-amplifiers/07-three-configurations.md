@@ -33,7 +33,7 @@ $$U_B \approx \frac{R_{b2}}{R_{b1}+R_{b2}}V_{CC}$$
 
 Now follow a temperature rise:
 
-$$T\uparrow \;\to\; I_C\uparrow \;\to\; I_E\uparrow \;\to\; U_E = I_E R_e\uparrow \;(U_B \text{ fixed}) \;\to\; U_{BE} = U_B - U_E\downarrow \;\to\; I_B\downarrow \;\to\; I_C\downarrow$$
+$$\begin{aligned}T\uparrow \;&\to\; I_C\uparrow \;\to\; I_E\uparrow \;\to\; U_E = I_E R_e\uparrow \;(U_B \text{ fixed})\\&\to\; U_{BE} = U_B - U_E\downarrow \;\to\; I_B\downarrow \;\to\; I_C\downarrow\end{aligned}$$
 
 The rise in $I_C$ raises the emitter voltage, which squeezes $U_{BE}$, which cuts the
 base current, which pulls $I_C$ back down. The output (here $I_C$) is fed back to oppose
@@ -139,7 +139,7 @@ Open the capacitors. The base loop is $V_{CC} \to R_b \to$ base–emitter $\to R
 ground, with $I_E = (1+\beta)I_B$ in $R_e$:
 
 ::: formula Q point of the common-collector amplifier | 共集放大电路的静态工作点
-$$I_{BQ} = \frac{V_{CC} - U_{BEQ}}{R_b + (1+\beta)R_e}, \qquad I_{CQ} = \beta I_{BQ}, \qquad U_{CEQ} = V_{CC} - I_{EQ}R_e \approx V_{CC} - I_{CQ}R_e$$
+$$\begin{gathered}I_{BQ} = \frac{V_{CC} - U_{BEQ}}{R_b + (1+\beta)R_e},\\I_{CQ} = \beta I_{BQ},\\U_{CEQ} = V_{CC} - I_{EQ}R_e \approx V_{CC} - I_{CQ}R_e\end{gathered}$$
 --
 R_b | base bias resistor | Ω
 R_e | emitter resistor | Ω
@@ -328,7 +328,7 @@ the comparison that follows is 3.6.4.
 
 ## The three configurations side by side
 
-| | Common emitter (CE) | Common collector (CC) | Common base (CB) |
+| Quantity | Common emitter (CE) | Common collector (CC) | Common base (CB) |
 | --- | --- | --- | --- |
 | Voltage gain $\dot A_u$ | $-\dfrac{\beta R_L'}{r_{be}}$, large, inverted ($R_L' = R_c /\!/ R_L$) | $\dfrac{(1+\beta)R_L'}{r_{be}+(1+\beta)R_L'} \approx 1$, in phase ($R_L' = R_e /\!/ R_L$) | $\dfrac{\beta R_L'}{r_{be}}$, large, in phase ($R_L' = R_c /\!/ R_L$) |
 | Current gain $\dot A_i$ | $\beta$ (large) | $1+\beta$ (large) | $\dfrac{\beta}{1+\beta}$ (below 1) |

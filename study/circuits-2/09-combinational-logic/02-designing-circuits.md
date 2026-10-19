@@ -186,7 +186,7 @@ $C = 1$ when it is above 17 °C. Heating: $F = 1$.
 $B = 1$, $C = 0$ (above 20 °C but not above 17 °C) can't happen, day or night. Its
 output is a {{term don't-care | 约束项}}, written ×.
 
-| $A$ | $B$ | $C$ | $F$ | why |
+| A | B | C | F | why |
 |---|---|---|---|---|
 | 0 | 0 | 0 | 1 | day, below 17 °C |
 | 0 | 0 | 1 | 1 | day, 17–20 °C |

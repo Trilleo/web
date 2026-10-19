@@ -172,7 +172,7 @@ success each time adds up to a large chance of succeeding in the end.
 Each shot hits with probability 0.02, independently. In 400 shots, what is the chance of
 at least two hits?
 == Binomial ==
-$$P = \sum_{k=2}^{400} P_{400}(k) = \sum_{k=2}^{400} C_{400}^k\,0.02^k\,0.98^{400-k} = 1 - 0.98^{400} - 400\times0.02\times0.98^{399}.$$
+$$\begin{aligned}P &= \sum_{k=2}^{400} P_{400}(k)\\&= \sum_{k=2}^{400} C_{400}^k\,0.02^k\,0.98^{400-k}\\&= 1 - 0.98^{400} - 400\times0.02\times0.98^{399}.\end{aligned}$$
 == The difficulty ==
 By hand this means powers like $0.98^{399}$ and, for other questions, coefficients like
 $C_{400}^{200}$ — enormous numbers times tiny ones. We need something simpler.
@@ -190,8 +190,8 @@ $$\lim_{n\to\infty} C_n^k\,p^k(1-p)^{n-k} = \frac{\lambda^k}{k!}e^{-\lambda}.$$
 :::
 
 **Proof.** Put $p = \lambda/n$:
-$$P_n(k) = \frac{n!}{k!(n-k)!}\Bigl(\frac\lambda n\Bigr)^k\Bigl(1-\frac\lambda n\Bigr)^{n-k}
-= \frac{\lambda^k}{k!}\cdot\frac{n(n-1)\cdots(n-k+1)}{n^k}\cdot\Bigl(1-\frac\lambda n\Bigr)^{n}\cdot\Bigl(1-\frac\lambda n\Bigr)^{-k}.$$
+$$\begin{aligned}P_n(k) &= \frac{n!}{k!(n-k)!}\Bigl(\frac\lambda n\Bigr)^k\Bigl(1-\frac\lambda n\Bigr)^{n-k}\\
+&= \frac{\lambda^k}{k!}\cdot\frac{n(n-1)\cdots(n-k+1)}{n^k}\cdot\Bigl(1-\frac\lambda n\Bigr)^{n}\cdot\Bigl(1-\frac\lambda n\Bigr)^{-k}.\end{aligned}$$
 Divide each of the $k$ factors $n, n-1, \dots, n-k+1$ by one $n$:
 $$P_n(k) = \frac{\lambda^k}{k!}\Bigl[1\cdot\Bigl(1-\frac1n\Bigr)\cdots\Bigl(1-\frac{k-1}n\Bigr)\Bigr]\Bigl(1-\frac\lambda n\Bigr)^{n}\Bigl(1-\frac\lambda n\Bigr)^{-k}.$$
 Now let $n\to\infty$ with $k$ fixed:

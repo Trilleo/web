@@ -37,7 +37,7 @@ facts in mind: they come back as the axioms.
 
 In class, a coin was tossed 5, 50 and 500 times, seven times over each:
 
-| Run | $n = 5$: $n_H$ | $f$ | $n = 50$: $n_H$ | $f$ | $n = 500$: $n_H$ | $f$ |
+| Run | $n = 5$: heads $n_H$ | frequency $f$ | $n = 50$: heads $n_H$ | frequency $f$ | $n = 500$: heads $n_H$ | frequency $f$ |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | 2 | 0.4 | 22 | 0.44 | 251 | 0.502 |
 | 2 | 3 | 0.6 | 25 | 0.50 | 249 | 0.498 |
@@ -350,7 +350,7 @@ Statistical probability (统计概率) :: The constant the frequency settles nea
 Geometric probability (几何概型) :: $P(A)$ is the measure of $A$ over the measure of $\Omega$ (length, area, volume), all points equally likely.
 Meeting problem: wait 10 min within an hour :: $P = (60^2 - 50^2)/60^2 = 11/36$.
 Kolmogorov's three axioms :: Non-negativity $P(A) \ge 0$; normalisation $P(\Omega) = 1$; countable additivity for pairwise mutually exclusive events.
-$P(\varnothing)$ :: 0
+The impossible event: $P(\varnothing)$ :: 0
 Complement rule :: $P(\overline{A}) = 1 - P(A)$
 Difference rule :: $P(A - B) = P(A\overline{B}) = P(A) - P(AB)$
 If $B \subset A$ :: $P(A - B) = P(A) - P(B)$ and $P(B) \le P(A)$.

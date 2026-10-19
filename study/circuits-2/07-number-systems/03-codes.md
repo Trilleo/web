@@ -170,7 +170,7 @@ the same. The last word and the first also differ in one bit, so it is a cyclic 
 
 The slides' example, going from 3 to 4:
 
-| | 8421 | Gray |
+| Decimal | 8421 | Gray |
 | --- | --- | --- |
 | 3 | 0011 | 0010 |
 | 4 | 0100 | 0110 |
@@ -281,7 +281,7 @@ $d_3d_2d_1d_0$. For example column 100 and row 0001 meet at **A**, so A is $100\
 ($41_H = 65$). The table below is standard ASCII; the characters `$`, `\` and the vertical bar
 are written in words where a table can't show them.
 
-| $d_3d_2d_1d_0$ | 000 | 001 | 010 | 011 | 100 | 101 | 110 | 111 |
+| Low bits $d_3d_2d_1d_0$ | 000 | 001 | 010 | 011 | 100 | 101 | 110 | 111 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0000 | NUL | DLE | space | 0 | @ | P | grave accent | p |
 | 0001 | SOH | DC1 | ! | 1 | A | Q | a | q |

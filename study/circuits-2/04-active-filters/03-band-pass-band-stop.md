@@ -288,7 +288,7 @@ The cutoffs are where the imaginary part of the denominator is $\pm 1$:
 $2(2 - A_{up})\dfrac{ff_0}{f_0^2 - f^2} = \pm 1$, a quadratic in $f/f_0$:
 
 ::: formula Cutoff frequencies of the band-stop filter | 带阻滤波器的通带截止频率
-$$f_{p1} = \left[\sqrt{(2 - A_{up})^2 + 1} - (2 - A_{up})\right]f_0,\qquad f_{p2} = \left[\sqrt{(2 - A_{up})^2 + 1} + (2 - A_{up})\right]f_0$$
+$$\begin{gathered}f_{p1} = \left[\sqrt{(2 - A_{up})^2 + 1} - (2 - A_{up})\right]f_0,\\f_{p2} = \left[\sqrt{(2 - A_{up})^2 + 1} + (2 - A_{up})\right]f_0\end{gathered}$$
 --
 f_{p1} | lower edge of the stopband (passband cutoff) | Hz
 f_{p2} | upper edge of the stopband | Hz
@@ -522,7 +522,7 @@ $U_{o2}$ goes like $s/D(s)$ and $U_{o3}$ like $1/D(s)$: high-pass, band-pass,
 low-pass, with one shared denominator. With $R_1 = R_2 = R_3 = R_4 = R$,
 $R_6 = R_7 = R_0$, $C_1 = C_2 = C_0$, the slides' result is
 
-$$A_{u1}(s) = \frac{(sR_0C_0)^2}{D(s)}\cdot\frac{2R_5}{R + 2R_5},\quad A_{u2}(s) = -\frac{sR_0C_0}{D(s)}\cdot\frac{2R_5}{R + 2R_5},\quad A_{u3}(s) = \frac{1}{D(s)}\cdot\frac{2R_5}{R + 2R_5}$$
+$$\begin{gathered}A_{u1}(s) = \frac{(sR_0C_0)^2}{D(s)}\cdot\frac{2R_5}{R + 2R_5},\\A_{u2}(s) = -\frac{sR_0C_0}{D(s)}\cdot\frac{2R_5}{R + 2R_5},\\A_{u3}(s) = \frac{1}{D(s)}\cdot\frac{2R_5}{R + 2R_5}\end{gathered}$$
 
 with $D(s) = (sR_0C_0)^2 + \dfrac{2R_5}{R + 2R_5}sR_0C_0 + 1$.
 
@@ -578,7 +578,7 @@ gain is set by a resistive negative-feedback network.
 Op-amp computing circuits (运算电路: scaling, summing, integrating…) and active filters
 use the same parts. How do they differ?
 
-| | Computing circuits | Active filters |
+| Aspect | Computing circuits | Active filters |
 | --- | --- | --- |
 | In common | deep negative feedback, op-amp in the linear region; virtual short and open; solved by nodal analysis | the same |
 | Domain | time domain (时域): what operation is done on $u_I(t)$ | frequency domain (频域): what happens to each frequency |

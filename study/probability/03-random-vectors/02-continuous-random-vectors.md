@@ -152,14 +152,14 @@ $(X,Y)$ has $f(x,y)=2e^{-(2x+y)}$ for $x>0,\ y>0$ and 0 elsewhere. Find (1) $F(x
 (2) $P\{Y\le X\}$.
 == (1) Corner in the first quadrant ==
 The quadrant at $(x,y)$ meets the support in the rectangle $0<u\le x,\ 0<v\le y$:
-$$F(x,y)=\int_0^y\!\!\int_0^x2e^{-(2u+v)}\,\d u\,\d v=\int_0^x2e^{-2u}\,\d u\cdot\int_0^ye^{-v}\,\d v=(1-e^{-2x})(1-e^{-y}).$$
+$$\begin{aligned}F(x,y) &= \int_0^y\!\!\int_0^x2e^{-(2u+v)}\,\d u\,\d v\\&= \int_0^x2e^{-2u}\,\d u\cdot\int_0^ye^{-v}\,\d v\\&= (1-e^{-2x})(1-e^{-y}).\end{aligned}$$
 == (1) Corner anywhere else ==
 If $x\le0$ or $y\le0$ the quadrant doesn't reach the first quadrant at all, so $F=0$:
 $$F(x,y)=\begin{cases}(1-e^{-2x})(1-e^{-y}),&x>0,\ y>0\\0,&\text{otherwise.}\end{cases}$$
 == (2) The region ==
 $\{Y\le X\}$ inside the support is the wedge $0<y\le x$ (figure below). For each $x>0$,
 $y$ runs from 0 to $x$:
-$$P\{Y\le X\}=2\int_0^{+\infty}e^{-2x}\Big(\int_0^xe^{-y}\,\d y\Big)\d x=2\int_0^{+\infty}(e^{-2x}-e^{-3x})\,\d x=2\Big(\tfrac12-\tfrac13\Big)=\tfrac13.$$
+$$\begin{aligned}P\{Y\le X\} &= 2\int_0^{+\infty}e^{-2x}\Big(\int_0^xe^{-y}\,\d y\Big)\d x\\&= 2\int_0^{+\infty}(e^{-2x}-e^{-3x})\,\d x\\&= 2\Big(\tfrac12-\tfrac13\Big)\\&= \tfrac13.\end{aligned}$$
 :::
 
 ::: plot Support of 2e^(−(2x+y)) (light) and the wedge 0 < y ≤ x (dark)
@@ -188,7 +188,7 @@ $\int_0^1\int_0^2(x^2+\tfrac13xy)\,\d y\,\d x=\int_0^1(2x^2+\tfrac23x)\,\d x=\tf
 == Use the complement ==
 $\{X+Y\ge1\}$ covers most of the rectangle, an awkward shape; its complement
 $\{X+Y<1\}$ is the small triangle $0\le x\le1,\ 0\le y<1-x$:
-$$P\{X+Y<1\}=\int_0^1\!\!\int_0^{1-x}\Big(x^2+\tfrac13xy\Big)\d y\,\d x=\int_0^1\Big[x^2(1-x)+\tfrac16x(1-x)^2\Big]\d x=\tfrac1{12}+\tfrac1{72}=\tfrac7{72}.$$
+$$\begin{aligned}P\{X+Y<1\} &= \int_0^1\!\!\int_0^{1-x}\Big(x^2+\tfrac13xy\Big)\d y\,\d x\\&= \int_0^1\Big[x^2(1-x)+\tfrac16x(1-x)^2\Big]\d x\\&= \tfrac1{12}+\tfrac1{72}\\&= \tfrac7{72}.\end{aligned}$$
 == Answer ==
 $P\{X+Y\ge1\}=1-\tfrac7{72}=\tfrac{65}{72}$.
 :::
@@ -217,10 +217,10 @@ $$1=\int_0^1\!\!\int_0^xcy(2-x)\,\d y\,\d x=\frac c2\int_0^1(2x^2-x^3)\,\d x=\fr
 so $c=\dfrac{24}{5}$.
 == (2) p_X: vertical lines ==
 For $0\le x\le1$ the vertical line meets the triangle from $y=0$ up to $y=x$:
-$$p_X(x)=\int_0^x\frac{24}5y(2-x)\,\d y=\frac{12}{5}x^2(2-x),\quad0\le x\le1;\qquad p_X(x)=0\text{ otherwise.}$$
+$$\begin{gathered}p_X(x)=\int_0^x\frac{24}5y(2-x)\,\d y=\frac{12}{5}x^2(2-x),\quad0\le x\le1;\\p_X(x)=0\text{ otherwise.}\end{gathered}$$
 == (2) p_Y: horizontal lines ==
 For $0<y\le1$ the horizontal line meets the triangle from the diagonal $x=y$ to the side $x=1$:
-$$p_Y(y)=\int_y^1\frac{24}5y(2-x)\,\d x=\frac{24}5y\Big(\frac32-2y+\frac{y^2}2\Big),\quad0<y\le1;\qquad p_Y(y)=0\text{ otherwise.}$$
+$$\begin{gathered}p_Y(y)=\int_y^1\frac{24}5y(2-x)\,\d x=\frac{24}5y\Big(\frac32-2y+\frac{y^2}2\Big),\quad0<y\le1;\\p_Y(y)=0\text{ otherwise.}\end{gathered}$$
 :::
 
 Slide the vertical line across the triangle: its piece inside always runs from the
@@ -302,7 +302,7 @@ runs between which bounds before integrating.
 ::: cards Continuous random vectors
 Joint density $p(x,y)$ (联合概率密度) :: A function $p\ge0$ with $F(x,y)=\int_{-\infty}^{x}\int_{-\infty}^{y}p(u,v)\,\d v\,\d u$
 Two conditions for a joint density :: $p(x,y)\ge0$ and $\iint_{\R^2}p(x,y)\,\d x\,\d y=1$
-$P\{(X,Y)\in G\}$ :: $\iint_G p(x,y)\,\d x\,\d y$: the volume under the surface $z=p(x,y)$ over $G$
+From the density: $P\{(X,Y)\in G\}$ :: $\iint_G p(x,y)\,\d x\,\d y$: the volume under the surface $z=p(x,y)$ over $G$
 Density from $F(x,y)$ :: $p=\dfrac{\partial^2F}{\partial x\,\partial y}$ where $p$ is continuous
 Marginal density $p_X(x)$ (边缘概率密度) :: $\int_{-\infty}^{+\infty}p(x,y)\,\d y$, along the vertical line at $x$
 Marginal density $p_Y(y)$ :: $\int_{-\infty}^{+\infty}p(x,y)\,\d x$, along the horizontal line at $y$

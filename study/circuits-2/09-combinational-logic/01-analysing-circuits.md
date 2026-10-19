@@ -108,7 +108,7 @@ $$P = \overline{(A+B+C)\,\overline{ABC}} = \overline{A+B+C} + ABC = \overline{A}
 == Truth table ==
 $P = 1$ only in the rows $ABC = 000$ and $ABC = 111$; every other row gives 0.
 
-| $A$ | $B$ | $C$ | $P$ |
+| A | B | C | P |
 |---|---|---|---|
 | 0 | 0 | 0 | 1 |
 | 0 | 0 | 1 | 0 |
@@ -160,7 +160,7 @@ $$F_2 = (A_1B_0) \oplus (A_0B_1), \qquad F_1 = \overline{\overline{A_0B_0}} = A_
 == Truth table ==
 Read $A_1A_0$ and $B_1B_0$ as 2-bit numbers (0 to 3):
 
-| $A_1A_0$ | $B_1B_0$ | $F_4F_3F_2F_1$ | meaning |
+| Number $A_1A_0$ | Number $B_1B_0$ | Product $F_4F_3F_2F_1$ | meaning |
 |---|---|---|---|
 | any | 00 | 0000 | $x \times 0 = 0$ |
 | 00 | any | 0000 | $0 \times y = 0$ |
@@ -217,7 +217,7 @@ Analyse the circuit.
 $$P_1 = A \oplus B \oplus C, \qquad P_2 = \overline{(A \oplus B) \oplus C}$$
 == Truth table ==
 
-| $A$ | $B$ | $C$ | number of 1s | $P_1$ | $P_2$ |
+| A | B | C | number of 1s | Output $P_1$ | Output $P_2$ |
 |---|---|---|---|---|---|
 | 0 | 0 | 0 | 0 | 0 | 1 |
 | 0 | 0 | 1 | 1 | 1 | 0 |

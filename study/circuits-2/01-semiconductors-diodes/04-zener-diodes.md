@@ -301,16 +301,16 @@ coefficient from $U_Z$ (above 7 V positive, below 4 V negative, 4–7 V about ze
 
 ::: cards Zener diodes
 How a Zener diode is connected in a regulator :: Reverse biased: cathode to the positive side, in breakdown.
-$U_Z$ :: The Zener voltage: the reverse voltage at the specified working current.
-$r_Z$ :: $r_Z = \Delta U_Z/\Delta I_Z$ in breakdown; smaller means steeper and better regulation.
-$I_{Zmin}$ :: The current just past the knee; below it the Zener doesn't regulate.
+Zener parameter $U_Z$ :: The Zener voltage: the reverse voltage at the specified working current.
+Zener parameter $r_Z$ :: $r_Z = \Delta U_Z/\Delta I_Z$ in breakdown; smaller means steeper and better regulation.
+Zener parameter $I_{Zmin}$ :: The current just past the knee; below it the Zener doesn't regulate.
 $I_{Zmax}$ from $P_{ZM}$ :: $I_{Zmax} = P_{ZM}/U_Z$
 Temperature coefficient for $U_Z > 7$ V :: Positive (avalanche breakdown).
 Temperature coefficient for $U_Z < 4$ V :: Negative (Zener breakdown).
 Which Zeners make reference diodes? :: About 4–7 V (5–6 V), where the temperature coefficient is close to zero.
 Why the series resistor? :: It takes up $U_I - U_Z$ and turns the Zener's current changes into voltage drops; without it the current is unlimited.
-$R_{min}$ :: $\dfrac{U_{Imax} - U_Z}{I_{Zmax} + I_{Lmin}}$ (keeps $I_Z \le I_{Zmax}$)
-$R_{max}$ :: $\dfrac{U_{Imin} - U_Z}{I_{Zmin} + I_{Lmax}}$ (keeps $I_Z \ge I_{Zmin}$)
+Smallest series resistor $R_{min}$ :: $\dfrac{U_{Imax} - U_Z}{I_{Zmax} + I_{Lmin}}$ (keeps $I_Z \le I_{Zmax}$)
+Largest series resistor $R_{max}$ :: $\dfrac{U_{Imin} - U_Z}{I_{Zmin} + I_{Lmax}}$ (keeps $I_Z \ge I_{Zmin}$)
 Example 2.5.1 answer :: $1.05\ \text{k}\Omega \le R \le 1.5\ \text{k}\Omega$, choose 1.2 kΩ.
 :::
 

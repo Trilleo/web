@@ -206,7 +206,7 @@ $P(D) = \frac14$ but $P(AD) = P(\{HH\}) = \frac14 \ne \frac12\cdot\frac14$, so a
 and $D$ are dependent: $A, B, C, D$ are not even pairwise independent.
 :::
 
-| Outcome | $A$ | $B$ | $C$ | $D$ |
+| Outcome | Event $A$ | Event $B$ | Event $C$ | Event $D$ |
 | ------- | --- | --- | --- | --- |
 | $HH$    | ✓   | ✓   |     | ✓   |
 | $HT$    | ✓   |     | ✓   |     |
@@ -227,7 +227,7 @@ $AB$, union $A\cup B$, difference $A - B$, complements — is independent of $C$
 triple equation and then the pair equation for $A$, $B$.
 
 **For $A\cup B$.** $(A\cup B)C = AC \cup BC$, so by the addition formula
-$$P\bigl((A\cup B)C\bigr) = P(AC) + P(BC) - P(ABC) = \bigl[P(A) + P(B) - P(A)P(B)\bigr]P(C) = P(A\cup B)\,P(C).$$
+$$\begin{aligned}P\bigl((A\cup B)C\bigr) &= P(AC) + P(BC) - P(ABC)\\&= \bigl[P(A) + P(B) - P(A)P(B)\bigr]P(C)\\&= P(A\cup B)\,P(C).\end{aligned}$$
 
 **For $A - B$.** $A - B = A\overline B$, and $A$, $\overline B$, $C$ are still mutually
 independent (complements, below), so $P(A\overline B C) = P(A)P(\overline B)P(C) = P(A\overline B)P(C)$. $\square$
@@ -288,7 +288,7 @@ problem gets solved by at least one of the three?
 $A_i$ = "person $i$ solves it", $P(A_1) = 0.45$, $P(A_2) = 0.55$, $P(A_3) = 0.6$,
 mutually independent.
 == At least one ==
-$$P(A_1\cup A_2\cup A_3) = 1 - P(\overline{A_1}\,\overline{A_2}\,\overline{A_3}) = 1 - P(\overline{A_1})P(\overline{A_2})P(\overline{A_3}) = 1 - 0.55\times0.45\times0.4.$$
+$$\begin{aligned}P(A_1\cup A_2\cup A_3) &= 1 - P(\overline{A_1}\,\overline{A_2}\,\overline{A_3})\\&= 1 - P(\overline{A_1})P(\overline{A_2})P(\overline{A_3})\\&= 1 - 0.55\times0.45\times0.4.\end{aligned}$$
 == Result ==
 $0.55\times0.45\times0.4 = 0.099$, so the probability is $0.901$ — a little better than
 Zhuge Liang's 0.9 on his own. Working together pays.
@@ -352,7 +352,7 @@ $i$ guns hit ($i = 0, 1, 2, 3$), a partition of $\Omega$. $H$: the tank is destr
 == Exactly one hit ==
 $A_1 = A\overline B\,\overline C \cup \overline A B \overline C \cup \overline A\,\overline B C$,
 three mutually exclusive pieces, each a product by independence:
-$$P(A_1) = 0.4\cdot0.5\cdot0.3 + 0.6\cdot0.5\cdot0.3 + 0.6\cdot0.5\cdot0.7 = 0.06 + 0.09 + 0.21 = 0.36.$$
+$$\begin{aligned}P(A_1) &= 0.4\cdot0.5\cdot0.3 + 0.6\cdot0.5\cdot0.3 + 0.6\cdot0.5\cdot0.7\\&= 0.06 + 0.09 + 0.21\\&= 0.36.\end{aligned}$$
 == Two and three hits ==
 $A_2 = AB\overline C \cup A\overline B C \cup \overline A BC$:
 $P(A_2) = 0.4\cdot0.5\cdot0.3 + 0.4\cdot0.5\cdot0.7 + 0.6\cdot0.5\cdot0.7 = 0.06 + 0.14 + 0.21 = 0.41$.
@@ -360,7 +360,7 @@ $P(A_3) = P(ABC) = 0.4\cdot0.5\cdot0.7 = 0.14$. (Check: $P(A_0) = 0.6\cdot0.5\cd
 and $0.09 + 0.36 + 0.41 + 0.14 = 1$.)
 == (1) Total probability ==
 By the law of total probability (Lesson 1.5), with $P(H\mid A_0) = 0$:
-$$P(H) = 0.36\times0.2 + 0.41\times0.6 + 0.14\times1 = 0.072 + 0.246 + 0.14 = 0.458.$$
+$$\begin{aligned}P(H) &= 0.36\times0.2 + 0.41\times0.6 + 0.14\times1\\&= 0.072 + 0.246 + 0.14\\&= 0.458.\end{aligned}$$
 == (2) Bayes ==
 By Bayes' formula (Lesson 1.5):
 $$P(A_2\mid H) = \frac{P(A_2)P(H\mid A_2)}{P(H)} = \frac{0.246}{0.458} \approx 0.537 \approx 0.54.$$

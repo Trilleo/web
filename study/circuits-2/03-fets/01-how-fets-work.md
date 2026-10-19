@@ -443,7 +443,7 @@ sign: $u_{DS} < 0$, the drain current flows *out of* the drain, and the gate vol
 that turn the device on are the opposite sign. Their curves are the N-channel ones
 mirrored (the slides plot them against $-u_{DS}$).
 
-| Type | Symbol | Turn-on voltage | Conducts when | $u_{DS}$ |
+| Type | Symbol | Turn-on voltage | Conducts when | Sign of $u_{DS}$ |
 | --- | --- | --- | --- | --- |
 | N-channel enhancement MOSFET | broken channel, arrow in | $U_{GS(th)} > 0$ (e.g. 2 V) | $u_{GS} > U_{GS(th)}$ | $> 0$ |
 | P-channel enhancement MOSFET | broken channel, arrow out | $U_{GS(th)} < 0$ (e.g. −2 V) | $u_{GS} < U_{GS(th)}$ | $< 0$ |
@@ -596,7 +596,7 @@ Chinese FET part numbers follow one of two schemes:
 
 ## BJTs and FETs compared
 
-| | BJT | FET |
+| Feature | BJT | FET |
 | --- | --- | --- |
 | Types | NPN, PNP | JFET (N, P); enhancement MOSFET (N, P); depletion MOSFET (N, P) |
 | Electrodes | C and E can't be swapped | D and S can usually be swapped |

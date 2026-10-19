@@ -79,7 +79,7 @@ The bivariate normal $N(\mu_1, \mu_2, \sigma_1^2, \sigma_2^2, \rho)$ and its den
 in Lesson 3.3. Its fifth parameter $\rho$ ($-1 < \rho < 1$) measures how strongly $X$ and
 $Y$ move together; Chapter 4 will show it is their correlation coefficient
 ({{term correlation coefficient | 相关系数}}). Recall the two facts we need:
-$$p(x,y) = \frac{1}{2\pi\sigma_1\sigma_2\sqrt{1-\rho^2}} \exp\left\{\frac{-1}{2(1-\rho^2)}\left[\frac{(x-\mu_1)^2}{\sigma_1^2} - \frac{2\rho(x-\mu_1)(y-\mu_2)}{\sigma_1\sigma_2} + \frac{(y-\mu_2)^2}{\sigma_2^2}\right]\right\},$$
+$$\begin{aligned}p(x,y) = \frac{1}{2\pi\sigma_1\sigma_2\sqrt{1-\rho^2}} \exp\biggl\{&\frac{-1}{2(1-\rho^2)}\biggl[\frac{(x-\mu_1)^2}{\sigma_1^2}\\&- \frac{2\rho(x-\mu_1)(y-\mu_2)}{\sigma_1\sigma_2} + \frac{(y-\mu_2)^2}{\sigma_2^2}\biggr]\biggr\},\end{aligned}$$
 and its marginals are normal: $X \sim N(\mu_1, \sigma_1^2)$, $Y \sim N(\mu_2, \sigma_2^2)$.
 
 ::: theorem Independence of a bivariate normal pair | 二维正态分布的独立性
@@ -90,7 +90,7 @@ independent $\iff \rho = 0$.
 ::: example Why independence means ρ = 0
 Prove the theorem by comparing $p(x,y)$ with $p_X(x)p_Y(y)$.
 == Multiply the marginals ==
-$$p_X(x)\,p_Y(y) = \frac{1}{\sqrt{2\pi}\sigma_1}e^{-\frac{(x-\mu_1)^2}{2\sigma_1^2}} \cdot \frac{1}{\sqrt{2\pi}\sigma_2}e^{-\frac{(y-\mu_2)^2}{2\sigma_2^2}} = \frac{1}{2\pi\sigma_1\sigma_2}\exp\left\{-\frac{(x-\mu_1)^2}{2\sigma_1^2} - \frac{(y-\mu_2)^2}{2\sigma_2^2}\right\}.$$
+$$\begin{aligned}p_X(x)\,p_Y(y) &= \frac{1}{\sqrt{2\pi}\sigma_1}e^{-\frac{(x-\mu_1)^2}{2\sigma_1^2}} \cdot \frac{1}{\sqrt{2\pi}\sigma_2}e^{-\frac{(y-\mu_2)^2}{2\sigma_2^2}}\\&= \frac{1}{2\pi\sigma_1\sigma_2}\exp\left\{-\frac{(x-\mu_1)^2}{2\sigma_1^2} - \frac{(y-\mu_2)^2}{2\sigma_2^2}\right\}.\end{aligned}$$
 == If ρ = 0 ==
 Put $\rho = 0$ in $p(x,y)$: $\sqrt{1-\rho^2} = 1$, the cross term vanishes, and $p(x,y)$
 becomes exactly the product above. So $p = p_Xp_Y$: independent.
@@ -137,7 +137,7 @@ $P\{Y = 2\} = 0.6$, $P\{Y = 4\} = 0.4$. Find the joint law of $(X,Y)$.
 $P\{X = x_i, Y = y_j\} = P\{X = x_i\}P\{Y = y_j\}$:
 $0.3 \times 0.6 = 0.18$, $0.3 \times 0.4 = 0.12$, $0.7 \times 0.6 = 0.42$, $0.7 \times 0.4 = 0.28$.
 == The table ==
-| $X \backslash Y$ | 2 | 4 |
+| $X$ \ $Y$ | 2 | 4 |
 | --- | --- | --- |
 | 1 | 0.18 | 0.12 |
 | 3 | 0.42 | 0.28 |
@@ -149,12 +149,12 @@ The cells add up to 1, and each row is proportional to $(0.6, 0.4)$.
 $(X,Y)$ takes the values below. (1) What must $\alpha$ and $\beta$ satisfy? (2) If $X$ and
 $Y$ are independent, find $\alpha$ and $\beta$.
 
-| $(X,Y)$ | (1,1) | (1,2) | (1,3) | (2,1) | (2,2) | (2,3) |
+| Value of $(X,Y)$ | (1,1) | (1,2) | (1,3) | (2,1) | (2,2) | (2,3) |
 | --- | --- | --- | --- | --- | --- | --- |
 | $p_{ij}$ | $\frac16$ | $\frac19$ | $\frac1{18}$ | $\frac13$ | $\alpha$ | $\beta$ |
 
 == Rewrite as a joint table ==
-| $X \backslash Y$ | 1 | 2 | 3 | $p_{i\cdot}$ |
+| $X$ \ $Y$ | 1 | 2 | 3 | Marginal $p_{i\cdot}$ |
 | --- | --- | --- | --- | --- |
 | 1 | $\frac16$ | $\frac19$ | $\frac1{18}$ | $\frac13$ |
 | 2 | $\frac13$ | $\alpha$ | $\beta$ | $\frac13 + \alpha + \beta$ |

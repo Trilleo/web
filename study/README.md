@@ -43,6 +43,21 @@ ship in the site's image. Prefer drawing circuits and graphs with the blocks bel
 
 Inline: `{{term English | 中文}}` (a term, added to the glossary), `{{zh 中文}}`.
 
+Screen readers and axe read maths as an embedded object with no text, so a few places
+need words around it:
+
+- Table header cells: never blank, never only maths. Write `| Quantity | Half-wave |`,
+  `| Input $A_0$ | Sum $S_0$ |`, `| Value of $X$ | 0 | 1 |`, `| Marginal $p_{i\cdot}$ |`.
+  A table whose headers can only be symbols ($x_1$, $\frac1{12}$) is better as a display
+  `\begin{array}{c|ccc} X & x_1 & \cdots \\ \hline p_k & p_1 & \cdots \end{array}`.
+- Flashcard fronts (before ` :: `): not only maths. `Zener parameter $U_Z$`,
+  `$P\{X < a\}$ from $F$`. Changing a front changes the card's ID (and resets its
+  reviews) unless it's pinned with `{#name}`.
+- Display equations should fit the text column on a desktop: break a long chain with
+  `\begin{aligned} … &= … \\ &= … \end{aligned}`, or put separate equations on lines of
+  their own with `\begin{gathered}`. On phones some still scroll sideways; those become
+  keyboard-focusable by themselves.
+
 Blocks (`::: name argument` … `:::`):
 
 | Block                           | What it is                                                           |

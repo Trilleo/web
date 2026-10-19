@@ -165,7 +165,7 @@ $5\cdot T/2$ it's $1 - 1/10$, giving $1.27U_2$. Real diodes and the transformer'
 own resistance pull it down a little more, so the design value is
 $U_{O(AV)} \approx 1.2U_2$.
 
-| Condition (bridge) | $U_{O(AV)}$ |
+| Condition (bridge) | Output $U_{O(AV)}$ |
 | --- | --- |
 | No filter | $0.9\,U_2$ |
 | Capacitor filter, normal load, $R_LC \ge (3\sim5)T/2$ | $\approx 1.2\,U_2$ |
@@ -375,7 +375,7 @@ currents need an inductor with a low winding resistance.
 
 ## Comparing the filters
 
-| | Capacitor filter | Inductor filter |
+| Feature | Capacitor filter | Inductor filter |
 | --- | --- | --- |
 | Connection | $C$ across the load | $L$ in series with the load |
 | $U_{O(AV)}$ | $\approx 1.2U_2$ (up to $\sqrt2U_2$ unloaded) | $\le 0.9U_2$ |

@@ -79,6 +79,11 @@
   overflow-y: hidden;
 }
 
+/* Only overflowing ones are focusable (enhanceScrollableMath). */
+.study .katex-display:focus-visible {
+  outline-offset: 2px;
+}
+
 .study-math {
   margin-block: 1.75rem;
 }

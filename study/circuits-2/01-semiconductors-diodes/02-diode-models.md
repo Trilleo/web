@@ -450,8 +450,8 @@ $U_T$ at room temperature :: $U_T = kT/q \approx 26$ mV
 Turn-on voltage $U_{th}$: Si and Ge :: Si about 0.5 V, Ge about 0.1 V
 Conducting drop: Si and Ge :: Si 0.6–0.8 V (use 0.7 V), Ge 0.1–0.3 V (use 0.2 V)
 Avalanche vs Zener breakdown (Si) :: Avalanche when $|U_{BR}| \ge 7$ V; Zener when $|U_{BR}| \le 4$ V; both in between.
-$U_{RM}$ :: Maximum reverse working voltage, about half of $U_{BR}$.
-$I_F$ :: Maximum rectified current: the largest average forward current.
+Diode rating $U_{RM}$ :: Maximum reverse working voltage, about half of $U_{BR}$.
+Diode rating $I_F$ :: Maximum rectified current: the largest average forward current.
 $f_M$ is set by … :: The junction capacitance.
 Ideal model :: An ideal switch: no drop when on, no current when off.
 Constant-drop model :: Ideal diode in series with $U_D$ (0.7 V for Si).

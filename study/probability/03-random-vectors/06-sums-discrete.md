@@ -28,7 +28,7 @@ that $Z$ equals some value is the total of the cells showing that value.
 ::: example X + Y and |X − Y| from a joint table
 $(X, Y)$ has the joint law below. Find the laws of (1) $X + Y$ and (2) $|X - Y|$.
 
-| $X \backslash Y$ | $-2$ | $-1$ | $0$ |
+| $X$ \ $Y$ | −2 | −1 | 0 |
 | --- | --- | --- | --- |
 | $-1$ | $\frac1{12}$ | $\frac1{12}$ | $\frac3{12}$ |
 | $\frac12$ | $\frac2{12}$ | $\frac1{12}$ | $0$ |
@@ -37,24 +37,26 @@ $(X, Y)$ has the joint law below. Find the laws of (1) $X + Y$ and (2) $|X - Y|$
 == List the points ==
 Drop the zero cells and list the seven possible points, each with $Z$ worked out:
 
-| $P$ | $\frac1{12}$ | $\frac1{12}$ | $\frac14$ | $\frac16$ | $\frac1{12}$ | $\frac16$ | $\frac16$ |
+| Point $(X,Y)$ | (−1, −2) | (−1, −1) | (−1, 0) | (½, −2) | (½, −1) | (3, −2) | (3, 0) |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| $(X,Y)$ | $(-1,-2)$ | $(-1,-1)$ | $(-1,0)$ | $(\frac12,-2)$ | $(\frac12,-1)$ | $(3,-2)$ | $(3,0)$ |
+| $P$ | $\frac1{12}$ | $\frac1{12}$ | $\frac14$ | $\frac16$ | $\frac1{12}$ | $\frac16$ | $\frac16$ |
 | $X+Y$ | $-3$ | $-2$ | $-1$ | $-\frac32$ | $-\frac12$ | $1$ | $3$ |
 | $\vert X-Y\vert$ | $1$ | $0$ | $1$ | $\frac52$ | $\frac32$ | $5$ | $3$ |
 == (1) The law of X + Y ==
 All seven values differ, so each keeps its probability (sorted here):
 
-| $X+Y$ | $-3$ | $-2$ | $-\frac32$ | $-1$ | $-\frac12$ | $1$ | $3$ |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| $P$ | $\frac1{12}$ | $\frac1{12}$ | $\frac16$ | $\frac14$ | $\frac1{12}$ | $\frac16$ | $\frac16$ |
+$$\begin{array}{c|ccccccc}
+X+Y & -3 & -2 & -\frac32 & -1 & -\frac12 & 1 & 3 \\ \hline
+P & \frac1{12} & \frac1{12} & \frac16 & \frac14 & \frac1{12} & \frac16 & \frac16
+\end{array}$$
 == (2) The law of |X − Y| ==
 The value 1 comes from two points, $(-1,-2)$ and $(-1,0)$: add them,
 $\frac1{12} + \frac14 = \frac13$.
 
-| $\vert X-Y\vert$ | $0$ | $1$ | $\frac32$ | $\frac52$ | $3$ | $5$ |
-| --- | --- | --- | --- | --- | --- | --- |
-| $P$ | $\frac1{12}$ | $\frac13$ | $\frac1{12}$ | $\frac16$ | $\frac16$ | $\frac16$ |
+$$\begin{array}{c|cccccc}
+\lvert X-Y\rvert & 0 & 1 & \frac32 & \frac52 & 3 & 5 \\ \hline
+P & \frac1{12} & \frac13 & \frac1{12} & \frac16 & \frac16 & \frac16
+\end{array}$$
 == Check ==
 Both laws add up to 1 (in twelfths: $1+1+2+3+1+2+2 = 12$ and $1+4+1+2+2+2 = 12$).
 :::
@@ -85,14 +87,14 @@ $P\{Y = 2\} = 0.6$, $P\{Y = 4\} = 0.4$. Find the law of $Z = X + Y$.
 == The joint table ==
 By independence $p_{ij} = p_{i\cdot}p_{\cdot j}$:
 
-| $X \backslash Y$ | 2 | 4 |
+| $X$ \ $Y$ | 2 | 4 |
 | --- | --- | --- |
 | 1 | 0.18 | 0.12 |
 | 3 | 0.42 | 0.28 |
 == Values of Z ==
 $(1,2) \to 3$ (0.18), $(1,4) \to 5$ (0.12), $(3,2) \to 5$ (0.42), $(3,4) \to 7$ (0.28).
 == Merge ==
-| $Z = X+Y$ | 3 | 5 | 7 |
+| Value of $Z = X+Y$ | 3 | 5 | 7 |
 | --- | --- | --- | --- |
 | $P$ | 0.18 | 0.54 | 0.28 |
 
@@ -110,7 +112,7 @@ Every cell is $\frac12 \cdot \frac12 = \frac14$.
 $\max = 0$ only at $(0,0)$: $P\{Z = 0\} = \frac14$. $\max = 1$ at $(1,0)$, $(0,1)$, $(1,1)$:
 $P\{Z = 1\} = \frac34$.
 == The law ==
-| $Z$ | 0 | 1 |
+| Value of $Z$ | 0 | 1 |
 | --- | --- | --- |
 | $P$ | $\frac14$ | $\frac34$ |
 

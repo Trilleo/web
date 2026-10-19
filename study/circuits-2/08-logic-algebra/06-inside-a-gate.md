@@ -46,7 +46,7 @@ label Y 8,4
 
 Take $V_{CC} = 5$ V, inputs of 0 V or 5 V, and a silicon diode drop of 0.7 V.
 
-| $u_A$ | $u_B$ | $D_1$ | $D_2$ | $u_Y$ |
+| Input $u_A$ | Input $u_B$ | Diode $D_1$ | Diode $D_2$ | Output $u_Y$ |
 | ----- | ----- | ----- | ----- | ----- |
 | 0 V   | 0 V   | on    | on    | 0.7 V |
 | 0 V   | 5 V   | on    | off   | 0.7 V |
@@ -215,7 +215,7 @@ $T_P$'s source is at $+V_{DD}$, $T_N$'s at ground ($V_{SS}$); their gates are jo
 the input $u_A$ and their drains as the output $u_Y$. Each substrate is tied to its
 source. Take $U_{th(N)} = 2$ V, $U_{th(P)} = -2$ V and $V_{DD} = 5$ V.
 
-| $u_A$    | $u_{GSN}$             | $\lvert u_{GSP} \rvert$          | $T_N$   | $T_P$   | $u_Y$    |
+| Input $u_A$ | NMOS $u_{GSN}$ | PMOS $\lvert u_{GSP} \rvert$ | NMOS $T_N$ | PMOS $T_P$ | Output $u_Y$ |
 | -------- | --------------------- | -------------------------------- | ------- | ------- | -------- |
 | 0 V      | 0 V $< U_{th(N)}$     | 5 V $> \lvert U_{th(P)} \rvert$  | off     | on      | $V_{DD}$ |
 | $V_{DD}$ | 5 V $> U_{th(N)}$     | 0 V $< \lvert U_{th(P)} \rvert$  | on      | off     | 0 V      |
@@ -272,7 +272,7 @@ Input $A$ drives $T_{N1}$ and $T_{P1}$; input $B$ drives $T_{N2}$ and $T_{P2}$ (
 "B" labels are the same input). With $V_{DD} = 10$ V on the slide, a 1 is 10 V and a
 0 is 0 V.
 
-| A   | B   | $T_{N1}$ | $T_{P1}$ | $T_{N2}$ | $T_{P2}$ | Y   |
+| A   | B   | NMOS $T_{N1}$ | PMOS $T_{P1}$ | NMOS $T_{N2}$ | PMOS $T_{P2}$ | Y   |
 | --- | --- | -------- | -------- | -------- | -------- | --- |
 | 0   | 0   | off      | on       | off      | on       | 1   |
 | 0   | 1   | off      | on       | on       | off      | 1   |

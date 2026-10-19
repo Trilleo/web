@@ -64,7 +64,7 @@ P\{Y = y_j \mid X = x_i\} | conditional probability of $Y = y_j$ given $X = x_i$
 $(X, Y)$ has the joint law below. Find the law of $X$ given $Y = 1$, and the law of $Y$
 given $X = 1$.
 
-| $X \backslash Y$ | 0 | 1 | 2 | $p_{i\cdot}$ |
+| $X$ \ $Y$ | 0 | 1 | 2 | Marginal $p_{i\cdot}$ |
 | --- | --- | --- | --- | --- |
 | 0 | 0.1 | 0.2 | 0.1 | 0.4 |
 | 1 | 0.2 | 0.3 | 0.1 | 0.6 |
@@ -94,16 +94,16 @@ pattern, so — whatever $m$ is —
 $$P\{X = m, Y = n\} = p^2 (1-p)^{n-2}, \quad n = 2, 3, \ldots;\ m = 1, 2, \ldots, n-1.$$
 == The marginal of X ==
 Add over every $n > m$ (a geometric series with ratio $1-p$):
-$$P\{X = m\} = \sum_{n=m+1}^{\infty} p^2(1-p)^{n-2} = p^2 \frac{(1-p)^{m-1}}{1 - (1-p)} = p(1-p)^{m-1}, \quad m = 1, 2, \ldots$$
+$$\begin{aligned}P\{X = m\} &= \sum_{n=m+1}^{\infty} p^2(1-p)^{n-2} = p^2 \frac{(1-p)^{m-1}}{1 - (1-p)}\\&= p(1-p)^{m-1}, \quad m = 1, 2, \ldots\end{aligned}$$
 That is the geometric law: of course, $X$ is just "the shot of the first hit".
 == Y given X = m ==
-$$P\{Y = n \mid X = m\} = \frac{p^2(1-p)^{n-2}}{p(1-p)^{m-1}} = p(1-p)^{n-m-1}, \quad n = m+1, m+2, \ldots$$
+$$P\{Y = n \mid X = m\} = \frac{p^2(1-p)^{n-2}}{p(1-p)^{m-1}} = p(1-p)^{n-m-1}, \quad n = m+1, \ldots$$
 After the first hit the wait for the second starts afresh: $Y - m$ is again geometric.
 == The marginal of Y ==
 For fixed $n$ there are $n-1$ choices of $m$, all with the same probability:
 $$P\{Y = n\} = \sum_{m=1}^{n-1} p^2(1-p)^{n-2} = (n-1)\,p^2(1-p)^{n-2}, \quad n = 2, 3, \ldots$$
 == X given Y = n ==
-$$P\{X = m \mid Y = n\} = \frac{p^2(1-p)^{n-2}}{(n-1)p^2(1-p)^{n-2}} = \frac{1}{n-1}, \quad m = 1, 2, \ldots, n-1.$$
+$$\begin{aligned}P\{X = m \mid Y = n\} &= \frac{p^2(1-p)^{n-2}}{(n-1)p^2(1-p)^{n-2}}\\&= \frac{1}{n-1}, \quad m = 1, 2, \ldots, n-1.\end{aligned}$$
 Knowing the second hit came on shot $n$, the first hit is **equally likely** to be any
 of the earlier $n-1$ shots: a uniform law.
 :::
@@ -142,7 +142,7 @@ exists, it is called the **conditional distribution function of $X$ given $Y = y
 
 Now work the limit out when $(X,Y)$ has a joint density $p(x,y)$. Write the conditional
 probability with distribution functions; the terms with $F(-\infty, \cdot) = 0$ drop out:
-$$F_{X|Y}(x|y) = \lim_{\Delta y \to 0^+} \frac{P\{X \le x,\ y - \Delta y < Y \le y + \Delta y\}}{P\{y - \Delta y < Y \le y + \Delta y\}} = \lim_{\Delta y \to 0^+} \frac{F(x, y+\Delta y) - F(x, y-\Delta y)}{F_Y(y+\Delta y) - F_Y(y-\Delta y)}.$$
+$$\begin{aligned}F_{X|Y}(x|y) &= \lim_{\Delta y \to 0^+} \frac{P\{X \le x,\ y - \Delta y < Y \le y + \Delta y\}}{P\{y - \Delta y < Y \le y + \Delta y\}}\\&= \lim_{\Delta y \to 0^+} \frac{F(x, y+\Delta y) - F(x, y-\Delta y)}{F_Y(y+\Delta y) - F_Y(y-\Delta y)}.\end{aligned}$$
 Divide the top and the bottom by $2\Delta y$: both become difference quotients, which
 tend to derivatives in $y$. Since
 $F(x,y) = \int_{-\infty}^{y}\left[\int_{-\infty}^{x} p(u,v)\,\d u\right]\d v$, its

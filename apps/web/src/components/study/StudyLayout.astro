@@ -3,6 +3,7 @@
  * Pages in /study/. The site's header and grid, set like a textbook (styles/
  * study.css): a band with the trail and, inside a subject, its own pages (contents,
  * glossary, formula sheet). No scroll reveals or morphs: only short fades.
+ * Display equations that overflow become tab stops, so the keyboard can scroll them.
  */
 import type { Subject } from "@trilleo/study";
 import "@trilleo/study/katex.css";
@@ -85,4 +86,9 @@ const trail: Crumb[] =
     </div>
     <slot />
   </div>
+  <script>
+    import { enhanceScrollableMath } from "@trilleo/study/client";
+
+    enhanceScrollableMath();
+  </script>
 </BaseLayout>

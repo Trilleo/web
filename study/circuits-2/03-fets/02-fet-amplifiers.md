@@ -603,7 +603,7 @@ RiCG = R / (1 + gm R) | kΩ | CG input resistance R ∥ 1/g_m
 Each FET configuration matches a BJT one: replace $\beta/r_{be}$ by $g_m$ and the base's
 $r_{be}$ by an open circuit.
 
-| | BJT | FET |
+| Quantity | BJT | FET |
 | --- | --- | --- |
 | Gain, CE / CS | $\dot A_u = -\dfrac{\beta R_L'}{r_{be}}$ | $\dot A_u = -g_mR_L'$ |
 | Gain, CC / CD | $\dot A_u = \dfrac{(1+\beta)R_L'}{r_{be} + (1+\beta)R_L'}$ | $\dot A_u = \dfrac{g_mR_L'}{1 + g_mR_L'}$ |

@@ -16,7 +16,7 @@ does. This first lesson covers the step that does the real conversion, the recti
 
 There are two families of regulated supply, and the course meets both:
 
-| | Linear regulated supply {{zh 线性稳压电源}} | Switching regulated supply {{zh 开关稳压电源}} |
+| Feature | Linear regulated supply {{zh 线性稳压电源}} | Switching regulated supply {{zh 开关稳压电源}} |
 | --- | --- | --- |
 | Output | Very steady, small ripple | Larger ripple, more electrical noise |
 | Output current | Fairly small | Large |
@@ -311,7 +311,7 @@ $$S = \frac{4\sqrt2U_2/(3\pi)}{2\sqrt2U_2/\pi} = \frac{2}{3}\approx 0.67$$
 Better than the half-wave's 1.57, but the output is still far from flat. That's why a
 filter always follows.
 
-| | Half-wave | Bridge |
+| Quantity | Half-wave | Bridge |
 | --- | --- | --- |
 | $U_{O(AV)}$ | $0.45\,U_2$ | $0.9\,U_2$ |
 | $S$ | $\pi/2 \approx 1.57$ | $2/3 \approx 0.67$ |

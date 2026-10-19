@@ -100,9 +100,10 @@ written as a table, or as a two-row matrix:
 
 $$X \sim \begin{pmatrix} x_1 & x_2 & \cdots & x_n & \cdots \\ p_1 & p_2 & \cdots & p_n & \cdots \end{pmatrix}$$
 
-| $X$   | $x_1$ | $x_2$ | $\cdots$ | $x_n$ | $\cdots$ |
-| ----- | ----- | ----- | -------- | ----- | -------- |
-| $p_k$ | $p_1$ | $p_2$ | $\cdots$ | $p_n$ | $\cdots$ |
+$$\begin{array}{c|ccccc}
+X & x_1 & x_2 & \cdots & x_n & \cdots \\ \hline
+p_k & p_1 & p_2 & \cdots & p_n & \cdots
+\end{array}$$
 
 ::: example Drawing balls until a red one (例1)
 A bag holds 10 balls: 7 red and 3 white. Draw one at a time until you get a red ball;
@@ -111,9 +112,9 @@ replacement.
 == Without replacement ==
 There are only 3 white balls, so $X \in \{1, 2, 3, 4\}$. $X = k$ means $k - 1$ whites,
 then a red (multiplication rule, Lesson 1.4):
-$$P\{X=1\} = \tfrac{7}{10},\quad P\{X=2\} = \tfrac{3}{10}\cdot\tfrac{7}{9} = \tfrac{7}{30},\quad P\{X=3\} = \tfrac{3}{10}\cdot\tfrac{2}{9}\cdot\tfrac{7}{8} = \tfrac{7}{120},\quad P\{X=4\} = \tfrac{3}{10}\cdot\tfrac{2}{9}\cdot\tfrac{1}{8}\cdot 1 = \tfrac{1}{120}.$$
+$$\begin{gathered}P\{X=1\} = \tfrac{7}{10},\\P\{X=2\} = \tfrac{3}{10}\cdot\tfrac{7}{9} = \tfrac{7}{30},\\P\{X=3\} = \tfrac{3}{10}\cdot\tfrac{2}{9}\cdot\tfrac{7}{8} = \tfrac{7}{120},\\P\{X=4\} = \tfrac{3}{10}\cdot\tfrac{2}{9}\cdot\tfrac{1}{8}\cdot 1 = \tfrac{1}{120}.\end{gathered}$$
 
-| $X$   | 1                | 2                | 3                 | 4                 |
+| Value of $X$ | 1                | 2                | 3                 | 4                 |
 | ----- | ---------------- | ---------------- | ----------------- | ----------------- |
 | $p_k$ | $\frac{7}{10}$ | $\frac{7}{30}$ | $\frac{7}{120}$ | $\frac{1}{120}$ |
 
@@ -134,7 +135,7 @@ Find both laws.
 $X = 0$: the first light is red. $X = 1$: green, then red. $X = 2$: green, green, red.
 $X = 3$: all three green.
 
-| $X$   | 0             | 1             | 2             | 3             |
+| Value of $X$ | 0             | 1             | 2             | 3             |
 | ----- | ------------- | ------------- | ------------- | ------------- |
 | $p_k$ | $\frac{1}{2}$ | $\frac{1}{4}$ | $\frac{1}{8}$ | $\frac{1}{8}$ |
 
@@ -191,7 +192,7 @@ p | probability of the value 1 ("success") |
 k | the value, 0 or 1 |
 :::
 
-| $X$   | 0       | 1   |
+| Value of $X$ | 0       | 1   |
 | ----- | ------- | --- |
 | $p_k$ | $1 - p$ | $p$ |
 

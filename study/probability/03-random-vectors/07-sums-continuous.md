@@ -138,7 +138,7 @@ f(z) = max(0, e^(-z) (e^(min(z, 1)) - 1))
 
 The lecture then asked for the density of $Z = 2X + Y$ with the same $X$ and $Y$. The
 convolution formula doesn't apply (not a plain sum), so use the distribution function:
-$$F_Z(z) = P\{2X + Y \le z\} = \iint_{y \le z - 2x} f(x,y)\,\d x\,\d y, \qquad f(x,y) = e^{-y}\ \ (0 \le x \le 1,\ y > 0).$$
+$$\begin{gathered}F_Z(z) = P\{2X + Y \le z\} = \iint_{y \le z - 2x} f(x,y)\,\d x\,\d y,\\f(x,y) = e^{-y}\ \ (0 \le x \le 1,\ y > 0).\end{gathered}$$
 The line $y = z - 2x$ is steeper now, crossing the $x$-axis at $x = z/2$, so the cases
 split at $z = 2$ instead of $z = 1$.
 
@@ -222,7 +222,7 @@ The line is on or above $y = x$, so the half-plane misses the triangle: $F_Z(z) 
 == 0 < z ≤ 1 ==
 Only the small triangle below the line, with corners $(z,0)$, $(1,0)$, $(1,1-z)$, is
 left out. Subtract it:
-$$F_Z(z) = 1 - \int_z^1 \left[\int_0^{x-z} 3x\,\d y\right]\d x = 1 - \int_z^1 3x(x - z)\,\d x = 1 - \left(1 - \tfrac32 z + \tfrac12 z^3\right) = \tfrac32 z - \tfrac12 z^3.$$
+$$\begin{aligned}F_Z(z) &= 1 - \int_z^1 \left[\int_0^{x-z} 3x\,\d y\right]\d x\\&= 1 - \int_z^1 3x(x - z)\,\d x\\&= 1 - \left(1 - \tfrac32 z + \tfrac12 z^3\right)\\&= \tfrac32 z - \tfrac12 z^3.\end{aligned}$$
 == z > 1 ==
 The line crosses the $x$-axis beyond $x = 1$; the whole triangle is above it:
 $F_Z(z) = 1$.

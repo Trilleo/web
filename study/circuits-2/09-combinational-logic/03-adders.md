@@ -24,7 +24,7 @@ A circuit that adds two 1-bit numbers, the augend (被加数) $A_0$ and the adde
 $B_0$, and outputs their sum (和) $S_0$ and carry (进位) $C_0$. It has no carry input.
 :::
 
-| $A_0$ | $B_0$ | $C_0$ | $S_0$ |
+| Input $A_0$ | Input $B_0$ | Carry $C_0$ | Sum $S_0$ |
 |---|---|---|---|
 | 0 | 0 | 0 | 0 |
 | 0 | 1 | 0 | 1 |
@@ -67,7 +67,7 @@ $C_{i-1}$ (来自低位的进位), and outputs the sum $S_i$ and the carry to th
 (向高位的进位).
 :::
 
-| $A_i$ | $B_i$ | $C_{i-1}$ | $C_i$ | $S_i$ |
+| Input $A_i$ | Input $B_i$ | Carry in $C_{i-1}$ | Carry out $C_i$ | Sum $S_i$ |
 |---|---|---|---|---|
 | 0 | 0 | 0 | 0 | 0 |
 | 0 | 0 | 1 | 0 | 1 |
@@ -109,8 +109,8 @@ odd number of 1s. The carry is the majority function from the voter: 1 when at l
 two inputs are 1.
 
 ::: formula Full adder | 全加器
-$$S_i = \textstyle\sum m(1,2,4,7) = A_i \oplus B_i \oplus C_{i-1}$$
-$$C_i = \textstyle\sum m(3,5,6,7) = A_iB_i + A_iC_{i-1} + B_iC_{i-1} = A_iB_i + (A_i \oplus B_i)C_{i-1}$$
+$$\begin{aligned}S_i &= \textstyle\sum m(1,2,4,7)\\&= A_i \oplus B_i \oplus C_{i-1}\end{aligned}$$
+$$\begin{aligned}C_i &= \textstyle\sum m(3,5,6,7)\\&= A_iB_i + A_iC_{i-1} + B_iC_{i-1}\\&= A_iB_i + (A_i \oplus B_i)C_{i-1}\end{aligned}$$
 --
 A_i, B_i | the two numbers' bits in column $i$ |
 C_{i-1} | carry in, from column $i-1$ |
@@ -204,7 +204,7 @@ To see how (this goes a little beyond the slide), call $G_i = A_iB_i$ the column
 (it passes an incoming carry on). The full adder's carry is $C_{i+1} = G_i + P_iC_i$,
 and substituting each into the next gives
 
-$$C_1 = G_0 + P_0C_0,\quad C_2 = G_1 + P_1G_0 + P_1P_0C_0,\quad C_3 = G_2 + P_2G_1 + P_2P_1G_0 + P_2P_1P_0C_0 .$$
+$$\begin{gathered}C_1 = G_0 + P_0C_0,\\C_2 = G_1 + P_1G_0 + P_1P_0C_0,\\C_3 = G_2 + P_2G_1 + P_2P_1G_0 + P_2P_1P_0C_0 .\end{gathered}$$
 
 Each is a two-level AND-OR of signals available straight away: no rippling. The
 **74LS283** is a 4-bit adder built like this: inputs $A_3 \dots A_0$, $B_3 \dots B_0$ and

@@ -227,7 +227,7 @@ The table only lists $x \ge 0$; for negative arguments use $\Phi(-x) = 1 - \Phi(
 give $x$ to one decimal, columns the second decimal. To find $\Phi(1.25)$, go to row
 $1.2$ and column $0.05$: $0.8944$. A few rows of the table:
 
-| $x$ | 0.00 | 0.01 | 0.02 | 0.03 | 0.04 | 0.05 | 0.06 | 0.07 | 0.08 | 0.09 |
+| Row $x$ | 0.00 | 0.01 | 0.02 | 0.03 | 0.04 | 0.05 | 0.06 | 0.07 | 0.08 | 0.09 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0.5 | 0.6915 | 0.6950 | 0.6985 | 0.7019 | 0.7054 | 0.7088 | 0.7123 | 0.7157 | 0.7190 | 0.7224 |
 | 1.0 | 0.8413 | 0.8438 | 0.8461 | 0.8485 | 0.8508 | 0.8531 | 0.8554 | 0.8577 | 0.8599 | 0.8621 |
@@ -293,7 +293,7 @@ $X \sim N(1, 2^2)$. Find $P\{0 < X \le 3\}$.
 == Standardise ==
 $\mu = 1$, $\sigma = 2$: the ends become $\frac{0-1}{2} = -0.5$ and $\frac{3-1}{2} = 1$.
 == Use Φ ==
-$$P\{0 < X \le 3\} = \Phi(1) - \Phi(-0.5) = \Phi(1) - [1 - \Phi(0.5)] = 0.8413 - 0.3085 = 0.5328.$$
+$$\begin{aligned}P\{0 < X \le 3\} &= \Phi(1) - \Phi(-0.5)\\&= \Phi(1) - [1 - \Phi(0.5)]\\&= 0.8413 - 0.3085\\&= 0.5328.\end{aligned}$$
 :::
 
 ## The k-sigma probabilities and the 3σ rule
@@ -305,7 +305,7 @@ normal distribution.
 ::: example Example 2: within kσ of the centre
 $X \sim N(\mu, \sigma^2)$. Find $P\{|X - \mu| < k\sigma\}$ for $k = 1, 2, 3$.
 == Standardise ==
-$$P\{|X-\mu| < k\sigma\} = P\left\{\left|\frac{X-\mu}{\sigma}\right| < k\right\} = P\left\{-k < \frac{X-\mu}{\sigma} < k\right\} = \Phi(k) - \Phi(-k).$$
+$$\begin{aligned}P\{|X-\mu| < k\sigma\} &= P\left\{\left|\frac{X-\mu}{\sigma}\right| < k\right\}\\&= P\left\{-k < \frac{X-\mu}{\sigma} < k\right\}\\&= \Phi(k) - \Phi(-k).\end{aligned}$$
 == Use symmetry ==
 $\Phi(-k) = 1 - \Phi(k)$, so the probability is $2\Phi(k) - 1$.
 == The numbers ==
@@ -368,7 +368,7 @@ The lifetime $X$ (in hours) of a kind of component has $X \sim N(300, 25^2)$.
 two of them last more than 250 hours.
 == (1) Standardise ==
 $\mu = 300$, $\sigma = 25$:
-$$P\{X > 250\} = 1 - P\{X \le 250\} = 1 - P\left\{\frac{X-300}{25} \le \frac{250-300}{25}\right\} = 1 - \Phi(-2).$$
+$$\begin{aligned}P\{X > 250\} &= 1 - P\{X \le 250\}\\&= 1 - P\left\{\frac{X-300}{25} \le \frac{250-300}{25}\right\}\\&= 1 - \Phi(-2).\end{aligned}$$
 == (1) Use symmetry ==
 $1 - \Phi(-2) = \Phi(2) = 0.9772$.
 == (2) Count successes ==
@@ -376,7 +376,7 @@ Let $Y$ be the number of the three that last more than 250 h. "A large batch" me
 three behave like independent trials, each a success with probability $0.9772$, so
 $Y \sim B(3, 0.9772)$ (the binomial distribution, Lesson 2.1).
 == (2) At least two ==
-$$P\{Y \ge 2\} = C_3^2 (0.9772)^2 (0.0228) + C_3^3 (0.9772)^3 \approx 0.0653 + 0.9332 = 0.9985.$$
+$$\begin{aligned}P\{Y \ge 2\} &= C_3^2 (0.9772)^2 (0.0228) + C_3^3 (0.9772)^3\\&\approx 0.0653 + 0.9332\\&= 0.9985.\end{aligned}$$
 :::
 
 ::: example Example 4: from one interval to another
@@ -384,7 +384,7 @@ $X \sim N(2, \sigma^2)$ and $P\{2 < X < 4\} = 0.3$. Find $P\{X < 0\}$.
 == Method 1: algebra ==
 Standardise both:
 $$P\{X < 0\} = \Phi\left(\frac{0-2}{\sigma}\right) = 1 - \Phi\left(\frac{2}{\sigma}\right),$$
-$$P\{2 < X < 4\} = \Phi\left(\frac{4-2}{\sigma}\right) - \Phi\left(\frac{2-2}{\sigma}\right) = \Phi\left(\frac2\sigma\right) - \Phi(0) = \Phi\left(\frac2\sigma\right) - \frac12 = 0.3.$$
+$$\begin{aligned}P\{2 < X < 4\} &= \Phi\left(\frac{4-2}{\sigma}\right) - \Phi\left(\frac{2-2}{\sigma}\right)\\&= \Phi\left(\frac2\sigma\right) - \Phi(0)\\&= \Phi\left(\frac2\sigma\right) - \frac12\\&= 0.3.\end{aligned}$$
 So $\Phi(2/\sigma) = 0.8$ and $P\{X < 0\} = 1 - 0.8 = 0.2$. We never needed $\sigma$
 itself (it is about 2.38).
 == Method 2: picture ==

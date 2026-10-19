@@ -292,7 +292,7 @@ Draw 1: $b$ white out of $b+r$. After a white, the urn has $b+c$ white out of
 $b+r+c$. After a second white, it has $r$ red out of $b+r+2c$. After a red, $r+c$ red
 out of $b+r+3c$.
 == Multiply ==
-$$P(W_1W_2R_3R_4)=P(W_1)P(W_2\mid W_1)P(R_3\mid W_1W_2)P(R_4\mid W_1W_2R_3)=\frac{b}{b+r}\cdot\frac{b+c}{b+r+c}\cdot\frac{r}{b+r+2c}\cdot\frac{r+c}{b+r+3c}.$$
+$$\begin{aligned}P(W_1W_2R_3R_4) &= P(W_1)P(W_2\mid W_1)P(R_3\mid W_1W_2)P(R_4\mid W_1W_2R_3)\\&= \frac{b}{b+r}\cdot\frac{b+c}{b+r+c}\cdot\frac{r}{b+r+2c}\cdot\frac{r+c}{b+r+3c}.\end{aligned}$$
 == With numbers ==
 For $b=3$, $r=2$, $c=1$:
 $\dfrac35\cdot\dfrac46\cdot\dfrac27\cdot\dfrac38=\dfrac{3}{70}\approx0.0429$.

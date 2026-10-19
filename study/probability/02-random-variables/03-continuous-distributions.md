@@ -184,7 +184,7 @@ $F$ must be continuous, so the middle piece must meet 0 at $x = -a$ and 1 at $x 
 $$A + B\arcsin(-1) = A - \tfrac\pi2 B = 0, \qquad A + B\arcsin 1 = A + \tfrac\pi2 B = 1.$$
 Adding: $2A = 1$, $A = \frac12$; then $B = \frac1\pi$.
 == (2) An interval ==
-$$P\{-a < X < \tfrac a2\} = F(\tfrac a2) - F(-a) = \frac12 + \frac1\pi\arcsin\frac12 - 0 = \frac12 + \frac1\pi \cdot \frac\pi6 = \frac23 .$$
+$$\begin{aligned}P\{-a < X < \tfrac a2\} &= F(\tfrac a2) - F(-a)\\&= \frac12 + \frac1\pi\arcsin\frac12 - 0\\&= \frac12 + \frac1\pi \cdot \frac\pi6\\&= \frac23 .\end{aligned}$$
 == (3) Differentiate ==
 $$p(x) = F'(x) = \begin{cases} \dfrac{1}{\pi\sqrt{a^2 - x^2}}, & -a < x < a, \\ 0, & \text{otherwise}. \end{cases}$$
 :::
@@ -375,7 +375,7 @@ works another 6 h without failure.
 $F(t) = 1 - e^{-\beta t}$ for $t > 0$ (0 otherwise), so $P\{T \ge t\} = e^{-\beta t}$.
 == The conditional probability ==
 "Another 6 h after 8 h" is $T \ge 14$ given $T \ge 8$:
-$$P\{T \ge 14 \mid T \ge 8\} = \frac{P\{T \ge 14, T \ge 8\}}{P\{T \ge 8\}} = \frac{P\{T \ge 14\}}{P\{T \ge 8\}} = \frac{1 - F(14)}{1 - F(8)} = \frac{e^{-14\beta}}{e^{-8\beta}} = e^{-6\beta}.$$
+$$\begin{aligned}P\{T \ge 14 \mid T \ge 8\} &= \frac{P\{T \ge 14, T \ge 8\}}{P\{T \ge 8\}}\\&= \frac{P\{T \ge 14\}}{P\{T \ge 8\}}\\&= \frac{1 - F(14)}{1 - F(8)}\\&= \frac{e^{-14\beta}}{e^{-8\beta}}\\&= e^{-6\beta}.\end{aligned}$$
 == Compare ==
 $e^{-6\beta} = P\{T \ge 6\}$: the 8 hours already worked make no difference.
 :::
@@ -392,7 +392,7 @@ they are the same parameter.
 $X$ is exponential with parameter $\frac19$. Find $P\{3 < X < 9\}$.
 == Use F ==
 $F(x) = 1 - e^{-x/9}$ for $x > 0$. End points don't matter, so
-$$P\{3 < X < 9\} = F(9) - F(3) = (1 - e^{-1}) - (1 - e^{-1/3}) = e^{-1/3} - e^{-1} = \frac{1}{\sqrt[3]{e}} - \frac1e \approx 0.3487.$$
+$$\begin{aligned}P\{3 < X < 9\} &= F(9) - F(3)\\&= (1 - e^{-1}) - (1 - e^{-1/3})\\&= e^{-1/3} - e^{-1}\\&= \frac{1}{\sqrt[3]{e}} - \frac1e\\&\approx 0.3487.\end{aligned}$$
 == The wrong options ==
 $F(\frac99) - F(\frac39)$ puts the wrong numbers into $F$; $\frac19(e^{-1/3} - e^{-1})$ has
 an extra factor $\frac19$; $\int_3^9 e^{-x/9}\,\mathrm{d}x$ forgets the factor $\frac19$ in
@@ -408,7 +408,7 @@ $P\{X = a\}$ for a continuous $X$ :: 0, so end points of intervals don't matter
 Does $P\{X = a\} = 0$ mean $\{X = a\}$ is impossible? :: No: impossible implies probability 0, not the other way round
 Can a density be bigger than 1? :: Yes (e.g. $U[0, 0.5]$ has density 2); only areas are probabilities
 Is $F$ of a continuous variable continuous? Is $p$? :: $F$ always; $p$ may have finitely many jumps
-$p(x)\,\Delta x$ :: $\approx P\{x < X \le x + \Delta x\}$, the continuous counterpart of $p_k$
+What $p(x)\,\Delta x$ means :: $\approx P\{x < X \le x + \Delta x\}$, the continuous counterpart of $p_k$
 Uniform $U[a, b]$ density and $F$ :: $\frac{1}{b-a}$ on $[a, b]$; $F(x) = \frac{x-a}{b-a}$ for $a \le x < b$
 Exponential $E(\beta)$ density and $F$ :: $\beta e^{-\beta x}$ and $1 - e^{-\beta x}$ for $x > 0$, both 0 for $x \le 0$
 Memorylessness :: $P\{X > s + t \mid X > s\} = P\{X > t\}$ for $X \sim E(\beta)$: "forever young"

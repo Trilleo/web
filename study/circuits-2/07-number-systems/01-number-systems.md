@@ -160,7 +160,7 @@ and uneconomical.
 {{term Binary | 二进制}} uses only 0 and 1, base 2, letter **B** (Binary) or subscript 2.
 It carries at two: $1 + 1 = 10$ ("one zero", which is two). Position $i$ has weight $2^i$:
 
-$$(101.11)_B = 1\times2^2 + 0\times2^1 + 1\times2^0 + 1\times2^{-1} + 1\times2^{-2} = 4 + 1 + 0.5 + 0.25 = (5.75)_D$$
+$$\begin{aligned}(101.11)_B &= 1\times2^2 + 0\times2^1 + 1\times2^0 + 1\times2^{-1} + 1\times2^{-2}\\&= 4 + 1 + 0.5 + 0.25\\&= (5.75)_D\end{aligned}$$
 
 A binary digit is a {{term bit | 位}} (binary digit). Binary is what circuits use: a
 transistor that is either fully on or fully off, a voltage that is either high or low,
@@ -171,7 +171,7 @@ gives exactly two states, which is easy to build and hard to confuse.
 {{term Octal | 八进制}} uses 0–7, base 8, letter **O** (Octal) or subscript 8. It
 carries at eight: $7 + 1 = 10$. Weights are $8^i$:
 
-$$(207.04)_O = 2\times8^2 + 0\times8^1 + 7\times8^0 + 0\times8^{-1} + 4\times8^{-2} = 128 + 7 + \tfrac{4}{64} = (135.0625)_D$$
+$$\begin{aligned}(207.04)_O &= 2\times8^2 + 0\times8^1 + 7\times8^0 + 0\times8^{-1} + 4\times8^{-2}\\&= 128 + 7 + \tfrac{4}{64}\\&= (135.0625)_D\end{aligned}$$
 
 ### Hexadecimal
 
@@ -180,7 +180,7 @@ letters A–F for ten to fifteen: A = 10, B = 11, C = 12, D = 13, E = 14, F = 15
 letter **H** (Hexadecimal) or subscript 16. It carries at sixteen: $F + 1 = 10$.
 Weights are $16^i$:
 
-$$(2A.7F)_H = 2\times16^1 + 10\times16^0 + 7\times16^{-1} + 15\times16^{-2} = 32 + 10 + 0.4375 + 0.05859375 = (42.49609375)_D$$
+$$\begin{aligned}(2A.7F)_H &= 2\times16^1 + 10\times16^0 + 7\times16^{-1} + 15\times16^{-2}\\&= 32 + 10 + 0.4375 + 0.05859375\\&= (42.49609375)_D\end{aligned}$$
 
 ::: callout note Rounding on the slide
 The slide prints $(2A.7F)_H = (42.4960937)_D$, cutting off the last digit. The exact value

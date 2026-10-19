@@ -41,15 +41,17 @@ the same image). So you copy the table.
 ::: theorem Distribution of a function of a discrete random variable | 离散型随机变量函数的分布
 If $X$ has the distribution law
 
-| $X$ | $x_1$ | $x_2$ | $\cdots$ | $x_k$ | $\cdots$ |
-| --- | --- | --- | --- | --- | --- |
-| $p_k$ | $p_1$ | $p_2$ | $\cdots$ | $p_k$ | $\cdots$ |
+$$\begin{array}{c|ccccc}
+X & x_1 & x_2 & \cdots & x_k & \cdots \\ \hline
+p_k & p_1 & p_2 & \cdots & p_k & \cdots
+\end{array}$$
 
 then $Y = g(X)$ has the distribution law
 
-| $Y = g(X)$ | $g(x_1)$ | $g(x_2)$ | $\cdots$ | $g(x_k)$ | $\cdots$ |
-| --- | --- | --- | --- | --- | --- |
-| $p_k$ | $p_1$ | $p_2$ | $\cdots$ | $p_k$ | $\cdots$ |
+$$\begin{array}{c|ccccc}
+Y = g(X) & g(x_1) & g(x_2) & \cdots & g(x_k) & \cdots \\ \hline
+p_k & p_1 & p_2 & \cdots & p_k & \cdots
+\end{array}$$
 
 If some of the $g(x_k)$ are equal, add up their probabilities $p_k$ and list the value
 once.
@@ -58,7 +60,7 @@ once.
 ::: example Example 1: a linear and a square function
 $X$ has the distribution law
 
-| $X$ | $-1$ | $0$ | $1$ | $2$ |
+| Value of $X$ | −1 | 0 | 1 | 2 |
 | --- | --- | --- | --- | --- |
 | $P$ | 0.1 | 0.2 | 0.3 | 0.4 |
 
@@ -67,14 +69,14 @@ Find the distribution laws of (1) $Y_1 = 2X + 1$ and (2) $Y_2 = 2X^2$.
 $2(-1)+1 = -1$, $2(0)+1 = 1$, $2(1)+1 = 3$, $2(2)+1 = 5$. All different, so the
 probabilities carry over unchanged:
 
-| $Y_1$ | $-1$ | $1$ | $3$ | $5$ |
+| Value of $Y_1$ | −1 | 1 | 3 | 5 |
 | --- | --- | --- | --- | --- |
 | $P$ | 0.1 | 0.2 | 0.3 | 0.4 |
 == (2) Apply g, then merge ==
 $2X^2$ gives $2, 0, 2, 8$. The values $X = -1$ and $X = 1$ both give $Y_2 = 2$, so
 $P\{Y_2 = 2\} = P\{X = -1\} + P\{X = 1\} = 0.1 + 0.3 = 0.4$:
 
-| $Y_2$ | $0$ | $2$ | $8$ |
+| Value of $Y_2$ | 0 | 2 | 8 |
 | --- | --- | --- | --- |
 | $P$ | 0.2 | 0.4 | 0.4 |
 
@@ -150,9 +152,9 @@ $F_Y(y) = P\{aX + b \le y\} = P\{aX \le y - b\}$. Dividing by $a$ keeps the ineq
 when $a > 0$ and flips it when $a < 0$, so take the two cases separately. Here $Y$ can take
 every real value, so there is no range restriction.
 == Case a > 0 ==
-$$F_Y(y) = P\left\{X \le \frac{y-b}{a}\right\} = F_X\!\left(\frac{y-b}{a}\right), \qquad f_Y(y) = \frac1a f_X\!\left(\frac{y-b}{a}\right) = \frac{1}{\sqrt{2\pi}\,a\sigma}e^{-\frac{[y-(b+a\mu)]^2}{2(a\sigma)^2}}.$$
+$$\begin{gathered}F_Y(y) = P\left\{X \le \frac{y-b}{a}\right\} = F_X\!\left(\frac{y-b}{a}\right),\\f_Y(y) = \frac1a f_X\!\left(\frac{y-b}{a}\right) = \frac{1}{\sqrt{2\pi}\,a\sigma}e^{-\frac{[y-(b+a\mu)]^2}{2(a\sigma)^2}}.\end{gathered}$$
 == Case a < 0 ==
-$$F_Y(y) = P\left\{X \ge \frac{y-b}{a}\right\} = 1 - F_X\!\left(\frac{y-b}{a}\right), \qquad f_Y(y) = -\frac1a f_X\!\left(\frac{y-b}{a}\right) = -\frac{1}{\sqrt{2\pi}\,a\sigma}e^{-\frac{[y-(b+a\mu)]^2}{2(a\sigma)^2}}.$$
+$$\begin{gathered}F_Y(y) = P\left\{X \ge \frac{y-b}{a}\right\} = 1 - F_X\!\left(\frac{y-b}{a}\right),\\f_Y(y) = -\frac1a f_X\!\left(\frac{y-b}{a}\right) = -\frac{1}{\sqrt{2\pi}\,a\sigma}e^{-\frac{[y-(b+a\mu)]^2}{2(a\sigma)^2}}.\end{gathered}$$
 ($P\{X = c\} = 0$, so $\ge$ or $>$ makes no difference.) Since $a < 0$, $-\frac1a = \frac{1}{|a|}$
 is positive, as a density must be.
 == Simplify the exponent ==
@@ -202,10 +204,10 @@ $X$ has density $f(x) = 2e^{-2x}$ for $x > 0$, and $0$ for $x \le 0$. For $x > 0
 $e^{-2x} \in (0,1)$, so $y = 1 - e^{-2x} \in (0, 1)$. Hence $f_Y(y) = 0$ outside $(0,1)$.
 == Distribution function ==
 For $y \in (0,1)$:
-$$F_Y(y) = P\{1 - e^{-2X} \le y\} = P\{e^{-2X} \ge 1 - y\} = P\left\{X \le -\tfrac12\ln(1-y)\right\} = F_X\!\left(-\tfrac12\ln(1-y)\right).$$
+$$\begin{aligned}F_Y(y) &= P\{1 - e^{-2X} \le y\}\\&= P\{e^{-2X} \ge 1 - y\}\\&= P\left\{X \le -\tfrac12\ln(1-y)\right\}\\&= F_X\!\left(-\tfrac12\ln(1-y)\right).\end{aligned}$$
 (Taking logarithms: $-2X \ge \ln(1-y)$, then divide by $-2$, which flips the inequality.)
 == Differentiate ==
-$$f_Y(y) = f_X\!\left(-\tfrac12\ln(1-y)\right)\cdot\frac{1}{2(1-y)} = 2e^{\ln(1-y)}\cdot\frac{1}{2(1-y)} = 2(1-y)\cdot\frac{1}{2(1-y)} = 1.$$
+$$\begin{aligned}f_Y(y) &= f_X\!\left(-\tfrac12\ln(1-y)\right)\cdot\frac{1}{2(1-y)}\\&= 2e^{\ln(1-y)}\cdot\frac{1}{2(1-y)}\\&= 2(1-y)\cdot\frac{1}{2(1-y)}\\&= 1.\end{aligned}$$
 So $f_Y(y) = 1$ for $0 < y < 1$ and $0$ otherwise: $Y \sim U(0,1)$.
 :::
 
@@ -223,10 +225,10 @@ For $x \in (0, \pi)$, $\sin x \in (0, 1]$; so $f_Y(y) = 0$ outside $(0, 1)$.
 == Solve sin X ≤ y ==
 For $y \in (0,1)$, $\sin x \le y$ near **both ends** of $(0, \pi)$: $0 < x \le \arcsin y$, or
 $\pi - \arcsin y \le x < \pi$ (see the figure). So
-$$F_Y(y) = P\{0 < X \le \arcsin y\} + P\{\pi - \arcsin y \le X < \pi\} = F_X(\arcsin y) - F_X(0) + F_X(\pi) - F_X(\pi - \arcsin y).$$
+$$\begin{aligned}F_Y(y) &= P\{0 < X \le \arcsin y\} + P\{\pi - \arcsin y \le X < \pi\}\\&= F_X(\arcsin y) - F_X(0) + F_X(\pi) - F_X(\pi - \arcsin y).\end{aligned}$$
 == Differentiate ==
 $F_X(0)$ and $F_X(\pi)$ are constants. With $(\arcsin y)' = \frac{1}{\sqrt{1-y^2}}$:
-$$f_Y(y) = f_X(\arcsin y)\frac{1}{\sqrt{1-y^2}} + f_X(\pi - \arcsin y)\frac{1}{\sqrt{1-y^2}} = \frac{2}{\pi^2}\cdot\frac{\arcsin y + \pi - \arcsin y}{\sqrt{1-y^2}} = \frac{2}{\pi\sqrt{1-y^2}}.$$
+$$\begin{aligned}f_Y(y) &= f_X(\arcsin y)\frac{1}{\sqrt{1-y^2}} + f_X(\pi - \arcsin y)\frac{1}{\sqrt{1-y^2}}\\&= \frac{2}{\pi^2}\cdot\frac{\arcsin y + \pi - \arcsin y}{\sqrt{1-y^2}}\\&= \frac{2}{\pi\sqrt{1-y^2}}.\end{aligned}$$
 == Answer ==
 $$f_Y(y) = \begin{cases} \dfrac{2}{\pi\sqrt{1-y^2}}, & 0 < y < 1, \\ 0, & \text{otherwise.} \end{cases}$$
 Check: $\int_0^1 \frac{2}{\pi\sqrt{1-y^2}}\,\d y = \frac2\pi\cdot\frac\pi2 = 1$. ✓
@@ -250,7 +252,7 @@ $X \sim U(0, 2)$. Find the density of $Y = X^2$. Here is a solution. **Is it cor
 $f(x) = \frac12$ for $x \in (0,2)$, $0$ otherwise. For $x \in (0,2)$, $y \in (0,4)$, and for
 $y \in (0,4)$:
 $$F_Y(y) = P\{X^2 \le y\} = P\{-\sqrt y \le X \le \sqrt y\} = F_X(\sqrt y) - F_X(-\sqrt y),$$
-$$f_Y(y) = f_X(\sqrt y)(\sqrt y)' - f_X(\sqrt y)(-\sqrt y)' = f_X(\sqrt y)\frac{1}{2\sqrt y} + f_X(\sqrt y)\frac{1}{2\sqrt y} = \frac{2}{4\sqrt y} = \frac{1}{2\sqrt y}, \quad 0 < y < 4.$$
+$$\begin{aligned}f_Y(y) &= f_X(\sqrt y)(\sqrt y)' - f_X(\sqrt y)(-\sqrt y)'\\&= f_X(\sqrt y)\frac{1}{2\sqrt y} + f_X(\sqrt y)\frac{1}{2\sqrt y}\\&= \frac{2}{4\sqrt y} = \frac{1}{2\sqrt y}, \quad 0 < y < 4.\end{aligned}$$
 == What's wrong ==
 Differentiating $F_X(-\sqrt y)$ gives $f_X(-\sqrt y)\cdot(-\sqrt y)'$, and the solution
 wrote $f_X(\sqrt y)$ instead. But $-\sqrt y < 0$, where the density is $0$: $f_X(-\sqrt y) = 0$.
@@ -348,7 +350,7 @@ $$1 = \int_{-\infty}^{+\infty} f(x)\,\d x = \int_0^3 \frac1a x^2\,\d x = \frac{2
 $Y$ only takes values in $[1, 2]$. So $F_Y(y) = 0$ for $y < 1$ and $F_Y(y) = 1$ for $y \ge 2$.
 == 1 ≤ y < 2 ==
 $\{Y \le y\}$ happens when $Y = 1$ (that is, $X \ge 2$) or when $1 < Y = X \le y$:
-$$F_Y(y) = P\{X \ge 2\} + P\{1 < X \le y\} = \int_2^3 \frac{x^2}{9}\,\d x + \int_1^y \frac{x^2}{9}\,\d x = \frac{19}{27} + \frac{y^3 - 1}{27} = \frac{y^3 + 18}{27}.$$
+$$\begin{aligned}F_Y(y) &= P\{X \ge 2\} + P\{1 < X \le y\}\\&= \int_2^3 \frac{x^2}{9}\,\d x + \int_1^y \frac{x^2}{9}\,\d x\\&= \frac{19}{27} + \frac{y^3 - 1}{27}\\&= \frac{y^3 + 18}{27}.\end{aligned}$$
 == Answer ==
 $$F_Y(y) = \begin{cases} 0, & y < 1, \\ \dfrac{1}{27}(y^3 + 18), & 1 \le y < 2, \\ 1, & y \ge 2. \end{cases}$$
 $F_Y$ jumps by $\frac{19}{27} = P\{X \ge 2\}$ at $y = 1$ and by $1 - \frac{26}{27} = \frac{1}{27} = P\{X \le 1\}$
@@ -374,11 +376,11 @@ Find the distribution of $Y = g(X)$.
 == Values ==
 $Y$ takes only $0, 1, 2$: it is discrete, though $X$ is continuous. $f(x) = \frac12$ on $(0,2)$.
 == Probabilities ==
-$$P\{Y = 0\} = P\{X < 1\} = \int_0^1 \tfrac12\,\d x = \tfrac12, \quad P\{Y = 1\} = P\{1 \le X < 1.5\} = \int_1^{1.5}\tfrac12\,\d x = \tfrac14,$$
+$$\begin{gathered}P\{Y = 0\} = P\{X < 1\} = \int_0^1 \tfrac12\,\d x = \tfrac12,\\P\{Y = 1\} = P\{1 \le X < 1.5\} = \int_1^{1.5}\tfrac12\,\d x = \tfrac14,\end{gathered}$$
 $$P\{Y = 2\} = P\{X \ge 1.5\} = \int_{1.5}^2 \tfrac12\,\d x = \tfrac14.$$
 == Table ==
 
-| $Y$ | 0 | 1 | 2 |
+| Value of $Y$ | 0 | 1 | 2 |
 | --- | --- | --- | --- |
 | $P$ | $\frac12$ | $\frac14$ | $\frac14$ |
 :::

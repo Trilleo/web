@@ -385,10 +385,10 @@ $C_e$ in lesson 2.7).
 
 ::: cards The small-signal model
 The idea of the small-signal method :: Under small signals, replace the transistor by a linear model around Q and use linear circuit analysis.
-$h_{11}$ :: $\partial u_{BE}/\partial i_B$: the input resistance $r_{be}$ (Ω).
-$h_{12}$ :: $\partial u_{BE}/\partial u_{CE}$: reverse voltage-feedback ratio; tiny, neglected.
-$h_{21}$ :: $\partial i_C/\partial i_B$: the current gain $\beta$.
-$h_{22}$ :: $\partial i_C/\partial u_{CE}$: output conductance $1/r_{ce}$; tiny, neglected.
+h-parameter $h_{11}$ :: $\partial u_{BE}/\partial i_B$: the input resistance $r_{be}$ (Ω).
+h-parameter $h_{12}$ :: $\partial u_{BE}/\partial u_{CE}$: reverse voltage-feedback ratio; tiny, neglected.
+h-parameter $h_{21}$ :: $\partial i_C/\partial i_B$: the current gain $\beta$.
+h-parameter $h_{22}$ :: $\partial i_C/\partial u_{CE}$: output conductance $1/r_{ce}$; tiny, neglected.
 Simplified BJT model :: $r_{be}$ from b to e; current source $\beta\dot I_b$ from c to e.
 $r_{be}$ formula :: $r_{be} = r_{bb'} + (1+\beta)U_T/I_{EQ} \approx 300\,\Omega + (1+\beta)\,26\text{ mV}/I_{EQ}$
 How does $r_{be}$ change when Q is higher? :: It gets smaller.

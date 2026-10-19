@@ -406,7 +406,7 @@ second op-amp that sums.
 
 Case by case:
 
-| $u_I$ | $u_{O1}$ | $u_O = -u_{O1} - u_I$ |
+| Input $u_I$ | First stage $u_{O1}$ | Output $u_O = -u_{O1} - u_I$ |
 | --- | --- | --- |
 | $> 0$ | $-2u_I$ | $2u_I - u_I = u_I$ |
 | $< 0$ | $0$ | $-u_I$ |

@@ -54,7 +54,7 @@ $S_0$ up to 11 for $S_3$). $INT_0 = 1$ when a key is pressed.
 Only one key at a time means only five of the 16 input combinations can occur. The
 other 11 are don't-cares (×).
 
-| $S_3$ | $S_2$ | $S_1$ | $S_0$ | $D_1$ | $D_0$ | $INT_0$ |
+| Key $S_3$ | Key $S_2$ | Key $S_1$ | Key $S_0$ | Code $D_1$ | Code $D_0$ | Flag $INT_0$ |
 |---|---|---|---|---|---|---|
 | 1 | 1 | 1 | 0 | 0 | 0 | 1 |
 | 1 | 1 | 0 | 1 | 0 | 1 | 1 |
@@ -172,7 +172,7 @@ $S_0$ the lowest.
 == Truth table ==
 Here × means "either value": a lower key doesn't matter once a higher one is pressed.
 
-| $S_3$ | $S_2$ | $S_1$ | $S_0$ | $D_1$ | $D_0$ | $INT_0$ | rows it stands for |
+| Key $S_3$ | Key $S_2$ | Key $S_1$ | Key $S_0$ | Code $D_1$ | Code $D_0$ | Flag $INT_0$ | rows it stands for |
 |---|---|---|---|---|---|---|---|
 | 1 | 1 | 1 | 0 | 0 | 0 | 1 | 1110 |
 | 1 | 1 | 0 | × | 0 | 1 | 1 | 1100, 1101 |
@@ -237,18 +237,19 @@ Common integrated priority encoders are the decimal-to-BCD encoder 74LS147 and t
 
 Inputs and outputs are all **active low** (逻辑0有效). The function table:
 
-| $\overline{S}$ | $\overline{I_0}$ | $\overline{I_1}$ | $\overline{I_2}$ | $\overline{I_3}$ | $\overline{I_4}$ | $\overline{I_5}$ | $\overline{I_6}$ | $\overline{I_7}$ | $\overline{Y_2}$ | $\overline{Y_1}$ | $\overline{Y_0}$ | $\overline{Y_S}$ | $\overline{Y_{EX}}$ |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | × | × | × | × | × | × | × | × | 1 | 1 | 1 | 1 | 1 |
-| 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 |
-| 0 | × | × | × | × | × | × | × | 0 | 0 | 0 | 0 | 1 | 0 |
-| 0 | × | × | × | × | × | × | 0 | 1 | 0 | 0 | 1 | 1 | 0 |
-| 0 | × | × | × | × | × | 0 | 1 | 1 | 0 | 1 | 0 | 1 | 0 |
-| 0 | × | × | × | × | 0 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 0 |
-| 0 | × | × | × | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 0 | 1 | 0 |
-| 0 | × | × | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 0 |
-| 0 | × | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 0 |
-| 0 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 0 |
+$$\begin{array}{c|cccccccc|ccc|cc}
+\overline{S} & \overline{I_0} & \overline{I_1} & \overline{I_2} & \overline{I_3} & \overline{I_4} & \overline{I_5} & \overline{I_6} & \overline{I_7} & \overline{Y_2} & \overline{Y_1} & \overline{Y_0} & \overline{Y_S} & \overline{Y_{EX}} \\ \hline
+1 & \times & \times & \times & \times & \times & \times & \times & \times & 1 & 1 & 1 & 1 & 1 \\
+0 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 0 & 1 \\
+0 & \times & \times & \times & \times & \times & \times & \times & 0 & 0 & 0 & 0 & 1 & 0 \\
+0 & \times & \times & \times & \times & \times & \times & 0 & 1 & 0 & 0 & 1 & 1 & 0 \\
+0 & \times & \times & \times & \times & \times & 0 & 1 & 1 & 0 & 1 & 0 & 1 & 0 \\
+0 & \times & \times & \times & \times & 0 & 1 & 1 & 1 & 0 & 1 & 1 & 1 & 0 \\
+0 & \times & \times & \times & 0 & 1 & 1 & 1 & 1 & 1 & 0 & 0 & 1 & 0 \\
+0 & \times & \times & 0 & 1 & 1 & 1 & 1 & 1 & 1 & 0 & 1 & 1 & 0 \\
+0 & \times & 0 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 0 & 1 & 0 \\
+0 & 0 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 0
+\end{array}$$
 
 How to read it:
 
@@ -266,7 +267,7 @@ $\overline{Y_{EX}} = 0$ means "the chip is working and has an active input" (the
 outputs are valid).
 :::
 
-| $\overline{Y_S}$ | $\overline{Y_{EX}}$ | state |
+| Output $\overline{Y_S}$ | Output $\overline{Y_{EX}}$ | state |
 |---|---|---|
 | 1 | 1 | not working (disabled) |
 | 0 | 1 | working, but no input |

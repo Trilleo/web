@@ -156,7 +156,7 @@ value's probability.
 ::: example Law → distribution function (例1)
 $X$ has the law below. Find its distribution function.
 
-| $X$ | 0             | 1             | 2             | 3             |
+| Value of $X$ | 0             | 1             | 2             | 3             |
 | --- | ------------- | ------------- | ------------- | ------------- |
 | $p$ | $\frac{1}{8}$ | $\frac{3}{8}$ | $\frac{3}{8}$ | $\frac{1}{8}$ |
 
@@ -219,7 +219,7 @@ $P\{X = -1\} = F(-1) - F(-1 - 0) = 0.4 - 0 = 0.4$;
 $P\{X = 1\} = 0.8 - 0.4 = 0.4$;
 $P\{X = 3\} = 1 - 0.8 = 0.2$.
 
-| $X$   | $-1$ | $1$ | $3$ |
+| Value of $X$ | −1 | 1 | 3 |
 | ----- | ---- | --- | --- |
 | $p_k$ | 0.4  | 0.4 | 0.2 |
 
@@ -287,14 +287,14 @@ gives $-1$.)
 
 ::: cards Distribution functions
 Distribution function of $X$ :: $F(x) = P\{X \le x\}$, $-\infty < x < +\infty$ (分布函数)
-$P\{x_1 < X \le x_2\}$ :: $F(x_2) - F(x_1)$
+$P\{x_1 < X \le x_2\}$ from $F$ :: $F(x_2) - F(x_1)$
 $F(-\infty)$ and $F(+\infty)$ :: 0 and 1
 Is $F$ left- or right-continuous? :: Right-continuous: $F(x + 0) = F(x)$
 $P\{X = a\}$ from $F$ :: $F(a) - F(a - 0)$, the jump at $a$
-$P\{X < a\}$ :: $F(a - 0)$
-$P\{X > a\}$ :: $1 - F(a)$
-$P\{a \le X \le b\}$ :: $F(b) - F(a - 0)$
-$P\{a < X < b\}$ :: $F(b - 0) - F(a)$
+$P\{X < a\}$ from $F$ :: $F(a - 0)$
+$P\{X > a\}$ from $F$ :: $1 - F(a)$
+$P\{a \le X \le b\}$ from $F$ :: $F(b) - F(a - 0)$
+$P\{a < X < b\}$ from $F$ :: $F(b - 0) - F(a)$
 $F$ of a discrete variable :: A step function, $F(x) = \sum_{x_k \le x} p_k$; jumps at the values, heights $p_k$
 Three properties that make a function a distribution function :: Between 0 and 1 with limits 0 and 1; non-decreasing; right-continuous
 Pieces of a discrete $F$ are written as :: $a \le x < b$ (closed left, open right)

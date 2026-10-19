@@ -153,7 +153,7 @@ Its area is $\tfrac12\cdot2\cdot1=1$, so $f(x,y)=1$ on $G$.
 At height $y$ the line starts at $x=0$ (the left side) and stops at the nearer of the two
 slanted sides: $x=y$ when $0<y\le1$, and $x=2-y$ when $1<y<2$.
 == Answer ==
-$$f_Y(y)=\int_0^{y}1\,\d x=y\ \ (0<y\le1),\qquad f_Y(y)=\int_0^{2-y}1\,\d x=2-y\ \ (1<y<2),\qquad 0\text{ otherwise.}$$
+$$f_Y(y)=\begin{cases}\int_0^{y}1\,\d x=y, & 0<y\le1,\\[2pt] \int_0^{2-y}1\,\d x=2-y, & 1<y<2,\\[2pt] 0 & \text{otherwise.}\end{cases}$$
 Check: $\int_0^1y\,\d y+\int_1^2(2-y)\,\d y=\tfrac12+\tfrac12=1$. ✓
 :::
 

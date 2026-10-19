@@ -217,7 +217,7 @@ excitation, is the minority carrier (少子).
 The two kinds of carrier come from different sources, and that decides what controls
 them:
 
-| | Majority carriers (多子) | Minority carriers (少子) |
+| Property | Majority carriers (多子) | Minority carriers (少子) |
 |---|---|---|
 | Where they come from | Mostly the dopant atoms | Only intrinsic excitation |
 | Concentration set by | The **doping** concentration | The **temperature** |
@@ -502,7 +502,7 @@ Intrinsic semiconductor :: A completely pure semiconductor crystal without struc
 Intrinsic excitation :: Above 0 K some valence electrons break free, making electron-hole pairs (本征激发).
 Hole :: The vacancy left in a bond by an escaped electron; it acts as a movable positive charge (空穴).
 Recombination :: A free electron fills a hole and both disappear (复合).
-$n_i p_i = ?$ :: A constant $C(K)$ set by the material and the temperature; in a pure crystal $n_i = p_i$.
+Intrinsic carriers: $n_i p_i = ?$ :: A constant $C(K)$ set by the material and the temperature; in a pure crystal $n_i = p_i$.
 Si or Ge: more intrinsic carriers at the same temperature? :: Ge (smaller band gap, about 1000× more at 300 K).
 N-type: dopant and majority carrier :: Pentavalent donors (P, As); electrons are the majority carriers.
 P-type: dopant and majority carrier :: Trivalent acceptors (B, Ga, In); holes are the majority carriers.
