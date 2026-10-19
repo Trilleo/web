@@ -179,7 +179,7 @@ R | resistance | Ω
         return `<tr><td class="study-symbol">${context.inline(`$${symbol}$`)}</td><td>${context.inline(meaning)}</td><td>${unit ? context.escape(unit) : "—"}</td></tr>`;
       });
     const symbols = rows.length
-      ? `<table class="study-symbols"><thead><tr><th scope="col">Symbol</th><th scope="col">Meaning</th><th scope="col">Unit</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
+      ? `<div class="study-scroll" data-scroll-label="Symbols"><table class="study-symbols"><thead><tr><th scope="col">Symbol</th><th scope="col">Meaning</th><th scope="col">Unit</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`
       : "";
     context.emit("formula", {
       name,
@@ -189,7 +189,7 @@ R | resistance | Ω
       equation,
       symbols,
     } satisfies FormulaEntry);
-    return `<figure class="study-formula" id="${anchor}"><figcaption><span class="study-box-kind">Formula (${number})</span> ${context.inline(name)}${chinese(zh, context)}</figcaption><div class="study-formula-equation">${equation}<span class="study-eqno" aria-hidden="true">(${number})</span></div>${symbols}</figure>\n`;
+    return `<figure class="study-formula" id="${anchor}"><figcaption><span class="study-box-kind">Formula (${number})</span> ${context.inline(name)}${chinese(zh, context)}</figcaption><div class="study-formula-equation"><div class="study-formula-maths">${equation}</div><span class="study-eqno" aria-hidden="true">(${number})</span></div>${symbols}</figure>\n`;
   },
 };
 

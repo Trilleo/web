@@ -71,7 +71,7 @@ const byUnit = subject.units
       byUnit.map(({ unit, formulas: entries }) => (
         <section
           aria-labelledby={`unit-${unit.slug}`}
-          class="col-span-4 grid gap-y-2 md:col-span-8 md:grid-cols-subgrid xl:col-span-12"
+          class="col-span-4 grid grid-cols-1 gap-y-2 md:col-span-8 md:grid-cols-subgrid xl:col-span-12"
         >
           <h2 id={`unit-${unit.slug}`} class="type-label md:col-span-2">
             Unit {unit.number} · {unit.title}
@@ -89,9 +89,11 @@ const byUnit = subject.units
                   )}
                 </figcaption>
                 <div class="study-formula-equation">
-                  <Fragment set:html={formula.equation} />
+                  <div class="study-formula-maths">
+                    <Fragment set:html={formula.equation} />
+                  </div>
                   <a
-                    class="study-eqno study-print-hide no-underline"
+                    class="study-eqno study-formula-lesson study-print-hide no-underline"
                     href={`${studyPath(subject.slug, formula.lesson.slug)}#${formula.anchor}`}
                   >
                     Lesson {formula.lesson.number}

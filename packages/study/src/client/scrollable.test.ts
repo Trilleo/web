@@ -41,6 +41,14 @@ describe("scrollable equations", () => {
     expect(element.tabIndex).toBe(0);
   });
 
+  test("a scroll box takes its label from data-scroll-label", () => {
+    const element = box(() => 600);
+    element.className = "study-scroll";
+    element.dataset.scrollLabel = "Symbols";
+    updateScrollable(element);
+    expect(element.getAttribute("aria-label")).toBe("Symbols");
+  });
+
   test("enhanceScrollableMath finds the equations under a root", () => {
     const root = document.createElement("div");
     const wide = box(() => 600);

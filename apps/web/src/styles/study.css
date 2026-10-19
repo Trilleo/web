@@ -79,8 +79,14 @@
   overflow-y: hidden;
 }
 
+/* Other things that may be wider than a phone (a formula's symbols table) scroll
+   in their own box too, not the page. */
+.study-scroll {
+  overflow-x: auto;
+}
+
 /* Only overflowing ones are focusable (enhanceScrollableMath). */
-.study .katex-display:focus-visible {
+.study :is(.katex-display, .study-scroll):focus-visible {
   outline-offset: 2px;
 }
 
@@ -257,11 +263,28 @@
   font-weight: 600;
 }
 
+/* The equations (one or more, in .study-formula-maths) and the number or link beside
+   them. minmax(0, …): a long equation scrolls inside its own box (.katex-display)
+   instead of widening the column and pushing the number or link off the page. */
 .study-formula-equation {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 1rem;
+}
+
+/* The formula sheet's "Lesson 2.3" link is wider than a number: on phones it goes
+   under the equation, which gets the whole width. */
+@media (width < 48rem) {
+  .study-formula-equation:has(.study-formula-lesson) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .study-formula-lesson {
+    justify-self: end;
+    margin-bottom: 0.5rem;
+  }
 }
 
 .study-formula-equation .study-math {

@@ -643,9 +643,12 @@
 - Look: textbook-like and quieter than the rest of the site (styles/study.css): serif
   headings with section numbers, numbered boxes, equation numbers at the right margin,
   captions below figures, Chinese in `font-cjk` with lang="zh-CN". No reveals or
-  morphs; only short fades. Display equations wider than the column scroll sideways;
-  StudyLayout's script (`enhanceScrollableMath`, packages/study/src/client/
-  scrollable.ts) makes only the overflowing ones tab stops, re-checked on resize.
+  morphs; only short fades. Display equations wider than the column scroll sideways
+  in their own box, never the page, and so do `.study-scroll` boxes (a formula's
+  symbols table); grids holding them use `minmax(0, …)` tracks so they can't widen
+  the column. StudyLayout's script (`enhanceScrollableMath`, packages/study/src/
+  client/scrollable.ts) makes only the overflowing ones tab stops, re-checked on
+  resize. On phones the formula sheet's "Lesson" link goes under its equation.
   Content rules for axe (header words, card fronts, breaking long equations) are in
   study/README.md. study.css is unlayered, so it beats Tailwind utilities on
   the same element: give it its own classes (`study-zh-block`).
