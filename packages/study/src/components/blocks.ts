@@ -27,6 +27,7 @@ import { logicLatex, parseLogic } from "../logic";
 import { LOGIC_COMPONENTS } from "./logic";
 import { SET_COMPONENTS } from "./sets";
 import { THERMO_COMPONENTS } from "./thermo";
+import { GRAPH_COMPONENTS } from "./graphs";
 import {
   STUDY_SET,
   chinese,
@@ -176,7 +177,9 @@ R | resistance | Ω
           .split("|")
           .map((part) => part.trim());
         // A plain cell: axe reads KaTeX's markup as an empty header.
-        return `<tr><td class="study-symbol">${context.inline(`$${symbol}$`)}</td><td>${context.inline(meaning)}</td><td>${unit ? context.escape(unit) : "—"}</td></tr>`;
+        // A symbol is maths; one written with its own `$` ("$r$, $s$") is taken as it is.
+        const symbolMarkup = symbol.includes("$") ? symbol : `$${symbol}$`;
+        return `<tr><td class="study-symbol">${context.inline(symbolMarkup)}</td><td>${context.inline(meaning)}</td><td>${unit ? context.escape(unit) : "—"}</td></tr>`;
       });
     const symbols = rows.length
       ? `<div class="study-scroll" data-scroll-label="Symbols"><table class="study-symbols"><thead><tr><th scope="col">Symbol</th><th scope="col">Meaning</th><th scope="col">Unit</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`
@@ -542,4 +545,5 @@ export const STUDY_COMPONENTS = [
   ...LOGIC_COMPONENTS,
   ...SET_COMPONENTS,
   ...THERMO_COMPONENTS,
+  ...GRAPH_COMPONENTS,
 ] as const;

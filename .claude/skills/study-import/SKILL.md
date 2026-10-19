@@ -36,6 +36,8 @@ subject, ask which lectures are new.
   whole chapter's deck each lecture: the lesson summary's presentation `conf`
   (`slides`: IDs of the slides shown in class) says what was actually taught, so
   record it per slide and set later, untaught slides aside for the next import.
+  Check near-duplicates found within one deck by eye before moving them: animation
+  steps and continued proofs look alike but differ (a perceptual hash merges them).
   Slides with in-class questions carry `problem` (type, options) and `result`
   (`correctAnswer`): save them as the deck's answer key. Exercise sets and past papers
   (the log's type-5 activities), homework (type 2) and in-class test lectures
@@ -63,8 +65,8 @@ materials, in English with the Chinese term beside each key concept
 - A `callout pitfall` for each classic mistake; `callout exam` for what exams ask.
 - Draw circuits with `::: circuit`; add a `::: circuit-sim` where changing a value
   teaches something. Use `::: plot` for functions and responses, `::: explore` for
-  formulas worth playing with, `::: venn` for events and `::: pv` for thermodynamic
-  processes and cycles.
+  formulas worth playing with, `::: venn` for events, `::: pv` for thermodynamic
+  processes and cycles, `::: graph` and `::: hasse` for graphs, relations and orders.
 - A `::: cards` deck of the facts worth memorising, and a `::: quiz` at the end: mix
   numbers with units, expressions and choices; adapt the course's own exercises, and
   explain every answer (`>` lines).

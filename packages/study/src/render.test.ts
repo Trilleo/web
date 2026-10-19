@@ -229,6 +229,81 @@ answer: 2
     expect(render("::: venn\nshade: A B C D\n:::").errors).toHaveLength(1);
   });
 
+  test("formula symbols may carry their own maths", () => {
+    const formula = render(
+      "::: formula Complete bipartite | 完全二部图\n$$|E(K_{r,s})| = rs$$\n--\n$r$, $s$ | the sizes of the two sides\nE | the edges\n:::",
+    );
+    expect(formula.errors).toEqual([]);
+    expect(formula.html).not.toContain("katex-error");
+  });
+
+  test("draw graphs: edges, loops, parallel edges, walks and degrees", () => {
+    const simple = render(
+      "::: graph K4 minus an edge\na -- b, b -- c, c -- d, d -- a, a -- c\nhighlight: a b c d\nshow: degrees\n:::",
+    );
+    expect(simple.errors).toEqual([]);
+    expect(simple.html.match(/class="graph-edge[" ]/g)).toHaveLength(5);
+    // The walk a b c d uses three edges.
+    expect(simple.html.match(/graph-edge-on/g)).toHaveLength(3);
+    expect(simple.html).toContain("Degrees — a: 3; b: 2; c: 3; d: 2");
+    const directed = render(
+      "::: graph\na -> b, b -> a, a -> a, b -> c: 4, b -> c\nshow: degrees\n:::",
+    );
+    expect(directed.errors).toEqual([]);
+    expect(directed.html.match(/class="graph-arrow"/g)).toHaveLength(5);
+    expect(directed.html).toContain(
+      "a: 2 out, 2 in; b: 3 out, 1 in; c: 0 out, 2 in",
+    );
+    expect(directed.html).toContain("b → c (4)");
+    const rows = render(
+      "::: graph\nrow: 1 2 3\nrow: a b\n1 -> a, 2 -> a, 3 -> b\n:::",
+    );
+    expect(rows.errors).toEqual([]);
+    const errors = (body: string) => render(`::: graph\n${body}\n:::`).errors;
+    expect(errors("a - b")).toHaveLength(1);
+    expect(errors("a -- b\nhighlight: a z")).toHaveLength(1);
+    expect(errors("row: a\na -- b")).toHaveLength(1);
+    expect(errors("show: everything\na -- b")).toHaveLength(1);
+  });
+
+  test("draw Hasse diagrams from the order", () => {
+    const divides = render(
+      "::: hasse\ndivides: 1 2 3 4 6 12\nhighlight: 2 3\n:::",
+    );
+    expect(divides.errors).toEqual([]);
+    // Covers: 1–2, 1–3, 2–4, 2–6, 3–6, 4–12, 6–12.
+    expect(divides.html.match(/class="graph-edge"/g)).toHaveLength(7);
+    expect(divides.html).toContain("1 below 2");
+    expect(divides.html).not.toContain("1 below 4");
+    const subsets = render("::: hasse\nsubsets: a b c\n:::");
+    expect(subsets.errors).toEqual([]);
+    expect(subsets.html.match(/class="graph-edge"/g)).toHaveLength(12);
+    expect(subsets.html).toContain("∅ below {a}");
+    const chains = render(
+      "::: hasse\norder: a < b < d, a < c < d\nelements: e\n:::",
+    );
+    expect(chains.errors).toEqual([]);
+    expect(chains.html.match(/class="graph-edge"/g)).toHaveLength(4);
+    const labelled = render(
+      "::: hasse\norder: e < a, e < b\nlabel e: ∅\nlabel a: {a}\n:::",
+    );
+    expect(labelled.errors).toEqual([]);
+    expect(labelled.html).toContain("∅ below {a}");
+    expect(
+      render("::: hasse\norder: a < b\nlabel z: x\n:::").errors,
+    ).toHaveLength(1);
+    const named = render("::: graph\nm1 -- p1\nlabel m1: −1\n:::");
+    expect(named.errors).toEqual([]);
+    expect(named.html).toContain("vertices −1, p1");
+    expect(render("::: hasse\norder: a < b, b < a\n:::").errors[0]).toMatch(
+      /circle/,
+    );
+    expect(
+      render("::: hasse\ndivides: 1 2\nsubsets: a\n:::").errors,
+    ).toHaveLength(1);
+    expect(render("::: hasse\ndivides: 0 2\n:::").errors).toHaveLength(1);
+  });
+
   test("draw p–V diagrams from the processes' equations", () => {
     const carnot = render(`::: pv Carnot
 gamma: 1.4

@@ -147,6 +147,29 @@ a -> c: isothermal dashed
 shade: a -> b
 :::
 
+## Graphs and orders
+
+::: graph A walk in a graph, and its degrees
+a -- b, b -- c, c -- d, d -- a, a -- c, d -- d
+highlight: a b c d
+show: degrees
+:::
+
+::: graph A relation from A to B, drawn in two rows
+row: 1 2 3
+row: x y
+1 -> x, 2 -> x, 3 -> y, 2 -> y
+:::
+
+::: hasse Divisors of 12 under divisibility
+divides: 1 2 3 4 6 12
+highlight: 4 6
+:::
+
+::: hasse The subsets of {a, b, c} under ⊆
+subsets: a b c
+:::
+
 ::: quiz Worked-out answers
 ? Three cards from ten, four of them red. The chance that all three are red?
 answer: C(4,3)/C(10,3)

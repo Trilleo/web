@@ -32,13 +32,37 @@ export const MACROS: Readonly<Record<string, string>> = {
   "\\phasor": "\\dot{#1}",
 };
 
+/**
+ * Inline maths only wraps after relations and operators, so a long list such as
+ * $R=\{\langle a,b\rangle, \langle b,c\rangle, …\}$ ran off a phone's screen. A
+ * break is allowed after each comma outside braces (and not after `\,`).
+ */
+export function breakableTex(tex: string): string {
+  let depth = 0;
+  let out = "";
+  for (let i = 0; i < tex.length; i += 1) {
+    const char = tex[i] ?? "";
+    if (char === "\\") {
+      // A command or an escaped character (\{, \,) is copied whole.
+      out += char + (tex[i + 1] ?? "");
+      i += 1;
+      continue;
+    }
+    if (char === "{") depth += 1;
+    else if (char === "}") depth = Math.max(0, depth - 1);
+    out += char;
+    if (char === "," && depth === 0) out += "\\allowbreak ";
+  }
+  return out;
+}
+
 export function renderMath(
   tex: string,
   display: boolean,
   env?: MathEnv,
 ): string {
   try {
-    return katex.renderToString(tex, {
+    return katex.renderToString(display ? tex : breakableTex(tex), {
       displayMode: display,
       throwOnError: true,
       output: "htmlAndMathml",

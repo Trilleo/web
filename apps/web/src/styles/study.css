@@ -538,6 +538,13 @@ g.plot-region-2 {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
+}
+
+/* A long curve formula wraps rather than widening the page. */
+.study-legend code {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .study-swatch {
@@ -1746,6 +1753,55 @@ a.study-button {
 
 .study-venn-svg .venn-omega {
   font-style: normal;
+}
+
+/* Graphs and Hasse diagrams (::: graph, ::: hasse): ink lines, a walk in the accent. */
+.study-graph-svg {
+  display: block;
+  width: 100%;
+  max-width: 30rem;
+  height: auto;
+  margin-inline: auto;
+}
+
+.study-graph-svg .graph-edge {
+  fill: none;
+  stroke: var(--tr-ink);
+  stroke-width: 1.5;
+}
+
+.study-graph-svg .graph-edge-on {
+  stroke: var(--tr-accent);
+  stroke-width: 3;
+}
+
+.study-graph-svg .graph-arrow {
+  fill: var(--tr-ink);
+}
+
+.study-graph-svg .graph-vertex {
+  fill: var(--tr-paper);
+  stroke: var(--tr-ink);
+  stroke-width: 1.5;
+}
+
+.study-graph-svg .graph-vertex-on {
+  fill: var(--tr-accent);
+  fill-opacity: 0.35;
+  stroke: var(--tr-accent);
+}
+
+.study-graph-svg .graph-label {
+  fill: var(--tr-ink);
+  font-family: var(--font-serif);
+  font-size: 14px;
+  font-style: italic;
+}
+
+.study-graph-svg .graph-weight {
+  fill: var(--tr-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
 }
 
 /* p–V diagrams (::: pv): processes in ink with arrows, the work in the accent. */

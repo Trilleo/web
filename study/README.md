@@ -78,6 +78,8 @@ Blocks (`::: name argument` … `:::`):
 | `::: gates`                     | Gate symbols (both shapes), expressions, truth tables: `and or not xor` |
 | `::: venn Title`                | Venn diagrams: one panel per `shade: (A ∪ B)'` line (up to 4; `sets: A B C`) |
 | `::: pv Title`                  | p–V diagrams: states `1: V 10, p 300`, processes `1 -> 2: isothermal`, `shade: cycle` (below) |
+| `::: graph Title`               | Graphs and relation diagrams: `a -- b`, `a -> b`, loops, weights, `row:` / `at a:` layouts, `highlight:` (below) |
+| `::: hasse Title`               | Hasse diagrams from `divides: 1 2 3 6`, `subsets: a b c` or `order: a < b < c` (below) |
 
 Quizzes: `?` starts a question; then options (`- [x]` right, `- [ ]` wrong), or
 `answer: 0.5 A` (a number with its unit; `tolerance: 2%`, 1% by default; without a
@@ -140,6 +142,22 @@ numbers first. `dashed` after a process draws a reference curve without an arrow
 `shade: cycle` shades the inside of the processes listed round one loop,
 `shade: 1 -> 2` the area under one process (the work); up to 2. The states' values
 show on the axes; `ticks: none` hides them. Other axes (`axes: S, T`) take only `line`.
+
+Graphs: edges several to a line, `a -- b` (undirected), `a -> b` (directed), `a -- a`
+(a loop); a repeated edge is a parallel edge; `a -- b: 5` gives it a weight or label.
+Vertices come from the edges, or `vertices: a b c` (to add isolated ones and fix the
+order). They sit on a circle unless `row: a b c` lines put them in rows (a bipartite
+graph, or a relation from A to B) or `at a: 40, 120` places each one (0–360 across,
+0–260 down). `label m1: −1` shows a vertex under other text (a set such as
+`{a,b}`, `∅`, a negative number; up to 12 characters). `highlight: a b c d` marks a walk; `show: degrees` lists the degrees
+(in- and out-degrees in a directed graph), counted from the edges. Up to 16 vertices
+and 40 edges.
+
+Hasse diagrams: give the order once, as `divides: 1 2 3 4 6 12`, `subsets: a b c` (the
+power set under ⊆, up to 4 elements) or `order: a < b < d, a < c` (comparisons and
+chains; the rest follow by transitivity, and a cycle is an error). The covering pairs
+and levels are worked out, so only the order needs to be right. `elements: e` adds an
+element compared with nothing; `label e: ∅` shows an element under other text; `highlight: 2 6` (or `{a,b}` for a subset) marks elements.
 
 Logic expressions (`::: logic`, `::: kmap`, `::: venn`): variables are one letter,
 optionally with digits (A, D0); NOT `A'` or `!A`, AND by writing side by side (`AB`) or

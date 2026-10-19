@@ -600,7 +600,8 @@
   gathers each subject's glossary, formulas and counts (`subjectReference`). The server
   bundle only reads the subject list (share cards, llms.txt, the home page, /sitemap/).
 - Rendering (render.ts): Markdown with HTML off, KaTeX at build time (math.ts:
-  `$…$`, `$$…$$`, mhchem; Pandoc's rules so "$5" stays text), headings numbered by
+  `$…$`, `$$…$$`, mhchem; Pandoc's rules so "$5" stays text; inline maths may break
+  after commas outside braces, `breakableTex`, so long sets wrap on phones), headings numbered by
   lesson (2.3.1), components from components/blocks.ts numbering themselves per lesson
   and emitting glossary entries, formulas, cards and islands. Mistakes render as
   `.wiki-error` and come back in `errors`; packages/study's render.test.ts renders every
@@ -637,6 +638,10 @@
   masks and clips, so the shading is worked out from the expression).
   `::: pv` (components/thermo.ts) draws p–V diagrams: processes from their equations
   (isothermal, adiabatic with γ, …), end states checked against them, work shaded.
+  `::: graph` and `::: hasse` (components/graphs.ts) draw graphs and relation diagrams
+  (loops, parallel edges, weights, rows or points, a highlighted walk, degrees counted
+  from the edges) and Hasse diagrams (the order closed transitively, cycles refused,
+  covering pairs and levels worked out).
 - Plots (widgets.ts, react/Plot.tsx) also draw `bars` (discrete distributions, at whole
   numbers) and shade `region`s (comparison chains in x and y, sampled on a grid), and
   sliders can move in steps and carry a label.
