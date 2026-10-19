@@ -26,6 +26,7 @@ import { parseExplore, parsePlot } from "../widgets";
 import { logicLatex, parseLogic } from "../logic";
 import { LOGIC_COMPONENTS } from "./logic";
 import { SET_COMPONENTS } from "./sets";
+import { THERMO_COMPONENTS } from "./thermo";
 import {
   STUDY_SET,
   chinese,
@@ -540,4 +541,5 @@ export const STUDY_COMPONENTS = [
   zh,
   ...LOGIC_COMPONENTS,
   ...SET_COMPONENTS,
+  ...THERMO_COMPONENTS,
 ] as const;

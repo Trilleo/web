@@ -39,6 +39,7 @@ const PAGES = [
   "/study/sample/",
   "/study/sample/ohms-law/",
   "/study/sample/kirchhoff/",
+  "/study/sample/gallery/",
   "/study/sample/glossary/",
   "/study/sample/formulas/",
   "/study/sample/practice/",

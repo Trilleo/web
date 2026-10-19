@@ -240,7 +240,8 @@ group: B' D'
     const name = argument.trim() || "Y";
     const varLatex = (names: string[]) =>
       names.map((n) => n.replace(/^([A-Za-z])(\d+)$/, "$1_{$2}")).join("");
-    const corner = `<th scope="col" class="study-kmap-corner">${context.inline(`$${varLatex(rowVars)}\\backslash ${varLatex(colVars)}$`)}</th>`;
+    // A plain cell: it labels both headers at once, so it isn't a column header.
+    const corner = `<td class="study-kmap-corner">${context.inline(`$${varLatex(rowVars)}\\backslash ${varLatex(colVars)}$`)}</td>`;
     const head = `<tr>${corner}${cols.map((code) => `<th scope="col">${code}</th>`).join("")}</tr>`;
     const body2 = rows
       .map((rowCode) => {

@@ -85,6 +85,33 @@ describe("checkAnswer", () => {
     expect(parseQuiz("? P?\nanswer: 1/0").errors).toHaveLength(1);
   });
 
+  test("worked-out answers with constants and a unit", () => {
+    const energy = only("? E?\nanswer: 3/2 * k_B * 300 J");
+    expect(checkAnswer(energy, "6.21e-21 J").correct).toBe(true);
+    expect(checkAnswer(energy, "6.21×10^-21 J").correct).toBe(true);
+    expect(checkAnswer(energy, "1.5 k_B 300 J").correct).toBe(true);
+    expect(checkAnswer(energy, "6.21e-21 K").message).toMatch(/in K/);
+    const work = only("? A?\nanswer: 2 * R * 300 * ln(2) / 1000 kJ");
+    expect(checkAnswer(work, "3.46 kJ").correct).toBe(true);
+    expect(checkAnswer(work, "3458 J").correct).toBe(true);
+    // A bare number reads in the answer's prefix, worked out or not.
+    expect(checkAnswer(work, "3.46").correct).toBe(true);
+    const density = only("? n?\nanswer: 1.013e5 / (k_B * 273) m^-3");
+    expect(checkAnswer(density, "2.69e25 m^-3").correct).toBe(true);
+    const rate = only("? v?\nanswer: sqrt(3 R 300 / 0.032) m/s");
+    expect(checkAnswer(rate, "483 m/s").correct).toBe(true);
+    // Units and prefixes still read as before.
+    const resistance = only("? R?\nanswer: 4.7 kΩ");
+    expect(checkAnswer(resistance, "4700 Ω").correct).toBe(true);
+    expect(checkAnswer(resistance, "4.7kΩ").correct).toBe(true);
+    expect(checkAnswer(only("? T?\nanswer: 20 °C"), "20 °C").correct).toBe(
+      true,
+    );
+    expect(checkAnswer(only("? Q?\nanswer: 5 cm"), "0.05 m").correct).toBe(
+      true,
+    );
+  });
+
   test("a bare number reads in the answer's own prefix", () => {
     const data = only("? I?\nanswer: 4 mA");
     expect(checkAnswer(data, "4").correct).toBe(true);

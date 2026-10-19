@@ -62,11 +62,13 @@ Blocks (`::: name argument` … `:::`):
 | `::: kmap Y`                    | A Karnaugh map: `vars: A B C D`, `ones: 0 2 5`, `dont-care: 1`, `group: B D'` |
 | `::: gates`                     | Gate symbols (both shapes), expressions, truth tables: `and or not xor` |
 | `::: venn Title`                | Venn diagrams: one panel per `shade: (A ∪ B)'` line (up to 4; `sets: A B C`) |
+| `::: pv Title`                  | p–V diagrams: states `1: V 10, p 300`, processes `1 -> 2: isothermal`, `shade: cycle` (below) |
 
 Quizzes: `?` starts a question; then options (`- [x]` right, `- [ ]` wrong), or
 `answer: 0.5 A` (a number with its unit; `tolerance: 2%`, 1% by default; without a
 unit it may be worked out, `answer: C(4,2)/C(10,3)`, and readers may type a fraction,
-`7/48`, an expression or a percentage), or
+`7/48`, an expression or a percentage; a worked-out answer may end in its unit and use
+the constants `R`, `k_B`, `N_A` and `c`: `answer: 3/2 * k_B * 300 J`), or
 `expression: u^2/R` (checked for equivalence; `variables: u, R`), `logic: A ⊕ B`
 (a Boolean expression, right when its truth table matches: `A'B + AB'` passes; add
 `variables: A, B, C` and `dontcare: 0, 3` to skip those minterms' rows, first variable
@@ -113,6 +115,16 @@ comparison holds (chains like `0 < y < x`, conditions joined by commas; up to 3
 regions, in x and y; give `y:` when there are no curves). `slider n: 1 .. 50 = 20 | |
 step 1` moves in steps. Any other text after a slider's unit is its label, shown
 beside its name: `slider p: 0 .. 1 = 0.8 | | prior trust`.
+
+p–V diagrams: `axes: V (L), p (kPa)` (the units only label the axes), states
+`name: V 10, p 300` (up to 12; names of up to 3 letters or digits), processes
+`1 -> 2: isothermal` drawn from their equations: `line`, `isobaric`, `isochoric`,
+`isothermal` (pV constant) and `adiabatic` (pV^γ constant; `gamma: 1.4` by default).
+End states that don't fit their process (within 3%) are an error, so work out the
+numbers first. `dashed` after a process draws a reference curve without an arrow.
+`shade: cycle` shades the inside of the processes listed round one loop,
+`shade: 1 -> 2` the area under one process (the work); up to 2. The states' values
+show on the axes; `ticks: none` hides them. Other axes (`axes: S, T`) take only `line`.
 
 Logic expressions (`::: logic`, `::: kmap`, `::: venn`): variables are one letter,
 optionally with digits (A, D0); NOT `A'` or `!A`, AND by writing side by side (`AB`) or

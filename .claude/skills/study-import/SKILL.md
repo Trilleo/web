@@ -32,10 +32,14 @@ subject, ask which lectures are new.
   lectures the person missed); its JSON (`/api/v3/lesson-summary/student?lesson_id=`,
   then `/api/v3/lesson-summary/student/presentation?…&presentation_id=`) lists the
   slide images. Decks are re-shown across lectures: keep the newest copy, and move
-  slides repeated across lectures aside before reading.
+  slides repeated across lectures aside before reading. Teachers often re-upload a
+  whole chapter's deck each lecture: the lesson summary's presentation `conf`
+  (`slides`: IDs of the slides shown in class) says what was actually taught, so
+  record it per slide and set later, untaught slides aside for the next import.
   Slides with in-class questions carry `problem` (type, options) and `result`
   (`correctAnswer`): save them as the deck's answer key. Exercise sets and past papers
-  (the log's type-5 activities) are graded quizzes: don't open or copy them.
+  (the log's type-5 activities), homework (type 2) and in-class test lectures
+  (雨课堂测验) are graded: don't open or copy them.
 - Read slides with subagents, one per deck, on the **Sonnet** model
   (`model: "sonnet"`), each writing a faithful transcription (text, LaTeX formulas,
   circuits described, worked examples, exercises) to
@@ -59,7 +63,8 @@ materials, in English with the Chinese term beside each key concept
 - A `callout pitfall` for each classic mistake; `callout exam` for what exams ask.
 - Draw circuits with `::: circuit`; add a `::: circuit-sim` where changing a value
   teaches something. Use `::: plot` for functions and responses, `::: explore` for
-  formulas worth playing with.
+  formulas worth playing with, `::: venn` for events and `::: pv` for thermodynamic
+  processes and cycles.
 - A `::: cards` deck of the facts worth memorising, and a `::: quiz` at the end: mix
   numbers with units, expressions and choices; adapt the course's own exercises, and
   explain every answer (`>` lines).

@@ -119,6 +119,34 @@ g(x) = z - x
 slider z: 0 .. 2 = 1
 :::
 
+## p–V diagrams
+
+Processes are drawn from their equations, so the end states must fit them:
+
+::: pv A Carnot cycle of air (γ = 1.4)
+axes: V (L), p (kPa)
+gamma: 1.4
+1: V 10, p 400
+2: V 20, p 200
+3: V 40, p 75.8
+4: V 20, p 151.6
+1 -> 2: isothermal
+2 -> 3: adiabatic
+3 -> 4: isothermal
+4 -> 1: adiabatic
+shade: cycle
+:::
+
+::: pv Work in an isobaric expansion, and an isotherm for comparison
+axes: V (L), p (kPa)
+a: V 2, p 300
+b: V 6, p 300
+c: V 6, p 100
+a -> b: isobaric
+a -> c: isothermal dashed
+shade: a -> b
+:::
+
 ::: quiz Worked-out answers
 ? Three cards from ten, four of them red. The chance that all three are red?
 answer: C(4,3)/C(10,3)

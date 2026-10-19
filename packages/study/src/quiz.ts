@@ -43,7 +43,9 @@ import {
 } from "./expression";
 import {
   DEFAULT_TOLERANCE,
+  isUnit,
   parseQuantity,
+  splitUnit,
   parseTolerance,
   withinTolerance,
   writtenFactor,
@@ -59,16 +61,60 @@ export function readNumber(text: string): Quantity | null {
   const trimmed = text.trim();
   const percent = trimmed.endsWith("%");
   const body = percent ? trimmed.slice(0, -1) : trimmed;
-  let value: number;
-  try {
-    value = evaluate(parseExpression(body, { variables: [] }));
-  } catch {
-    // Not arithmetic: read it as a quantity with a unit.
-    return percent ? null : parseQuantity(trimmed);
+  const worked = workedOut(body);
+  if (worked !== null) {
+    return Number.isFinite(worked)
+      ? { value: percent ? worked / 100 : worked, unit: "" }
+      : null;
   }
-  return Number.isFinite(value)
-    ? { value: percent ? value / 100 : value, unit: "" }
-    : null;
+  // Arithmetic followed by a unit: "3/2 * k_B * 300 J", "nu*R*T*ln(2) kJ".
+  const split = splitWorkedUnit(trimmed);
+  if (split) {
+    const [factor, unit] = splitUnit(split.unit);
+    return Number.isFinite(split.value)
+      ? { value: split.value * factor, unit }
+      : null;
+  }
+  // Otherwise a quantity as people write it ("4.7kΩ", "3×10^5 Pa").
+  return percent ? null : parseQuantity(trimmed);
+}
+
+/**
+ * Constants a worked-out number answer may use (SI, CODATA 2018): the gas constant
+ * R, Boltzmann's k_B, Avogadro's N_A and the speed of light c.
+ */
+export const PHYSICAL_CONSTANTS: Readonly<Record<string, number>> = {
+  R: 8.314462618,
+  k_B: 1.380649e-23,
+  N_A: 6.02214076e23,
+  c: 299792458,
+};
+const CONSTANT_NAMES = Object.keys(PHYSICAL_CONSTANTS);
+
+/** The value of arithmetic without variables (constants allowed), or null. */
+function workedOut(text: string): number | null {
+  try {
+    return evaluate(
+      parseExpression(text, { variables: CONSTANT_NAMES }),
+      PHYSICAL_CONSTANTS,
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** "3/2*k_B*300 J" → the arithmetic's value and "J"; null when that isn't the shape. */
+function splitWorkedUnit(text: string): { value: number; unit: string } | null {
+  const match = /^(.*\S)\s+(\S+)$/u.exec(text);
+  if (!match?.[1] || !match[2] || !isUnit(match[2])) return null;
+  const value = workedOut(match[1]);
+  return value === null ? null : { value, unit: match[2] };
+}
+
+/** The prefix an answer is written in ("0.5 mA", "R*300/1000 kJ"): 1e-3, 1000. */
+function answerFactor(answer: string): number {
+  const split = splitWorkedUnit(answer.trim());
+  return split ? splitUnit(split.unit)[0] : writtenFactor(answer);
 }
 
 export type QuestionKind =
@@ -377,7 +423,7 @@ export function checkAnswer(data: CheckData, response: Response): CheckResult {
     let value = given.value;
     if (given.unit === "" && expected.unit !== "") {
       // No unit typed: read it in the unit the answer is written in ("mA").
-      value *= writtenFactor(data.answer);
+      value *= answerFactor(data.answer);
     } else if (given.unit !== expected.unit) {
       return {
         correct: false,

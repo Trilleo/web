@@ -616,7 +616,8 @@
   prefix; unitless answers may be worked out or typed as fractions, `readNumber`),
   expressions (expression.ts: a hand-written parser with implied multiplication, never
   eval; equivalence by evaluating at seeded random points; `n!`, comb/C, perm/A, gamma,
-  erf and Phi for probability), logic
+  erf and Phi for probability; worked-out answers may end in a unit and use R, k_B, N_A, c,
+  `PHYSICAL_CONSTANTS`), logic
   answers (the same truth table; `dontcare:` minterm numbers, counted over the
   question's `variables:`, are skipped), choices and words.
 - Circuits (circuit/): a grid text format (parse.ts: R C L V I, plus A D Z S and the
@@ -634,6 +635,8 @@
   parser reads events as sets (`∪ ∩ −`, Ω, ∅) for `::: venn` (components/sets.ts:
   Venn diagrams in plain SVG, one panel per `shade:` line, cells shaded by
   masks and clips, so the shading is worked out from the expression).
+  `::: pv` (components/thermo.ts) draws p–V diagrams: processes from their equations
+  (isothermal, adiabatic with γ, …), end states checked against them, work shaded.
 - Plots (widgets.ts, react/Plot.tsx) also draw `bars` (discrete distributions, at whole
   numbers) and shade `region`s (comparison chains in x and y, sampled on a grid), and
   sliders can move in steps and carry a label.

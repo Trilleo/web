@@ -229,6 +229,50 @@ answer: 2
     expect(render("::: venn\nshade: A B C D\n:::").errors).toHaveLength(1);
   });
 
+  test("draw p–V diagrams from the processes' equations", () => {
+    const carnot = render(`::: pv Carnot
+gamma: 1.4
+1: V 10, p 400
+2: V 20, p 200
+3: V 40, p 75.8
+4: V 20, p 151.6
+1 -> 2: isothermal
+2 -> 3: adiabatic
+3 -> 4: isothermal
+4 -> 1: adiabatic
+1 -> 3: line dashed
+shade: cycle
+:::`);
+    expect(carnot.errors).toEqual([]);
+    expect(carnot.html).toMatch(/Figure [\d.]+<\/span> Carnot/);
+    expect(carnot.html.match(/class="pv-arrow"/g)).toHaveLength(4);
+    expect(carnot.html.match(/class="pv-shade /g)).toHaveLength(1);
+    expect(carnot.html).toContain("2 → 3 adiabatic");
+    expect(carnot.html).toContain("1 → 3 straight line (dashed reference)");
+    expect(
+      render(
+        "::: pv\n1: V 1, p 2\n2: V 2, p 2\n1 -> 2: isobaric\nshade: 1 -> 2\n:::",
+      ).errors,
+    ).toEqual([]);
+    // States that don't fit the process, an open "cycle", unknown names.
+    const errors = (body: string) => render(`::: pv\n${body}\n:::`).errors;
+    expect(errors("1: V 1, p 4\n2: V 2, p 3\n1 -> 2: isothermal")[0]).toMatch(
+      /isothermal: pV is 4 at 1 but 6 at 2/,
+    );
+    expect(
+      errors("1: V 1, p 4\n2: V 2, p 4\n1 -> 2: line\nshade: cycle"),
+    ).toHaveLength(1);
+    expect(errors("1: V 1, p 4\n1 -> 2: line")).toHaveLength(1);
+    expect(errors("1: V 1")).toHaveLength(1);
+    expect(errors("1: V 1, p 1\n2: V 1, p 3\n1 -> 2: isochoric")).toEqual([]);
+    expect(
+      errors("axes: S, T\n1: S 1, T 4\n2: S 2, T 4\n1 -> 2: isothermal"),
+    ).toHaveLength(1);
+    expect(
+      errors("axes: S, T\n1: S 1, T 4\n2: S 2, T 4\n1 -> 2: line"),
+    ).toEqual([]);
+  });
+
   test("plot bars and regions", () => {
     const plot = render(
       "::: plot Binomial\nx: 0 .. 10\nbars P(k) = comb(n, k) p^k (1 - p)^(n - k)\nslider n: 1 .. 10 = 10 | | step 1\nslider p: 0 .. 1 = 0.3\n:::",

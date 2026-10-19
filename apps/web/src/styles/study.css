@@ -1444,7 +1444,8 @@ a.study-button {
 }
 
 .study-kmap thead th,
-.study-kmap tbody th {
+.study-kmap tbody th,
+.study-kmap td.study-kmap-corner {
   border: 0;
   color: var(--tr-muted);
   font-size: 0.8125rem;
@@ -1717,4 +1718,64 @@ a.study-button {
 
 .study-venn-svg .venn-omega {
   font-style: normal;
+}
+
+/* p–V diagrams (::: pv): processes in ink with arrows, the work in the accent. */
+.study-pv-svg {
+  display: block;
+  width: 100%;
+  max-width: 30rem;
+  height: auto;
+}
+
+.study-pv-svg .pv-axis,
+.study-pv-svg .pv-path {
+  fill: none;
+  stroke: var(--tr-ink);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.study-pv-svg .pv-dashed {
+  stroke: var(--tr-muted);
+  stroke-dasharray: 5 4;
+}
+
+.study-pv-svg .pv-guide {
+  fill: none;
+  stroke: var(--tr-muted);
+  stroke-width: 0.75;
+  stroke-dasharray: 3 3;
+}
+
+.study-pv-svg .pv-axis-head,
+.study-pv-svg .pv-arrow,
+.study-pv-svg .pv-state {
+  fill: var(--tr-ink);
+}
+
+.study-pv-svg .pv-shade {
+  fill: var(--tr-accent);
+  fill-opacity: 0.35;
+}
+
+.study-pv-svg .pv-shade-1 {
+  fill: var(--tr-muted);
+}
+
+.study-pv-svg .pv-label,
+.study-pv-svg .pv-axis-label {
+  fill: var(--tr-ink);
+  font-family: var(--font-serif);
+  font-size: 15px;
+}
+
+.study-pv-svg .pv-axis-name {
+  font-style: italic;
+}
+
+.study-pv-svg .pv-tick {
+  fill: var(--tr-muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
 }

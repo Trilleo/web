@@ -97,6 +97,20 @@ export function splitUnit(raw: string): [number, string] {
   return [1, whole + tail];
 }
 
+/**
+ * Whether text is a unit this file knows ("kJ", "J/(mol·K)", "m^-3", "°C"), so a
+ * worked-out answer's last word can be told apart from part of its arithmetic.
+ */
+export function isUnit(text: string): boolean {
+  const [, unit] = splitUnit(text);
+  if (unit === "" || PLAIN_UNITS.has(unit)) return unit !== "";
+  const head = (unit.split(/[/·*]/)[0] ?? "").replace(
+    /(\^[-−]?\d+|[⁻¹²³]+)$/u,
+    "",
+  );
+  return UNITS.includes(head);
+}
+
 const NUMBER =
   /^[+\-−]?(?:\d+(?:[.,]\d*)?|[.,]\d+)(?:\s*[eE][+\-−]?\d+|\s*[×x*]\s*10\s*\^\s*[+\-−]?\d+)?/;
 

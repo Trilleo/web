@@ -60,6 +60,7 @@ function drawPanel(
   panel: Panel,
   sets: readonly string[],
   id: string,
+  label: string,
   escape: (text: string) => string,
 ): string {
   const layout = LAYOUTS[sets.length] ?? LAYOUTS[2];
@@ -96,7 +97,7 @@ function drawPanel(
       return `<text x="${String(x)}" y="${String(y)}" text-anchor="middle" class="venn-label">${escape(name)}</text>`;
     })
     .join("");
-  return `<svg class="study-venn-svg" viewBox="0 0 ${String(WIDTH)} ${String(HEIGHT)}" aria-hidden="true"><defs>${defs.join("")}</defs><g class="venn-shade">${shaded.join("")}</g><rect x="6" y="6" width="${String(WIDTH - 12)}" height="${String(HEIGHT - 12)}" class="venn-line"/>${sets.map((_, index) => circle(index, ' class="venn-line"')).join("")}${labels}<text x="${String(WIDTH - 14)}" y="24" text-anchor="end" class="venn-label venn-omega">Ω</text></svg>`;
+  return `<svg class="study-venn-svg" viewBox="0 0 ${String(WIDTH)} ${String(HEIGHT)}" role="img" aria-label="${label}"><defs>${defs.join("")}</defs><g class="venn-shade">${shaded.join("")}</g><rect x="6" y="6" width="${String(WIDTH - 12)}" height="${String(HEIGHT - 12)}" class="venn-line"/>${sets.map((_, index) => circle(index, ' class="venn-line"')).join("")}${labels}<text x="${String(WIDTH - 14)}" y="24" text-anchor="end" class="venn-label venn-omega">Ω</text></svg>`;
 }
 
 /** Which of the 2ⁿ cells a panel shades, in words (for screen readers). */
@@ -178,7 +179,11 @@ shade: A'B'
       .map((panel) => {
         const id = context.id("venn");
         const latex = setLatex(panel.expression);
-        return `<figure class="study-venn-panel" role="img" aria-label="${context.escape(`${panel.source}: ${describeCells(panel, drawn)}`)}">${drawPanel(panel, drawn, id, (text) => context.escape(text))}<figcaption>${context.inline(`$${latex}$`)}</figcaption></figure>`;
+        // The picture carries the description: a figure can't be an image itself.
+        const label = context.escape(
+          `${panel.source}: ${describeCells(panel, drawn)}`,
+        );
+        return `<figure class="study-venn-panel">${drawPanel(panel, drawn, id, label, (text) => context.escape(text))}<figcaption>${context.inline(`$${latex}$`)}</figcaption></figure>`;
       })
       .join("");
     return `<figure class="study-figure study-venn"><div class="study-venn-panels">${figures}</div><figcaption><span class="study-box-kind">Figure ${number}</span> ${title ? context.inline(title) : "Venn diagram"}</figcaption></figure>\n`;
