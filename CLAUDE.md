@@ -642,6 +642,9 @@
   (loops, parallel edges, weights, rows or points, a highlighted walk, degrees counted
   from the edges) and Hasse diagrams (the order closed transitively, cycles refused,
   covering pairs and levels worked out).
+- For the humanities (components/humanities.ts): `::: timeline` (dated events, a
+  numbered figure) and `::: thinker` (dates, key works, ideas; the name goes in the
+  glossary like a definition). Plain HTML, no islands.
 - Plots (widgets.ts, react/Plot.tsx) also draw `bars` (discrete distributions, at whole
   numbers) and shade `region`s (comparison chains in x and y, sampled on a grid), and
   sliders can move in steps and carry a label.

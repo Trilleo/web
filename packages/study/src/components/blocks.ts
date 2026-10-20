@@ -28,6 +28,7 @@ import { LOGIC_COMPONENTS } from "./logic";
 import { SET_COMPONENTS } from "./sets";
 import { THERMO_COMPONENTS } from "./thermo";
 import { GRAPH_COMPONENTS } from "./graphs";
+import { HUMANITIES_COMPONENTS } from "./humanities";
 import {
   STUDY_SET,
   chinese,
@@ -546,4 +547,5 @@ export const STUDY_COMPONENTS = [
   ...SET_COMPONENTS,
   ...THERMO_COMPONENTS,
   ...GRAPH_COMPONENTS,
+  ...HUMANITIES_COMPONENTS,
 ] as const;

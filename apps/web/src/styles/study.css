@@ -371,6 +371,55 @@
   border-top: 2px solid var(--tr-ink);
 }
 
+/* Timelines (::: timeline): dates down a rule, events beside them. */
+.study-timeline ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-left: 2px solid var(--tr-ink);
+}
+
+.study-timeline li {
+  display: grid;
+  grid-template-columns: minmax(0, 7.5rem) minmax(0, 1fr);
+  gap: 0.25rem 1rem;
+  padding: 0.5rem 0 0.5rem 1.25rem;
+}
+
+.study-timeline li + li {
+  border-top: var(--study-rule);
+}
+
+.study-timeline-date {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+}
+
+.study-timeline-event .study-zh {
+  margin-left: 0.4em;
+}
+
+@media (width < 48rem) {
+  .study-timeline li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Thinkers (::: thinker): a box with their dates and works. */
+.study-thinker-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.2rem 1rem;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+}
+
+.study-thinker-facts dt {
+  color: var(--tr-muted);
+}
+
 /* Circuits (packages/study/src/circuit/draw.ts). */
 .study-circuit {
   max-width: 100%;

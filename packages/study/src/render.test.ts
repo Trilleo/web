@@ -379,6 +379,42 @@ shade: cycle
     ).toHaveLength(1);
   });
 
+  test("draw timelines and introduce thinkers", () => {
+    const result = render(`::: timeline Marx's life
+1818 | Marx is born | 马克思诞生
+1848 | *The Communist Manifesto*
+:::
+
+::: thinker Ludwig Feuerbach | 费尔巴哈
+dates: 1804–1872
+works: *The Essence of Christianity*
+A materialist, but a **metaphysical** one.
+:::`);
+    expect(result.errors).toEqual([]);
+    expect(result.html).toContain("Figure 2.3.1");
+    expect(result.html).toContain(
+      '<span class="study-timeline-date">1818</span>',
+    );
+    expect(result.html).toContain("<em>The Communist Manifesto</em>");
+    expect(result.html).toContain('id="thinker-ludwig-feuerbach"');
+    expect(result.html).toContain("<dt>Lived</dt><dd>1804–1872</dd>");
+    expect(result.glossary).toEqual([
+      expect.objectContaining({
+        term: "Ludwig Feuerbach",
+        zh: "费尔巴哈",
+        anchor: "thinker-ludwig-feuerbach",
+      }),
+    ]);
+    expect(result.glossary[0]?.definition).toContain("(1804–1872)");
+
+    expect(render("::: timeline\n1818 Marx is born\n:::").errors).toHaveLength(
+      1,
+    );
+    expect(
+      render("::: thinker Hegel\ndates: 1770–1831\n:::").errors,
+    ).toHaveLength(1);
+  });
+
   test("resolve figures", () => {
     expect(render("![A bridge](figures/known.webp)").html).toContain(
       'src="/_astro/known.webp"',

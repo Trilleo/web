@@ -80,6 +80,8 @@ Blocks (`::: name argument` … `:::`):
 | `::: pv Title`                  | p–V diagrams: states `1: V 10, p 300`, processes `1 -> 2: isothermal`, `shade: cycle` (below) |
 | `::: graph Title`               | Graphs and relation diagrams: `a -- b`, `a -> b`, loops, weights, `row:` / `at a:` layouts, `highlight:` (below) |
 | `::: hasse Title`               | Hasse diagrams from `divides: 1 2 3 6`, `subsets: a b c` or `order: a < b < c` (below) |
+| `::: timeline Title`            | Dated events, one per line: `1848 \| *The Communist Manifesto* \| 《共产党宣言》` (a figure) |
+| `::: thinker Name \| 中文`      | A key thinker: `dates:` and `works:` lines, then what they're known for; goes in the glossary |
 
 Quizzes: `?` starts a question; then options (`- [x]` right, `- [ ]` wrong), or
 `answer: 0.5 A` (a number with its unit; `tolerance: 2%`, 1% by default; without a

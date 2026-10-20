@@ -181,3 +181,18 @@ tolerance: 0.0001
 > $2\Phi(3) - 1 \approx 0.9973$.
 :::
 
+## History and people
+
+Humanities subjects date their ideas and introduce the people behind them.
+
+::: timeline Ohm and Kirchhoff
+1827 | Ohm publishes his law of the circuit | 欧姆定律
+1845 | Kirchhoff states his circuit laws as a student | 基尔霍夫定律
+:::
+
+::: thinker Georg Simon Ohm | 欧姆
+dates: 1789–1854
+works: *Die galvanische Kette, mathematisch bearbeitet* (1827)
+A German schoolteacher who found that the current through a wire is proportional to
+the voltage across it, at first against the doubts of his colleagues.
+:::
