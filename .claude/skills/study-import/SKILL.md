@@ -13,7 +13,24 @@ Classroom. The teachers agreed to share their materials, and lessons are public.
 
 Ask which course (as Rain Classroom names it), the slug (`circuits`), English and
 Chinese names, teacher, course code, term and known exam dates. For an existing
-subject, ask which lectures are new.
+subject, see "Adding later lectures" below.
+
+### Adding later lectures
+
+The person only needs to name the subject (and sign in). Everything else is recorded:
+
+- `study-sources/<subject>/index.md` gives the classroom ID, the log URL, the date of
+  the last lecture imported ("lectures up to …"), the decks so far, and what was left
+  out (graded items, slides not yet taught: `untaught/`, or in `shown.txt` with no date).
+- List the log, take lectures after that date, and show the person the list. Fetch
+  their decks as in step 2, numbering new decks after the last one; dedupe against
+  `raw/` (and `untaught/`), and use `conf.slides` for what was shown.
+- Lessons continue the open unit or start the next one (`NN-` numbering continues);
+  existing lessons keep their slugs, so card and question IDs (and people's progress)
+  survive. Card fronts and quiz prompts that are reworded lose their history unless
+  pinned with `{#name}`.
+- Ask about new exam dates, propose the outline for the new lessons, then write, check,
+  and update `index.md` (new decks, the new "lectures up to" date, corrections).
 
 ## 2. Collect the materials
 
