@@ -270,15 +270,18 @@ export function Dashboard() {
                   </span>{" "}
                   {percent(entry?.mastery ?? null)}
                 </td>
-                <td className="study-mastery-links">
-                  <a href={`/study/${deck.subject}/practice/`}>Practise</a>
-                  {due > 0 && (
-                    <a
-                      href={`/study/review/?subject=${encodeURIComponent(deck.subject)}`}
-                    >
-                      Review {due}
-                    </a>
-                  )}
+                <td>
+                  {/* Flex on the cell itself would take it out of the table. */}
+                  <span className="study-mastery-links">
+                    <a href={`/study/${deck.subject}/practice/`}>Practise</a>
+                    {due > 0 && (
+                      <a
+                        href={`/study/review/?subject=${encodeURIComponent(deck.subject)}`}
+                      >
+                        Review {due}
+                      </a>
+                    )}
+                  </span>
                 </td>
               </tr>
             );
