@@ -142,8 +142,8 @@ export interface QuizParse {
 }
 
 const FIELD =
-  /^(answer|tolerance|expression|logic|variables|dontcare|text):\s*(.*)$/;
-const OPTION = /^[-*]\s*\[( |x|X)\]\s*(.*)$/;
+  /^(answer|tolerance|expression|logic|variables|dontcare|text):\s*(\S.*)?$/;
+const OPTION = /^[-*]\s*\[( |x|X)\]\s*(\S.*)?$/;
 
 export function parseQuiz(body: string): QuizParse {
   const questions: QuestionSource[] = [];

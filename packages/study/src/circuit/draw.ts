@@ -569,6 +569,6 @@ export function drawCircuit(circuit: Circuit, options: DrawOptions): string {
         .join(", "),
     ),
   ].join("; ");
-  const titleId = `${options.id}-title`;
+  const titleId = escapeHtml(`${options.id}-title`);
   return `<svg xmlns="http://www.w3.org/2000/svg" class="study-circuit" viewBox="0 0 ${String(width)} ${String(height)}" width="${String(round(width * DISPLAY_SCALE))}" height="${String(round(height * DISPLAY_SCALE))}" role="img" aria-labelledby="${titleId}"><title id="${titleId}">${escapeHtml(`${options.title}. ${description}.`)}</title>${parts.join("")}</svg>`;
 }

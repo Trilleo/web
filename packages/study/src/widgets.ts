@@ -161,7 +161,7 @@ function parseSlider(rest: string, errors: string[]): Slider | null {
   const labels: string[] = [];
   for (const extra of extras) {
     if (extra === "") continue;
-    const stepMatch = /^step\s+(.+)$/.exec(extra);
+    const stepMatch = /^step\s+(\S.*)$/.exec(extra);
     if (extra === "log") log = true;
     else if (stepMatch) {
       step = number(stepMatch[1] ?? "");
@@ -304,9 +304,8 @@ export function parsePlot(body: string): Parsed<PlotSpec> {
       if (slider) sliders.push(slider);
       continue;
     }
-    const region = /^region(?:\s+([\p{L}_][\p{L}\p{N}_]*))?\s*:\s*(.+)$/u.exec(
-      line,
-    );
+    const region =
+      /^region(?:\s+([\p{L}_][\p{L}\p{N}_]*))?\s*:\s*(\S.*)$/u.exec(line);
     if (region) {
       regionLines.push({
         name: region[1] ?? `R${String(regionLines.length + 1)}`,
@@ -315,7 +314,7 @@ export function parsePlot(body: string): Parsed<PlotSpec> {
       continue;
     }
     const curve =
-      /^(bars\s+)?([\p{L}_][\p{L}\p{N}_]*)\(\s*([\p{L}_][\p{L}\p{N}_]*)\s*\)\s*=\s*(.+)$/u.exec(
+      /^(bars\s+)?([\p{L}_][\p{L}\p{N}_]*)\(\s*([\p{L}_][\p{L}\p{N}_]*)\s*\)\s*=\s*(\S.*)$/u.exec(
         line,
       );
     if (curve) {
@@ -327,7 +326,7 @@ export function parsePlot(body: string): Parsed<PlotSpec> {
       });
       continue;
     }
-    const field = /^(x|y|xlabel|ylabel):\s*(.*)$/.exec(line);
+    const field = /^(x|y|xlabel|ylabel):\s*(\S.*)?$/.exec(line);
     if (field) {
       const [, key, value = ""] = field;
       if (key === "x" || key === "y") {
@@ -413,7 +412,7 @@ export function parseExplore(body: string): Parsed<ExploreSpec> {
       continue;
     }
     const output =
-      /^([\p{L}_][\p{L}\p{N}_]*)\s*=\s*([^|]+)(?:\|([^|]*))?(?:\|(.*))?$/u.exec(
+      /^([\p{L}_][\p{L}\p{N}_]*)\s*=\s*([^|\s][^|]*)(?:\|([^|]*))?(?:\|(.*))?$/u.exec(
         line,
       );
     if (output) {

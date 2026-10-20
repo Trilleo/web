@@ -154,14 +154,35 @@ function parsePoint(text: string): Point | null {
 }
 
 /** "1k", "1kΩ", "10 µF", "5V", "-2mA": the value in base units, or null. */
+/** Where the run of letters at the end of the text starts. */
+function trailingLetters(text: string): number {
+  let start = text.length;
+  while (start > 0 && /[\p{L}µΩ]/u.test(text.charAt(start - 1))) start--;
+  return start;
+}
+
+/** A `[…]` at the end of the text: where it starts and what's inside. */
+function trailingBracket(
+  text: string,
+): { index: number; inside: string } | null {
+  const end = text.trimEnd();
+  if (!end.endsWith("]")) return null;
+  const close = end.length - 1;
+  const index = end.indexOf("[", end.lastIndexOf("]", close - 1) + 1);
+  return index === -1 || index > close
+    ? null
+    : { index, inside: end.slice(index + 1, close) };
+}
+
 export function parseValue(text: string, kind: ElementKind): number | null {
   const unit = ELEMENT_UNITS[kind];
   const quantity = parseQuantity(text);
   if (!quantity) return null;
   if (quantity.unit === unit || quantity.unit === "") return quantity.value;
   // "1k": a prefix with the unit left out.
-  const number = parseQuantity(text.replace(/[\p{L}µΩ]+$/u, ""));
-  const suffix = /[\p{L}µΩ]+$/u.exec(text.trim())?.[0] ?? "";
+  const number = parseQuantity(text.slice(0, trailingLetters(text)));
+  const trimmed = text.trim();
+  const suffix = trimmed.slice(trailingLetters(trimmed));
   const [factor, rest] = splitUnit(suffix + unit);
   return number && rest === unit && number.unit === ""
     ? number.value * factor
@@ -229,7 +250,8 @@ export function parseCircuit(body: string): CircuitParse {
   const names = new Set<string>();
 
   body.split("\n").forEach((raw, index) => {
-    const line = raw.replace(/#.*$/, "").trim();
+    const hash = raw.indexOf("#");
+    const line = (hash === -1 ? raw : raw.slice(0, hash)).trim();
     if (line === "") return;
     const where = `Line ${String(index + 1)}`;
     const words = line.split(/\s+/);
@@ -379,10 +401,10 @@ export function parseCircuit(body: string): CircuitParse {
     }
 
     let range: [number, number] | undefined;
-    const bracket = /\[([^\]]*)\]\s*$/.exec(rest);
+    const bracket = trailingBracket(rest);
     if (bracket) {
       rest = rest.slice(0, bracket.index).trim();
-      const [low, high] = (bracket[1] ?? "")
+      const [low, high] = bracket.inside
         .split("..")
         .map((part) => parseValue(part.trim(), kind));
       if (low == null || high == null || !(high > low)) {

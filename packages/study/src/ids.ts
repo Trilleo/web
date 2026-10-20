@@ -12,7 +12,7 @@
  */
 
 /** A pin's name: lower-case letters, digits and hyphens. */
-const PIN = /\s*\{#([a-z0-9][a-z0-9-]{0,39})\}\s*$/;
+const PIN = /\{#([a-z0-9][a-z0-9-]{0,39})\}\s*$/;
 
 /** The text without a trailing `{#name}`, and the name if there was one. */
 export function splitPin(text: string): { text: string; pin: string | null } {

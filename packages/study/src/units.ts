@@ -81,7 +81,11 @@ function normalizeSymbol(symbol: string): string {
 
 /** "kΩ" → [1000, "Ω"]; "m/s" → [1, "m/s"]; "km/s" → [1000, "m/s"]. */
 export function splitUnit(raw: string): [number, string] {
-  const unit = raw.trim().replace(/\s*([/·*])\s*/g, "$1");
+  const unit = raw
+    .trim()
+    .split(/([/·*])/)
+    .map((piece) => piece.trim())
+    .join("");
   if (unit === "") return [1, ""];
   if (PLAIN_UNITS.has(unit)) return [1, unit];
   const split = unit.search(/[/·*]/);

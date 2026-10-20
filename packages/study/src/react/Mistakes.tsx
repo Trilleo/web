@@ -8,6 +8,17 @@ import { useDecks, useNow, useProgress, useStudy } from "./hooks";
 import { Quiz } from "./Quiz";
 import { KeptNote, recordAttempt } from "./Tracked";
 
+/** HTML's text: tags removed until none are left. */
+function stripTags(html: string): string {
+  let text = html;
+  let previous;
+  do {
+    previous = text;
+    text = text.replace(/<[^>]*>/g, "");
+  } while (text !== previous);
+  return text;
+}
+
 /** What was answered, as it was shown: choices by their text. */
 export function shownResponse(
   question: DeckQuestion,
@@ -21,7 +32,7 @@ export function shownResponse(
     .map((index) => question.options[index])
     .filter((option): option is string => option !== undefined)
     // Options are HTML; show their text.
-    .map((option) => option.replace(/<[^>]*>/g, ""));
+    .map(stripTags);
   return picked.join("; ");
 }
 
