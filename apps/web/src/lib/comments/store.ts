@@ -39,6 +39,8 @@ export interface CommentAuthor {
   name: string | null;
   /** Their profile page is public (/people/<login>). */
   profile: boolean;
+  /** Their picture (lib/profile/avatar.ts), if they have one. */
+  avatarHash: string | null;
 }
 
 /** A comment as one visitor sees it on a post. */
@@ -97,6 +99,7 @@ export async function listThreads(
         displayName: users.displayName,
         commentName: users.commentName,
         profilePublic: users.profilePublic,
+        avatarHash: users.avatarHash,
       },
     })
     .from(comments)
@@ -115,6 +118,7 @@ export async function listThreads(
             login: row.author.username,
             name: commentName(row.author),
             profile: row.author.profilePublic,
+            avatarHash: row.author.avatarHash,
           },
     pending: !removed && row.comment.status === "pending",
     mine: !removed && viewerId !== null && row.comment.authorId === viewerId,
@@ -528,6 +532,7 @@ async function summaries(
       login: author.username,
       name: displayName(author),
       profile: author.profilePublic,
+      avatarHash: author.avatarHash,
       trusted: author.trustedAt !== null,
     },
     pinned: pinnedIn !== null,

@@ -1,0 +1,36 @@
+---
+/** Someone's picture and name, linking to their profile when it's public. */
+import type { ForumAuthor } from "../../lib/forum/store";
+import { profileHref } from "../../lib/profile/profile";
+import Avatar from "../account/Avatar.astro";
+
+interface Props {
+  author: ForumAuthor | null;
+  /** Show the picture too. */
+  avatar?: boolean;
+  class?: string;
+}
+
+const { author, avatar = true, class: className } = Astro.props;
+const person = author && {
+  username: author.username,
+  name: author.linkedName,
+  displayName: author.displayName,
+  avatarHash: author.avatarHash,
+};
+---
+
+{author && person ? (
+  <span class:list={["inline-flex min-w-0 items-center gap-2", className]}>
+    {avatar && <Avatar user={person} size="xs" />}
+    {author.profile ? (
+      <a href={profileHref(author.username)} class="group min-w-0 truncate">
+        <span class="link-wipe">{author.name}</span>
+      </a>
+    ) : (
+      <span class="min-w-0 truncate">{author.name}</span>
+    )}
+  </span>
+) : (
+  <span class:list={["text-muted", className]}>Deleted account</span>
+)}

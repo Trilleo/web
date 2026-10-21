@@ -39,9 +39,13 @@ export const INFO_PAGES: readonly InfoPage[] = [
     title: "Terms of use",
     label: "Terms",
     description:
-      "The rules for using Trilleo Network: accounts, comments, uploads, tools, games and the wiki.",
+      "The rules for using Trilleo Network: accounts, comments, the forum, uploads, tools, games and the wiki.",
     group: "legal",
     changes: [
+      {
+        date: "2026-10-21",
+        note: "Added the forum and profile pictures: forum posts stay, without your name, after you delete your account.",
+      },
       {
         date: "2026-10-12",
         note: "Added proposed edits on the wiki: anyone signed in can propose one, and an approved one counts as your edit.",
@@ -69,6 +73,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "What Trilleo Network keeps about you, why, for how long, and how to see or delete it.",
     group: "legal",
     changes: [
+      {
+        date: "2026-10-21",
+        note: "Added profile pictures and the forum: what’s kept, who can see it, and that forum posts stay without your name when you delete your account.",
+      },
       {
         date: "2026-10-16",
         note: "Study progress: what’s kept when you study signed in, and that it goes with your account.",
@@ -145,9 +153,13 @@ export const INFO_PAGES: readonly InfoPage[] = [
     title: "Community guidelines",
     label: "Guidelines",
     description:
-      "How to take part in comments and uploads, and what happens when rules are broken.",
+      "How to take part in comments, the forum and uploads, and what happens when rules are broken.",
     group: "legal",
     changes: [
+      {
+        date: "2026-10-21",
+        note: "Added the forum’s rules (posting, approval, limits, editing and deleting) and profile pictures.",
+      },
       {
         date: "2026-10-07",
         note: "Added the rules for Minecraft projects, and their reports.",
@@ -181,9 +193,13 @@ export const INFO_PAGES: readonly InfoPage[] = [
     title: "Questions and answers",
     label: "FAQ",
     description:
-      "Short answers about accounts, your data, the tools, the games and comments.",
+      "Short answers about accounts, your data, the tools, the games, comments and the forum.",
     group: "help",
     changes: [
+      {
+        date: "2026-10-21",
+        note: "Added the forum, and profile pictures.",
+      },
       {
         date: "2026-10-16",
         note: "Where the study lessons come from, and how reviews and progress are kept.",
@@ -217,6 +233,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "help",
     changes: [
       {
+        date: "2026-10-21",
+        note: "The forum works without JavaScript; the profile picture cropper works with the keyboard.",
+      },
+      {
         date: "2026-10-07",
         note: "Added the 3D views of Minecraft builds to the known limits.",
       },
@@ -231,6 +251,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "How to report a vulnerability in Trilleo Network, what's in scope, and what to expect back.",
     group: "help",
     changes: [
+      {
+        date: "2026-10-21",
+        note: "Added the forum and profile pictures to what’s in scope.",
+      },
       {
         date: "2026-10-09",
         note: "Added email addresses, codes and unsubscribe links to what’s in scope.",

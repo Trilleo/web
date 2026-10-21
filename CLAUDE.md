@@ -51,6 +51,9 @@
   (what a mod, plugin, pack, world or schematic says about itself); builds' blocks
   (`readVoxels`), the compact preview format, block colours/shapes and the mesher
   for the 3D view. `./testing` writes NBT for tests. Source-only.
+- packages/forum (@trilleo/forum): the forum's pure rules: addresses (slugs, topic
+  segments, reserved forum slugs), layouts (`FORUM_LAYOUTS`), permissions
+  (`FORUM_PERMISSIONS`, `can`), limits and the post renderer. Source-only.
 - packages/wiki (@trilleo/wiki): wiki components. `.` the registry (`COMPONENTS`,
   `COMPONENT_SETS`), the markdown-it plugin that renders them, and syntax helpers;
   `./client` the browser part (`enhanceTabs`). Source-only.
@@ -316,6 +319,17 @@
   island, so pre-built pages show who's signed in too: "Sign in" (back to this
   page), or a menu (profile, account, security, Admin for the admin, sign out). Its
   Escape/click-away behaviour lives in SiteHeader's script (islands bring none).
+- Avatars (src/lib/profile/avatar.ts, the `avatars` table, `users.avatar_hash`): one
+  picture per account, set on /account/profile/ (#avatar, its own form posting to
+  /account/avatar). The browser crops it to a square and sends an AVATAR_SIZE WebP
+  (lib/profile/crop.ts; PNG where it can't write WebP); without JS the file goes as
+  it is. The server sniffs the bytes (PNG/JPEG/WebP, never SVG), reads the size from
+  the header (`imageInfo`), and refuses over AVATAR_MAX_BYTES / AVATAR_MAX_SIDE or
+  animated. The admin skips the size limits (up to AVATAR_ADMIN_MAX_BYTES) and may
+  keep a picture uncropped. Served at /avatars/<sha256> (a day's cache, so removals
+  reach browsers; not for blocked accounts). Show it with components/account/
+  Avatar.astro (falls back to the Monogram). The admin removes one from the person's
+  /people/ page (POST /admin/avatar).
 - Profiles (src/lib/profile/): people choose a username, a display name (falls back
   to a linked account's name, then the username), pronouns, location, a "currently"
   line, a bio (comment Markdown) and up to 5 links, whether the profile is public, and
@@ -826,6 +840,59 @@ Name`, `::: inventory 3x9 Title` (slots `5: Item x64`, ranges, `row 2: A, , B`),
   person due one (DIGEST.gapMs since their last, wiki_digests) what changed, if
   anything ("wiki-digest", topic "watchlist"); /admin/mail/ can send due ones now.
   Email links are absolute to WIKI_URL.
+
+## Forum
+
+- /forum/ is "(07) Forum": a home page section and a footer link, not in the header.
+  Rules in packages/forum (pure), data in apps/web/src/lib/forum/ (store.ts reads and
+  writes, tree.ts the forum tree, admin.ts the admin's forms), pages in
+  src/pages/forum/, components in components/forum/, post styles in styles/forum.css.
+- Structure: one `forums` table, a tree: categories at the top (kind "category",
+  hold only forums), forums inside, subforums to any depth. Addressed by slug alone
+  (/forum/<slug>/; RESERVED_FORUM_SLUGS are the section's own pages). Topics are
+  /forum/<forum>/<id>-<slug>/, found by id: another forum or slug 301s, so renames
+  and moves keep links. /forum/post/<id>/ is a post's permalink (redirects to its
+  page and #post-<id>). The migration seeds Community (Announcements, General,
+  Introductions) and This site (Help & feedback).
+- Topics hold posts (forum_topics, forum_posts); the first post is the opening one
+  (`firstPostId`). States: pending (its author and moderators see it), published,
+  hidden. Deleting sets `deletedAt` (kept, out of every view); deleting the first post
+  deletes the topic, which its author may do only until someone else replied. Topic
+  and forum counts and last posts are caches: every write calls `refreshTopic`, which
+  recounts the topic and its forum. A forum's totals include its subforums' in
+  `ForumTree` (counted in memory).
+- Permissions: every check is @trilleo/forum's `can(viewer, permission, place, topic,
+post)`; `forumViewer(user)` and `tree.place(forum)` build its inputs (a hidden
+  forum hides everything under it). Moderators are the admin for now
+  (`moderates`; `ForumPlace.moderators` is the hook for per-forum moderators). New
+  permissions go in FORUM_PERMISSIONS. Pages check before showing a button, and the
+  store checks again.
+- Moderation per forum (`forums.moderation`): none, newcomers (the default; trust is
+  users.trusted_at, shared with comments: approving a post trusts its author) or all.
+  A reply to its author's own waiting topic waits with it and goes live with it.
+  FORUM_LIMITS caps bursts, daily posts and waiting posts (moderators are exempt).
+  Waiting posts send an admin alert (kind "forum") and wait in /admin/forum/?tab=waiting.
+- Formatting (packages/forum's render.ts): markdown-it with HTML and images off,
+  headings shifted to start at h3, lists, tables, strikethrough, http(s)/site links
+  (nofollow ugc), and @username linked for public, unblocked profiles (looked up when
+  saved). Rendered on save into `html`; bump FORUM_RENDER_VERSION when its output
+  changes (stale posts re-render when read). Quotes are plain Markdown (`quoteFor`).
+  Changing what's enabled means updating its XSS tests.
+- Layouts (`FORUM_LAYOUTS`): only "classic" is built; Q&A and threaded are listed
+  `ready: false` (the admin sees them, disabled). Blocked accounts' topics and posts
+  are left out of views at read time.
+- Pages work without JavaScript: posting, Preview (a round trip), Quote (?quote=<id>),
+  editing (/forum/edit/<id>/), and every button (POST /forum/action, with `back`).
+  Search is Postgres full-text search over titles and posts (/forum/search/?q=,
+  noindex). Admin: /admin/forum/ (the tree, up/down, "Add forum", the waiting queue)
+  and /admin/forum/<id>/ or new/[?parent=] (name, address, description, parent,
+  layout, moderation, locked, hidden; delete only when empty).
+- Accounts: the export has `forum` (topics and posts, deleted ones too). Deleting an
+  account keeps its posts without the author ("Deleted account"), like wiki revisions.
+- Later phases (designed, not built): groups and a permission matrix, per-forum
+  moderators, reports, move/merge/split, edit history, Q&A and threaded layouts,
+  reactions, ranks, unread tracking, tags and prefixes, subscriptions and digests,
+  RSS, polls, attachments and private messages.
 
 ## Mail
 

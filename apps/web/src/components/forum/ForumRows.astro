@@ -1,0 +1,84 @@
+---
+/**
+ * Forums as rows: name, description and subforums, their topics and posts (with
+ * their subforums'), and the newest post. Used on the index and above a forum's
+ * topics.
+ */
+import { forumPath, postPath } from "@trilleo/forum";
+import { counted, formatWhen } from "../../lib/forum/public";
+import type { TopicRow } from "../../lib/forum/store";
+import type { ForumNode } from "../../lib/forum/tree";
+import AuthorName from "./AuthorName.astro";
+
+interface Props {
+  nodes: readonly ForumNode[];
+  /** The rows behind each node's lastPostId. */
+  lastPosts: ReadonlyMap<number, TopicRow>;
+  now?: Date;
+}
+
+const { nodes, lastPosts, now = new Date() } = Astro.props;
+---
+
+<ol class="border-t border-ink">
+  {nodes.map((node) => {
+    const last =
+      node.lastPostId === null ? undefined : lastPosts.get(node.lastPostId);
+    return (
+      <li class="grid-swiss items-baseline gap-y-2 border-b border-hair py-4">
+        <div class="col-span-4 flex min-w-0 flex-col gap-1 md:col-span-5 xl:col-span-7">
+          <p class="flex flex-wrap items-baseline gap-x-3">
+            <a href={forumPath(node.forum)} class="group text-lg font-semibold">
+              <span class="link-wipe">{node.forum.name}</span>
+            </a>
+            {node.forum.locked && (
+              <span class="type-label bg-chip px-1.5 py-0.5">Locked</span>
+            )}
+            {node.forum.hidden && (
+              <span class="type-label bg-chip px-1.5 py-0.5">Hidden</span>
+            )}
+          </p>
+          {node.forum.description && (
+            <p class="text-muted">{node.forum.description}</p>
+          )}
+          {node.children.length > 0 && (
+            <p class="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+              <span class="type-label text-muted">Subforums</span>
+              {node.children.map((child) => (
+                <a href={forumPath(child.forum)} class="group">
+                  <span class="link-wipe">{child.forum.name}</span>
+                </a>
+              ))}
+            </p>
+          )}
+        </div>
+        <p class="type-label col-span-2 flex flex-col text-muted md:col-span-1 xl:col-span-2 xl:flex-row xl:gap-4">
+          <span>{counted(node.totals.topics, "topic")}</span>
+          <span>{counted(node.totals.posts, "post")}</span>
+        </p>
+        <div class="col-span-2 flex min-w-0 flex-col gap-1 text-sm text-muted md:col-span-2 xl:col-span-3">
+          {last && node.lastPostAt ? (
+            <>
+              <a
+                href={postPath({ id: node.lastPostId ?? 0 })}
+                class="group text-ink"
+              >
+                <span class="link-wipe line-clamp-2 font-medium">
+                  {last.topic.title}
+                </span>
+              </a>
+              <span class="flex flex-wrap items-center gap-x-2">
+                <AuthorName author={last.lastPoster} />
+                <time datetime={node.lastPostAt.toISOString()}>
+                  {formatWhen(node.lastPostAt, now)}
+                </time>
+              </span>
+            </>
+          ) : (
+            <span>No posts yet</span>
+          )}
+        </div>
+      </li>
+    );
+  })}
+</ol>

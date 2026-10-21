@@ -34,6 +34,7 @@ function user(githubId: number | null, email: string | null = null): User {
     emailVerifiedAt: null,
     emailNotifications: {},
     emailToken: null,
+    avatarHash: null,
   };
 }
 

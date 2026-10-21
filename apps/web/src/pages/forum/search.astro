@@ -1,0 +1,88 @@
+---
+/**
+ * Searching the forum: /forum/search/?q=. Topics whose title or posts match, each
+ * with a bit of its best-matching post. Results aren't indexed (noindex).
+ */
+import { postPath } from "@trilleo/forum";
+import { buttonClasses } from "@trilleo/ui";
+import Breadcrumb from "../../components/Breadcrumb.astro";
+import DisplayTitle from "../../components/DisplayTitle.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getDb } from "../../lib/db";
+import { FORUM_NUMBER, counted } from "../../lib/forum/public";
+import { forumViewer, loadTree, searchForum } from "../../lib/forum/store";
+
+export const prerender = false;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const q = (Astro.url.searchParams.get("q") ?? "").trim().slice(0, 200);
+const db = await getDb();
+const tree = await loadTree(db);
+const hits = q
+  ? await searchForum(db, { q, tree, viewer: forumViewer(Astro.locals.user) })
+  : [];
+---
+
+<BaseLayout title={q ? `“${q}” · Forum search` : "Forum search"} noindex>
+  <section
+    aria-labelledby="search-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <Breadcrumb
+      items={[
+        { label: `(${FORUM_NUMBER}) Forum`, href: "/forum/" },
+        { label: "Search" },
+      ]}
+      class="type-label"
+    />
+    <DisplayTitle id="search-title">Search</DisplayTitle>
+
+    <form
+      method="get"
+      action="/forum/search/"
+      role="search"
+      class="mt-7 flex max-w-3xl flex-wrap items-end gap-3 md:mt-8 xl:mt-12"
+    >
+      <label class="flex min-w-60 flex-1 flex-col gap-1.5">
+        <span class="type-label text-muted">Words to look for</span>
+        <input
+          type="search"
+          name="q"
+          value={q}
+          class="type-row h-11 w-full border-b border-ink bg-transparent focus:outline-none focus-visible:border-accent"
+        />
+      </label>
+      <button type="submit" class={buttonClasses()}>
+        Search
+      </button>
+    </form>
+
+    {q && (
+      <section aria-labelledby="results-title" class="mt-10">
+        <h2 id="results-title" class="type-label mb-3">
+          {counted(hits.length, "topic")} found
+        </h2>
+        {hits.length === 0 ? (
+          <p class="border-t border-ink pt-4 text-muted">
+            Nothing matches. Try fewer or different words.
+          </p>
+        ) : (
+          <ol class="border-t border-ink" data-testid="search-results">
+            {hits.map((hit) => (
+              <li class="flex flex-col gap-1.5 border-b border-hair py-4">
+                <a
+                  href={postPath({ id: hit.postId })}
+                  class="group text-lg font-semibold"
+                >
+                  <span class="link-wipe">{hit.topic.title}</span>
+                </a>
+                <p class="type-label text-muted">{hit.forum.name}</p>
+                <p class="max-w-prose font-serif text-muted">{hit.snippet}</p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+    )}
+  </section>
+</BaseLayout>

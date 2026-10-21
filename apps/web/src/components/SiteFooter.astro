@@ -12,11 +12,12 @@ import {
 import { wikiOrigin } from "../lib/wiki/host";
 
 const year = new Date().getFullYear();
-// The footer lists Minecraft, Study and the wiki (its own host) beside the header's sections.
+// The footer lists Minecraft, Study, the forum and the wiki (its own host) beside the header's sections.
 const sections = [
   ...NAV_ITEMS.filter((item) => item.href !== "/about/"),
   { label: "Minecraft", href: "/minecraft/" },
   { label: "Study", href: "/study/" },
+  { label: "Forum", href: "/forum/" },
   { label: "Wiki", href: `${wikiOrigin(Astro.url)}/` },
   ...NAV_ITEMS.filter((item) => item.href === "/about/"),
 ];

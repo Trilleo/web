@@ -6,10 +6,10 @@
  * one redirects for a while.
  */
 import { buttonClasses } from "@trilleo/ui";
-import Monogram from "../../components/account/Monogram.astro";
+import Avatar from "../../components/account/Avatar.astro";
 import DisplayTitle from "../../components/DisplayTitle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { requireUser } from "../../lib/auth/guard";
+import { isAdmin, requireUser } from "../../lib/auth/guard";
 import { logEvent } from "../../lib/auth/activity";
 import { noStoreRedirect } from "../../lib/auth/redirect";
 import {
@@ -33,6 +33,13 @@ import {
   type ProfileDraft,
   type ProfileField,
 } from "../../lib/profile/profile";
+import {
+  AVATAR_ACCEPT,
+  AVATAR_ERROR_MESSAGES,
+  AVATAR_SIZE,
+  avatarMaxBytes,
+  type AvatarError,
+} from "../../lib/profile/avatar";
 import { updateProfile } from "../../lib/profile/store";
 
 export const prerender = false;
@@ -81,6 +88,21 @@ const canRenameAt = nextUsernameChange(user);
 
 const saved =
   Astro.url.searchParams.has("saved") && Astro.request.method !== "POST";
+// What happened to the picture (its own form, /account/avatar).
+const avatarDone = Astro.url.searchParams.get("avatar");
+// The admin isn't held to the picture size limits, and may skip the crop.
+const admin = isAdmin(user);
+const avatarMegabytes = avatarMaxBytes(admin) / 1024 / 1024;
+const avatarErrorCode = Astro.url.searchParams.get("avatar-error") ?? "";
+const avatarError = Object.hasOwn(AVATAR_ERROR_MESSAGES, avatarErrorCode)
+  ? AVATAR_ERROR_MESSAGES[avatarErrorCode as AvatarError]
+  : null;
+const avatarStatus =
+  avatarDone === "saved"
+    ? "Picture saved."
+    : avatarDone === "removed"
+      ? "Picture removed."
+      : null;
 const hasErrors = Object.keys(errors).length > 0 || usernameError !== null;
 const githubName = user.name ?? user.username;
 const nameHint = user.name
@@ -161,6 +183,102 @@ const lines = [
       </p>
     )}
 
+    <div id="avatar" class:list={[row, "mt-7 scroll-mt-6 md:mt-8 xl:mt-12"]}>
+      <h2 class={heading}>Picture</h2>
+      <div class={body}>
+        {(avatarStatus || avatarError) && (
+          <p
+            role={avatarError ? "alert" : "status"}
+            class="border-l-2 border-accent pl-4"
+          >
+            {avatarError ?? avatarStatus}
+          </p>
+        )}
+        <div class="flex flex-wrap items-start gap-5">
+          <Avatar user={user} size="lg" />
+          <form
+            method="post"
+            action="/account/avatar"
+            enctype="multipart/form-data"
+            class="flex min-w-0 flex-1 flex-col gap-3"
+            data-avatar-form
+            data-size={String(AVATAR_SIZE)}
+          >
+            <label for="avatar-file" class="font-medium">
+              {user.avatarHash ? "Choose a new picture" : "Choose a picture"}
+            </label>
+            <input
+              id="avatar-file"
+              type="file"
+              name="avatar"
+              accept={AVATAR_ACCEPT}
+              aria-describedby="avatar-hint"
+              class="w-full text-sm file:mr-3 file:cursor-pointer file:border file:border-ink file:bg-paper file:px-3 file:py-2 file:font-sans file:text-ink"
+            />
+            <p id="avatar-hint" class="text-sm text-muted">
+              PNG, JPEG or WebP, up to {avatarMegabytes} MB
+              {admin && " (the admin’s limit)"}. It’s cropped to a square and
+              shown next to your name on comments, forum posts and your profile.
+            </p>
+            <div class="flex flex-col gap-3" hidden data-avatar-crop>
+              <canvas
+                width={AVATAR_SIZE}
+                height={AVATAR_SIZE}
+                tabindex="0"
+                role="img"
+                aria-label="Crop preview. Drag, or use the arrow keys, to move the picture."
+                class="size-48 cursor-grab touch-none border border-ink bg-chip focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:cursor-grabbing"
+                data-avatar-canvas
+              ></canvas>
+              <label class="flex max-w-48 flex-col gap-1 text-sm">
+                <span class="font-medium">Zoom</span>
+                <input
+                  type="range"
+                  min="1"
+                  max="4"
+                  step="0.01"
+                  value="1"
+                  class="accent-accent"
+                  data-avatar-zoom
+                />
+              </label>
+            </div>
+            {admin && (
+              <label class="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  class="mt-0.5 size-4 shrink-0 accent-accent"
+                  data-avatar-original
+                />
+                <span>Keep the picture as it is: no crop, no resizing.</span>
+              </label>
+            )}
+            <p
+              aria-live="assertive"
+              class="text-sm font-medium"
+              data-avatar-error
+            ></p>
+            <div class="flex flex-wrap gap-3">
+              <button type="submit" class={buttonClasses()}>
+                Save picture
+              </button>
+            </div>
+          </form>
+        </div>
+        {user.avatarHash && (
+          <form method="post" action="/account/avatar">
+            <input type="hidden" name="intent" value="remove" />
+            <button
+              type="submit"
+              class="group type-label cursor-pointer text-muted hover:text-ink"
+            >
+              <span class="link-wipe">Remove picture</span>
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+
     <form
       method="post"
       action="/account/profile/"
@@ -175,7 +293,7 @@ const lines = [
             class="flex items-center gap-5 border border-ink p-4 md:p-5"
             data-preview
           >
-            <Monogram user={user} size="md" />
+            <Avatar user={user} size="md" />
             <div class="flex min-w-0 flex-col gap-1">
               <p class="type-card truncate" data-preview-name>
                 {displayName({
@@ -484,5 +602,128 @@ const lines = [
       set("[data-preview-status]", value("status"));
     };
     form.addEventListener("input", update);
+  }
+</script>
+
+<script>
+  import { cropToSquare, coverRect } from "../../lib/profile/crop";
+
+  // The picture form: crop to a square in the browser, send a small WebP. Without
+  // this, the form sends the file as it is and the server checks it.
+  const form = document.querySelector<HTMLFormElement>("[data-avatar-form]");
+  const input = form?.querySelector<HTMLInputElement>('input[type="file"]');
+  const panel = form?.querySelector<HTMLElement>("[data-avatar-crop]");
+  const canvas = form?.querySelector<HTMLCanvasElement>("[data-avatar-canvas]");
+  const zoomInput = form?.querySelector<HTMLInputElement>("[data-avatar-zoom]");
+  const errorBox = form?.querySelector<HTMLElement>("[data-avatar-error]");
+  const context = canvas?.getContext("2d");
+  if (form && input && panel && canvas && zoomInput && errorBox && context) {
+    const size = Number(form.dataset.size ?? "256");
+    let image: ImageBitmap | null = null;
+    // The crop's centre, as a fraction of the picture.
+    let centre = { x: 0.5, y: 0.5 };
+
+    const draw = () => {
+      if (!image) return;
+      const rect = coverRect(image, Number(zoomInput.value), centre);
+      centre = { x: rect.centreX, y: rect.centreY };
+      context.clearRect(0, 0, size, size);
+      context.drawImage(
+        image,
+        rect.x,
+        rect.y,
+        rect.side,
+        rect.side,
+        0,
+        0,
+        size,
+        size,
+      );
+    };
+
+    input.addEventListener("change", async () => {
+      errorBox.textContent = "";
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        image = await createImageBitmap(file);
+      } catch {
+        image = null;
+        panel.hidden = true;
+        errorBox.textContent =
+          "That file isn’t a picture this browser can read.";
+        return;
+      }
+      centre = { x: 0.5, y: 0.5 };
+      zoomInput.value = "1";
+      panel.hidden =
+        form.querySelector<HTMLInputElement>("[data-avatar-original]")
+          ?.checked ?? false;
+      draw();
+    });
+    zoomInput.addEventListener("input", draw);
+
+    // Dragging moves the picture under the square.
+    let drag: { x: number; y: number } | null = null;
+    canvas.addEventListener("pointerdown", (event) => {
+      drag = { x: event.clientX, y: event.clientY };
+      canvas.setPointerCapture(event.pointerId);
+    });
+    canvas.addEventListener("pointermove", (event) => {
+      if (!drag || !image) return;
+      const rect = coverRect(image, Number(zoomInput.value), centre);
+      const scale = rect.side / canvas.clientWidth;
+      centre = {
+        x: centre.x - ((event.clientX - drag.x) * scale) / image.width,
+        y: centre.y - ((event.clientY - drag.y) * scale) / image.height,
+      };
+      drag = { x: event.clientX, y: event.clientY };
+      draw();
+    });
+    canvas.addEventListener("pointerup", () => (drag = null));
+    canvas.addEventListener("keydown", (event) => {
+      const step = 0.02;
+      const moves: Record<string, [number, number]> = {
+        ArrowLeft: [-step, 0],
+        ArrowRight: [step, 0],
+        ArrowUp: [0, -step],
+        ArrowDown: [0, step],
+      };
+      const move = moves[event.key];
+      if (!move) return;
+      event.preventDefault();
+      centre = { x: centre.x + move[0], y: centre.y + move[1] };
+      draw();
+    });
+
+    const original = form.querySelector<HTMLInputElement>(
+      "[data-avatar-original]",
+    );
+    original?.addEventListener("change", () => {
+      panel.hidden = original.checked || !image;
+    });
+    form.addEventListener("submit", async (event) => {
+      // Kept as it is (the admin's choice): the plain form sends the file.
+      if (!image || original?.checked) return;
+      event.preventDefault();
+      errorBox.textContent = "";
+      const blob = await cropToSquare(canvas);
+      const body = new FormData();
+      body.set("avatar", blob, "avatar");
+      const response = await fetch(form.action, {
+        method: "POST",
+        body,
+        headers: { Accept: "application/json" },
+      }).catch(() => null);
+      if (response?.ok) {
+        window.location.assign("/account/profile/?avatar=saved#avatar");
+        return;
+      }
+      const reply = (await response?.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      errorBox.textContent =
+        reply?.error ?? "The picture couldn’t be saved. Try again.";
+    });
   }
 </script>

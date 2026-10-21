@@ -1,0 +1,42 @@
+---
+/**
+ * Someone's picture, or their monogram when they have none. Decorative: it always
+ * sits beside their name, so it's hidden from screen readers.
+ */
+import type { User } from "@trilleo/db";
+import { avatarUrl } from "../../lib/profile/avatar";
+import Monogram from "./Monogram.astro";
+
+interface Props {
+  user: Pick<User, "username" | "name" | "displayName" | "avatarHash">;
+  size?: "xs" | "sm" | "md" | "lg";
+  class?: string;
+}
+
+const { user, size = "sm", class: className } = Astro.props;
+const pixels = { xs: 24, sm: 32, md: 56, lg: 128 }[size];
+---
+
+{user.avatarHash ? (
+  <img
+    src={avatarUrl(user.avatarHash)}
+    alt=""
+    width={pixels}
+    height={pixels}
+    loading={size === "xs" ? "lazy" : undefined}
+    decoding="async"
+    class:list={[
+      "shrink-0 bg-chip object-cover",
+      {
+        xs: "size-6",
+        sm: "size-8",
+        md: "size-14",
+        lg: "size-24 md:size-32",
+      }[size],
+      className,
+    ]}
+    data-avatar
+  />
+) : (
+  <Monogram user={user} size={size} class={className} />
+)}

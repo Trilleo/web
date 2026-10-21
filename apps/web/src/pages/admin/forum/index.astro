@@ -1,0 +1,308 @@
+---
+/**
+ * The admin's forum page. ?tab=forums (default): the whole tree, with counts,
+ * reordering (up/down), and links to change or add a category or forum.
+ * ?tab=waiting: topics and replies waiting for approval, oldest first.
+ */
+import { forumLayout, forumPath, postPath, topicPath } from "@trilleo/forum";
+import AdminNav from "../../../components/admin/AdminNav.astro";
+import {
+  primaryButton,
+  secondaryButton,
+} from "../../../components/admin/files/styles";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import AuthorName from "../../../components/forum/AuthorName.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireAdmin } from "../../../lib/auth/guard";
+import { getDb } from "../../../lib/db";
+import { counted, formatWhen } from "../../../lib/forum/public";
+import {
+  loadTree,
+  renderBody,
+  waitingCount,
+  waitingPosts,
+} from "../../../lib/forum/store";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const tab =
+  Astro.url.searchParams.get("tab") === "waiting" ? "waiting" : "forums";
+const done = Astro.url.searchParams.get("done");
+const error = Astro.url.searchParams.get("error");
+const tree = await loadTree(db);
+const waiting = await waitingCount(db);
+const queue = tab === "waiting" ? await waitingPosts(db) : [];
+const queueHtml = new Map<number, string>();
+for (const item of queue)
+  queueHtml.set(item.post.id, await renderBody(db, item.post.body));
+const here = Astro.url.pathname + Astro.url.search;
+const now = new Date();
+
+const DONE: Record<string, string> = {
+  saved: "Saved.",
+  created: "Created.",
+  deleted: "Deleted.",
+  moved: "Moved.",
+};
+const MODERATION_LABELS = {
+  none: "Nothing waits",
+  newcomers: "Newcomers wait",
+  all: "Everything waits",
+} as const;
+const row =
+  "grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6";
+---
+
+<BaseLayout title="Forum · Admin" noindex>
+  <section
+    aria-labelledby="admin-forum-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="forum" />
+    <DisplayTitle id="admin-forum-title">Forum</DisplayTitle>
+
+    <div class={row}>
+      <p class="type-label col-span-4 md:col-span-2 xl:col-span-2">Overview</p>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
+        <nav
+          aria-label="Forum admin"
+          class="type-label flex flex-wrap gap-x-6 gap-y-2"
+        >
+          {[
+            { key: "forums", label: "Forums", count: 0 },
+            { key: "waiting", label: "Waiting for approval", count: waiting },
+          ].map((item) => (
+            <a
+              href={`/admin/forum/?tab=${item.key}`}
+              class="group inline-flex items-center gap-2"
+              aria-current={item.key === tab ? "page" : undefined}
+            >
+              <span
+                class:list={[
+                  "size-2",
+                  item.key === tab ? "bg-accent" : "bg-transparent",
+                ]}
+                aria-hidden="true"
+              />
+              <span class="link-wipe">{item.label}</span>
+              {item.count > 0 && (
+                <span class="bg-accent px-1.5 text-on-accent">
+                  {item.count}
+                </span>
+              )}
+            </a>
+          ))}
+          <a href="/forum/" class="group">
+            <span class="link-wipe">View the forum</span>
+          </a>
+        </nav>
+        {done && DONE[done] && (
+          <p role="status" class="type-lead border-l-2 border-accent pl-4">
+            {DONE[done]}
+          </p>
+        )}
+        {error && (
+          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+            {error}
+          </p>
+        )}
+      </div>
+    </div>
+
+    {tab === "forums" ? (
+      <div class={row}>
+        <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
+          Structure
+        </h2>
+        <div class="col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-10">
+          <p class="flex flex-wrap gap-3">
+            <a href="/admin/forum/new/" class={primaryButton}>
+              New category
+            </a>
+          </p>
+          {tree.roots.length === 0 ? (
+            <p class="text-muted">No categories yet.</p>
+          ) : (
+            <ol class="border-b border-ink" data-testid="admin-forum-tree">
+              {tree.flat().map((node) => {
+                const siblings =
+                  node.forum.parentId === null
+                    ? tree.roots
+                    : (tree.get(node.forum.parentId)?.children ?? []);
+                const index = siblings.indexOf(node);
+                return (
+                  <li
+                    class="grid gap-3 border-t border-ink py-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+                    style={`padding-left: ${String(node.depth * 1.5)}rem`}
+                    data-forum={node.forum.slug}
+                  >
+                    <div class="flex min-w-0 flex-col gap-1">
+                      <p class="flex flex-wrap items-baseline gap-x-3">
+                        <span class="type-label text-muted">
+                          {node.forum.kind === "category"
+                            ? "Category"
+                            : "Forum"}
+                        </span>
+                        <a
+                          href={`/admin/forum/${String(node.forum.id)}/`}
+                          class="group font-semibold"
+                        >
+                          <span class="link-wipe">{node.forum.name}</span>
+                        </a>
+                        <a
+                          href={forumPath(node.forum)}
+                          class="group type-label text-muted"
+                        >
+                          <span class="link-wipe">{forumPath(node.forum)}</span>
+                        </a>
+                      </p>
+                      <p class="type-label flex flex-wrap gap-x-4 text-muted">
+                        <span>{counted(node.forum.topicCount, "topic")}</span>
+                        <span>{counted(node.forum.postCount, "post")}</span>
+                        {node.forum.kind === "forum" && (
+                          <>
+                            <span>{forumLayout(node.forum.layout).label}</span>
+                            <span>
+                              {MODERATION_LABELS[node.forum.moderation]}
+                            </span>
+                          </>
+                        )}
+                        {node.forum.locked && (
+                          <span class="text-ink">Locked</span>
+                        )}
+                        {node.forum.hidden && (
+                          <span class="text-ink">Hidden</span>
+                        )}
+                      </p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                      {(["up", "down"] as const).map((direction) => (
+                        <form method="post" action="/admin/forum/action">
+                          <input
+                            type="hidden"
+                            name="forum"
+                            value={String(node.forum.id)}
+                          />
+                          <input
+                            type="hidden"
+                            name="action"
+                            value={direction}
+                          />
+                          <button
+                            type="submit"
+                            class={secondaryButton}
+                            disabled={
+                              direction === "up"
+                                ? index <= 0
+                                : index >= siblings.length - 1
+                            }
+                            aria-label={`Move ${node.forum.name} ${direction}`}
+                          >
+                            {direction === "up" ? "Up" : "Down"}
+                          </button>
+                        </form>
+                      ))}
+                      <a
+                        href={`/admin/forum/new/?parent=${String(node.forum.id)}`}
+                        class={secondaryButton}
+                        aria-label={`Add a forum in ${node.forum.name}`}
+                      >
+                        Add forum
+                      </a>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </div>
+      </div>
+    ) : (
+      <div class={row}>
+        <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
+          Waiting
+        </h2>
+        <div class="col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-10">
+          {queue.length === 0 ? (
+            <p class="text-muted">Nothing is waiting.</p>
+          ) : (
+            <ol class="border-b border-ink" data-testid="forum-queue">
+              {queue.map((item) => (
+                <li class="flex flex-col gap-3 border-t border-ink py-4">
+                  <p class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <span class="type-label bg-accent px-1.5 text-on-accent">
+                      {item.first ? "New topic" : "Reply"}
+                    </span>
+                    <a href={postPath(item.post)} class="group font-semibold">
+                      <span class="link-wipe">{item.topic.title}</span>
+                    </a>
+                    <span class="type-label text-muted">
+                      in{" "}
+                      <a
+                        href={topicPath(item.forum, item.topic)}
+                        class="link-wipe"
+                      >
+                        {item.forum.name}
+                      </a>
+                    </span>
+                  </p>
+                  <p class="flex flex-wrap items-center gap-x-3 text-sm text-muted">
+                    <AuthorName author={item.author} />
+                    <span>{formatWhen(item.post.createdAt, now)}</span>
+                  </p>
+                  <div class="comment-body forum-body max-w-prose">
+                    <Fragment set:html={queueHtml.get(item.post.id) ?? ""} />
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    {(
+                      [
+                        {
+                          action: "approve",
+                          label: "Approve",
+                          style: primaryButton,
+                        },
+                        {
+                          action: "hide",
+                          label: "Hide",
+                          style: secondaryButton,
+                        },
+                        {
+                          action: "delete",
+                          label: "Delete",
+                          style: secondaryButton,
+                        },
+                      ] as const
+                    ).map((button) => (
+                      <form method="post" action="/forum/action">
+                        <input
+                          type="hidden"
+                          name="post"
+                          value={String(item.post.id)}
+                        />
+                        <input
+                          type="hidden"
+                          name="action"
+                          value={button.action}
+                        />
+                        <input type="hidden" name="back" value={here} />
+                        <button type="submit" class={button.style}>
+                          {button.label}
+                        </button>
+                      </form>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </div>
+    )}
+  </section>
+</BaseLayout>

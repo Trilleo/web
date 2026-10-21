@@ -1,0 +1,178 @@
+---
+/**
+ * One post on a topic page: who wrote it (picture, name, how many posts, when they
+ * joined) beside what they wrote, then its buttons: quote, edit, delete, and the
+ * moderator's. Every button is a link or a POST form, so it works without JS.
+ */
+import { postAnchor, postPath } from "@trilleo/forum";
+import { counted, formatWhen } from "../../lib/forum/public";
+import type { PostView } from "../../lib/forum/store";
+import { formatPostDate } from "../../lib/listings";
+import { profileHref } from "../../lib/profile/profile";
+import Avatar from "../account/Avatar.astro";
+
+interface Props {
+  view: PostView;
+  /** Its number in the topic (1 is the opening post). */
+  number: number;
+  /** Where "Quote" goes: this page with ?quote=<id>, or nothing if they can't reply. */
+  quoteHref?: string | undefined;
+  canEdit: boolean;
+  canDelete: boolean;
+  /** The viewer moderates this forum. */
+  mod: boolean;
+  /** Where buttons come back to. */
+  back: string;
+  now?: Date;
+}
+
+const {
+  view,
+  number,
+  quoteHref,
+  canEdit,
+  canDelete,
+  mod,
+  back,
+  now = new Date(),
+} = Astro.props;
+const { post, author, html } = view;
+const anchor = postAnchor(post);
+const person = author && {
+  username: author.username,
+  name: author.linkedName,
+  displayName: author.displayName,
+  avatarHash: author.avatarHash,
+};
+const action = "group type-label cursor-pointer text-muted hover:text-ink";
+---
+
+<article
+  id={anchor}
+  class="grid-swiss scroll-mt-6 gap-y-3 border-t border-hair py-5 md:py-6"
+  aria-labelledby={`${anchor}-by`}
+  data-post={String(post.id)}
+>
+  <header class="col-span-4 flex items-center gap-3 md:col-span-2 md:flex-col md:items-start md:gap-2 xl:col-span-2">
+    {person ? (
+      <Avatar user={person} size="md" />
+    ) : (
+      <span class="size-14 bg-chip" aria-hidden="true" />
+    )}
+    <div class="flex min-w-0 flex-col gap-0.5">
+      <p id={`${anchor}-by`} class="min-w-0 truncate font-medium">
+        <span class="sr-only">Post by </span>
+        {author ? (
+          author.profile ? (
+            <a href={profileHref(author.username)} class="group">
+              <span class="link-wipe">{author.name}</span>
+            </a>
+          ) : (
+            author.name
+          )
+        ) : (
+          <span class="text-muted">Deleted account</span>
+        )}
+      </p>
+      {author && (
+        <p class="type-label flex flex-wrap gap-x-3 text-muted md:flex-col">
+          <span>@{author.username}</span>
+          <span>{counted(view.authorPosts, "post")}</span>
+          <span>Joined {formatPostDate(author.joinedAt)}</span>
+        </p>
+      )}
+    </div>
+  </header>
+
+  <div class="col-span-4 flex min-w-0 flex-col gap-3 md:col-span-6 xl:col-span-7">
+    <p class="type-label flex flex-wrap items-center gap-x-3 gap-y-1 text-muted">
+      <a
+        href={postPath(post)}
+        class="group text-ink"
+        aria-label={`Post ${String(number)}, permanent link`}
+      >
+        <span class="link-wipe">#{number}</span>
+      </a>
+      <time datetime={post.createdAt.toISOString()}>
+        {formatWhen(post.createdAt, now)}
+      </time>
+      {post.editedAt && (
+        <span title={post.editedAt.toISOString()}>
+          Edited {formatWhen(post.editedAt, now)}
+        </span>
+      )}
+      {post.state === "pending" && (
+        <span class="bg-accent px-1.5 py-0.5 text-on-accent">
+          Awaiting approval
+        </span>
+      )}
+      {post.state === "hidden" && (
+        <span class="bg-chip px-1.5 py-0.5 text-ink">Hidden</span>
+      )}
+    </p>
+    <div class="comment-body forum-body">
+      <Fragment set:html={html} />
+    </div>
+
+    {(quoteHref || canEdit || canDelete || mod) && (
+      <div class="flex flex-wrap items-baseline gap-x-5 gap-y-2">
+        {quoteHref && (
+          <a href={quoteHref} class={action} data-quote={String(post.id)}>
+            <span class="link-wipe">Quote</span>
+          </a>
+        )}
+        {canEdit && (
+          <a href={`/forum/edit/${String(post.id)}/`} class={action}>
+            <span class="link-wipe">Edit</span>
+          </a>
+        )}
+        {mod && post.state === "pending" && (
+          <form method="post" action="/forum/action">
+            <input type="hidden" name="post" value={String(post.id)} />
+            <input type="hidden" name="action" value="approve" />
+            <input type="hidden" name="back" value={back} />
+            <button type="submit" class={action}>
+              <span class="link-wipe">Approve</span>
+            </button>
+          </form>
+        )}
+        {mod && post.state !== "pending" && (
+          <form method="post" action="/forum/action">
+            <input type="hidden" name="post" value={String(post.id)} />
+            <input
+              type="hidden"
+              name="action"
+              value={post.state === "hidden" ? "unhide" : "hide"}
+            />
+            <input type="hidden" name="back" value={back} />
+            <button type="submit" class={action}>
+              <span class="link-wipe">
+                {post.state === "hidden" ? "Show again" : "Hide"}
+              </span>
+            </button>
+          </form>
+        )}
+        {(canDelete || mod) && (
+          <details class="type-label text-muted">
+            <summary class="link-wipe w-fit cursor-pointer hover:text-ink">
+              Delete
+            </summary>
+            <form method="post" action="/forum/action" class="mt-2">
+              <input type="hidden" name="post" value={String(post.id)} />
+              <input type="hidden" name="action" value="delete" />
+              <input type="hidden" name="back" value={back} />
+              <button
+                type="submit"
+                class="type-label border border-ink px-2.5 py-1.5 text-ink hover:bg-ink hover:text-paper"
+              >
+                {view.first
+                  ? "Yes, delete the whole topic"
+                  : "Yes, delete this post"}
+              </button>
+            </form>
+          </details>
+        )}
+      </div>
+    )}
+  </div>
+</article>

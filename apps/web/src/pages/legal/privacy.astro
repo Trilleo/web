@@ -1,4 +1,5 @@
 ---
+import { AVATAR_MAX_BYTES } from "../../lib/profile/avatar";
 import { RETENTION_DAYS } from "@trilleo/storage";
 import InfoLayout from "../../layouts/InfoLayout.astro";
 import { NEW_DEVICE_DAYS, SECURITY_LOG_DAYS } from "../../lib/auth/activity";
@@ -111,6 +112,17 @@ const sections = [
       </tr>
       <tr>
         <td>
+          Your picture (avatar): the image you upload, cropped in your browser,
+          up to {AVATAR_MAX_BYTES / 1024 / 1024} MB
+        </td>
+        <td>You add one on your profile page (optional)</td>
+        <td>
+          To show it next to your name on your profile, comments and forum
+          posts. Anyone can see it there
+        </td>
+      </tr>
+      <tr>
+        <td>
           Passkeys: each one’s public key (its private half never leaves your
           device or password manager), a name, and when it was added and last
           used
@@ -142,6 +154,18 @@ const sections = [
         <td>Comments, and their status (waiting, published, hidden)</td>
         <td>You comment</td>
         <td>To publish them, and to moderate</td>
+      </tr>
+      <tr>
+        <td>
+          Forum topics and posts: their text, the forum they’re in, their status
+          (waiting, published, hidden), when they were written and edited, and
+          who edited them; how many times a topic was viewed (a count, not who)
+        </td>
+        <td>You post in the forum</td>
+        <td>
+          To publish them under your name, and to moderate. Published posts in
+          public forums can be seen by anyone
+        </td>
       </tr>
       <tr>
         <td>
@@ -362,10 +386,10 @@ const sections = [
     </li>
   </ul>
   <p>
-    Public things are public: published comments, public profiles, published
-    files, Minecraft projects and leaderboard entries can be seen by anyone, and
-    may be copied by search engines. Information may also be disclosed when the
-    law requires it.
+    Public things are public: published comments and forum posts, profile
+    pictures, public profiles, published files, Minecraft projects and
+    leaderboard entries can be seen by anyone, and may be copied by search
+    engines. Information may also be disclosed when the law requires it.
   </p>
 
   <h2 id="where">Where it is stored</h2>
@@ -380,8 +404,15 @@ const sections = [
   <h2 id="retention">How long it is kept</h2>
   <ul>
     <li>
-      Your account, profile, comments, tool data, study progress and saves:
-      until you delete them or your account.
+      Your account, profile, picture, comments, tool data, study progress and
+      saves: until you delete them or your account.
+    </li>
+    <li>
+      Forum posts: until you or a moderator delete them. If you delete your
+      account, your posts stay in their topics without your name (shown as
+      “Deleted account”), since others replied to them; delete any you want gone
+      first. A deleted post is kept, out of sight, so moderators can act on it,
+      and is included in your data download.
     </li>
     <li>
       Wiki edits: as long as the page’s history. If you delete your account, the
@@ -435,9 +466,9 @@ const sections = [
     <li>
       <strong>Delete</strong> it: delete comments or files one by one, sign
       other browsers out, or delete your whole account from your account page.
-      That removes your profile, comments, tool data, study progress, saves,
-      files, messages, your email address, linked accounts and the record of
-      email sent to you. You can also unlink GitHub on your{" "}
+      That removes your profile, picture, comments, tool data, study progress,
+      saves, files, messages, your email address, linked accounts and the record
+      of email sent to you. You can also unlink GitHub on your{" "}
       <a href="/account/security/">security page</a>.
     </li>
     <li>

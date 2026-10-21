@@ -1,0 +1,149 @@
+---
+/**
+ * A category (its forums) or a forum: its subforums, then its topics, pinned ones
+ * first, page by page (?page=). A forum the viewer may not see is a 404.
+ */
+import { can, forumPath } from "@trilleo/forum";
+import { buttonClasses } from "@trilleo/ui";
+import Breadcrumb from "../../../components/Breadcrumb.astro";
+import ForumRows from "../../../components/forum/ForumRows.astro";
+import Pager from "../../../components/forum/Pager.astro";
+import TopicList from "../../../components/forum/TopicList.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { getDb } from "../../../lib/db";
+import { FORUM_NUMBER, counted, pageParam } from "../../../lib/forum/public";
+import {
+  forumViewer,
+  lastPostsById,
+  listTopics,
+  loadTree,
+} from "../../../lib/forum/store";
+
+export const prerender = false;
+
+const db = await getDb();
+const user = Astro.locals.user;
+const viewer = forumViewer(user);
+const tree = await loadTree(db);
+const node = tree.find(Astro.params.forum ?? "");
+if (!node || !tree.canView(node.forum, viewer)) return Astro.rewrite("/404");
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const { forum } = node;
+const place = tree.place(forum);
+const mod = tree.moderates(forum, viewer);
+const visible = tree.visible(viewer);
+const children = visible.get(forum.id)?.children ?? [];
+const lastIds = children.flatMap((child) =>
+  child.lastPostId === null ? [] : [child.lastPostId],
+);
+const lastPosts = await lastPostsById(db, lastIds);
+const page = pageParam(Astro.url);
+const listed =
+  forum.kind === "forum"
+    ? await listTopics(db, { forum, viewer, mod, page })
+    : { topics: [], total: 0, pages: 1 };
+const canStart = can(viewer, "topic.create", place);
+const crumbs = [
+  { label: `(${FORUM_NUMBER}) Forum`, href: "/forum/" },
+  ...tree.ancestors(forum.id).map((parent) => ({
+    label: parent.name,
+    href: forumPath(parent),
+  })),
+  { label: forum.name },
+];
+const newHref = `/forum/new/?in=${encodeURIComponent(forum.slug)}`;
+const now = new Date();
+---
+
+<BaseLayout
+  title={page > 1 ? `${forum.name} (page ${String(page)})` : forum.name}
+  description={forum.description || `Topics in ${forum.name}.`}
+  noindex={forum.hidden}
+>
+  <section
+    aria-labelledby="forum-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <Breadcrumb items={crumbs} class="type-label" />
+
+    <div class="grid-swiss mt-5 items-end gap-y-4 xl:mt-7">
+      <div class="col-span-4 flex flex-col gap-3 md:col-span-6 xl:col-span-9">
+        <h1 id="forum-title" class="type-band break-words">
+          {forum.name}
+        </h1>
+        {forum.description && (
+          <p class="type-dek text-muted">{forum.description}</p>
+        )}
+      </div>
+      <div class="col-span-4 flex flex-wrap gap-3 md:col-span-2 md:justify-end xl:col-span-3">
+        {forum.kind === "forum" &&
+          (canStart ? (
+            <a href={newHref} class={buttonClasses()}>
+              New topic
+            </a>
+          ) : !user ? (
+            <a
+              href={`/sign-in?next=${encodeURIComponent(newHref)}`}
+              class={buttonClasses()}
+            >
+              Sign in to post
+            </a>
+          ) : null)}
+        {mod && (
+          <a
+            href={`/admin/forum/${String(forum.id)}/`}
+            class={buttonClasses({ variant: "secondary" })}
+          >
+            Edit forum
+          </a>
+        )}
+      </div>
+    </div>
+
+    {(forum.locked || forum.hidden) && (
+      <p role="status" class="mt-6 border-l-2 border-accent pl-4">
+        {forum.hidden
+          ? "This forum is hidden: only moderators can see it."
+          : "This forum is locked: only moderators can start topics or reply."}
+      </p>
+    )}
+
+    {children.length > 0 && (
+      <section aria-labelledby="subforums-title" class="mt-10 md:mt-12">
+        <h2 id="subforums-title" class="type-label mb-3">
+          {forum.kind === "category" ? "Forums" : "Subforums"}
+        </h2>
+        <ForumRows nodes={children} lastPosts={lastPosts} now={now} />
+      </section>
+    )}
+
+    {forum.kind === "forum" && (
+      <section aria-labelledby="topics-title" class="mt-10 md:mt-12">
+        <div class="mb-3 flex flex-wrap items-baseline justify-between gap-4">
+          <h2 id="topics-title" class="type-label">
+            Topics
+          </h2>
+          <p class="type-label text-muted">{counted(listed.total, "topic")}</p>
+        </div>
+        <TopicList
+          topics={listed.topics}
+          now={now}
+          empty={
+            canStart ? "No topics yet. Start the first one." : "No topics yet."
+          }
+        />
+        {listed.pages > 1 && (
+          <div class="mt-6">
+            <Pager
+              page={Math.min(page, listed.pages)}
+              pages={listed.pages}
+              base={forumPath(forum)}
+              label="Topic pages"
+            />
+          </div>
+        )}
+      </section>
+    )}
+  </section>
+</BaseLayout>

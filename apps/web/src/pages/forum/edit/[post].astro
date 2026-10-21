@@ -1,0 +1,127 @@
+---
+/**
+ * Editing a post (its author, or a moderator). The opening post's form has the
+ * topic's title too. Saved posts are marked "Edited".
+ */
+import { can, forumPath, postPath, topicPath } from "@trilleo/forum";
+import Breadcrumb from "../../../components/Breadcrumb.astro";
+import PostForm from "../../../components/forum/PostForm.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireUser } from "../../../lib/auth/guard";
+import { noStoreRedirect } from "../../../lib/auth/redirect";
+import { field, parseId } from "../../../lib/comments/form";
+import { getDb } from "../../../lib/db";
+import {
+  isTitleError,
+  postErrorMessage,
+  postErrorStatus,
+} from "../../../lib/forum/messages";
+import { FORUM_NUMBER } from "../../../lib/forum/public";
+import {
+  editPost,
+  forumViewer,
+  getPost,
+  getTopic,
+  loadTree,
+  renderBody,
+} from "../../../lib/forum/store";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const db = await getDb();
+const viewer = forumViewer(user);
+const id = parseId(Astro.params.post ?? "");
+const post = id === null ? undefined : await getPost(db, id);
+const topic = post ? await getTopic(db, post.topicId) : undefined;
+const tree = await loadTree(db);
+const node = topic ? tree.get(topic.forumId) : undefined;
+if (!post || !topic || !node) return Astro.rewrite("/404");
+const { forum } = node;
+const place = tree.place(forum);
+const mod = tree.moderates(forum, viewer);
+if (!mod && !can(viewer, "post.edit-own", place, topic, post))
+  return Astro.rewrite("/404");
+
+const first = post.id === topic.firstPostId;
+let title = topic.title;
+let body = post.body;
+let errors: { title?: string; body?: string } = {};
+let preview: string | null = null;
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  if (first) title = field(form, "title");
+  body = field(form, "body");
+  if (field(form, "intent") === "preview") {
+    preview = await renderBody(db, body);
+  } else {
+    const result = await editPost(db, {
+      tree,
+      forum,
+      topic,
+      post,
+      editor: user,
+      body,
+      ...(first ? { title } : {}),
+    });
+    if (result.ok) return noStoreRedirect(postPath(post), 303);
+    const message = postErrorMessage(result.error, body.length);
+    errors = isTitleError(result.error)
+      ? { title: message }
+      : { body: message };
+    Astro.response.status = postErrorStatus(result.error);
+  }
+}
+const crumbs = [
+  { label: `(${FORUM_NUMBER}) Forum`, href: "/forum/" },
+  { label: forum.name, href: forumPath(forum) },
+  { label: topic.title, href: topicPath(forum, topic) },
+  { label: "Edit" },
+];
+---
+
+<BaseLayout title={`Edit post · ${topic.title}`} noindex>
+  <section
+    aria-labelledby="edit-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <Breadcrumb items={crumbs} class="type-label" />
+    <h1 id="edit-title" class="type-band mt-5 xl:mt-7">
+      {first ? "Edit topic" : "Edit post"}
+    </h1>
+    <div class="grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <p class="type-label col-span-4 md:col-span-2 xl:col-span-2">
+        {post.authorId === user.id ? "Your post" : "As moderator"}
+      </p>
+      <div class="col-span-4 flex flex-col gap-6 md:col-span-6 xl:col-span-7">
+        {preview !== null && (
+          <div class="border border-hair p-4">
+            <p class="type-label mb-3 text-muted">Preview</p>
+            <div class="comment-body forum-body">
+              <Fragment set:html={preview} />
+            </div>
+          </div>
+        )}
+        {(errors.title || errors.body) && (
+          <p role="alert" class="border-l-2 border-accent pl-4">
+            Not saved: check the fields marked below.
+          </p>
+        )}
+        <PostForm
+          action={`/forum/edit/${String(post.id)}/`}
+          title={first ? title : undefined}
+          body={body}
+          errors={errors}
+          submitLabel="Save changes"
+          id="edit-form"
+          rows={14}
+          cancel={postPath(post)}
+        />
+      </div>
+    </div>
+  </section>
+</BaseLayout>

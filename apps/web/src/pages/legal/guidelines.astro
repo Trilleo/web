@@ -6,6 +6,7 @@ import {
   STRIKE_LIMIT,
   TRUST_AFTER_APPROVALS,
 } from "@trilleo/storage";
+import { FORUM_LIMITS } from "@trilleo/forum";
 import InfoLayout from "../../layouts/InfoLayout.astro";
 import { COMMENT_MAX_LENGTH, LIMITS } from "../../lib/comments/store";
 import {
@@ -17,6 +18,8 @@ const sections = [
   { slug: "spirit", text: "The spirit" },
   { slug: "not-allowed", text: "Not allowed" },
   { slug: "comments", text: "Comments" },
+  { slug: "forum", text: "The forum" },
+  { slug: "pictures", text: "Profile pictures" },
   { slug: "uploads", text: "Uploads" },
   { slug: "minecraft", text: "Minecraft projects" },
   { slug: "reporting", text: "Reporting" },
@@ -29,9 +32,9 @@ const sections = [
   <h2 id="spirit">The spirit</h2>
   <p>
     This is a small, personal corner of the web. Comments are for talking about
-    the posts; profiles and uploads are for sharing what you make. Be the kind
-    of guest you’d want in your own home: curious, generous, and kind to people
-    you disagree with.
+    the posts, the forum for everything else; profiles and uploads are for
+    sharing what you make. Be the kind of guest you’d want in your own home:
+    curious, generous, and kind to people you disagree with.
   </p>
 
   <h2 id="not-allowed">Not allowed</h2>
@@ -83,6 +86,41 @@ const sections = [
       not about you.
     </li>
   </ul>
+
+  <h2 id="forum">The forum</h2>
+  <ul>
+    <li>
+      Post in the forum that fits, and give your topic a title that says what
+      it’s about. Search first: someone may have asked already.
+    </li>
+    <li>
+      Each forum says whether new posts wait for approval. In most, a newcomer’s
+      first post is read before it appears; once one of your posts or comments
+      is approved, later ones appear straight away.
+    </li>
+    <li>
+      To keep spam out, you can post {FORUM_LIMITS.burst.count} times in{" "}
+      {FORUM_LIMITS.burst.windowMs / 60_000} minutes, {FORUM_LIMITS.daily.count}{" "}
+      a day, and have {FORUM_LIMITS.pending} posts waiting for approval at once.
+      Posts can be up to {FORUM_LIMITS.body.max.toLocaleString("en")}{" "}
+      characters.
+    </li>
+    <li>
+      You can edit or delete your own posts while the topic is open. Deleting
+      the first post deletes the topic, which you can do only until someone else
+      has replied.
+    </li>
+    <li>
+      Moderators can hide, delete, lock, move or pin topics and posts to keep
+      the forum readable and within these guidelines.
+    </li>
+  </ul>
+
+  <h2 id="pictures">Profile pictures</h2>
+  <p>
+    Your picture shows next to your name everywhere, so the rules above apply to
+    it too. A picture that breaks them is removed.
+  </p>
 
   <h2 id="uploads">Uploads</h2>
   <ul>

@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { deflateSync } from "node:zlib";
 import { continueAs, freshLogin, newPage } from "./support";
 
 // Each test signs in as its own fresh account, so they can run in parallel and be
@@ -308,4 +309,101 @@ test("account pages have no accessibility violations", async ({ page }) => {
       .analyze();
     expect(violations.map((v) => `${path} ${v.id}: ${v.help}`)).toEqual([]);
   }
+});
+
+/** A real (decodable) PNG: `width` × `height`, one colour. */
+function solidPng(width: number, height: number): Buffer {
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+  });
+  const crc = (bytes: Buffer) => {
+    let c = 0xffffffff;
+    for (const byte of bytes)
+      c = (crcTable[(c ^ byte) & 0xff] ?? 0) ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (type: string, data: Buffer) => {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+    const sum = Buffer.alloc(4);
+    sum.writeUInt32BE(crc(body));
+    return Buffer.concat([length, body, sum]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header.set([8, 2, 0, 0, 0], 8);
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(width * 3, 0xc8)]);
+  const pixels = deflateSync(
+    Buffer.concat(Array.from({ length: height }, () => row)),
+  );
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", header),
+    chunk("IDAT", pixels),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+test("people add, crop and remove a profile picture", async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  const me = freshLogin("pictured");
+  await signInFromHeader(page, me, "/account/profile/");
+  // The cropper's script runs once the page has loaded.
+  await page.waitForLoadState("load");
+
+  await page.getByLabel("Choose a picture").setInputFiles({
+    name: "me.png",
+    mimeType: "image/png",
+    buffer: solidPng(300, 200),
+  });
+  // The browser shows the square it will keep, then sends a small WebP.
+  await expect(page.getByRole("img", { name: /^Crop preview/ })).toBeVisible();
+  await page.getByLabel("Zoom").fill("1.5");
+  await page.getByRole("button", { name: "Save picture" }).click();
+  await expect(page).toHaveURL("/account/profile/?avatar=saved#avatar");
+  await expect(page.getByText("Picture saved.")).toBeVisible();
+
+  const picture = header(page).locator("img[data-avatar]");
+  const src = await picture.getAttribute("src");
+  expect(src).toMatch(/^\/avatars\/[0-9a-f]{64}$/);
+  const served = await page.request.get(src ?? "");
+  expect(served.headers()["content-type"]).toBe("image/webp");
+
+  // Others see it on the profile.
+  const visitor = await newPage(browser, baseURL);
+  await visitor.goto(`/people/${me}/`);
+  await expect(visitor.locator(`main img[src="${src ?? ""}"]`)).toBeVisible();
+
+  await page.getByRole("button", { name: "Remove picture" }).click();
+  await expect(page.getByText("Picture removed.")).toBeVisible();
+  await expect(header(page).locator("img[data-avatar]")).toHaveCount(0);
+  expect((await page.request.get(src ?? "")).status()).toBe(404);
+});
+
+test("pictures that are too big are refused without the browser's help", async ({
+  page,
+}) => {
+  await signInFromHeader(page, freshLogin("bigpicture"), "/account/profile/");
+  // As a form without JavaScript sends it: the file as it is.
+  const response = await page.request.post("/account/avatar", {
+    multipart: {
+      avatar: {
+        name: "huge.png",
+        mimeType: "image/png",
+        buffer: solidPng(2100, 10),
+      },
+    },
+    headers: { Accept: "application/json", Origin: new URL(page.url()).origin },
+  });
+  expect(response.status()).toBe(422);
+  expect((await response.json()) as unknown).toEqual({
+    error: "Pictures can be up to 2048 × 2048 pixels.",
+  });
 });

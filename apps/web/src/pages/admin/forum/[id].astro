@@ -1,0 +1,454 @@
+---
+/**
+ * A category or forum, for the admin: /admin/forum/<id>/ to change it,
+ * /admin/forum/new/ for a new category, /admin/forum/new/?parent=<id> for a new
+ * forum inside another. POST saves (or shows the form again with what's wrong).
+ * An empty one can be deleted here.
+ */
+import { FORUM_LAYOUTS, FORUM_LIMITS, forumPath } from "@trilleo/forum";
+import { buttonClasses } from "@trilleo/ui";
+import AdminNav from "../../../components/admin/AdminNav.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireAdmin } from "../../../lib/auth/guard";
+import { noStoreRedirect } from "../../../lib/auth/redirect";
+import { parseId } from "../../../lib/comments/form";
+import { getDb } from "../../../lib/db";
+import {
+  createForum,
+  forumDraft,
+  readForumForm,
+  updateForum,
+  validateForum,
+  type ForumDraft,
+  type ForumField,
+} from "../../../lib/forum/admin";
+import { loadTree } from "../../../lib/forum/store";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const tree = await loadTree(db);
+const isNew = Astro.params.id === "new";
+const existing = isNew
+  ? undefined
+  : tree.get(parseId(Astro.params.id ?? "") ?? 0)?.forum;
+if (!isNew && !existing) return Astro.rewrite("/404");
+const parentParam = parseId(Astro.url.searchParams.get("parent") ?? "");
+const parent = parentParam === null ? undefined : tree.get(parentParam)?.forum;
+
+let draft: ForumDraft = forumDraft(existing, parent?.id);
+let errors: Partial<Record<ForumField, string>> = {};
+if (Astro.request.method === "POST") {
+  draft = readForumForm(await Astro.request.formData(), existing);
+  const result = await validateForum(db, tree, draft, existing);
+  if (result.ok) {
+    const forum = existing
+      ? await updateForum(db, existing, result.input)
+      : await createForum(db, result.input);
+    return noStoreRedirect(
+      `/admin/forum/${String(forum.id)}/?done=${existing ? "saved" : "created"}`,
+      303,
+    );
+  }
+  errors = result.errors;
+  Astro.response.status = 422;
+}
+
+const done = Astro.url.searchParams.get("done");
+const error = Astro.url.searchParams.get("error");
+const category = draft.kind === "category";
+const node = existing ? tree.get(existing.id) : undefined;
+// Where it can go: any forum or category except itself and what's inside it.
+const inside = new Set(
+  existing ? tree.descendants(existing.id).map((forum) => forum.id) : [],
+);
+const parents = tree.flat().filter((option) => !inside.has(option.forum.id));
+const empty =
+  existing !== undefined &&
+  (node?.children.length ?? 0) === 0 &&
+  existing.topicCount === 0;
+const heading = existing
+  ? existing.name
+  : category
+    ? "New category"
+    : `New forum${parent ? ` in ${parent.name}` : ""}`;
+
+const input =
+  "w-full border border-ink bg-paper px-3 py-2.5 text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-invalid:border-accent";
+const row = "grid-swiss gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6";
+const label = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
+const hint = (name: ForumField, text: string) => ({
+  id: `${name}-hint`,
+  text: errors[name] ?? text,
+  error: errors[name] !== undefined,
+});
+const slugHint = hint(
+  "slug",
+  `Its address: /forum/<address>/. Leave empty to make one from the name. Changing it breaks links to the old one.`,
+);
+const nameHint = hint(
+  "name",
+  `Up to ${String(FORUM_LIMITS.name.max)} characters.`,
+);
+const descriptionHint = hint(
+  "description",
+  `One line under its name. Up to ${String(FORUM_LIMITS.description.max)} characters.`,
+);
+const parentHint = hint("parentId", "The category or forum it sits in.");
+---
+
+<BaseLayout title={`${heading} · Forum · Admin`} noindex>
+  <section
+    aria-labelledby="forum-edit-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="forum" />
+    <p class="type-label mt-6">
+      <a href="/admin/forum/" class="group">
+        <span class="link-wipe">All forums</span>
+      </a>
+      {existing && (
+        <>
+          {" · "}
+          <a href={forumPath(existing)} class="group">
+            <span class="link-wipe">View it</span>
+          </a>
+        </>
+      )}
+    </p>
+    <h1 id="forum-edit-title" class="type-band mt-4 break-words">
+      {heading}
+    </h1>
+
+    {(done || error || Object.keys(errors).length > 0) && (
+      <p
+        role={error || Object.keys(errors).length > 0 ? "alert" : "status"}
+        class="type-lead mt-6 border-l-2 border-accent pl-4"
+      >
+        {Object.keys(errors).length > 0
+          ? "Not saved: check the fields marked below."
+          : (error ?? (done === "created" ? "Created." : "Saved."))}
+      </p>
+    )}
+
+    <form
+      method="post"
+      class="mt-7 flex flex-col gap-12 md:mt-8 xl:mt-12"
+      novalidate
+    >
+      {!existing && <input type="hidden" name="kind" value={draft.kind} />}
+      <div class={row}>
+        <h2 class={label}>About it</h2>
+        <div class={body}>
+          <div class="flex flex-col gap-2">
+            <label for="name" class="font-medium">
+              Name
+            </label>
+            <input
+              id="name"
+              name="name"
+              value={draft.name}
+              required
+              class={input}
+              aria-invalid={nameHint.error ? "true" : undefined}
+              aria-describedby={nameHint.id}
+            />
+            <p
+              id={nameHint.id}
+              class:list={[
+                "text-sm",
+                nameHint.error ? "font-medium" : "text-muted",
+              ]}
+            >
+              {nameHint.text}
+            </p>
+          </div>
+          <div class="flex flex-col gap-2">
+            <label for="slug" class="font-medium">
+              Address
+            </label>
+            <input
+              id="slug"
+              name="slug"
+              value={draft.slug}
+              class:list={[input, "font-mono"]}
+              autocapitalize="none"
+              spellcheck="false"
+              aria-invalid={slugHint.error ? "true" : undefined}
+              aria-describedby={slugHint.id}
+            />
+            <p
+              id={slugHint.id}
+              class:list={[
+                "text-sm",
+                slugHint.error ? "font-medium" : "text-muted",
+              ]}
+            >
+              {slugHint.text}
+            </p>
+          </div>
+          <div class="flex flex-col gap-2">
+            <label for="description" class="font-medium">
+              Description
+            </label>
+            <input
+              id="description"
+              name="description"
+              value={draft.description}
+              class={input}
+              aria-invalid={descriptionHint.error ? "true" : undefined}
+              aria-describedby={descriptionHint.id}
+            />
+            <p
+              id={descriptionHint.id}
+              class:list={[
+                "text-sm",
+                descriptionHint.error ? "font-medium" : "text-muted",
+              ]}
+            >
+              {descriptionHint.text}
+            </p>
+          </div>
+          {!category && (
+            <div class="flex flex-col gap-2">
+              <label for="parentId" class="font-medium">
+                Inside
+              </label>
+              <select
+                id="parentId"
+                name="parentId"
+                class={input}
+                aria-invalid={parentHint.error ? "true" : undefined}
+                aria-describedby={parentHint.id}
+              >
+                {parents.map((option) => (
+                  <option
+                    value={String(option.forum.id)}
+                    selected={draft.parentId === String(option.forum.id)}
+                  >
+                    {"— ".repeat(option.depth)}
+                    {option.forum.name}
+                  </option>
+                ))}
+              </select>
+              <p
+                id={parentHint.id}
+                class:list={[
+                  "text-sm",
+                  parentHint.error ? "font-medium" : "text-muted",
+                ]}
+              >
+                {parentHint.text}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {!category && (
+        <div role="group" aria-labelledby="posting-heading" class={row}>
+          <h2 id="posting-heading" class={label}>
+            Posting
+          </h2>
+          <div class={body}>
+            <fieldset class="flex flex-col gap-3">
+              <legend class="mb-3 font-medium">Layout</legend>
+              {FORUM_LAYOUTS.map((layout) => (
+                <div
+                  class:list={[
+                    "flex items-start gap-3",
+                    !layout.ready && "text-muted",
+                  ]}
+                >
+                  <input
+                    id={`layout-${layout.id}`}
+                    type="radio"
+                    name="layout"
+                    value={layout.id}
+                    checked={draft.layout === layout.id}
+                    disabled={!layout.ready}
+                    aria-describedby={`layout-${layout.id}-hint`}
+                    class="mt-1 size-4 shrink-0 accent-accent"
+                  />
+                  <div>
+                    <label for={`layout-${layout.id}`} class="font-medium">
+                      {layout.label}
+                    </label>
+                    {!layout.ready && (
+                      <span class="type-label ml-2">Coming later</span>
+                    )}
+                    <p
+                      id={`layout-${layout.id}-hint`}
+                      class="text-sm text-muted"
+                    >
+                      {layout.description}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {errors.layout && (
+                <p class="text-sm font-medium">{errors.layout}</p>
+              )}
+            </fieldset>
+            <fieldset class="flex flex-col gap-3">
+              <legend class="mb-3 font-medium">New topics and replies</legend>
+              {(
+                [
+                  {
+                    value: "newcomers",
+                    label: "Newcomers’ wait for approval",
+                    hint: "Until the admin has approved one of their posts or comments.",
+                  },
+                  {
+                    value: "all",
+                    label: "Everyone’s wait for approval",
+                    hint: "Except moderators’.",
+                  },
+                  {
+                    value: "none",
+                    label: "Nothing waits",
+                    hint: "Everything shows at once.",
+                  },
+                ] as const
+              ).map((option) => (
+                <div class="flex items-start gap-3">
+                  <input
+                    id={`moderation-${option.value}`}
+                    type="radio"
+                    name="moderation"
+                    value={option.value}
+                    checked={draft.moderation === option.value}
+                    aria-describedby={`moderation-${option.value}-hint`}
+                    class="mt-1 size-4 shrink-0 accent-accent"
+                  />
+                  <div>
+                    <label
+                      for={`moderation-${option.value}`}
+                      class="font-medium"
+                    >
+                      {option.label}
+                    </label>
+                    <p
+                      id={`moderation-${option.value}-hint`}
+                      class="text-sm text-muted"
+                    >
+                      {option.hint}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </fieldset>
+          </div>
+        </div>
+      )}
+
+      <div role="group" aria-labelledby="access-heading" class={row}>
+        <h2 id="access-heading" class={label}>
+          Access
+        </h2>
+        <div class={body}>
+          {!category && (
+            <div class="flex items-start gap-3">
+              <input
+                id="locked"
+                type="checkbox"
+                name="locked"
+                checked={draft.locked}
+                aria-describedby="locked-hint"
+                class="mt-1 size-4 shrink-0 accent-accent"
+              />
+              <div>
+                <label for="locked" class="font-medium">
+                  Locked
+                </label>
+                <p id="locked-hint" class="text-sm text-muted">
+                  Only moderators can start topics or reply (an announcements
+                  forum, an archive).
+                </p>
+              </div>
+            </div>
+          )}
+          <div class="flex items-start gap-3">
+            <input
+              id="hidden"
+              type="checkbox"
+              name="hidden"
+              checked={draft.hidden}
+              aria-describedby="hidden-hint"
+              class="mt-1 size-4 shrink-0 accent-accent"
+            />
+            <div>
+              <label for="hidden" class="font-medium">
+                Hidden
+              </label>
+              <p id="hidden-hint" class="text-sm text-muted">
+                Only moderators see it, and everything inside it.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class={row}>
+        <div class="col-span-4 flex flex-wrap gap-3 md:col-span-8 xl:col-span-12">
+          <button type="submit" class={buttonClasses()}>
+            {existing ? "Save" : category ? "Create category" : "Create forum"}
+          </button>
+          <a
+            href="/admin/forum/"
+            class={buttonClasses({ variant: "secondary" })}
+          >
+            Cancel
+          </a>
+        </div>
+      </div>
+    </form>
+
+    {existing && (
+      <div class:list={[row, "mt-12"]}>
+        <h2 class={label}>Delete</h2>
+        <div class={body}>
+          {empty ? (
+            <form
+              method="post"
+              action="/admin/forum/action"
+              class="flex flex-col gap-3"
+            >
+              <input type="hidden" name="forum" value={String(existing.id)} />
+              <input type="hidden" name="action" value="delete" />
+              <label class="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  name="confirm"
+                  value="yes"
+                  required
+                  class="mt-1 size-4 shrink-0 accent-accent"
+                />
+                <span>Yes, delete {existing.name}.</span>
+              </label>
+              <p>
+                <button
+                  type="submit"
+                  class={buttonClasses({ variant: "secondary" })}
+                >
+                  Delete
+                </button>
+              </p>
+            </form>
+          ) : (
+            <p class="text-muted">
+              Only an empty {existing.kind} can be deleted: move or delete
+              what’s in it first, or hide it.
+            </p>
+          )}
+        </div>
+      </div>
+    )}
+  </section>
+</BaseLayout>

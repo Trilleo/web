@@ -71,6 +71,7 @@ describe("openDatabase", () => {
     );
     expect(tables.map((row) => row.table_name)).toEqual([
       "admin_alerts",
+      "avatars",
       "blocked_hashes",
       "comments",
       "contact_messages",
@@ -79,6 +80,9 @@ describe("openDatabase", () => {
       "file_downloads",
       "file_reports",
       "files",
+      "forum_posts",
+      "forum_topics",
+      "forums",
       "mail_messages",
       "mc_dependencies",
       "mc_gallery",

@@ -123,8 +123,8 @@ describe("authors", () => {
 
     const { threads } = await listThreads(handle.db, POST, null);
     expect(threads.map((thread) => thread.comment.author)).toEqual([
-      { login: "owner", name: "The Owner", profile: false },
-      { login: "bob", name: null, profile: true },
+      { login: "owner", name: "The Owner", profile: false, avatarHash: null },
+      { login: "bob", name: null, profile: true, avatarHash: null },
     ]);
   });
 });

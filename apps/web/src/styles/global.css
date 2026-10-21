@@ -2,6 +2,7 @@
 @import "@trilleo/ui/theme.css";
 @import "./prose.css";
 @import "./comments.css";
+@import "./forum.css";
 @import "./wiki.css";
 @import "./wiki-minecraft.css";
 @import "./study.css";

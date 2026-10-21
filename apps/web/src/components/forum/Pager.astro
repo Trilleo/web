@@ -1,0 +1,63 @@
+---
+/** Page links under a list: first, last, and a couple either side of this page. */
+import { pagerPages } from "../../lib/forum/public";
+
+interface Props {
+  page: number;
+  pages: number;
+  /** The list's address: page 1 is this, page n adds ?page=n. */
+  base: string;
+  label?: string;
+}
+
+const { page, pages, base, label = "Pages" } = Astro.props;
+const href = (n: number) => (n > 1 ? `${base}?page=${String(n)}` : base);
+---
+
+{pages > 1 && (
+  <nav
+    aria-label={label}
+    class="type-label flex flex-wrap items-center gap-x-1 gap-y-2"
+  >
+    {page > 1 && (
+      <a
+        href={href(page - 1)}
+        rel="prev"
+        class="group inline-flex min-h-9 items-center px-2"
+      >
+        <span class="link-wipe">Previous</span>
+      </a>
+    )}
+    {pagerPages(page, pages).map((item) =>
+      item === "gap" ? (
+        <span class="px-1 text-muted" aria-hidden="true">
+          …
+        </span>
+      ) : item === page ? (
+        <span
+          aria-current="page"
+          class="inline-flex min-h-9 min-w-9 items-center justify-center bg-ink px-2 text-paper"
+        >
+          {item}
+        </span>
+      ) : (
+        <a
+          href={href(item)}
+          class="inline-flex min-h-9 min-w-9 items-center justify-center border border-hair px-2 hover:border-ink"
+          aria-label={`Page ${String(item)}`}
+        >
+          {item}
+        </a>
+      ),
+    )}
+    {page < pages && (
+      <a
+        href={href(page + 1)}
+        rel="next"
+        class="group inline-flex min-h-9 items-center px-2"
+      >
+        <span class="link-wipe">Next</span>
+      </a>
+    )}
+  </nav>
+)}

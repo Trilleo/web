@@ -1,0 +1,41 @@
+---
+/** The newest activity across every forum the viewer may see, page by page. */
+import Breadcrumb from "../../components/Breadcrumb.astro";
+import DisplayTitle from "../../components/DisplayTitle.astro";
+import TopicList from "../../components/forum/TopicList.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getDb } from "../../lib/db";
+import { FORUM_NUMBER } from "../../lib/forum/public";
+import { forumViewer, loadTree, recentTopics } from "../../lib/forum/store";
+
+export const prerender = false;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const RECENT = 50;
+const db = await getDb();
+const viewer = forumViewer(Astro.locals.user);
+const tree = await loadTree(db);
+const topics = await recentTopics(db, { tree, viewer, limit: RECENT });
+---
+
+<BaseLayout
+  title="Recent topics · Forum"
+  description="The newest activity in the forum."
+>
+  <section
+    aria-labelledby="recent-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <Breadcrumb
+      items={[
+        { label: `(${FORUM_NUMBER}) Forum`, href: "/forum/" },
+        { label: "Recent" },
+      ]}
+      class="type-label"
+    />
+    <DisplayTitle id="recent-title">Recent</DisplayTitle>
+    <div class="mt-7 md:mt-8 xl:mt-12">
+      <TopicList topics={topics} showForum />
+    </div>
+  </section>
+</BaseLayout>

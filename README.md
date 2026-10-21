@@ -50,6 +50,8 @@ packages/storage    @trilleo/storage: file storage (OBS and local drivers, uploa
 packages/mail       @trilleo/mail: email (template, address rules, SMTP and capture drivers)
 packages/mc-files   @trilleo/mc-files: reads Minecraft files in the browser (NBT, mod and
                     pack metadata, builds' blocks, 3D preview format and mesher)
+packages/forum      @trilleo/forum: the forum's rules (addresses, layouts, permissions,
+                    limits, post formatting)
 packages/wiki       @trilleo/wiki: wiki components (infobox, notice, tabs, …): registry,
                     markdown-it plugin, and the tabs script
 packages/study      @trilleo/study: the study section's engine (content loader, lesson
@@ -106,6 +108,10 @@ quizzes, flashcards, plots and circuits (`study/README.md` says how to write the
 out. Lessons are checked as the site builds: a mistake fails the build. Progress
 (flashcard reviews scheduled with FSRS, quiz answers, the mistake log) is kept in the
 browser when signed out and in the account (`study_events`) when signed in.
+
+The forum (`/forum/`) starts with a few categories and forums from its migration; the
+admin changes them at `/admin/forum/` and approves newcomers' posts there. People add a
+profile picture on `/account/profile/` (cropped in the browser, kept in the database).
 
 Lint, format, and TypeScript base configs live at the repo root (`eslint.config.js`,
 `.prettierrc.json`, `tsconfig.base.json`).

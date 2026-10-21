@@ -10,7 +10,7 @@ import { getDb } from "../../lib/db";
 import { formatPostDate } from "../../lib/listings";
 import { postHref } from "../../lib/posts";
 import { displayName, profileHref } from "../../lib/profile/profile";
-import Monogram from "../../components/account/Monogram.astro";
+import Avatar from "../../components/account/Avatar.astro";
 
 export const prerender = false;
 
@@ -50,7 +50,7 @@ const STATUS = {
       <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">You</h2>
       <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
         <div class="flex items-center gap-4">
-          <Monogram user={user} size="md" />
+          <Avatar user={user} size="md" />
           <p class="text-lg">
             Signed in as <strong>{displayName(user)}</strong>
             (@{user.username}).

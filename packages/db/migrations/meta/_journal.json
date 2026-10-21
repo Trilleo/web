@@ -169,6 +169,13 @@
       "when": 1792150837536,
       "tag": "0023_study-progress",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792545828776,
+      "tag": "0024_forum-avatars",
+      "breakpoints": true
     }
   ]
 }

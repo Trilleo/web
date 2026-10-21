@@ -75,7 +75,11 @@ function characters(value: string): string[] {
   return Array.from(graphemes.segment(value), (part) => part.segment);
 }
 
-/** Characters as people count them. */
+/** Characters as people count them (limits on names, titles, …). */
+export function characterCount(value: string): number {
+  return length(value);
+}
+
 function length(value: string): number {
   return characters(value).length;
 }

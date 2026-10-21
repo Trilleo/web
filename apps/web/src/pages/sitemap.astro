@@ -17,6 +17,8 @@ import { projectPath, typePath } from "../lib/minecraft/paths";
 import { listedProjectPaths } from "../lib/minecraft/store";
 import { lessonsOf, studyPath } from "@trilleo/study";
 import { studySubjects } from "../lib/study/content";
+import { forumPath } from "@trilleo/forum";
+import { loadTree } from "../lib/forum/store";
 
 // Lists the posts, which live in the database.
 export const prerender = false;
@@ -26,6 +28,8 @@ const projects = await listedProjectPaths(await getDb());
 const tools = TOOLS.filter((tool) => tool.status !== "planned");
 const games = GAMES.filter((game) => game.status !== "planned");
 const subjects = studySubjects();
+// What a visitor sees of the forum (no hidden forums).
+const forumNodes = (await loadTree(await getDb())).visible(null).flat();
 const groups: readonly InfoGroup[] = ["help", "legal", "site"];
 
 const sections = [
@@ -35,6 +39,7 @@ const sections = [
   { slug: "games", text: "Games" },
   { slug: "minecraft", text: "Minecraft" },
   { slug: "study", text: "Study" },
+  { slug: "forum", text: "Forum" },
   ...groups.map((group) => ({ slug: group, text: INFO_GROUP_LABELS[group] })),
   { slug: "machines", text: "For machines" },
 ];
@@ -132,6 +137,19 @@ const sections = [
             <a href={`${studyPath(subject.slug)}glossary/`}>Glossary</a>
           </li>
         </ul>
+      </li>
+    ))}
+  </ul>
+
+  <h2 id="forum">Forum</h2>
+  <ul>
+    <li>
+      <a href="/forum/">Forum</a>: questions, ideas and conversation
+    </li>
+    {forumNodes.map((node) => (
+      <li>
+        {"— ".repeat(node.depth)}
+        <a href={forumPath(node.forum)}>{node.forum.name}</a>
       </li>
     ))}
   </ul>

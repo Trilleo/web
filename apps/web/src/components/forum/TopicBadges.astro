@@ -1,0 +1,29 @@
+---
+/** A topic's state at a glance: pinned, locked, waiting, hidden. */
+import type { ForumTopic } from "@trilleo/db";
+
+interface Props {
+  topic: Pick<ForumTopic, "pinned" | "locked" | "state">;
+}
+
+const { topic } = Astro.props;
+const badges = [
+  topic.pinned === "global" && { label: "Announcement", accent: true },
+  topic.pinned === "forum" && { label: "Pinned", accent: true },
+  topic.locked && { label: "Locked", accent: false },
+  topic.state === "pending" && { label: "Awaiting approval", accent: false },
+  topic.state === "hidden" && { label: "Hidden", accent: false },
+].filter((badge) => badge !== false);
+---
+
+{badges.map((badge) => (
+  <span
+    class:list={[
+      "type-label inline-flex items-center gap-1.5",
+      badge.accent ? "text-ink" : "bg-chip px-1.5 py-0.5 text-ink",
+    ]}
+  >
+    {badge.accent && <span class="size-2 bg-accent" aria-hidden="true" />}
+    {badge.label}
+  </span>
+))}

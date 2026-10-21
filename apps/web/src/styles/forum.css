@@ -1,0 +1,81 @@
+/*
+ * Forum posts: the comments' reading style (.comment-body) plus what posts can
+ * hold beyond it (headings, lists, tables, rules, strikethrough, mentions).
+ * Rendered by @trilleo/forum's renderForumPost.
+ */
+.forum-body :is(h3, h4, h5, h6) {
+  margin-top: 1.5rem;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.forum-body h3 {
+  font-size: 1.25em;
+}
+
+.forum-body :is(h4, h5, h6) {
+  font-size: 1.05em;
+}
+
+.forum-body ul {
+  padding-left: 1.25rem;
+  list-style: square;
+}
+
+.forum-body ol {
+  padding-left: 1.5rem;
+  list-style: decimal;
+}
+
+.forum-body li + li {
+  margin-top: 0.25rem;
+}
+
+.forum-body li::marker {
+  color: var(--tr-muted);
+}
+
+.forum-body hr {
+  border: 0;
+  border-top: 1px solid var(--tr-hair);
+}
+
+.forum-body del {
+  color: var(--tr-muted);
+}
+
+/* Wide tables scroll in their own box, never the page. */
+.forum-body table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+}
+
+.forum-body :is(th, td) {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--tr-hair);
+  text-align: left;
+}
+
+.forum-body th {
+  font-weight: 600;
+}
+
+.forum-body a.mention {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.forum-body a.mention:hover {
+  text-decoration: underline;
+}
+
+/* The post a link points at (a quote's link, a permalink) flashes, as comments do. */
+[id^="post-"]:target {
+  animation: comment-flash 2.4s var(--tr-ease) both;
+}

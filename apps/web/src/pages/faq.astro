@@ -1,6 +1,7 @@
 ---
 import InfoLayout from "../layouts/InfoLayout.astro";
 import { CONTACT_RETENTION_DAYS } from "../lib/contact/store";
+import { AVATAR_MAX_BYTES } from "../lib/profile/avatar";
 import { SITE_NAME } from "../lib/site";
 
 const sections = [
@@ -12,6 +13,7 @@ const sections = [
   { slug: "study", text: "Study" },
   { slug: "wiki", text: "The wiki" },
   { slug: "comments", text: "Comments" },
+  { slug: "forum", text: "The forum" },
   { slug: "site", text: "The site" },
 ] as const;
 import { DEFAULT_SETTINGS } from "@trilleo/study";
@@ -22,8 +24,8 @@ import { DEFAULT_SETTINGS } from "@trilleo/study";
   <h3>Do I need an account?</h3>
   <p>
     No. Reading, the tools and the games all work without one. An account lets
-    you comment, keep tool data and game saves across devices, and appear on
-    leaderboards.
+    you comment, post in the forum, keep tool data and game saves across
+    devices, and appear on leaderboards.
   </p>
   <h3>How do I sign in?</h3>
   <p>
@@ -67,8 +69,9 @@ import { DEFAULT_SETTINGS } from "@trilleo/study";
   <p>
     From <a href="/account/">your account</a>: “Delete account” removes your
     profile, comments, tool data, game saves, files, Minecraft projects and
-    email address. Your wiki edits stay in their pages’ history, without your
-    name. Download your data first if you want to keep it.
+    email address. Your wiki edits stay in their pages’ history, and your forum
+    posts in their topics, without your name; delete any posts you want gone
+    first. Download your data first if you want to keep it.
   </p>
 
   <h2 id="data">Your data</h2>
@@ -217,6 +220,33 @@ import { DEFAULT_SETTINGS } from "@trilleo/study";
   <p>
     Yes: set a display name in <a href="/account/profile/">your profile</a>, or
     choose to show only your username.
+  </p>
+
+  <h3>Can I have a profile picture?</h3>
+  <p>
+    Yes: add one on <a href="/account/profile/#avatar">your profile page</a>.
+    PNG, JPEG or WebP up to {AVATAR_MAX_BYTES / 1024 / 1024} MB; your browser
+    crops it to a square. It shows next to your name on comments, forum posts
+    and your profile. Without one, your initials show instead.
+  </p>
+
+  <h2 id="forum">The forum</h2>
+  <h3>Why hasn’t my topic appeared?</h3>
+  <p>
+    In most forums a newcomer’s first post waits until a moderator reads it;
+    after one of your posts or comments is approved, the rest appear straight
+    away. You can see your waiting posts in their forum, marked “Awaiting
+    approval”. Some forums (like Announcements) are only for moderators.
+  </p>
+  <h3>Can I edit or delete what I posted?</h3>
+  <p>
+    Yes, with the Edit and Delete links under your post, while the topic is
+    open. You can delete a topic you started until someone else replies.
+  </p>
+  <h3>How do I quote someone or mention them?</h3>
+  <p>
+    “Quote” under a post starts your reply with it. Typing @username links to
+    that person’s profile, if it’s public.
   </p>
 
   <h2 id="site">The site</h2>

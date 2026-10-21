@@ -45,6 +45,11 @@ const PAGES = [
   "/study/sample/practice/",
   "/study/review/",
   "/study/mistakes/",
+  "/forum/",
+  "/forum/general/",
+  "/forum/community/",
+  "/forum/recent/",
+  "/forum/search/?q=hello",
   // The wiki's host (wiki.localhost; see e2e/wiki.spec.ts).
   "wiki:/",
   "wiki:/skygrid/",

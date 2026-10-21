@@ -20,6 +20,9 @@ import {
 } from "../lib/minecraft/public";
 import { listProjects } from "../lib/minecraft/store";
 import { studySubjects } from "../lib/study/content";
+import TopicList from "../components/forum/TopicList.astro";
+import { FORUM_DESCRIPTION, FORUM_NUMBER } from "../lib/forum/public";
+import { forumViewer, loadTree, recentTopics } from "../lib/forum/store";
 import {
   STUDY_DESCRIPTION,
   STUDY_NUMBER,
@@ -45,6 +48,14 @@ const creations = await listProjects(await getDb(), {
 
 const subjects = studySubjects();
 const HOME_SUBJECT_COUNT = 4;
+
+// The forum's latest topics, as a visitor sees them (the page is the same for all).
+const HOME_TOPIC_COUNT = 4;
+const forumTopics = await recentTopics(await getDb(), {
+  tree: await loadTree(await getDb()),
+  viewer: forumViewer(null),
+  limit: HOME_TOPIC_COUNT,
+});
 
 const pageLinkClass =
   "group flex min-h-12 items-center justify-between border-b border-ink font-semibold";
@@ -249,6 +260,35 @@ const pageArrowClass =
             {STUDY_DESCRIPTION}{" "}
             <a href="/study/" class="link-wipe text-ink">
               Have a look
+            </a>
+            .
+          </p>
+        </div>
+      )}
+    </div>
+  </section>
+
+  <section
+    id="forum"
+    aria-labelledby="forum-title"
+    class="px-page pt-16 md:pt-24 xl:pt-30"
+  >
+    <SectionHeader
+      number={FORUM_NUMBER}
+      title="Forum"
+      headingId="forum-title"
+      meta="Join in"
+      href="/forum/"
+    />
+    <div class="mt-6 md:mt-8 xl:mt-10" data-reveal>
+      {forumTopics.length > 0 ? (
+        <TopicList topics={forumTopics} showForum />
+      ) : (
+        <div class="grid-swiss border-t border-ink pt-6">
+          <p class="type-lead col-span-4 text-muted md:col-span-8 xl:col-span-12">
+            {FORUM_DESCRIPTION}{" "}
+            <a href="/forum/" class="link-wipe text-ink">
+              Start a topic
             </a>
             .
           </p>

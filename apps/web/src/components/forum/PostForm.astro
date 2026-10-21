@@ -1,0 +1,122 @@
+---
+/**
+ * Writing a topic or a reply: an optional title, the text, a short formatting
+ * guide, and Preview / Post buttons (preview is a round trip, so it works without
+ * JavaScript; the page shows it above the form).
+ */
+import { FORUM_LIMITS } from "@trilleo/forum";
+import { buttonClasses } from "@trilleo/ui";
+
+interface Props {
+  action: string;
+  /** Show a title field with this value (new topics, editing an opening post). */
+  title?: string | undefined;
+  body: string;
+  /** What went wrong, by field. */
+  errors?: { title?: string | undefined; body?: string | undefined };
+  submitLabel: string;
+  /** The textarea's label. */
+  label?: string;
+  /** Hidden fields the form carries along (the forum, the topic, …). */
+  hidden?: Record<string, string>;
+  rows?: number;
+  id?: string;
+  /** Where "Cancel" goes. */
+  cancel?: string | undefined;
+}
+
+const {
+  action,
+  title,
+  body,
+  errors = {},
+  submitLabel,
+  label = "Your post",
+  hidden = {},
+  rows = 10,
+  id = "post-form",
+  cancel,
+} = Astro.props;
+const input =
+  "w-full border border-ink bg-paper px-3 py-2.5 text-base text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-invalid:border-accent";
+---
+
+<form
+  method="post"
+  action={action}
+  class="flex flex-col gap-5"
+  id={id}
+  novalidate
+>
+  {Object.entries(hidden).map(([name, value]) => (
+    <input type="hidden" name={name} value={value} />
+  ))}
+  {title !== undefined && (
+    <div class="flex flex-col gap-2">
+      <label for={`${id}-title`} class="font-medium">
+        Title
+      </label>
+      <input
+        id={`${id}-title`}
+        name="title"
+        value={title}
+        required
+        maxlength={FORUM_LIMITS.title.max * 2}
+        aria-invalid={errors.title ? "true" : undefined}
+        aria-describedby={errors.title ? `${id}-title-error` : undefined}
+        class:list={[input, "text-lg font-semibold"]}
+      />
+      {errors.title && (
+        <p id={`${id}-title-error`} class="text-sm font-medium">
+          {errors.title}
+        </p>
+      )}
+    </div>
+  )}
+  <div class="flex flex-col gap-2">
+    <label for={`${id}-body`} class="font-medium">
+      {label}
+    </label>
+    <textarea
+      id={`${id}-body`}
+      name="body"
+      rows={rows}
+      required
+      aria-invalid={errors.body ? "true" : undefined}
+      aria-describedby={`${id}-hint`}
+      class:list={[input, "font-serif leading-relaxed"]}
+      data-post-body
+    >{body}</textarea>
+    <p
+      id={`${id}-hint`}
+      class:list={["text-sm", errors.body ? "text-ink" : "text-muted"]}
+    >
+      {errors.body ? (
+        <strong class="font-medium">{errors.body}</strong>
+      ) : (
+        <>
+          Markdown: **bold**, *italic*, `code`, &gt; quotes, lists, tables, #
+          headings and links. @username mentions someone.
+        </>
+      )}
+    </p>
+  </div>
+  <div class="flex flex-wrap items-center gap-3">
+    <button type="submit" name="intent" value="post" class={buttonClasses()}>
+      {submitLabel}
+    </button>
+    <button
+      type="submit"
+      name="intent"
+      value="preview"
+      class={buttonClasses({ variant: "secondary" })}
+    >
+      Preview
+    </button>
+    {cancel && (
+      <a href={cancel} class="group type-label ml-2 text-muted hover:text-ink">
+        <span class="link-wipe">Cancel</span>
+      </a>
+    )}
+  </div>
+</form>

@@ -112,6 +112,11 @@ export const users = pgTable("users", {
     .default({}),
   /** The secret in their unsubscribe links. Replaced when the address changes. */
   emailToken: text("email_token").unique(),
+  /**
+   * The SHA-256 of their avatar's bytes (the picture is in `avatars`), so pages can
+   * link /avatars/<hash>.<ext> without a join. Null: no picture, the monogram shows.
+   */
+  avatarHash: text("avatar_hash"),
 });
 
 /**
@@ -1574,6 +1579,178 @@ export const studySettings = pgTable("study_settings", {
     .defaultNow(),
 });
 
+/**
+ * Someone's picture: one per account, cropped to a square in their browser and
+ * checked on the server (apps/web/src/lib/profile/avatar.ts). Served at
+ * /avatars/<hash>.<ext>; users.avatar_hash says which one is current. Kept in the
+ * database so backups include it; goes with the account.
+ */
+export const avatars = pgTable(
+  "avatars",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** The SHA-256 of the bytes (hex): its URL, so it can be cached forever. */
+    hash: text("hash").notNull(),
+    contentType: text("content_type").notNull(),
+    data: bytea("data").notNull(),
+    size: integer("size").notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [index("avatars_hash_idx").on(table.hash)],
+);
+
+/** A category only holds forums; a forum holds topics (and may hold subforums). */
+export const forumKind = pgEnum("forum_kind", ["category", "forum"]);
+
+/**
+ * Which new topics and replies wait for approval: none, newcomers' (accounts the
+ * admin hasn't trusted yet, shared with comments: users.trusted_at), or all of them.
+ */
+export const forumModeration = pgEnum("forum_moderation", [
+  "none",
+  "newcomers",
+  "all",
+]);
+
+/** pending: waiting for approval (only its author sees it); hidden: by a moderator. */
+export const forumPostState = pgEnum("forum_post_state", [
+  "pending",
+  "published",
+  "hidden",
+]);
+
+/** Where a topic is pinned: nowhere, at the top of its forum, or on the forum index too. */
+export const forumPin = pgEnum("forum_pin", ["none", "forum", "global"]);
+
+/**
+ * The forum's tree (www.trilleo.net/forum/): categories at the top, forums in them,
+ * subforums in forums, to any depth. Forums are addressed by `slug` alone
+ * (/forum/<slug>/), so moving one in the tree keeps its links. The counts and the
+ * last post are caches of its own topics (not its subforums'), refreshed whenever
+ * one of its posts changes (apps/web/src/lib/forum/store.ts).
+ */
+export const forums = pgTable(
+  "forums",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    /** Null for a category (and only a category). */
+    parentId: integer("parent_id").references((): AnyPgColumn => forums.id, {
+      onDelete: "restrict",
+    }),
+    kind: forumKind("kind").notNull().default("forum"),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    /** Order among its siblings, lowest first. */
+    sort: integer("sort").notNull().default(0),
+    /** How topics show (@trilleo/forum's FORUM_LAYOUTS). */
+    layout: text("layout").notNull().default("classic"),
+    moderation: forumModeration("moderation").notNull().default("newcomers"),
+    /** No new topics or replies, except from moderators. */
+    locked: boolean("locked").notNull().default(false),
+    /** Only moderators see it (or anything in it). */
+    hidden: boolean("hidden").notNull().default(false),
+    topicCount: integer("topic_count").notNull().default(0),
+    postCount: integer("post_count").notNull().default(0),
+    lastPostId: integer("last_post_id"),
+    lastPostAt: timestamp("last_post_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("forums_parent_idx").on(table.parentId, table.sort)],
+);
+
+/**
+ * A topic: its title, where it is, and how it stands. What was written is in
+ * forum_posts (the first post is the opening one). Its address is
+ * /forum/<forum>/<id>-<slug>/; a changed slug or forum redirects there, so old
+ * links keep working. A deleted topic is kept (`deletedAt`) but shown to nobody.
+ */
+export const forumTopics = pgTable(
+  "forum_topics",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    forumId: integer("forum_id")
+      .notNull()
+      .references(() => forums.id, { onDelete: "restrict" }),
+    authorId: uuid("author_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    title: text("title").notNull(),
+    slug: text("slug").notNull(),
+    /** Follows its first post: a topic is pending until that post is approved. */
+    state: forumPostState("state").notNull().default("pending"),
+    pinned: forumPin("pinned").notNull().default("none"),
+    /** No new replies, except from moderators. */
+    locked: boolean("locked").notNull().default(false),
+    /** Caches, refreshed with the counts. */
+    firstPostId: integer("first_post_id"),
+    replyCount: integer("reply_count").notNull().default(0),
+    viewCount: integer("view_count").notNull().default(0),
+    lastPostId: integer("last_post_id"),
+    lastPostAt: timestamp("last_post_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("forum_topics_forum_idx").on(
+      table.forumId,
+      table.pinned,
+      table.lastPostAt,
+    ),
+    index("forum_topics_recent_idx").on(table.lastPostAt),
+    index("forum_topics_author_idx").on(table.authorId),
+  ],
+);
+
+/**
+ * A post in a topic. `body` is the Markdown as typed; `html` is rendered from it
+ * when saved (again when `renderVersion` falls behind @trilleo/forum's
+ * FORUM_RENDER_VERSION). Deleting keeps the row (`deletedAt`), out of every view.
+ * An account's posts stay when it's deleted, without the author.
+ */
+export const forumPosts = pgTable(
+  "forum_posts",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    topicId: integer("topic_id")
+      .notNull()
+      .references(() => forumTopics.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    body: text("body").notNull(),
+    html: text("html").notNull().default(""),
+    renderVersion: integer("render_version").notNull().default(0),
+    state: forumPostState("state").notNull().default("pending"),
+    createdAt: createdAt(),
+    /** Last changed after posting, and by whom (the author or a moderator). */
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+    editedById: uuid("edited_by_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("forum_posts_topic_idx").on(table.topicId, table.createdAt),
+    index("forum_posts_author_idx").on(table.authorId, table.createdAt),
+    index("forum_posts_state_idx").on(table.state),
+    index("forum_posts_search_idx").using(
+      "gin",
+      sql`to_tsvector('english', ${table.body})`,
+    ),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type UserIdentity = typeof userIdentities.$inferSelect;
@@ -1624,3 +1801,11 @@ export type WikiProposal = typeof wikiProposals.$inferSelect;
 export type WikiProposalStatus = (typeof wikiProposalStatus.enumValues)[number];
 export type StudyEventRow = typeof studyEvents.$inferSelect;
 export type StudySettingsRow = typeof studySettings.$inferSelect;
+export type Avatar = typeof avatars.$inferSelect;
+export type Forum = typeof forums.$inferSelect;
+export type ForumKind = (typeof forumKind.enumValues)[number];
+export type ForumModeration = (typeof forumModeration.enumValues)[number];
+export type ForumPostState = (typeof forumPostState.enumValues)[number];
+export type ForumPin = (typeof forumPin.enumValues)[number];
+export type ForumTopic = typeof forumTopics.$inferSelect;
+export type ForumPost = typeof forumPosts.$inferSelect;

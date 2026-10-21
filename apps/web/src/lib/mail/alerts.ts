@@ -1,6 +1,6 @@
 /**
  * Admin alerts: things the admin should look at (a contact message, a file waiting
- * for review, a report, an appeal, a newcomer's comment). Each is a row in
+ * for review, a report, an appeal, a newcomer's comment or forum post). Each is a row in
  * admin_alerts; delivery bundles whatever has gathered into one email, at most one
  * per ADMIN_ALERT_GAP_MS, so a burst of reports is one message, not twenty.
  *
@@ -38,6 +38,7 @@ export const ALERT_KINDS = {
   appeal: "Appeal",
   comment: "Comment waiting",
   "project-report": "Project reported",
+  forum: "Forum post waiting",
 } as const;
 export type AlertKind = keyof typeof ALERT_KINDS;
 

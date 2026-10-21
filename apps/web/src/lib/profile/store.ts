@@ -12,6 +12,7 @@ import { and, asc, desc, eq, isNull, lte, sql } from "drizzle-orm";
 import { messagesFrom } from "../contact/store";
 import { identitiesOf, usernameHistoryOf } from "../auth/accounts";
 import { normalizeUsername } from "../auth/usernames";
+import { avatarUrl } from "./avatar";
 import type { ProfileInput } from "./profile";
 
 /** Saves someone's profile. Returns the updated user. */
@@ -191,6 +192,8 @@ export async function exportUserData(
       public: user.profilePublic,
       commentName: user.commentName,
       updatedAt: user.profileUpdatedAt,
+      /** Their picture's address, if they have one (the picture itself is there). */
+      picture: user.avatarHash ? avatarUrl(user.avatarHash) : null,
     },
     sessions: browsers,
     comments: own,

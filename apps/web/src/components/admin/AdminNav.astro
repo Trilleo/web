@@ -1,7 +1,14 @@
 ---
-/** The admin's sections: the dashboard (comments, account), posts, files, Minecraft, messages and mail. */
+/** The admin's sections: the dashboard (comments, account), posts, files, Minecraft, the forum, messages and mail. */
 interface Props {
-  current: "dashboard" | "posts" | "files" | "minecraft" | "messages" | "mail";
+  current:
+    | "dashboard"
+    | "posts"
+    | "files"
+    | "minecraft"
+    | "forum"
+    | "messages"
+    | "mail";
 }
 
 const { current } = Astro.props;
@@ -10,6 +17,7 @@ const items = [
   { key: "posts", label: "Posts", href: "/admin/posts/" },
   { key: "files", label: "Files", href: "/admin/files/" },
   { key: "minecraft", label: "Minecraft", href: "/admin/minecraft/" },
+  { key: "forum", label: "Forum", href: "/admin/forum/" },
   { key: "messages", label: "Messages", href: "/admin/messages/" },
   { key: "mail", label: "Mail", href: "/admin/mail/" },
 ] as const;

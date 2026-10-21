@@ -1,0 +1,88 @@
+---
+/**
+ * Topics as rows: the title (with its state and who started it), replies and views,
+ * and the last post. On phones the numbers and the last post go under the title.
+ */
+import { forumPath, postPath, topicPath } from "@trilleo/forum";
+import { counted, formatWhen } from "../../lib/forum/public";
+import type { TopicRow } from "../../lib/forum/store";
+import AuthorName from "./AuthorName.astro";
+import TopicBadges from "./TopicBadges.astro";
+
+interface Props {
+  topics: readonly TopicRow[];
+  /** Show which forum each is in (lists across forums). */
+  showForum?: boolean;
+  /** Said when there are none. */
+  empty?: string;
+  now?: Date;
+}
+
+const {
+  topics,
+  showForum = false,
+  empty = "No topics yet.",
+  now = new Date(),
+} = Astro.props;
+---
+
+{topics.length === 0 ? (
+  <p class="border-t border-ink pt-4 text-muted">{empty}</p>
+) : (
+  <ol class="border-t border-ink" data-testid="topic-list">
+    {topics.map(({ topic, forum, author, lastPoster }) => (
+      <li class="grid-swiss items-baseline gap-y-2 border-b border-hair py-4">
+        <div class="col-span-4 flex min-w-0 flex-col gap-1.5 md:col-span-5 xl:col-span-7">
+          <p class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <a
+              href={topicPath(forum, topic)}
+              class="group text-lg leading-snug font-semibold break-words"
+            >
+              <span class="link-wipe">{topic.title}</span>
+            </a>
+            <TopicBadges topic={topic} />
+          </p>
+          <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+            <span>By</span>
+            <AuthorName author={author} avatar={false} class="text-ink" />
+            <time datetime={topic.createdAt.toISOString()}>
+              {formatWhen(topic.createdAt, now)}
+            </time>
+            {showForum && (
+              <>
+                <span aria-hidden="true">·</span>
+                <a href={forumPath(forum)} class="group text-ink">
+                  <span class="link-wipe">{forum.name}</span>
+                </a>
+              </>
+            )}
+          </p>
+        </div>
+        <p class="type-label col-span-2 flex flex-col text-muted md:col-span-1 xl:col-span-2 xl:flex-row xl:gap-4">
+          <span>{counted(topic.replyCount, "reply", "replies")}</span>
+          <span>{counted(topic.viewCount, "view")}</span>
+        </p>
+        <p class="col-span-2 flex min-w-0 flex-col gap-1 text-sm text-muted md:col-span-2 xl:col-span-3">
+          {topic.lastPostId !== null &&
+          topic.lastPostId !== topic.firstPostId ? (
+            <>
+              <a
+                href={postPath({ id: topic.lastPostId })}
+                class="group text-ink"
+              >
+                <span class="link-wipe">
+                  <time datetime={topic.lastPostAt.toISOString()}>
+                    {formatWhen(topic.lastPostAt, now)}
+                  </time>
+                </span>
+              </a>
+              <AuthorName author={lastPoster} />
+            </>
+          ) : (
+            <span>No replies yet</span>
+          )}
+        </p>
+      </li>
+    ))}
+  </ol>
+)}
