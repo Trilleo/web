@@ -186,7 +186,11 @@ describe("topics and replies", () => {
       (
         await listTopics(handle.db, {
           forum: general,
-          viewer: forumViewer(user && (await fresh(user))),
+          viewer: await forumViewer(
+            handle.db,
+            await loadTree(handle.db),
+            user && (await fresh(user)),
+          ),
           mod: user?.id === admin.id,
           page: 1,
         })
@@ -209,6 +213,7 @@ describe("topics and replies", () => {
         topic: fullTopic,
         post,
         action: "approve",
+        by: admin.id,
       }),
     ).toBe(true);
     expect((await getTopic(handle.db, topic.id))?.state).toBe("published");
@@ -308,7 +313,12 @@ describe("topics and replies", () => {
     const { topic, post } = await startTopic(alice, "Will be locked", "x");
     const full = await getTopic(handle.db, topic.id);
     if (!full) throw new Error("no topic");
-    await moderatePost(handle.db, { topic: full, post, action: "lock" });
+    await moderatePost(handle.db, {
+      topic: full,
+      post,
+      action: "lock",
+      by: admin.id,
+    });
     expect(await reply(alice, topic.id, "can I?")).toEqual({
       ok: false,
       error: "forbidden",
@@ -425,7 +435,12 @@ describe("editing and deleting", () => {
     const { topic, post } = await startTopic(alice, "To be hidden", "x");
     const full = await getTopic(handle.db, topic.id);
     if (!full) throw new Error("no topic");
-    await moderatePost(handle.db, { topic: full, post, action: "hide" });
+    await moderatePost(handle.db, {
+      topic: full,
+      post,
+      action: "hide",
+      by: admin.id,
+    });
     const hidden = await getTopic(handle.db, topic.id);
     if (!hidden) throw new Error("no topic");
     expect(hidden.state).toBe("hidden");
@@ -467,6 +482,7 @@ describe("reading", () => {
       topic: full,
       post: c.post,
       action: "pin-global",
+      by: admin.id,
     });
     expect(await titles()).toEqual(["Topic C", "Topic A", "Topic B"]);
     const tree = await loadTree(handle.db);
@@ -520,7 +536,9 @@ describe("reading", () => {
       .where(eq(forums.slug, "site"));
     const tree = await loadTree(handle.db);
     expect(tree.visible(null).find("help")).toBeUndefined();
-    expect(tree.visible(forumViewer(admin)).find("help")).toBeDefined();
+    expect(
+      tree.visible(await forumViewer(handle.db, tree, admin)).find("help"),
+    ).toBeDefined();
     expect(
       await recentTopics(handle.db, { tree, viewer: null, limit: 5 }),
     ).toEqual([]);
@@ -532,7 +550,7 @@ describe("reading", () => {
         await searchForum(handle.db, {
           q: "rockets",
           tree,
-          viewer: forumViewer(admin),
+          viewer: await forumViewer(handle.db, tree, admin),
         })
       ).length,
     ).toBe(1);

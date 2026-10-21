@@ -22,12 +22,16 @@ import Breadcrumb from "../../../components/Breadcrumb.astro";
 import Pager from "../../../components/forum/Pager.astro";
 import PostForm from "../../../components/forum/PostForm.astro";
 import PostItem from "../../../components/forum/PostItem.astro";
+import BanNotice from "../../../components/forum/BanNotice.astro";
+import Notices from "../../../components/forum/Notices.astro";
 import TopicBadges from "../../../components/forum/TopicBadges.astro";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { noStoreRedirect } from "../../../lib/auth/redirect";
 import { field, parseId } from "../../../lib/comments/form";
 import { getDb } from "../../../lib/db";
+import { activeBan } from "../../../lib/forum/access";
 import { postErrorMessage, postErrorStatus } from "../../../lib/forum/messages";
+import { mergedTarget } from "../../../lib/forum/moderation";
 import {
   FORUM_NUMBER,
   counted,
@@ -50,11 +54,23 @@ export const prerender = false;
 
 const db = await getDb();
 const user = Astro.locals.user ?? null;
-const viewer = forumViewer(user);
+
 const id = parseTopicSegment(Astro.params.topic ?? "");
 const topic = id === null ? undefined : await getTopic(db, id);
 const tree = await loadTree(db);
+const viewer = await forumViewer(db, tree, user);
 const node = topic ? tree.get(topic.forumId) : undefined;
+if (!topic && id !== null) {
+  // A merged topic's address goes on to the topic it joined.
+  const merged = await mergedTarget(db, id);
+  const mergedNode = merged ? tree.get(merged.forumId) : undefined;
+  if (
+    merged &&
+    mergedNode &&
+    can(viewer, "forum.view", tree.place(mergedNode.forum), merged)
+  )
+    return Astro.redirect(topicPath(mergedNode.forum, merged), 301);
+}
 if (
   !topic ||
   !node ||
@@ -74,6 +90,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
 
 const place = tree.place(forum);
 const mod = tree.moderates(forum, viewer);
+const now = new Date();
 const canReply = can(viewer, "topic.reply", place, topic);
 const here = Astro.url.pathname + Astro.url.search;
 
@@ -118,7 +135,18 @@ const listed = await listPosts(db, {
   viewer,
   mod,
   page: pageParam(Astro.url),
+  adminTitle: tree.groups.get("admin")?.title ?? null,
 });
+const ban = viewer?.banned && user ? await activeBan(db, user.id) : undefined;
+// Where a moderator can move or split to: forums they moderate.
+const targets = mod
+  ? tree
+      .flat()
+      .filter(
+        (option) =>
+          option.forum.kind === "forum" && tree.moderates(option.forum, viewer),
+      )
+  : [];
 const opening = listed.page === 1 ? listed.posts[0] : undefined;
 const description = opening
   ? excerpt(plainText(opening.html), 160)
@@ -134,7 +162,6 @@ const crumbs = [
 const quoteHref = (postId: number) =>
   `${topicPath(forum, topic, listed.page)}${listed.page > 1 ? "&" : "?"}quote=${String(postId)}#reply`;
 const firstNumber = (listed.page - 1) * FORUM_LIMITS.postsPerPage + 1;
-const now = new Date();
 const modForm = "/forum/action";
 const firstPostId = topic.firstPostId ?? 0;
 ---
@@ -170,6 +197,8 @@ const firstPostId = topic.firstPostId ?? 0;
         <span>{counted(topic.viewCount, "view")}</span>
       </p>
     </div>
+
+    <Notices />
 
     {mod && (
       <div
@@ -215,6 +244,89 @@ const firstPostId = topic.firstPostId ?? 0;
             <span class="link-wipe">Set</span>
           </button>
         </form>
+        <form method="post" action={modForm} class="flex items-center gap-2">
+          <input type="hidden" name="post" value={String(firstPostId)} />
+          <input type="hidden" name="action" value="move" />
+          <input type="hidden" name="back" value={here} />
+          <label for="move-to" class="type-label">
+            Move to
+          </label>
+          <select
+            id="move-to"
+            name="forum"
+            class="type-label h-9 max-w-48 border border-ink bg-paper px-2"
+          >
+            {targets.map((option) => (
+              <option
+                value={String(option.forum.id)}
+                selected={option.forum.id === forum.id}
+              >
+                {"— ".repeat(option.depth)}
+                {option.forum.name}
+              </option>
+            ))}
+          </select>
+          <button type="submit" class="group type-label cursor-pointer">
+            <span class="link-wipe">Move</span>
+          </button>
+        </form>
+        <form method="post" action={modForm} class="flex items-center gap-2">
+          <input type="hidden" name="post" value={String(firstPostId)} />
+          <input type="hidden" name="action" value="merge" />
+          <input type="hidden" name="back" value={here} />
+          <label for="merge-into" class="type-label">
+            Merge into
+          </label>
+          <input
+            id="merge-into"
+            name="into"
+            placeholder="Topic address or number"
+            class="h-9 w-48 border border-ink bg-paper px-2 text-sm"
+          />
+          <button type="submit" class="group type-label cursor-pointer">
+            <span class="link-wipe">Merge</span>
+          </button>
+        </form>
+        <form
+          method="post"
+          action={modForm}
+          id="split-form"
+          class="flex flex-wrap items-center gap-2"
+        >
+          <input type="hidden" name="post" value={String(firstPostId)} />
+          <input type="hidden" name="action" value="split" />
+          <input type="hidden" name="back" value={here} />
+          <label for="split-title" class="type-label">
+            Split ticked posts into
+          </label>
+          <input
+            id="split-title"
+            name="title"
+            placeholder="New topic’s title"
+            class="h-9 w-56 border border-ink bg-paper px-2 text-sm"
+          />
+          <label for="split-forum" class="sr-only">
+            Forum for the new topic
+          </label>
+          <select
+            id="split-forum"
+            name="forum"
+            class="type-label h-9 max-w-48 border border-ink bg-paper px-2"
+          >
+            {targets.map((option) => (
+              <option
+                value={String(option.forum.id)}
+                selected={option.forum.id === forum.id}
+              >
+                {"— ".repeat(option.depth)}
+                {option.forum.name}
+              </option>
+            ))}
+          </select>
+          <button type="submit" class="group type-label cursor-pointer">
+            <span class="link-wipe">Split</span>
+          </button>
+        </form>
       </div>
     )}
 
@@ -224,8 +336,17 @@ const firstPostId = topic.firstPostId ?? 0;
           view={view}
           number={firstNumber + index}
           quoteHref={canReply ? quoteHref(view.post.id) : undefined}
-          canEdit={mod || can(viewer, "post.edit-own", place, topic, view.post)}
+          canEdit={
+            mod || can(viewer, "post.edit-own", place, topic, view.post, now)
+          }
           canDelete={can(viewer, "post.delete-own", place, topic, view.post)}
+          canReport={
+            viewer !== null &&
+            view.post.authorId !== viewer.id &&
+            can(viewer, "post.report", place, topic)
+          }
+          splitForm={mod ? "split-form" : undefined}
+          viewerId={viewer?.id}
           mod={mod}
           back={here}
           now={now}
@@ -256,7 +377,9 @@ const firstPostId = topic.firstPostId ?? 0;
         Reply
       </h2>
       <div class="col-span-4 flex flex-col gap-6 md:col-span-6 xl:col-span-7">
-        {canReply ? (
+        {ban ? (
+          <BanNotice ban={ban} />
+        ) : canReply ? (
           <>
             {preview !== null && (
               <div

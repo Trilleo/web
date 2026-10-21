@@ -1,0 +1,46 @@
+---
+/** The forum admin's sections, under the admin's own nav. */
+interface Props {
+  current: "forums" | "groups" | "bans" | "log";
+  /** Posts waiting plus open reports, shown on the moderation link. */
+  queue?: number;
+}
+
+const { current, queue = 0 } = Astro.props;
+const items = [
+  { key: "forums", label: "Forums", href: "/admin/forum/" },
+  {
+    key: "groups",
+    label: "Groups & permissions",
+    href: "/admin/forum/groups/",
+  },
+  { key: "bans", label: "Bans", href: "/admin/forum/?tab=bans" },
+  { key: "log", label: "Moderation log", href: "/admin/forum/?tab=log" },
+] as const;
+---
+
+<nav aria-label="Forum admin" class="type-label flex flex-wrap gap-x-6 gap-y-2">
+  {items.map((item) => (
+    <a
+      href={item.href}
+      class="group inline-flex items-center gap-2"
+      aria-current={item.key === current ? "page" : undefined}
+    >
+      <span
+        class:list={[
+          "size-2",
+          item.key === current ? "bg-accent" : "bg-transparent",
+        ]}
+        aria-hidden="true"
+      />
+      <span class="link-wipe">{item.label}</span>
+    </a>
+  ))}
+  <a href="/forum/moderate/" class="group inline-flex items-center gap-2">
+    <span class="link-wipe">Moderation queue</span>
+    {queue > 0 && <span class="bg-accent px-1.5 text-on-accent">{queue}</span>}
+  </a>
+  <a href="/forum/" class="group">
+    <span class="link-wipe">View the forum</span>
+  </a>
+</nav>

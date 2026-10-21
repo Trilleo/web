@@ -32,7 +32,15 @@ function forum(
   };
 }
 
-const admin = { id: "a", admin: true, trusted: true, blocked: false };
+const admin = {
+  id: "a",
+  admin: true,
+  trusted: true,
+  blocked: false,
+  groups: [],
+  banned: false,
+  editWindowMs: null,
+};
 
 describe("ForumTree", () => {
   const tree = new ForumTree([

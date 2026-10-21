@@ -2,26 +2,28 @@
 /**
  * The admin's forum page. ?tab=forums (default): the whole tree, with counts,
  * reordering (up/down), and links to change or add a category or forum.
- * ?tab=waiting: topics and replies waiting for approval, oldest first.
+ * ?tab=bans: bans in force (lift one early). ?tab=log: the moderation log. The
+ * queue of posts waiting and reports is /forum/moderate/ (moderators use it too).
  */
-import { forumLayout, forumPath, postPath, topicPath } from "@trilleo/forum";
+import { LOG_ACTIONS, forumLayout, forumPath, topicPath } from "@trilleo/forum";
 import AdminNav from "../../../components/admin/AdminNav.astro";
 import {
   primaryButton,
   secondaryButton,
 } from "../../../components/admin/files/styles";
 import DisplayTitle from "../../../components/DisplayTitle.astro";
-import AuthorName from "../../../components/forum/AuthorName.astro";
+import ForumAdminNav from "../../../components/forum/ForumAdminNav.astro";
+import Pager from "../../../components/forum/Pager.astro";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { requireAdmin } from "../../../lib/auth/guard";
+import { noStoreRedirect } from "../../../lib/auth/redirect";
 import { getDb } from "../../../lib/db";
-import { counted, formatWhen } from "../../../lib/forum/public";
-import {
-  loadTree,
-  renderBody,
-  waitingCount,
-  waitingPosts,
-} from "../../../lib/forum/store";
+import { readLog } from "../../../lib/forum/log";
+import { activeBans, openReportCount } from "../../../lib/forum/moderation";
+import { counted, formatWhen, pageParam } from "../../../lib/forum/public";
+import { loadTree, waitingCount } from "../../../lib/forum/store";
+import { formatPostDate } from "../../../lib/listings";
+import { profileHref } from "../../../lib/profile/profile";
 
 export const prerender = false;
 
@@ -31,17 +33,21 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
 Astro.response.headers.set("X-Robots-Tag", "noindex");
 
 const db = await getDb();
+const tabParam = Astro.url.searchParams.get("tab");
+// The queue moved to /forum/moderate/; old links (alert emails) follow it.
+if (tabParam === "waiting") return noStoreRedirect("/forum/moderate/", 301);
 const tab =
-  Astro.url.searchParams.get("tab") === "waiting" ? "waiting" : "forums";
+  tabParam === "bans" ? "bans" : tabParam === "log" ? "log" : "forums";
 const done = Astro.url.searchParams.get("done");
 const error = Astro.url.searchParams.get("error");
 const tree = await loadTree(db);
-const waiting = await waitingCount(db);
-const queue = tab === "waiting" ? await waitingPosts(db) : [];
-const queueHtml = new Map<number, string>();
-for (const item of queue)
-  queueHtml.set(item.post.id, await renderBody(db, item.post.body));
-const here = Astro.url.pathname + Astro.url.search;
+const everyForum = new Set(tree.flat().map((node) => node.forum.id));
+const queue =
+  (await waitingCount(db)) +
+  (await openReportCount(db, { moderatedIds: everyForum, everywhere: true }));
+const bans = tab === "bans" ? await activeBans(db) : [];
+const page = pageParam(Astro.url);
+const log = tab === "log" ? await readLog(db, page) : { rows: [], pages: 1 };
 const now = new Date();
 
 const DONE: Record<string, string> = {
@@ -49,6 +55,7 @@ const DONE: Record<string, string> = {
   created: "Created.",
   deleted: "Deleted.",
   moved: "Moved.",
+  lifted: "Ban lifted.",
 };
 const MODERATION_LABELS = {
   none: "Nothing waits",
@@ -57,6 +64,10 @@ const MODERATION_LABELS = {
 } as const;
 const row =
   "grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6";
+const logLabel = (action: string) =>
+  Object.hasOwn(LOG_ACTIONS, action)
+    ? LOG_ACTIONS[action as keyof typeof LOG_ACTIONS]
+    : action;
 ---
 
 <BaseLayout title="Forum · Admin" noindex>
@@ -70,38 +81,7 @@ const row =
     <div class={row}>
       <p class="type-label col-span-4 md:col-span-2 xl:col-span-2">Overview</p>
       <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
-        <nav
-          aria-label="Forum admin"
-          class="type-label flex flex-wrap gap-x-6 gap-y-2"
-        >
-          {[
-            { key: "forums", label: "Forums", count: 0 },
-            { key: "waiting", label: "Waiting for approval", count: waiting },
-          ].map((item) => (
-            <a
-              href={`/admin/forum/?tab=${item.key}`}
-              class="group inline-flex items-center gap-2"
-              aria-current={item.key === tab ? "page" : undefined}
-            >
-              <span
-                class:list={[
-                  "size-2",
-                  item.key === tab ? "bg-accent" : "bg-transparent",
-                ]}
-                aria-hidden="true"
-              />
-              <span class="link-wipe">{item.label}</span>
-              {item.count > 0 && (
-                <span class="bg-accent px-1.5 text-on-accent">
-                  {item.count}
-                </span>
-              )}
-            </a>
-          ))}
-          <a href="/forum/" class="group">
-            <span class="link-wipe">View the forum</span>
-          </a>
-        </nav>
+        <ForumAdminNav current={tab} queue={queue} />
         {done && DONE[done] && (
           <p role="status" class="type-lead border-l-2 border-accent pl-4">
             {DONE[done]}
@@ -115,7 +95,7 @@ const row =
       </div>
     </div>
 
-    {tab === "forums" ? (
+    {tab === "forums" && (
       <div class={row}>
         <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
           Structure
@@ -223,84 +203,116 @@ const row =
           )}
         </div>
       </div>
-    ) : (
+    )}
+
+    {tab === "bans" && (
       <div class={row}>
         <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
-          Waiting
+          In force
         </h2>
         <div class="col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-10">
-          {queue.length === 0 ? (
-            <p class="text-muted">Nothing is waiting.</p>
+          <p class="text-muted">
+            Moderators ban people from a post’s menu. A ban stops them posting
+            in the forum; they can still read it and use the rest of the site.
+          </p>
+          {bans.length === 0 ? (
+            <p class="text-muted">Nobody is banned.</p>
           ) : (
-            <ol class="border-b border-ink" data-testid="forum-queue">
-              {queue.map((item) => (
-                <li class="flex flex-col gap-3 border-t border-ink py-4">
-                  <p class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <span class="type-label bg-accent px-1.5 text-on-accent">
-                      {item.first ? "New topic" : "Reply"}
-                    </span>
-                    <a href={postPath(item.post)} class="group font-semibold">
-                      <span class="link-wipe">{item.topic.title}</span>
-                    </a>
-                    <span class="type-label text-muted">
-                      in{" "}
+            <ol class="border-b border-ink" data-testid="forum-bans">
+              {bans.map(({ ban, username, by }) => (
+                <li class="grid gap-3 border-t border-ink py-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                  <div class="flex min-w-0 flex-col gap-1">
+                    <p class="flex flex-wrap items-baseline gap-x-3">
                       <a
-                        href={topicPath(item.forum, item.topic)}
-                        class="link-wipe"
+                        href={profileHref(username)}
+                        class="group font-semibold"
                       >
-                        {item.forum.name}
+                        <span class="link-wipe">@{username}</span>
                       </a>
-                    </span>
-                  </p>
-                  <p class="flex flex-wrap items-center gap-x-3 text-sm text-muted">
-                    <AuthorName author={item.author} />
-                    <span>{formatWhen(item.post.createdAt, now)}</span>
-                  </p>
-                  <div class="comment-body forum-body max-w-prose">
-                    <Fragment set:html={queueHtml.get(item.post.id) ?? ""} />
+                      <span class="type-label text-muted">
+                        {ban.until
+                          ? `Until ${formatPostDate(ban.until)}`
+                          : "Permanent"}
+                      </span>
+                    </p>
+                    <p class="text-sm">{ban.reason}</p>
+                    <p class="text-sm text-muted">
+                      By {by ? `@${by}` : "a deleted account"},{" "}
+                      {formatWhen(ban.createdAt, now)}
+                    </p>
                   </div>
-                  <div class="flex flex-wrap gap-2">
-                    {(
-                      [
-                        {
-                          action: "approve",
-                          label: "Approve",
-                          style: primaryButton,
-                        },
-                        {
-                          action: "hide",
-                          label: "Hide",
-                          style: secondaryButton,
-                        },
-                        {
-                          action: "delete",
-                          label: "Delete",
-                          style: secondaryButton,
-                        },
-                      ] as const
-                    ).map((button) => (
-                      <form method="post" action="/forum/action">
-                        <input
-                          type="hidden"
-                          name="post"
-                          value={String(item.post.id)}
-                        />
-                        <input
-                          type="hidden"
-                          name="action"
-                          value={button.action}
-                        />
-                        <input type="hidden" name="back" value={here} />
-                        <button type="submit" class={button.style}>
-                          {button.label}
-                        </button>
-                      </form>
-                    ))}
-                  </div>
+                  <form method="post" action="/admin/forum/action">
+                    <input type="hidden" name="ban" value={String(ban.id)} />
+                    <input type="hidden" name="action" value="lift" />
+                    <button
+                      type="submit"
+                      class={secondaryButton}
+                      aria-label={`Lift @${username}’s ban`}
+                    >
+                      Lift ban
+                    </button>
+                  </form>
                 </li>
               ))}
             </ol>
           )}
+        </div>
+      </div>
+    )}
+
+    {tab === "log" && (
+      <div class={row}>
+        <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
+          Newest first
+        </h2>
+        <div class="col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-10">
+          {log.rows.length === 0 ? (
+            <p class="text-muted">Nothing yet.</p>
+          ) : (
+            <ol class="border-b border-ink" data-testid="forum-log">
+              {log.rows.map(({ entry, actor, target, forum, topic }) => (
+                <li class="flex flex-col gap-1 border-t border-hair py-3">
+                  <p>
+                    <strong class="font-medium">
+                      {actor ? `@${actor}` : "The site"}
+                    </strong>{" "}
+                    {logLabel(entry.action)}
+                    {target && (
+                      <>
+                        {" "}
+                        (
+                        <a href={profileHref(target)} class="link-wipe">
+                          @{target}
+                        </a>
+                        )
+                      </>
+                    )}
+                    {topic && forum && (
+                      <>
+                        {" "}
+                        in{" "}
+                        <a href={topicPath(forum, topic)} class="link-wipe">
+                          {topic.title}
+                        </a>
+                      </>
+                    )}
+                  </p>
+                  <p class="flex flex-wrap gap-x-3 text-sm text-muted">
+                    <time datetime={entry.createdAt.toISOString()}>
+                      {formatWhen(entry.createdAt, now)}
+                    </time>
+                    {entry.detail && <span>{entry.detail}</span>}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          )}
+          <Pager
+            page={page}
+            pages={log.pages}
+            base="/admin/forum/?tab=log"
+            label="Log pages"
+          />
         </div>
       </div>
     )}

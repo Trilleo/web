@@ -5,13 +5,14 @@ import { pagerPages } from "../../lib/forum/public";
 interface Props {
   page: number;
   pages: number;
-  /** The list's address: page 1 is this, page n adds ?page=n. */
+  /** The list's address: page 1 is this, page n adds page=n to its query. */
   base: string;
   label?: string;
 }
 
 const { page, pages, base, label = "Pages" } = Astro.props;
-const href = (n: number) => (n > 1 ? `${base}?page=${String(n)}` : base);
+const join = base.includes("?") ? "&" : "?";
+const href = (n: number) => (n > 1 ? `${base}${join}page=${String(n)}` : base);
 ---
 
 {pages > 1 && (

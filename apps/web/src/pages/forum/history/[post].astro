@@ -1,0 +1,115 @@
+---
+/**
+ * A post's edit history, for moderators: every saved version, newest first, each
+ * with what changed from the one before (the wiki's line diff).
+ */
+import { forumPath, postPath, topicPath } from "@trilleo/forum";
+import Breadcrumb from "../../../components/Breadcrumb.astro";
+import DiffTable from "../../../components/wiki/DiffTable.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireUser } from "../../../lib/auth/guard";
+import { parseId } from "../../../lib/comments/form";
+import { getDb } from "../../../lib/db";
+import { postHistory } from "../../../lib/forum/moderation";
+import { FORUM_NUMBER, formatWhen } from "../../../lib/forum/public";
+import {
+  forumViewer,
+  getPost,
+  getTopic,
+  loadTree,
+} from "../../../lib/forum/store";
+import { diffLines, foldDiff } from "../../../lib/wiki/diff";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const db = await getDb();
+const id = parseId(Astro.params.post ?? "");
+const post = id === null ? undefined : await getPost(db, id);
+const topic = post ? await getTopic(db, post.topicId) : undefined;
+const tree = await loadTree(db);
+const node = topic ? tree.get(topic.forumId) : undefined;
+if (!post || !topic || !node) return Astro.rewrite("/404");
+if (!tree.moderates(node.forum, await forumViewer(db, tree, user)))
+  return Astro.rewrite("/404");
+
+const versions = await postHistory(db, post, topic);
+const now = new Date();
+// Newest first, each against the version before it.
+const shown = versions
+  .map((version, index) => {
+    const before = versions[index - 1];
+    return {
+      version,
+      number: index + 1,
+      changes: before ? foldDiff(diffLines(before.body, version.body)) : null,
+      retitled:
+        before && version.title !== null && before.title !== version.title
+          ? before.title
+          : null,
+    };
+  })
+  .reverse();
+const crumbs = [
+  { label: `(${FORUM_NUMBER}) Forum`, href: "/forum/" },
+  { label: node.forum.name, href: forumPath(node.forum) },
+  { label: topic.title, href: topicPath(node.forum, topic) },
+  { label: "History" },
+];
+---
+
+<BaseLayout title={`History · ${topic.title}`} noindex>
+  <section
+    aria-labelledby="history-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <Breadcrumb items={crumbs} class="type-label" />
+    <h1 id="history-title" class="type-band mt-5 xl:mt-7">
+      Edit history
+    </h1>
+    <p class="mt-4 text-muted">
+      {versions.length} versions of{" "}
+      <a href={postPath(post)} class="link-wipe text-ink">
+        this post
+      </a>
+      , newest first.
+    </p>
+
+    <ol class="mt-8 flex flex-col gap-10" data-testid="post-history">
+      {shown.map(({ version, number, changes, retitled }) => (
+        <li class="grid-swiss gap-y-4 border-t border-ink pt-4">
+          <div class="col-span-4 flex flex-col gap-1 md:col-span-2 xl:col-span-2">
+            <p class="type-label">
+              Version {number}
+              {version.current && " (now)"}
+            </p>
+            <p class="text-sm text-muted">
+              {version.editor ? `@${version.editor}` : "Deleted account"},{" "}
+              <time datetime={version.savedAt.toISOString()}>
+                {formatWhen(version.savedAt, now)}
+              </time>
+            </p>
+          </div>
+          <div class="col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10">
+            {retitled && (
+              <p class="text-sm">
+                Title changed from “{retitled}” to “{version.title}”.
+              </p>
+            )}
+            {changes ? (
+              <DiffTable
+                lines={changes}
+                label={`Changes in version ${String(number)}`}
+              />
+            ) : (
+              <pre class="overflow-x-auto border border-hair p-3 font-mono text-sm whitespace-pre-wrap">{version.body}</pre>
+            )}
+          </div>
+        </li>
+      ))}
+    </ol>
+  </section>
+</BaseLayout>

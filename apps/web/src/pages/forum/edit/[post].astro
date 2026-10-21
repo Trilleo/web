@@ -33,11 +33,11 @@ if (user instanceof Response) return user;
 Astro.response.headers.set("Cache-Control", "private, no-store");
 
 const db = await getDb();
-const viewer = forumViewer(user);
 const id = parseId(Astro.params.post ?? "");
 const post = id === null ? undefined : await getPost(db, id);
 const topic = post ? await getTopic(db, post.topicId) : undefined;
 const tree = await loadTree(db);
+const viewer = await forumViewer(db, tree, user);
 const node = topic ? tree.get(topic.forumId) : undefined;
 if (!post || !topic || !node) return Astro.rewrite("/404");
 const { forum } = node;

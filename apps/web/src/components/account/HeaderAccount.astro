@@ -6,6 +6,8 @@
  * SiteHeader's script, since scripts don't come with islands.
  */
 import { isAdmin } from "../../lib/auth/guard";
+import { getDb } from "../../lib/db";
+import { isForumModerator } from "../../lib/forum/access";
 import { displayName, profileHref } from "../../lib/profile/profile";
 import Avatar from "./Avatar.astro";
 
@@ -19,12 +21,16 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
 
 const { user } = Astro.locals;
 const name = user ? displayName(user) : "";
+const moderator = user ? await isForumModerator(await getDb(), user) : false;
 const links = user
   ? [
       { label: "Your profile", href: profileHref(user.username) },
       { label: "Edit profile", href: "/account/profile/" },
       { label: "Account", href: "/account/" },
       { label: "Security", href: "/account/security/" },
+      ...(moderator
+        ? [{ label: "Forum moderation", href: "/forum/moderate/" }]
+        : []),
       ...(isAdmin(user) ? [{ label: "Admin", href: "/admin/" }] : []),
     ]
   : [];

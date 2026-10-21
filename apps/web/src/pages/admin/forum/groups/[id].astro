@@ -1,0 +1,364 @@
+---
+/**
+ * One group (or /admin/forum/groups/new/): its name, key, title, description, edit
+ * window and permissions everywhere, and, for groups people are added to, its
+ * members. POST with `intent`: save, add (a username), remove (a user), delete.
+ */
+import {
+  AUTOMATIC_GROUPS,
+  FORUM_PERMISSIONS,
+  PERMISSION_KEYS,
+} from "@trilleo/forum";
+import { buttonClasses } from "@trilleo/ui";
+import AdminNav from "../../../../components/admin/AdminNav.astro";
+import { secondaryButton } from "../../../../components/admin/files/styles";
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import { requireAdmin } from "../../../../lib/auth/guard";
+import { noStoreRedirect } from "../../../../lib/auth/redirect";
+import { field, parseId, parseUserId } from "../../../../lib/comments/form";
+import { getDb } from "../../../../lib/db";
+import {
+  GROUP_LIMITS,
+  addMember,
+  createGroup,
+  deleteGroup,
+  getGroup,
+  groupDraft,
+  groupMembers,
+  readGroupForm,
+  removeMember,
+  updateGroup,
+  validateGroup,
+  type GroupDraft,
+  type GroupField,
+} from "../../../../lib/forum/groups";
+import { profileHref } from "../../../../lib/profile/profile";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const isNew = Astro.params.id === "new";
+const group = isNew
+  ? undefined
+  : await getGroup(db, parseId(Astro.params.id ?? "") ?? 0);
+if (!isNew && !group) return Astro.rewrite("/404");
+const self = group
+  ? `/admin/forum/groups/${String(group.id)}/`
+  : "/admin/forum/groups/new/";
+
+let draft: GroupDraft = groupDraft(group);
+let errors: Partial<Record<GroupField, string>> = {};
+let memberError: string | null = null;
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const intent = field(form, "intent") || "save";
+  if (intent === "save") {
+    draft = readGroupForm(form);
+    const result = await validateGroup(db, draft, group);
+    if (result.ok) {
+      if (group) await updateGroup(db, group, result.input);
+      const saved = group ?? (await createGroup(db, result.input));
+      return noStoreRedirect(
+        `/admin/forum/groups/${String(saved.id)}/?done=${group ? "saved" : "created"}`,
+        303,
+      );
+    }
+    errors = result.errors;
+    Astro.response.status = 422;
+  } else if (group && intent === "add") {
+    const problem = await addMember(db, group, field(form, "username"));
+    if (!problem) return noStoreRedirect(`${self}?done=added#members`, 303);
+    memberError =
+      problem === "no-user"
+        ? "There’s no account with that username."
+        : "People join this group by their account, not by hand.";
+    Astro.response.status = 422;
+  } else if (group && intent === "remove") {
+    const userId = parseUserId(field(form, "user"));
+    if (userId) await removeMember(db, group.id, userId);
+    return noStoreRedirect(`${self}?done=removed#members`, 303);
+  } else if (group && intent === "delete" && field(form, "confirm") === "yes") {
+    if (await deleteGroup(db, group))
+      return noStoreRedirect("/admin/forum/groups/?done=deleted", 303);
+  }
+}
+
+const manual = group ? !AUTOMATIC_GROUPS.has(group.slug) : true;
+const members = group && manual ? await groupMembers(db, group.id) : [];
+const done = Astro.url.searchParams.get("done");
+const DONE: Record<string, string> = {
+  saved: "Saved.",
+  created: "Created.",
+  added: "Added.",
+  removed: "Removed.",
+};
+const input =
+  "w-full border border-ink bg-paper px-3 py-2.5 text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-invalid:border-accent";
+const row = "grid-swiss gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6";
+const label = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
+const fields = [
+  {
+    name: "name",
+    label: "Name",
+    hint: `Up to ${String(GROUP_LIMITS.name)} characters.`,
+    mono: false,
+  },
+  {
+    name: "slug",
+    label: "Key",
+    hint: group?.builtIn
+      ? "Built-in groups keep their key."
+      : "Lower-case letters, digits and hyphens: how the rules know it.",
+    mono: true,
+  },
+  {
+    name: "title",
+    label: "Title",
+    hint: "Shown next to members’ names on their posts, e.g. “Helper”. Leave empty for none.",
+    mono: false,
+  },
+  {
+    name: "description",
+    label: "Description",
+    hint: "What it’s for, for you.",
+    mono: false,
+  },
+  {
+    name: "editWindow",
+    label: "Edit window (minutes)",
+    hint: "How long after posting members may edit their posts: 60 is an hour, 1440 a day. Empty: any time. Someone in several groups gets the longest.",
+    mono: true,
+  },
+] as const;
+---
+
+<BaseLayout title={`${group?.name ?? "New group"} · Forum · Admin`} noindex>
+  <section
+    aria-labelledby="group-heading"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="forum" />
+    <p class="type-label mt-6">
+      <a href="/admin/forum/groups/" class="group">
+        <span class="link-wipe">All groups</span>
+      </a>
+    </p>
+    <h1 id="group-heading" class="type-band mt-4 break-words">
+      {group?.name ?? "New group"}
+    </h1>
+
+    {(done || Object.keys(errors).length > 0) && (
+      <p
+        role={Object.keys(errors).length > 0 ? "alert" : "status"}
+        class="type-lead mt-6 border-l-2 border-accent pl-4"
+      >
+        {Object.keys(errors).length > 0
+          ? "Not saved: check the fields marked below."
+          : (DONE[done ?? ""] ?? "")}
+      </p>
+    )}
+
+    <form
+      method="post"
+      action={self}
+      class="mt-7 flex flex-col gap-12 md:mt-8 xl:mt-12"
+      novalidate
+    >
+      <input type="hidden" name="intent" value="save" />
+      <div class={row}>
+        <h2 class={label}>About it</h2>
+        <div class={body}>
+          {fields.map((item) => (
+            <div class="flex flex-col gap-2">
+              <label for={`group-${item.name}`} class="font-medium">
+                {item.label}
+              </label>
+              <input
+                id={`group-${item.name}`}
+                name={item.name}
+                value={draft[item.name]}
+                readonly={item.name === "slug" && group?.builtIn}
+                inputmode={item.name === "editWindow" ? "numeric" : undefined}
+                aria-invalid={errors[item.name] ? "true" : undefined}
+                aria-describedby={`group-${item.name}-hint`}
+                class:list={[
+                  input,
+                  item.mono && "font-mono",
+                  item.name === "slug" &&
+                    group?.builtIn &&
+                    "bg-chip text-muted",
+                ]}
+              />
+              <p
+                id={`group-${item.name}-hint`}
+                class:list={[
+                  "text-sm",
+                  errors[item.name] ? "font-medium" : "text-muted",
+                ]}
+              >
+                {errors[item.name] ?? item.hint}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <fieldset class={row}>
+        <legend class="sr-only">What it may do everywhere</legend>
+        <p class={label} aria-hidden="true">
+          Permissions
+        </p>
+        <div class={body}>
+          {group?.slug === "admin" && (
+            <p class="text-muted">
+              Admins can always do everything; these only show what others see.
+            </p>
+          )}
+          {PERMISSION_KEYS.map((key) => (
+            <div class="flex items-start gap-3">
+              <input
+                id={`perm-${key}`}
+                type="checkbox"
+                name={`perm:${key}`}
+                checked={draft.permissions[key] === true}
+                class="mt-1 size-4 shrink-0 accent-accent"
+              />
+              <div>
+                <label for={`perm-${key}`} class="font-medium">
+                  {FORUM_PERMISSIONS[key].label}
+                </label>
+                <p class="type-label text-muted">
+                  {FORUM_PERMISSIONS[key].group}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </fieldset>
+
+      <div class={row}>
+        <div class="col-span-4 flex flex-wrap gap-3 md:col-span-8 xl:col-span-12">
+          <button type="submit" class={buttonClasses()}>
+            {group ? "Save" : "Create group"}
+          </button>
+          <a
+            href="/admin/forum/groups/"
+            class={buttonClasses({ variant: "secondary" })}
+          >
+            Cancel
+          </a>
+        </div>
+      </div>
+    </form>
+
+    {group && manual && (
+      <div id="members" class:list={[row, "mt-12 scroll-mt-6"]}>
+        <h2 class={label}>Members</h2>
+        <div class={body}>
+          {members.length === 0 ? (
+            <p class="text-muted">Nobody yet.</p>
+          ) : (
+            <ul
+              class="flex flex-col border-b border-ink"
+              data-testid="group-members"
+            >
+              {members.map((member) => (
+                <li class="flex items-center justify-between gap-3 border-t border-hair py-2">
+                  <a href={profileHref(member.username)} class="link-wipe">
+                    @{member.username}
+                  </a>
+                  <form method="post" action={self}>
+                    <input type="hidden" name="intent" value="remove" />
+                    <input type="hidden" name="user" value={member.id} />
+                    <button
+                      type="submit"
+                      class={secondaryButton}
+                      aria-label={`Remove @${member.username}`}
+                    >
+                      Remove
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+          <form
+            method="post"
+            action={self}
+            class="flex flex-wrap items-end gap-3"
+          >
+            <input type="hidden" name="intent" value="add" />
+            <div class="flex min-w-48 flex-1 flex-col gap-2">
+              <label for="add-username" class="font-medium">
+                Add someone
+              </label>
+              <input
+                id="add-username"
+                name="username"
+                placeholder="username"
+                autocapitalize="none"
+                spellcheck="false"
+                aria-invalid={memberError ? "true" : undefined}
+                aria-describedby={
+                  memberError ? "add-username-error" : undefined
+                }
+                class:list={[input, "font-mono"]}
+              />
+            </div>
+            <button
+              type="submit"
+              class={buttonClasses({ variant: "secondary" })}
+            >
+              Add
+            </button>
+            {memberError && (
+              <p
+                id="add-username-error"
+                role="alert"
+                class="w-full text-sm font-medium"
+              >
+                {memberError}
+              </p>
+            )}
+          </form>
+        </div>
+      </div>
+    )}
+
+    {group && !group.builtIn && (
+      <div class:list={[row, "mt-12"]}>
+        <h2 class={label}>Delete</h2>
+        <form method="post" action={self} class:list={[body]}>
+          <input type="hidden" name="intent" value="delete" />
+          <div class="flex items-start gap-3">
+            <input
+              id="confirm-delete"
+              type="checkbox"
+              name="confirm"
+              value="yes"
+              required
+              class="mt-1 size-4 shrink-0 accent-accent"
+            />
+            <label for="confirm-delete">
+              Yes, delete {group.name}. Its members keep their other groups.
+            </label>
+          </div>
+          <p>
+            <button
+              type="submit"
+              class={buttonClasses({ variant: "secondary" })}
+            >
+              Delete group
+            </button>
+          </p>
+        </form>
+      </div>
+    )}
+  </section>
+</BaseLayout>

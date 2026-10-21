@@ -1700,6 +1700,8 @@ export const forumTopics = pgTable(
       .notNull()
       .defaultNow(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    /** Merged into another topic (and deleted): its address redirects there. */
+    mergedInto: integer("merged_into"),
   },
   (table) => [
     index("forum_topics_forum_idx").on(
@@ -1749,6 +1751,205 @@ export const forumPosts = pgTable(
       sql`to_tsvector('english', ${table.body})`,
     ),
   ],
+);
+
+/**
+ * Forum groups: the built-in ones (@trilleo/forum's BUILT_IN_GROUPS: guest,
+ * newcomer, member, moderator, admin) and the admin's own. Each allows a set of
+ * permissions everywhere, which forums can override (forum_permissions), and has an
+ * edit window. Membership of guest, newcomer, member and admin follows the account;
+ * the others are given (forum_group_members).
+ */
+export const forumGroups = pgTable("forum_groups", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  /** Its key in permission rules; built-in groups keep theirs. */
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  /** Shown next to members' names on posts. */
+  title: text("title"),
+  builtIn: boolean("built_in").notNull().default(false),
+  /** Permission key → allowed, everywhere unless a forum says otherwise. */
+  permissions: jsonb("permissions")
+    .$type<Record<string, boolean>>()
+    .notNull()
+    .default({}),
+  /** Minutes after posting its members may edit; null: always. */
+  editWindowMinutes: integer("edit_window_minutes"),
+  sort: integer("sort").notNull().default(0),
+  createdAt: createdAt(),
+});
+
+/** Who was put in a group by hand (moderators, the admin's own groups). */
+export const forumGroupMembers = pgTable(
+  "forum_group_members",
+  {
+    groupId: integer("group_id")
+      .notNull()
+      .references(() => forumGroups.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    addedAt: createdAt(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.groupId, table.userId] }),
+    index("forum_group_members_user_idx").on(table.userId),
+  ],
+);
+
+/**
+ * A forum's own choice for a group: allow or deny one permission there (and in its
+ * subforums, unless they choose again). No row: as the group (or a parent) says.
+ */
+export const forumPermissions = pgTable(
+  "forum_permissions",
+  {
+    forumId: integer("forum_id")
+      .notNull()
+      .references(() => forums.id, { onDelete: "cascade" }),
+    groupId: integer("group_id")
+      .notNull()
+      .references(() => forumGroups.id, { onDelete: "cascade" }),
+    permission: text("permission").notNull(),
+    allowed: boolean("allowed").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.forumId, table.groupId, table.permission] }),
+  ],
+);
+
+/** People assigned to moderate a forum (and its subforums). */
+export const forumModerators = pgTable(
+  "forum_moderators",
+  {
+    forumId: integer("forum_id")
+      .notNull()
+      .references(() => forums.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    addedAt: createdAt(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.forumId, table.userId] }),
+    index("forum_moderators_user_idx").on(table.userId),
+  ],
+);
+
+/**
+ * A ban from posting in the forum (reading, comments and the rest of the site stay
+ * open). Active while not lifted and `until` hasn't passed (null: permanent).
+ */
+export const forumBans = pgTable(
+  "forum_bans",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reason: text("reason").notNull(),
+    until: timestamp("until", { withTimezone: true }),
+    byId: uuid("by_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    liftedAt: timestamp("lifted_at", { withTimezone: true }),
+    liftedById: uuid("lifted_by_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [index("forum_bans_user_idx").on(table.userId, table.createdAt)],
+);
+
+export const forumReportStatus = pgEnum("forum_report_status", [
+  "open",
+  "actioned",
+  "dismissed",
+]);
+
+/**
+ * A report about a post, or about someone's profile picture (`postId` null). The
+ * reporter is kept for moderators; reports from established accounts can hide a
+ * post until someone looks (apps/web's lib/forum/reports.ts).
+ */
+export const forumReports = pgTable(
+  "forum_reports",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    kind: text("kind", { enum: ["post", "avatar"] }).notNull(),
+    postId: integer("post_id").references(() => forumPosts.id, {
+      onDelete: "cascade",
+    }),
+    /** Whose post or picture it is. */
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "cascade",
+    }),
+    reporterId: uuid("reporter_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reason: text("reason").notNull(),
+    note: text("note").notNull().default(""),
+    status: forumReportStatus("status").notNull().default("open"),
+    createdAt: createdAt(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedById: uuid("resolved_by_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    index("forum_reports_status_idx").on(table.status, table.createdAt),
+    index("forum_reports_post_idx").on(table.postId),
+    index("forum_reports_reporter_idx").on(table.reporterId),
+  ],
+);
+
+/** A post's earlier versions: each edit keeps what it replaced. Never changed. */
+export const forumPostRevisions = pgTable(
+  "forum_post_revisions",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    postId: integer("post_id")
+      .notNull()
+      .references(() => forumPosts.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    /** The topic's title then, for an opening post. */
+    title: text("title"),
+    /** Who wrote this version (the author, or the moderator who edited it). */
+    editorId: uuid("editor_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    /** When this version was saved. */
+    savedAt: timestamp("saved_at", { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [index("forum_post_revisions_post_idx").on(table.postId)],
+);
+
+/** What moderators did (@trilleo/forum's LOG_ACTIONS), with whom and why. */
+export const forumLog = pgTable(
+  "forum_log",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    actorId: uuid("actor_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    action: text("action").notNull(),
+    forumId: integer("forum_id").references(() => forums.id, {
+      onDelete: "set null",
+    }),
+    topicId: integer("topic_id").references(() => forumTopics.id, {
+      onDelete: "set null",
+    }),
+    postId: integer("post_id").references(() => forumPosts.id, {
+      onDelete: "set null",
+    }),
+    targetUserId: uuid("target_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    /** What it was about, in words (a reason, a title, where it went). */
+    detail: text("detail").notNull().default(""),
+    createdAt: createdAt(),
+  },
+  (table) => [index("forum_log_created_idx").on(table.createdAt)],
 );
 
 export type User = typeof users.$inferSelect;
@@ -1809,3 +2010,9 @@ export type ForumPostState = (typeof forumPostState.enumValues)[number];
 export type ForumPin = (typeof forumPin.enumValues)[number];
 export type ForumTopic = typeof forumTopics.$inferSelect;
 export type ForumPost = typeof forumPosts.$inferSelect;
+export type ForumGroup = typeof forumGroups.$inferSelect;
+export type ForumBan = typeof forumBans.$inferSelect;
+export type ForumReport = typeof forumReports.$inferSelect;
+export type ForumReportStatus = (typeof forumReportStatus.enumValues)[number];
+export type ForumPostRevision = typeof forumPostRevisions.$inferSelect;
+export type ForumLogEntry = typeof forumLog.$inferSelect;

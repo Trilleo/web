@@ -31,8 +31,9 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
 
 const db = await getDb();
 const user = Astro.locals.user;
-const viewer = forumViewer(user);
-const tree = (await loadTree(db)).visible(viewer);
+const fullTree = await loadTree(db);
+const viewer = await forumViewer(db, fullTree, user);
+const tree = fullTree.visible(viewer);
 const [announcements, recent, stats] = await Promise.all([
   recentTopics(db, { tree, viewer, limit: 5, announcements: true }),
   recentTopics(db, { tree, viewer, limit: 8 }),

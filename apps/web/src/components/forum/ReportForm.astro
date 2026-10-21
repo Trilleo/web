@@ -1,0 +1,74 @@
+---
+/**
+ * "Report" behind a disclosure: a reason, an optional note, and a POST to
+ * /forum/report (a post, or someone's picture). Works without JavaScript.
+ */
+import { REPORT_NOTE_MAX, REPORT_REASONS } from "@trilleo/forum";
+
+interface Props {
+  /** What's reported: a post id, or a user id for their picture. */
+  target: { post: number } | { user: string };
+  /** Where to come back to. */
+  back: string;
+  label?: string;
+  /** Makes ids unique on the page. */
+  id: string;
+}
+
+const { target, back, label = "Report", id } = Astro.props;
+---
+
+<details class="type-label text-muted" data-report>
+  <summary class="link-wipe w-fit cursor-pointer hover:text-ink">
+    {label}
+  </summary>
+  <form
+    method="post"
+    action="/forum/report"
+    class="mt-3 flex max-w-md flex-col gap-3 border border-hair p-3 font-sans text-sm tracking-normal text-ink normal-case"
+  >
+    {"post" in target ? (
+      <input type="hidden" name="post" value={String(target.post)} />
+    ) : (
+      <input type="hidden" name="user" value={target.user} />
+    )}
+    <input type="hidden" name="back" value={back} />
+    <fieldset class="flex flex-col gap-1.5">
+      <legend class="mb-1.5 font-medium">Why?</legend>
+      {Object.entries(REPORT_REASONS).map(([value, text], index) => (
+        <div class="flex items-center gap-2">
+          <input
+            id={`${id}-${value}`}
+            type="radio"
+            name="reason"
+            value={value}
+            required
+            checked={index === 0}
+            class="size-4 accent-accent"
+          />
+          <label for={`${id}-${value}`}>{text}</label>
+        </div>
+      ))}
+    </fieldset>
+    <div class="flex flex-col gap-1">
+      <label for={`${id}-note`} class="font-medium">
+        Anything to add? (optional)
+      </label>
+      <textarea
+        id={`${id}-note`}
+        name="note"
+        rows="2"
+        maxlength={REPORT_NOTE_MAX}
+        class="border border-ink bg-paper px-2 py-1.5"
+      ></textarea>
+    </div>
+    <p>
+      <button
+        type="submit"
+        class="type-label border border-ink px-2.5 py-1.5 hover:bg-ink hover:text-paper"
+      >
+        Send report
+      </button>
+    </p>
+  </form>
+</details>

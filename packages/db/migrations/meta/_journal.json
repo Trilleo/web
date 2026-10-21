@@ -176,6 +176,13 @@
       "when": 1792545828776,
       "tag": "0024_forum-avatars",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792557857062,
+      "tag": "0025_forum-moderation",
+      "breakpoints": true
     }
   ]
 }

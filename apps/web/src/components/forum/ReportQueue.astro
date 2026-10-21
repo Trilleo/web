@@ -1,0 +1,139 @@
+---
+/**
+ * Open reports, one card per post or picture: what was reported, every report about
+ * it (reason, note, who), and the decisions (POST /forum/moderate/action).
+ */
+import { REPORT_REASONS, isReportReason, postPath } from "@trilleo/forum";
+import { formatWhen } from "../../lib/forum/public";
+import type { ReportGroup } from "../../lib/forum/moderation";
+import { avatarUrl } from "../../lib/profile/avatar";
+import { profileHref } from "../../lib/profile/profile";
+import { primaryButton, secondaryButton } from "../admin/files/styles";
+
+interface Props {
+  groups: readonly ReportGroup[];
+  /** Each reported post's HTML, by id. */
+  html: ReadonlyMap<number, string>;
+  back: string;
+  now?: Date;
+}
+
+const { groups, html, back, now = new Date() } = Astro.props;
+const reason = (value: string) =>
+  isReportReason(value) ? REPORT_REASONS[value] : value;
+---
+
+{groups.length === 0 ? (
+  <p class="text-muted">No open reports.</p>
+) : (
+  <ol class="border-b border-ink" data-testid="report-queue">
+    {groups.map((group) => {
+      const decisions =
+        group.kind === "post"
+          ? ([
+              { value: "hide", label: "Hide the post", style: primaryButton },
+              {
+                value: "delete",
+                label: "Delete the post",
+                style: secondaryButton,
+              },
+              { value: "dismiss", label: "Dismiss", style: secondaryButton },
+            ] as const)
+          : ([
+              {
+                value: "remove-avatar",
+                label: "Remove the picture",
+                style: primaryButton,
+              },
+              { value: "dismiss", label: "Dismiss", style: secondaryButton },
+            ] as const);
+      return (
+        <li class="flex flex-col gap-3 border-t border-ink py-4">
+          <p class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span class="type-label bg-accent px-1.5 text-on-accent">
+              {group.kind === "post" ? "Post" : "Picture"} ·{" "}
+              {group.reports.length}{" "}
+              {group.reports.length === 1 ? "report" : "reports"}
+            </span>
+            {group.kind === "post" && group.post && group.topic ? (
+              <a href={postPath(group.post)} class="group font-semibold">
+                <span class="link-wipe">{group.topic.title}</span>
+              </a>
+            ) : null}
+            {group.forum && (
+              <span class="type-label text-muted">in {group.forum.name}</span>
+            )}
+            {group.post?.state === "hidden" && (
+              <span class="type-label bg-chip px-1.5">Hidden</span>
+            )}
+          </p>
+          {group.owner && (
+            <p class="text-sm text-muted">
+              By{" "}
+              <a
+                href={profileHref(group.owner.username)}
+                class="link-wipe text-ink"
+              >
+                @{group.owner.username}
+              </a>
+            </p>
+          )}
+          {group.kind === "post" && group.post ? (
+            <div class="comment-body forum-body max-w-prose border-l-2 border-hair pl-4">
+              <Fragment set:html={html.get(group.post.id) ?? ""} />
+            </div>
+          ) : group.owner?.avatarHash ? (
+            <img
+              src={avatarUrl(group.owner.avatarHash)}
+              alt={`@${group.owner.username}’s avatar`}
+              width="128"
+              height="128"
+              class="size-32 border border-hair object-cover"
+            />
+          ) : (
+            <p class="text-muted">The picture has already gone.</p>
+          )}
+          <ul class="flex flex-col gap-1 text-sm">
+            {group.reports.map((report) => (
+              <li>
+                <strong class="font-medium">{reason(report.reason)}</strong>
+                {report.note && <>: “{report.note}”</>}{" "}
+                <span class="text-muted">
+                  —{" "}
+                  {report.reporter
+                    ? `@${report.reporter}`
+                    : "a deleted account"}
+                  , {formatWhen(report.createdAt, now)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div class="flex flex-wrap gap-2">
+            {decisions.map((decision) => (
+              <form method="post" action="/forum/moderate/action">
+                {group.kind === "post" && group.post ? (
+                  <input
+                    type="hidden"
+                    name="post"
+                    value={String(group.post.id)}
+                  />
+                ) : (
+                  <input
+                    type="hidden"
+                    name="user"
+                    value={group.owner?.id ?? ""}
+                  />
+                )}
+                <input type="hidden" name="decision" value={decision.value} />
+                <input type="hidden" name="back" value={back} />
+                <button type="submit" class={decision.style}>
+                  {decision.label}
+                </button>
+              </form>
+            ))}
+          </div>
+        </li>
+      );
+    })}
+  </ol>
+)}

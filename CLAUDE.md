@@ -329,7 +329,7 @@
   keep a picture uncropped. Served at /avatars/<sha256> (a day's cache, so removals
   reach browsers; not for blocked accounts). Show it with components/account/
   Avatar.astro (falls back to the Monogram). The admin removes one from the person's
-  /people/ page (POST /admin/avatar).
+  /people/ page (POST /admin/avatar), or from a report (/forum/moderate/).
 - Profiles (src/lib/profile/): people choose a username, a display name (falls back
   to a linked account's name, then the username), pronouns, location, a "currently"
   line, a bio (comment Markdown) and up to 5 links, whether the profile is public, and
@@ -862,16 +862,39 @@ Name`, `::: inventory 3x9 Title` (slots `5: Item x64`, ranges, `row 2: A, , B`),
   recounts the topic and its forum. A forum's totals include its subforums' in
   `ForumTree` (counted in memory).
 - Permissions: every check is @trilleo/forum's `can(viewer, permission, place, topic,
-post)`; `forumViewer(user)` and `tree.place(forum)` build its inputs (a hidden
-  forum hides everything under it). Moderators are the admin for now
-  (`moderates`; `ForumPlace.moderators` is the hook for per-forum moderators). New
-  permissions go in FORUM_PERMISSIONS. Pages check before showing a button, and the
-  store checks again.
+post, now)`. People are in groups (forum_groups): guest, newcomer, member and admin
+  follow the account (`groupsOf`); moderator and the admin's own groups are given
+  (forum_group_members). A group allows a set of FORUM_PERMISSIONS everywhere and has
+  an edit window (minutes, null: always; someone gets their groups' longest). A forum
+  can allow or deny any permission for any group (forum_permissions); its subforums
+  follow unless they choose again (`resolveRules`). People assigned to a forum
+  (forum_moderators) moderate it and everything under it, as do groups allowed
+  "moderate" there; the admin can always do everything. `loadTree` (lib/forum/
+  access.ts) loads all of it; `tree.place(forum)` resolves a forum's rules and
+  moderators; `forumViewer(db, tree, user)` adds groups, an active ban and the edit
+  window. New permissions go in FORUM_PERMISSIONS (and the built-in groups' defaults,
+  which migration 0025 wrote). Pages check before showing a button; the store checks
+  again. Admin: /admin/forum/groups/[<id>/] and each forum's page (permissions matrix,
+  moderators).
+- Moderators (lib/forum/moderation.ts): move (to a forum they moderate), merge (posts
+  join the other topic; the old one is deleted with `merged_into`, its address 301s),
+  split (ticked posts, via the `form` attribute, into a new topic), edit history
+  (each edit keeps the version it replaced in forum_post_revisions;
+  /forum/history/<post>/), bans (forum_bans: 1/7/30 days or permanent, with a reason
+  the person sees; they can still read and delete their posts; the admin lifts them
+  at /admin/forum/?tab=bans) and reports (forum_reports, POST /forum/report: posts,
+  and profile pictures for those who moderate everywhere; storage's
+  `reporterCounts`/`reportsHide` rule auto-hides a post, and dismissing brings back a
+  post the reports hid). /forum/moderate/ is the queue (waiting posts and reports)
+  for anyone who moderates something, filtered to their forums; the account menu
+  links it (`isForumModerator`). Everything is logged (forum_log, LOG_ACTIONS;
+  /admin/forum/?tab=log).
 - Moderation per forum (`forums.moderation`): none, newcomers (the default; trust is
   users.trusted_at, shared with comments: approving a post trusts its author) or all.
   A reply to its author's own waiting topic waits with it and goes live with it.
   FORUM_LIMITS caps bursts, daily posts and waiting posts (moderators are exempt).
-  Waiting posts send an admin alert (kind "forum") and wait in /admin/forum/?tab=waiting.
+  Waiting posts send an admin alert (kind "forum"; reports: "forum-report") and wait in
+  /forum/moderate/ (the old /admin/forum/?tab=waiting redirects there).
 - Formatting (packages/forum's render.ts): markdown-it with HTML and images off,
   headings shifted to start at h3, lists, tables, strikethrough, http(s)/site links
   (nofollow ugc), and @username linked for public, unblocked profiles (looked up when
@@ -884,15 +907,17 @@ post)`; `forumViewer(user)` and `tree.place(forum)` build its inputs (a hidden
 - Pages work without JavaScript: posting, Preview (a round trip), Quote (?quote=<id>),
   editing (/forum/edit/<id>/), and every button (POST /forum/action, with `back`).
   Search is Postgres full-text search over titles and posts (/forum/search/?q=,
-  noindex). Admin: /admin/forum/ (the tree, up/down, "Add forum", the waiting queue)
+  noindex). Admin: /admin/forum/ (the tree, up/down, "Add forum"; ?tab=bans, ?tab=log)
   and /admin/forum/<id>/ or new/[?parent=] (name, address, description, parent,
-  layout, moderation, locked, hidden; delete only when empty).
-- Accounts: the export has `forum` (topics and posts, deleted ones too). Deleting an
-  account keeps its posts without the author ("Deleted account"), like wiki revisions.
-- Later phases (designed, not built): groups and a permission matrix, per-forum
-  moderators, reports, move/merge/split, edit history, Q&A and threaded layouts,
-  reactions, ranks, unread tracking, tags and prefixes, subscriptions and digests,
-  RSS, polls, attachments and private messages.
+  layout, moderation, locked, hidden, permissions, moderators; delete only when
+  empty). Posts show their author's group titles.
+- Accounts: the export has `forum` (topics and posts, deleted ones too, their earlier
+  versions, reports made, bans, groups). Deleting an account keeps its posts without
+  the author ("Deleted account"), like wiki revisions; its bans, reports about it and
+  memberships go.
+- Later phases (designed, not built): Q&A and threaded layouts, reactions, ranks,
+  unread tracking, tags and prefixes, subscriptions and digests, RSS, polls,
+  attachments and private messages.
 
 ## Mail
 

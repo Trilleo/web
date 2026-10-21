@@ -1,0 +1,135 @@
+---
+/**
+ * Moderators' page: ?tab=waiting (default) lists topics and replies waiting for
+ * approval, ?tab=reports the open reports. A moderator sees the forums they
+ * moderate; pictures' reports go to those who moderate everywhere.
+ */
+import Breadcrumb from "../../../components/Breadcrumb.astro";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import Notices from "../../../components/forum/Notices.astro";
+import ReportQueue from "../../../components/forum/ReportQueue.astro";
+import WaitingQueue from "../../../components/forum/WaitingQueue.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireUser } from "../../../lib/auth/guard";
+import { getDb } from "../../../lib/db";
+import { moderatesEverywhere } from "../../../lib/forum/access";
+import {
+  moderatedForumIds,
+  openReportCount,
+  openReports,
+} from "../../../lib/forum/moderation";
+import { FORUM_NUMBER } from "../../../lib/forum/public";
+import {
+  forumViewer,
+  loadTree,
+  renderBody,
+  waitingCount,
+  waitingPosts,
+} from "../../../lib/forum/store";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const tree = await loadTree(db);
+const viewer = await forumViewer(db, tree, user);
+const moderated = moderatedForumIds(tree, viewer);
+const everywhere = moderatesEverywhere(tree, viewer);
+if (moderated.size === 0 && !everywhere)
+  return new Response("Only the forum’s moderators can see this page.", {
+    status: 403,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "private, no-store",
+    },
+  });
+
+const tab =
+  Astro.url.searchParams.get("tab") === "reports" ? "reports" : "waiting";
+const ids = [...moderated];
+const [waiting, reportCount] = await Promise.all([
+  waitingCount(db, ids),
+  openReportCount(db, { moderatedIds: moderated, everywhere }),
+]);
+const queue = tab === "waiting" ? await waitingPosts(db, 100, ids) : [];
+const reports =
+  tab === "reports"
+    ? await openReports(db, { tree, moderatedIds: moderated, everywhere })
+    : [];
+const html = new Map<number, string>();
+for (const item of queue)
+  html.set(item.post.id, await renderBody(db, item.post.body));
+for (const group of reports)
+  if (group.post)
+    html.set(group.post.id, await renderBody(db, group.post.body));
+const here = Astro.url.pathname + Astro.url.search;
+const tabs = [
+  { key: "waiting", label: "Waiting for approval", count: waiting },
+  { key: "reports", label: "Reports", count: reportCount },
+] as const;
+---
+
+<BaseLayout title="Moderation · Forum" noindex>
+  <section
+    aria-labelledby="moderate-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <Breadcrumb
+      items={[
+        { label: `(${FORUM_NUMBER}) Forum`, href: "/forum/" },
+        { label: "Moderation" },
+      ]}
+      class="type-label"
+    />
+    <DisplayTitle id="moderate-title" fit={7.4}>
+      Moderation
+    </DisplayTitle>
+    <Notices />
+
+    <div class="grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <nav
+        aria-label="Moderation"
+        class="type-label col-span-4 flex flex-col gap-2 md:col-span-2 xl:col-span-2"
+      >
+        {tabs.map((item) => (
+          <a
+            href={`/forum/moderate/?tab=${item.key}`}
+            class="group inline-flex items-center gap-2"
+            aria-current={item.key === tab ? "page" : undefined}
+          >
+            <span
+              class:list={[
+                "size-2",
+                item.key === tab ? "bg-accent" : "bg-transparent",
+              ]}
+              aria-hidden="true"
+            />
+            <span class="link-wipe">{item.label}</span>
+            {item.count > 0 && (
+              <span class="bg-accent px-1.5 text-on-accent">{item.count}</span>
+            )}
+          </a>
+        ))}
+        <p class="mt-4 font-sans text-sm tracking-normal text-muted normal-case">
+          {everywhere
+            ? "You moderate every forum."
+            : `You moderate ${String(moderated.size)} ${moderated.size === 1 ? "forum" : "forums"}.`}
+        </p>
+      </nav>
+      <div class="col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-10">
+        <h2 class="sr-only">
+          {tab === "waiting" ? "Waiting for approval" : "Reports"}
+        </h2>
+        {tab === "waiting" ? (
+          <WaitingQueue queue={queue} html={html} back={here} />
+        ) : (
+          <ReportQueue groups={reports} html={html} back={here} />
+        )}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  BUILT_IN_GROUPS,
   FORUM_LAYOUTS,
   can,
+  editWindowOf,
+  groupsOf,
+  moderates,
+  resolveRules,
   excerpt,
   extractMentions,
   forumLayout,
@@ -66,20 +71,26 @@ describe("permissions", () => {
     hidden: false,
     moderation: "newcomers",
   };
-  const admin: ForumViewer = {
-    id: "a",
-    admin: true,
-    trusted: true,
-    blocked: false,
-  };
-  const newcomer: ForumViewer = {
+  const person = (overrides: Partial<ForumViewer>): ForumViewer => ({
     id: "n",
     admin: false,
     trusted: false,
     blocked: false,
-  };
-  const trusted: ForumViewer = { ...newcomer, id: "t", trusted: true };
-  const blocked: ForumViewer = { ...trusted, id: "b", blocked: true };
+    groups: [],
+    banned: false,
+    editWindowMs: 60 * 60_000,
+    ...overrides,
+  });
+  const admin = person({
+    id: "a",
+    admin: true,
+    trusted: true,
+    editWindowMs: null,
+  });
+  const newcomer = person({});
+  const trusted = person({ id: "t", trusted: true });
+  const blocked = person({ id: "b", trusted: true, blocked: true });
+  const moderator = person({ id: "m", trusted: true, groups: ["moderator"] });
   const topic: TopicPlace = {
     locked: false,
     state: "published",
@@ -92,6 +103,8 @@ describe("permissions", () => {
     expect(can(newcomer, "topic.create", forum)).toBe(true);
     expect(can(blocked, "topic.create", forum)).toBe(false);
     expect(can(newcomer, "topic.reply", forum, topic)).toBe(true);
+    expect(can(newcomer, "post.report", forum, topic)).toBe(true);
+    expect(can(null, "post.report", forum, topic)).toBe(false);
     expect(can(newcomer, "topic.create", { ...forum, kind: "category" })).toBe(
       false,
     );
@@ -101,6 +114,7 @@ describe("permissions", () => {
     const hidden = { ...forum, hidden: true };
     expect(can(trusted, "forum.view", hidden)).toBe(false);
     expect(can(admin, "forum.view", hidden)).toBe(true);
+    expect(can(moderator, "forum.view", hidden)).toBe(true);
     const pending: TopicPlace = { ...topic, state: "pending" };
     expect(can(newcomer, "forum.view", forum, pending)).toBe(true);
     expect(can(trusted, "forum.view", forum, pending)).toBe(false);
@@ -112,6 +126,7 @@ describe("permissions", () => {
     const locked = { ...topic, locked: true };
     expect(can(trusted, "topic.reply", forum, locked)).toBe(false);
     expect(can(admin, "topic.reply", forum, locked)).toBe(true);
+    expect(can(moderator, "topic.reply", forum, locked)).toBe(true);
     const lockedForum = { ...forum, locked: true };
     expect(can(trusted, "topic.create", lockedForum)).toBe(false);
     expect(can(admin, "topic.create", lockedForum)).toBe(true);
@@ -120,16 +135,39 @@ describe("permissions", () => {
     ).toBe(false);
   });
 
-  it("lets people edit only their own posts", () => {
-    expect(
-      can(newcomer, "post.edit-own", forum, topic, { authorId: "n" }),
-    ).toBe(true);
-    expect(can(trusted, "post.edit-own", forum, topic, { authorId: "n" })).toBe(
-      false,
-    );
+  it("lets people edit their own posts within their edit window", () => {
+    const now = new Date("2026-01-01T12:00:00Z");
+    const minutesAgo = (n: number) => new Date(now.getTime() - n * 60_000);
+    const edit = (viewer: ForumViewer, authorId: string, age: number) =>
+      can(
+        viewer,
+        "post.edit-own",
+        forum,
+        topic,
+        { authorId, createdAt: minutesAgo(age) },
+        now,
+      );
+    expect(edit(newcomer, "n", 30)).toBe(true);
+    expect(edit(newcomer, "n", 61)).toBe(false);
+    expect(edit(person({ editWindowMs: null }), "n", 10_000)).toBe(true);
+    expect(edit(trusted, "n", 1)).toBe(false);
+    expect(edit(moderator, "m", 10_000)).toBe(true);
     expect(
       can(trusted, "post.edit-own", forum, topic, { authorId: null }),
     ).toBe(false);
+  });
+
+  it("stops banned people writing, but not reading or deleting", () => {
+    const banned = person({ banned: true });
+    expect(can(banned, "forum.view", forum)).toBe(true);
+    expect(can(banned, "topic.create", forum)).toBe(false);
+    expect(can(banned, "topic.reply", forum, topic)).toBe(false);
+    expect(can(banned, "post.edit-own", forum, topic, { authorId: "n" })).toBe(
+      false,
+    );
+    expect(
+      can(banned, "post.delete-own", forum, topic, { authorId: "n" }),
+    ).toBe(true);
   });
 
   it("follows the forum's moderation setting", () => {
@@ -141,6 +179,54 @@ describe("permissions", () => {
     const none = { ...forum, moderation: "none" as const };
     expect(can(newcomer, "post.skip-review", none)).toBe(true);
     expect(can(null, "post.skip-review", none)).toBe(false);
+  });
+
+  it("resolves groups' permissions through the forums above", () => {
+    const groups = [
+      ...BUILT_IN_GROUPS,
+      {
+        slug: "helpers",
+        name: "Helpers",
+        description: "",
+        title: "Helper",
+        permissions: {},
+        editWindowMinutes: null,
+      },
+    ];
+    // Members-only above; this forum lets helpers moderate and newcomers back in.
+    const rules = resolveRules(groups, [
+      [
+        { group: "guest", permission: "forum.view", allowed: false },
+        { group: "newcomer", permission: "forum.view", allowed: false },
+      ],
+      [
+        { group: "newcomer", permission: "forum.view", allowed: true },
+        { group: "helpers", permission: "moderate", allowed: true },
+      ],
+    ]);
+    const place = { ...forum, rules };
+    expect(can(null, "forum.view", place)).toBe(false);
+    expect(can(newcomer, "forum.view", place)).toBe(true);
+    const helper = person({ id: "h", trusted: true, groups: ["helpers"] });
+    expect(moderates(helper, place)).toBe(true);
+    expect(moderates(helper, forum)).toBe(false);
+    // Assigned moderators moderate without any group.
+    expect(moderates(trusted, { ...forum, moderators: ["t"] })).toBe(true);
+    expect(moderates(admin, { ...forum, rules })).toBe(true);
+  });
+
+  it("works out groups and edit windows", () => {
+    expect(groupsOf(null)).toEqual(["guest"]);
+    expect(groupsOf(moderator)).toEqual(["member", "moderator"]);
+    expect(groupsOf(admin)).toEqual(["member", "admin"]);
+    const definitions = new Map(
+      BUILT_IN_GROUPS.map((group) => [group.slug, group] as const),
+    );
+    expect(editWindowOf(["newcomer"], definitions)).toBe(60 * 60_000);
+    expect(editWindowOf(["member", "newcomer"], definitions)).toBe(
+      24 * 60 * 60_000,
+    );
+    expect(editWindowOf(["member", "moderator"], definitions)).toBeNull();
   });
 });
 

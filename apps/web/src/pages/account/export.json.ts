@@ -5,6 +5,8 @@ import { listPasskeys } from "../../lib/auth/passkeys";
 import { getDb } from "../../lib/db";
 import { notificationsOf } from "../../lib/mail/addresses";
 import { mailOf } from "../../lib/mail/outbox";
+import { memberGroups } from "../../lib/forum/access";
+import { moderationExport } from "../../lib/forum/moderation";
 import { forumExport } from "../../lib/forum/store";
 import { minecraftExport } from "../../lib/minecraft/service";
 import { exportUserData } from "../../lib/profile/store";
@@ -28,8 +30,14 @@ export const GET: APIRoute = async (context) => {
     ...profile,
     storage: await storageExport(db, user.id),
     minecraft: await minecraftExport({ db }, user.id),
-    // Topics you started and everything you posted in the forum (deleted ones too).
-    forum: await forumExport(db, user.id),
+    // Topics you started and everything you posted in the forum (deleted ones
+    // too), your posts' earlier versions, reports you made, bans on you, and the
+    // groups you were added to.
+    forum: {
+      ...(await forumExport(db, user.id)),
+      ...(await moderationExport(db, user.id)),
+      groups: await memberGroups(db, user.id),
+    },
     // Study progress: every review, answer and lesson finished, and the settings.
     study: await studyExport(db, user.id),
     // Wikis you belong to, the text of every edit you saved or proposed, and what

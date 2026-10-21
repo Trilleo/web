@@ -5,6 +5,7 @@
  */
 import { can, forumPath, postPath } from "@trilleo/forum";
 import Breadcrumb from "../../components/Breadcrumb.astro";
+import BanNotice from "../../components/forum/BanNotice.astro";
 import PostForm from "../../components/forum/PostForm.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { requireUser } from "../../lib/auth/guard";
@@ -16,6 +17,7 @@ import {
   postErrorMessage,
   postErrorStatus,
 } from "../../lib/forum/messages";
+import { activeBan } from "../../lib/forum/access";
 import { FORUM_NUMBER } from "../../lib/forum/public";
 import {
   createTopic,
@@ -32,11 +34,12 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
 
 const db = await getDb();
 const tree = await loadTree(db);
-const viewer = forumViewer(user);
+const viewer = await forumViewer(db, tree, user);
 const node = tree.find(Astro.url.searchParams.get("in") ?? "");
 if (!node || !tree.canView(node.forum, viewer)) return Astro.rewrite("/404");
 const { forum } = node;
 const allowed = can(viewer, "topic.create", tree.place(forum));
+const ban = viewer?.banned ? await activeBan(db, user.id) : undefined;
 
 let title = "";
 let body = "";
@@ -92,7 +95,9 @@ const crumbs = [
         In {forum.name}
       </p>
       <div class="col-span-4 flex flex-col gap-6 md:col-span-6 xl:col-span-7">
-        {!allowed ? (
+        {ban ? (
+          <BanNotice ban={ban} />
+        ) : !allowed ? (
           <p role="alert" class="border-l-2 border-accent pl-4">
             {user.blockedAt
               ? "Your account can’t post here."

@@ -1,0 +1,21 @@
+---
+/** Tells someone banned from posting why, and until when. */
+import type { ForumBan } from "@trilleo/db";
+import { formatPostDate } from "../../lib/listings";
+
+interface Props {
+  ban: ForumBan;
+}
+
+const { ban } = Astro.props;
+---
+
+<p role="status" class="border-l-2 border-accent pl-4" data-ban>
+  You’re banned from posting in the forum{" "}
+  {ban.until ? `until ${formatPostDate(ban.until)}` : "permanently"}:{" "}
+  {ban.reason} You can still read it. If you think this is a mistake,{" "}
+  <a href="/contact/" class="link-wipe">
+    get in touch
+  </a>
+  .
+</p>

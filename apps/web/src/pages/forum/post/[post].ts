@@ -18,11 +18,11 @@ export const prerender = false;
  */
 export const GET: APIRoute = async (context) => {
   const db = await getDb();
-  const viewer = forumViewer(context.locals.user);
   const id = parseId(context.params.post ?? "");
   const post = id === null ? undefined : await getPost(db, id);
   const topic = post ? await getTopic(db, post.topicId) : undefined;
   const tree = await loadTree(db);
+  const viewer = await forumViewer(db, tree, context.locals.user);
   const node = topic ? tree.get(topic.forumId) : undefined;
   if (!post || !topic || !node) return context.rewrite("/404");
   const place = tree.place(node.forum);

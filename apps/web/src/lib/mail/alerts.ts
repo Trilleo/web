@@ -39,6 +39,7 @@ export const ALERT_KINDS = {
   comment: "Comment waiting",
   "project-report": "Project reported",
   forum: "Forum post waiting",
+  "forum-report": "Forum report",
 } as const;
 export type AlertKind = keyof typeof ALERT_KINDS;
 

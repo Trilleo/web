@@ -13,8 +13,8 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
 
 const RECENT = 50;
 const db = await getDb();
-const viewer = forumViewer(Astro.locals.user);
 const tree = await loadTree(db);
+const viewer = await forumViewer(db, tree, Astro.locals.user);
 const topics = await recentTopics(db, { tree, viewer, limit: RECENT });
 ---
 

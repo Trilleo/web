@@ -159,12 +159,29 @@ const sections = [
         <td>
           Forum topics and posts: their text, the forum they’re in, their status
           (waiting, published, hidden), when they were written and edited, and
-          who edited them; how many times a topic was viewed (a count, not who)
+          who edited them; each earlier version of an edited post; how many
+          times a topic was viewed (a count, not who)
         </td>
         <td>You post in the forum</td>
         <td>
           To publish them under your name, and to moderate. Published posts in
-          public forums can be seen by anyone
+          public forums can be seen by anyone; earlier versions only by
+          moderators
+        </td>
+      </tr>
+      <tr>
+        <td>
+          Forum moderation: reports you make (what, why, your note), bans on
+          your account (reason, length, who gave them), the forum groups you
+          were added to, and a log of moderators’ actions that names the people
+          involved
+        </td>
+        <td>
+          You report something, or a moderator acts on your posts or account
+        </td>
+        <td>
+          To keep the forum within the community guidelines. Moderators see
+          reports and the reporter’s username; the person reported doesn’t
         </td>
       </tr>
       <tr>
@@ -412,7 +429,10 @@ const sections = [
       account, your posts stay in their topics without your name (shown as
       “Deleted account”), since others replied to them; delete any you want gone
       first. A deleted post is kept, out of sight, so moderators can act on it,
-      and is included in your data download.
+      and is included in your data download. Earlier versions of your posts are
+      kept with them. Reports and the moderation log are kept while the forum
+      runs, so decisions can be checked; deleting your account removes your name
+      from them, and removes bans and reports about you.
     </li>
     <li>
       Wiki edits: as long as the page’s history. If you delete your account, the

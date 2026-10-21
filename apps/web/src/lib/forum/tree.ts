@@ -1,15 +1,48 @@
 /**
- * The forum's tree, built from every `forums` row (a small table, read once per
- * request): lookups by id and slug, ancestors for breadcrumbs, and what a viewer
- * may see (a hidden forum hides everything under it). Pure, so it's tested alone.
+ * The forum's tree, built from every `forums` row and what decides access (groups,
+ * each forum's permission overrides, assigned moderators: small tables, read once
+ * per request). Lookups by id and slug, ancestors for breadcrumbs, each forum as
+ * the permission rules see it (`place`: hidden if a parent is, rules and moderators
+ * inherited down the tree), and what a viewer may see. Pure, so it's tested alone.
  */
 import type { Forum } from "@trilleo/db";
 import {
+  BUILT_IN_GROUPS,
   can,
   moderates,
+  resolveRules,
+  type ForumPermission,
   type ForumPlace,
   type ForumViewer,
+  type GroupDefinition,
+  type PermissionOverride,
 } from "@trilleo/forum";
+
+export interface TreeGroup extends GroupDefinition {
+  /** Null for a group that only exists in code (tests). */
+  id: number | null;
+  builtIn: boolean;
+}
+
+/** What decides who may do what, besides the forums themselves. */
+export interface TreeAccess {
+  groups: readonly TreeGroup[];
+  /** Per forum: its overrides, by group slug. */
+  overrides: readonly (PermissionOverride & { forumId: number })[];
+  /** Per forum: the accounts assigned to moderate it. */
+  moderators: readonly { forumId: number; userId: string }[];
+}
+
+/** The built-in groups and nothing else (tests, and before anything's loaded). */
+export const DEFAULT_ACCESS: TreeAccess = {
+  groups: BUILT_IN_GROUPS.map((group) => ({
+    ...group,
+    id: null,
+    builtIn: true,
+  })),
+  overrides: [],
+  moderators: [],
+};
 
 export interface ForumNode {
   forum: Forum;
@@ -26,8 +59,17 @@ export class ForumTree {
   readonly roots: ForumNode[];
   private readonly byId = new Map<number, ForumNode>();
   private readonly bySlug = new Map<string, ForumNode>();
+  private readonly places = new Map<number, ForumPlace>();
+  /** Groups by slug, in the admin's order. */
+  readonly groups: ReadonlyMap<string, TreeGroup>;
 
-  constructor(rows: readonly Forum[]) {
+  constructor(
+    rows: readonly Forum[],
+    readonly access: TreeAccess = DEFAULT_ACCESS,
+    places?: ReadonlyMap<number, ForumPlace>,
+  ) {
+    this.groups = new Map(access.groups.map((group) => [group.slug, group]));
+    if (places) for (const [id, place] of places) this.places.set(id, place);
     const sorted = [...rows].sort((a, b) => a.sort - b.sort || a.id - b.id);
     for (const forum of sorted) {
       const node: ForumNode = {
@@ -102,17 +144,53 @@ export class ForumTree {
     return out;
   }
 
-  /** The forum as the permission rules see it: hidden if it or a parent is. */
+  /**
+   * The forum as the permission rules see it: hidden if it or a parent is, each
+   * group's permissions after this forum's and its parents' overrides, and the
+   * moderators assigned to it or a parent.
+   */
   place(forum: Forum): ForumPlace {
-    return {
+    const cached = this.places.get(forum.id);
+    if (cached) return cached;
+    const chain = [...this.ancestors(forum.id), forum];
+    const ids = new Set(chain.map((item) => item.id));
+    const place: ForumPlace = {
       id: forum.id,
       kind: forum.kind,
       locked: forum.locked,
-      hidden:
-        forum.hidden ||
-        this.ancestors(forum.id).some((parent) => parent.hidden),
+      hidden: chain.some((item) => item.hidden),
       moderation: forum.moderation,
+      moderators: this.access.moderators
+        .filter((row) => ids.has(row.forumId))
+        .map((row) => row.userId),
+      rules: resolveRules(
+        this.access.groups,
+        chain.map((item) =>
+          this.access.overrides.filter((row) => row.forumId === item.id),
+        ),
+      ),
     };
+    this.places.set(forum.id, place);
+    return place;
+  }
+
+  /** A forum's own overrides (not its parents'): group slug → permission → allowed. */
+  overridesOf(forumId: number): Map<string, Map<ForumPermission, boolean>> {
+    const out = new Map<string, Map<ForumPermission, boolean>>();
+    for (const row of this.access.overrides) {
+      if (row.forumId !== forumId) continue;
+      const set = out.get(row.group) ?? new Map<ForumPermission, boolean>();
+      set.set(row.permission, row.allowed);
+      out.set(row.group, set);
+    }
+    return out;
+  }
+
+  /** The accounts assigned to this forum itself (not its parents). */
+  moderatorsOf(forumId: number): string[] {
+    return this.access.moderators
+      .filter((row) => row.forumId === forumId)
+      .map((row) => row.userId);
   }
 
   canView(forum: Forum, viewer: ForumViewer | null): boolean {
@@ -130,13 +208,19 @@ export class ForumTree {
       .map((node) => node.forum.id);
   }
 
-  /** The tree the viewer may see, with counts recomputed over what's left. */
+  /**
+   * The tree the viewer may see, with counts recomputed over what's left. Access is
+   * worked out on the whole tree first, so a missing parent changes nothing.
+   */
   visible(viewer: ForumViewer | null): ForumTree {
     const ids = new Set(this.visibleIds(viewer));
+    const kept = [...this.byId.values()]
+      .map((node) => node.forum)
+      .filter((forum) => ids.has(forum.id));
     return new ForumTree(
-      [...this.byId.values()]
-        .map((node) => node.forum)
-        .filter((forum) => ids.has(forum.id)),
+      kept,
+      this.access,
+      new Map(kept.map((forum) => [forum.id, this.place(forum)])),
     );
   }
 

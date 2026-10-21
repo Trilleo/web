@@ -75,6 +75,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-21",
+        note: "Forum moderation: earlier versions of edited posts, reports you make, bans, forum groups, and the moderation log.",
+      },
+      {
+        date: "2026-10-21",
         note: "Added profile pictures and the forum: what’s kept, who can see it, and that forum posts stay without your name when you delete your account.",
       },
       {
@@ -158,6 +162,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-21",
+        note: "Forum moderation: edit windows, moderators, bans, and reporting posts and profile pictures.",
+      },
+      {
+        date: "2026-10-21",
         note: "Added the forum’s rules (posting, approval, limits, editing and deleting) and profile pictures.",
       },
       {
@@ -196,6 +204,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "Short answers about accounts, your data, the tools, the games, comments and the forum.",
     group: "help",
     changes: [
+      {
+        date: "2026-10-21",
+        note: "Forum edit windows, reports and bans.",
+      },
       {
         date: "2026-10-21",
         note: "Added the forum, and profile pictures.",

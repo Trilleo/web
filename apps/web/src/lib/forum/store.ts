@@ -8,6 +8,7 @@
  * them calls `refreshTopic`, which recounts that topic and its forum from the rows.
  */
 import {
+  forumPostRevisions,
   forumPosts,
   forumTopics,
   forums,
@@ -53,30 +54,15 @@ import { isAdmin } from "../auth/guard";
 import { alertAdmin } from "../mail/alerts";
 import { safely } from "../mail/notify";
 import { characterCount, displayName, profileHref } from "../profile/profile";
-import { ForumTree } from "./tree";
+import { forumViewer } from "./access";
+import { titlesOf } from "./groups";
+import { logAction } from "./log";
+import type { ForumTree } from "./tree";
 
 type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
 type Db = Database | Tx;
 
-/** How the forum sees a signed-in person (null: a visitor). */
-export function forumViewer(
-  user:
-    | Pick<User, "id" | "email" | "githubId" | "trustedAt" | "blockedAt">
-    | null
-    | undefined,
-): ForumViewer | null {
-  if (!user) return null;
-  return {
-    id: user.id,
-    admin: isAdmin(user),
-    trusted: user.trustedAt !== null,
-    blocked: user.blockedAt !== null,
-  };
-}
-
-export async function loadTree(db: Database): Promise<ForumTree> {
-  return new ForumTree(await db.select().from(forums));
-}
+export { forumViewer, loadTree } from "./access";
 
 /** Someone as a post or a list shows them. */
 export interface ForumAuthor {
@@ -322,6 +308,8 @@ export interface PostView {
   authorPosts: number;
   /** It opened the topic. */
   first: boolean;
+  /** Its author's group titles ("Admin", "Moderator", …), to show by their name. */
+  titles: string[];
 }
 
 function postsVisibleTo(viewer: ForumViewer | null, mod: boolean) {
@@ -340,6 +328,8 @@ export async function listPosts(
     viewer: ForumViewer | null;
     mod: boolean;
     page: number;
+    /** The admin group's title (forum_groups), for admins' posts. */
+    adminTitle?: string | null;
   },
 ): Promise<{ posts: PostView[]; total: number; pages: number; page: number }> {
   const perPage = FORUM_LIMITS.postsPerPage;
@@ -356,7 +346,12 @@ export async function listPosts(
   const pages = Math.max(1, Math.ceil(total / perPage));
   const page = Math.min(Math.max(1, input.page), pages);
   const rows = await db
-    .select({ post: forumPosts, author: authorColumns })
+    .select({
+      post: forumPosts,
+      author: authorColumns,
+      // Only to tell whether the author is an admin; never shown.
+      account: { email: users.email, githubId: users.githubId },
+    })
     .from(forumPosts)
     .leftJoin(users, eq(users.id, forumPosts.authorId))
     .where(where)
@@ -384,14 +379,20 @@ export async function listPosts(
       if (row.authorId) postCounts.set(row.authorId, row.posts);
   }
 
+  const titles = await titlesOf(db, authorIds);
   const posts: PostView[] = [];
   for (const row of rows) {
+    const admin = row.account !== null && isAdmin(row.account);
     posts.push({
       post: row.post,
       html: await currentHtml(db, row.post),
       author: author(row.author),
       authorPosts: row.author ? (postCounts.get(row.author.id) ?? 0) : 0,
       first: row.post.id === input.topic.firstPostId,
+      titles: [
+        ...(admin && input.adminTitle ? [input.adminTitle] : []),
+        ...(row.author ? (titles.get(row.author.id) ?? []) : []),
+      ],
     });
   }
   return { posts, total, pages, page };
@@ -645,7 +646,7 @@ async function alertWaiting(
       {
         kind: "forum",
         summary: `${what} from @${who.username} is waiting for approval`,
-        path: "/admin/forum/?tab=waiting",
+        path: "/forum/moderate/",
       },
       now,
     ),
@@ -665,7 +666,7 @@ export async function createTopic(
   },
 ): Promise<PostResult<{ topic: ForumTopic; post: ForumPost }>> {
   const now = input.now ?? new Date();
-  const viewer = forumViewer(input.author);
+  const viewer = await forumViewer(db, input.tree, input.author, now);
   const place = input.tree.place(input.forum);
   if (!can(viewer, "topic.create", place))
     return { ok: false, error: "forbidden" };
@@ -730,7 +731,7 @@ export async function createReply(
   },
 ): Promise<PostResult<ForumPost>> {
   const now = input.now ?? new Date();
-  const viewer = forumViewer(input.author);
+  const viewer = await forumViewer(db, input.tree, input.author, now);
   const place = input.tree.place(input.forum);
   if (!can(viewer, "topic.reply", place, input.topic))
     return { ok: false, error: "forbidden" };
@@ -791,10 +792,13 @@ export async function editPost(
   },
 ): Promise<PostResult<ForumPost>> {
   const now = input.now ?? new Date();
-  const viewer = forumViewer(input.editor);
+  const viewer = await forumViewer(db, input.tree, input.editor, now);
   const place = input.tree.place(input.forum);
   const mod = input.tree.moderates(input.forum, viewer);
-  if (!mod && !can(viewer, "post.edit-own", place, input.topic, input.post))
+  if (
+    !mod &&
+    !can(viewer, "post.edit-own", place, input.topic, input.post, now)
+  )
     return { ok: false, error: "forbidden" };
   const body = normalizeBody(input.body);
   const first = input.post.id === input.topic.firstPostId;
@@ -804,7 +808,19 @@ export async function editPost(
     (title !== null ? checkTitle(title) : null) ?? checkBody(body);
   if (problem) return { ok: false, error: problem };
   const html = await renderBody(db, body);
+  const titleChanged = title !== null && title !== input.topic.title;
+  if (body === input.post.body && !titleChanged)
+    return { ok: true, value: input.post };
   const post = await db.transaction(async (tx) => {
+    // The version this replaces goes into the history.
+    await tx.insert(forumPostRevisions).values({
+      postId: input.post.id,
+      body: input.post.body,
+      title: first ? input.topic.title : null,
+      editorId: input.post.editedById ?? input.post.authorId,
+      savedAt: input.post.editedAt ?? input.post.createdAt,
+      createdAt: now,
+    });
     const [row] = await tx
       .update(forumPosts)
       .set({
@@ -816,12 +832,25 @@ export async function editPost(
       })
       .where(eq(forumPosts.id, input.post.id))
       .returning();
-    if (title !== null && title !== input.topic.title) {
+    if (title !== null && titleChanged) {
       await tx
         .update(forumTopics)
         .set({ title, slug: slugify(title), updatedAt: now })
         .where(eq(forumTopics.id, input.topic.id));
     }
+    if (input.post.authorId !== input.editor.id)
+      await logAction(
+        tx,
+        {
+          actorId: input.editor.id,
+          action: "edit",
+          forumId: input.forum.id,
+          topicId: input.topic.id,
+          postId: input.post.id,
+          targetUserId: input.post.authorId,
+        },
+        now,
+      );
     return row;
   });
   if (!post) return { ok: false, error: "forbidden" };
@@ -844,7 +873,7 @@ export async function deletePost(
   },
 ): Promise<PostResult<{ topicDeleted: boolean }>> {
   const now = input.now ?? new Date();
-  const viewer = forumViewer(input.by);
+  const viewer = await forumViewer(db, input.tree, input.by, now);
   const place = input.tree.place(input.forum);
   const mod = input.tree.moderates(input.forum, viewer);
   if (!mod && !can(viewer, "post.delete-own", place, input.topic, input.post))
@@ -934,10 +963,50 @@ export async function moderatePost(
     topic: ForumTopic;
     post: ForumPost;
     action: ModerationAction;
+    /** Who did it (null: the site, e.g. after reports), for the log. */
+    by: string | null;
+    reason?: string;
     now?: Date;
   },
 ): Promise<boolean> {
   const now = input.now ?? new Date();
+  const changed = await applyModeration(db, input, now);
+  if (changed) {
+    const { topic, post, action } = input;
+    const first = post.id === topic.firstPostId;
+    await logAction(
+      db,
+      {
+        actorId: input.by,
+        action: action.startsWith("pin-")
+          ? "pin"
+          : action === "delete" && first
+            ? "delete-topic"
+            : input.by === null && action === "hide"
+              ? "auto-hide"
+              : (action as Exclude<ModerationAction, `pin-${ForumPin}`>),
+        forumId: topic.forumId,
+        topicId: topic.id,
+        postId: post.id,
+        targetUserId: post.authorId,
+        detail: [
+          action.startsWith("pin-") ? `Pin: ${action.slice(4)}` : "",
+          input.reason ?? "",
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      },
+      now,
+    );
+  }
+  return changed;
+}
+
+async function applyModeration(
+  db: Database,
+  input: { topic: ForumTopic; post: ForumPost; action: ModerationAction },
+  now: Date,
+): Promise<boolean> {
   const { topic, post, action } = input;
   const first = post.id === topic.firstPostId;
   const setState = async (from: ForumPostState[], to: ForumPostState) =>
@@ -1023,7 +1092,12 @@ export async function moderatePost(
 }
 
 /** What's waiting for approval, oldest first (the admin's queue). */
-export async function waitingPosts(db: Database, limit = 100) {
+export async function waitingPosts(
+  db: Database,
+  limit = 100,
+  /** Only these forums (a moderator's); every forum when left out. */
+  forumIds?: readonly number[],
+) {
   const rows = await db
     .select({
       post: forumPosts,
@@ -1040,6 +1114,7 @@ export async function waitingPosts(db: Database, limit = 100) {
         eq(forumPosts.state, "pending"),
         isNull(forumPosts.deletedAt),
         isNull(forumTopics.deletedAt),
+        forumIds ? inArray(forumTopics.forumId, [...forumIds, -1]) : undefined,
       ),
     )
     .orderBy(asc(forumPosts.createdAt))
@@ -1053,7 +1128,10 @@ export async function waitingPosts(db: Database, limit = 100) {
   }));
 }
 
-export async function waitingCount(db: Database): Promise<number> {
+export async function waitingCount(
+  db: Database,
+  forumIds?: readonly number[],
+): Promise<number> {
   const [row] = await db
     .select({ total: count() })
     .from(forumPosts)
@@ -1063,6 +1141,7 @@ export async function waitingCount(db: Database): Promise<number> {
         eq(forumPosts.state, "pending"),
         isNull(forumPosts.deletedAt),
         isNull(forumTopics.deletedAt),
+        forumIds ? inArray(forumTopics.forumId, [...forumIds, -1]) : undefined,
       ),
     );
   return row?.total ?? 0;

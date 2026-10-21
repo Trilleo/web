@@ -1,0 +1,85 @@
+---
+/**
+ * Topics and replies waiting for approval, oldest first, each with its text and
+ * Approve / Hide / Delete (POST /forum/action, back to `back`).
+ */
+import { postPath, topicPath } from "@trilleo/forum";
+import type { waitingPosts } from "../../lib/forum/store";
+import { formatWhen } from "../../lib/forum/public";
+import { primaryButton, secondaryButton } from "../admin/files/styles";
+import AuthorName from "./AuthorName.astro";
+
+interface Props {
+  queue: Awaited<ReturnType<typeof waitingPosts>>;
+  /** Each post's HTML, by id. */
+  html: ReadonlyMap<number, string>;
+  back: string;
+  now?: Date;
+}
+
+const { queue, html, back, now = new Date() } = Astro.props;
+const here = back;
+const queueHtml = html;
+---
+
+{queue.length === 0 ? (
+  <p class="text-muted">Nothing is waiting.</p>
+) : (
+  <ol class="border-b border-ink" data-testid="forum-queue">
+    {queue.map((item) => (
+      <li class="flex flex-col gap-3 border-t border-ink py-4">
+        <p class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span class="type-label bg-accent px-1.5 text-on-accent">
+            {item.first ? "New topic" : "Reply"}
+          </span>
+          <a href={postPath(item.post)} class="group font-semibold">
+            <span class="link-wipe">{item.topic.title}</span>
+          </a>
+          <span class="type-label text-muted">
+            in{" "}
+            <a href={topicPath(item.forum, item.topic)} class="link-wipe">
+              {item.forum.name}
+            </a>
+          </span>
+        </p>
+        <p class="flex flex-wrap items-center gap-x-3 text-sm text-muted">
+          <AuthorName author={item.author} />
+          <span>{formatWhen(item.post.createdAt, now)}</span>
+        </p>
+        <div class="comment-body forum-body max-w-prose">
+          <Fragment set:html={queueHtml.get(item.post.id) ?? ""} />
+        </div>
+        <div class="flex flex-wrap gap-2">
+          {(
+            [
+              {
+                action: "approve",
+                label: "Approve",
+                style: primaryButton,
+              },
+              {
+                action: "hide",
+                label: "Hide",
+                style: secondaryButton,
+              },
+              {
+                action: "delete",
+                label: "Delete",
+                style: secondaryButton,
+              },
+            ] as const
+          ).map((button) => (
+            <form method="post" action="/forum/action">
+              <input type="hidden" name="post" value={String(item.post.id)} />
+              <input type="hidden" name="action" value={button.action} />
+              <input type="hidden" name="back" value={here} />
+              <button type="submit" class={button.style}>
+                {button.label}
+              </button>
+            </form>
+          ))}
+        </div>
+      </li>
+    ))}
+  </ol>
+)}

@@ -23,8 +23,8 @@ export const prerender = false;
 
 const db = await getDb();
 const user = Astro.locals.user;
-const viewer = forumViewer(user);
 const tree = await loadTree(db);
+const viewer = await forumViewer(db, tree, user);
 const node = tree.find(Astro.params.forum ?? "");
 if (!node || !tree.canView(node.forum, viewer)) return Astro.rewrite("/404");
 Astro.response.headers.set("Cache-Control", "private, no-store");

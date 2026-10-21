@@ -65,7 +65,9 @@ test("a newcomer's topic waits for approval, then everyone sees it", async ({
 
   // The admin approves it from the queue.
   const admin = await adminPage(browser, baseURL);
+  // Old links to the admin's queue lead to the moderators' page.
   await admin.goto("/admin/forum/?tab=waiting");
+  await expect(admin).toHaveURL("/forum/moderate/");
   const queued = admin.getByTestId("forum-queue").getByRole("listitem").filter({
     hasText: title,
   });
@@ -212,4 +214,238 @@ test("search finds topics by their posts", async ({
   const results = page.getByTestId("search-results");
   await expect(results.getByRole("link", { name: title })).toBeVisible();
   await expect(results).toContainText(word);
+});
+
+/** The admin opens a forum's admin page from the tree. */
+async function openForumAdmin(admin: Page, name: string) {
+  await admin.goto("/admin/forum/");
+  await admin
+    .getByTestId("admin-forum-tree")
+    .getByRole("link", { name, exact: true })
+    .click();
+  await expect(admin.getByRole("heading", { level: 1, name })).toBeVisible();
+}
+
+test("an assigned moderator moderates their forum, bans, and reads reports", async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  const admin = await adminPage(browser, baseURL);
+  const moderatorLogin = freshLogin("forum-mod");
+  // Sign the moderator in once, so their account exists.
+  await page.goto("/forum/");
+  await page.getByRole("link", { name: "Sign in to post" }).click();
+  await signIn(page, moderatorLogin);
+
+  await openForumAdmin(admin, "Help & feedback");
+  await admin.getByLabel("Assign someone").fill(moderatorLogin);
+  await admin.getByRole("button", { name: "Assign" }).click();
+  await expect(admin.getByTestId("forum-moderators")).toContainText(
+    `@${moderatorLogin}`,
+  );
+
+  // A newcomer posts in Help; another member reports it.
+  const author = await newPage(browser, baseURL);
+  const title = unique("Spammy topic");
+  await author.goto("/forum/new/?in=help");
+  await signIn(author, freshLogin("forum-spammer"));
+  await author.getByLabel("Title").fill(title);
+  await author.getByLabel("Your post").fill("Buy my things.");
+  await author.getByRole("button", { name: "Post topic" }).click();
+  const topicUrl = author.url().split("#")[0] ?? "";
+
+  // The moderator's menu leads to the queue, which has it.
+  await page.goto("/forum/");
+  await page.locator("summary", { hasText: "Account menu for" }).click();
+  await page.getByRole("link", { name: "Forum moderation" }).click();
+  await expect(page).toHaveURL("/forum/moderate/");
+  const queued = page
+    .getByTestId("forum-queue")
+    .getByRole("listitem")
+    .filter({ hasText: title });
+  await queued.getByRole("button", { name: "Approve" }).click();
+  await expect(page.getByTestId("forum-queue").getByText(title)).toHaveCount(0);
+  {
+    const { violations } = await new AxeBuilder({ page }).analyze();
+    expect(violations.map((v) => v.id)).toEqual([]);
+  }
+
+  const reporter = await newPage(browser, baseURL);
+  await reporter.goto(topicUrl);
+  await reporter.getByRole("link", { name: "Sign in to reply" }).click();
+  await signIn(reporter, freshLogin("forum-reporter"));
+  await reporter.goto(topicUrl);
+  const reported = post(reporter, "Buy my things.");
+  await reported.getByText("Report", { exact: true }).click();
+  await reported.getByLabel("Spam or advertising").check();
+  await reported.getByLabel("Anything to add?").fill("Selling things");
+  await reported.getByRole("button", { name: "Send report" }).click();
+  await expect(
+    reporter.getByText("Thanks: a moderator will look at your report."),
+  ).toBeVisible();
+
+  await page.goto("/forum/moderate/?tab=reports");
+  const card = page
+    .getByTestId("report-queue")
+    .getByRole("listitem")
+    .filter({ hasText: title })
+    .first();
+  await expect(card).toContainText("Selling things");
+  await card.getByRole("button", { name: "Hide the post" }).click();
+  await expect(page.getByTestId("report-queue")).toHaveCount(0);
+
+  // On the topic: the moderator's tools, and a ban for the author.
+  await page.goto(topicUrl);
+  const tools = page.getByRole("group", { name: "Moderate this topic" });
+  await expect(tools).toBeVisible();
+  const spam = post(page, "Buy my things.");
+  await expect(spam.getByText("Hidden", { exact: true })).toBeVisible();
+  await spam.getByText(/^Ban @/).click();
+  await spam.getByLabel("How long").selectOption("7d");
+  await spam.getByLabel("Why (they’ll see this)").fill("Advertising");
+  await spam.getByRole("button", { name: "Ban", exact: true }).click();
+  await expect(
+    page.getByText("Banned. They can still read the forum."),
+  ).toBeVisible();
+
+  await author.goto("/forum/new/?in=general");
+  await expect(
+    author.getByText(/You’re banned from posting in the forum until/),
+  ).toContainText("Advertising");
+  await expect(author.getByLabel("Title")).toHaveCount(0);
+
+  // Elsewhere they're an ordinary member: no tools in General.
+  await page.goto("/forum/general/");
+  const other = page.getByTestId("topic-list").getByRole("link").first();
+  if ((await other.count()) > 0) {
+    await other.click();
+    await expect(
+      page.getByRole("group", { name: "Moderate this topic" }),
+    ).toHaveCount(0);
+  }
+
+  // The admin sees the ban and the log, and lifts it.
+  await admin.goto("/admin/forum/?tab=log");
+  await expect(admin.getByTestId("forum-log")).toContainText(
+    `@${moderatorLogin}`,
+  );
+  await admin.goto("/admin/forum/?tab=bans");
+  const row = admin.getByTestId("forum-bans").getByRole("listitem").filter({
+    hasText: "Advertising",
+  });
+  await row.getByRole("button", { name: /^Lift / }).click();
+  await expect(admin.getByRole("status")).toHaveText("Ban lifted.");
+});
+
+test("moderators split posts off and see what was edited", async ({
+  browser,
+  baseURL,
+}) => {
+  const admin = await adminPage(browser, baseURL);
+  const title = unique("Splitting");
+  await startTopic(admin, "general", title, "First point.");
+  const topicUrl = admin.url().split("#")[0] ?? "";
+  for (const text of ["A tangent.", "More tangent."]) {
+    await admin.getByLabel("Your reply").fill(text);
+    await admin.getByRole("button", { name: "Post reply" }).click();
+    await expect(post(admin, text)).toBeVisible();
+  }
+
+  // Edit the first post, then read its history.
+  await admin.goto(topicUrl);
+  await post(admin, "First point.").getByRole("link", { name: "Edit" }).click();
+  await admin.getByLabel("Your post").fill("First point, sharpened.");
+  await admin.getByRole("button", { name: "Save changes" }).click();
+  await post(admin, "First point, sharpened.")
+    .getByRole("link", { name: /History/ })
+    .click();
+  await expect(
+    admin.getByRole("heading", { level: 1, name: "Edit history" }),
+  ).toBeVisible();
+  await expect(admin.getByTestId("post-history")).toContainText(
+    "Version 2 (now)",
+  );
+  await expect(admin.getByTestId("post-history")).toContainText("First point.");
+
+  await admin.goto(topicUrl);
+  await post(admin, "A tangent.").getByLabel("Split").check();
+  await post(admin, "More tangent.").getByLabel("Split").check();
+  const splitTitle = unique("The tangent");
+  await admin.getByLabel("Split ticked posts into").fill(splitTitle);
+  await admin.getByRole("button", { name: "Split", exact: true }).click();
+  await expect(
+    admin.getByRole("heading", { level: 1, name: splitTitle }),
+  ).toBeVisible();
+  await expect(post(admin, "A tangent.")).toBeVisible();
+  await expect(post(admin, "More tangent.")).toBeVisible();
+
+  await admin.goto(topicUrl);
+  await expect(admin.getByText("A tangent.")).toHaveCount(0);
+});
+
+test("the admin makes a forum members-only and gives a group a title", async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  const admin = await adminPage(browser, baseURL);
+  const name = unique("Members lounge");
+  await admin.goto("/admin/forum/");
+  await admin.getByRole("link", { name: "Add a forum in Community" }).click();
+  await admin.getByLabel("Name").fill(name);
+  await admin.getByRole("button", { name: "Create forum" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Created.");
+  await admin
+    .getByLabel("Guests: See the forum and its topics")
+    .selectOption("deny");
+  await admin.getByRole("button", { name: "Save permissions" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Permissions saved.");
+  const forumUrl = await admin
+    .getByRole("link", { name: "View it" })
+    .getAttribute("href");
+  {
+    const { violations } = await new AxeBuilder({ page: admin }).analyze();
+    expect(violations.map((v) => v.id)).toEqual([]);
+  }
+
+  // Visitors don't see it; members do.
+  expect((await page.goto(forumUrl ?? ""))?.status()).toBe(404);
+  await page.goto("/forum/");
+  await expect(page.getByRole("link", { name })).toHaveCount(0);
+
+  // A group with a title, and someone in it.
+  const member = freshLogin("forum-helper");
+  const helper = await newPage(browser, baseURL);
+  await helper.goto(`/sign-in?next=${encodeURIComponent(forumUrl ?? "")}`);
+  await signIn(helper, member);
+  await expect(helper.getByRole("heading", { level: 1, name })).toBeVisible();
+
+  const group = unique("Helpers");
+  await admin.goto("/admin/forum/groups/");
+  await admin.getByRole("link", { name: "New group" }).click();
+  await admin.getByLabel("Name").fill(group);
+  await admin
+    .getByLabel("Key")
+    .fill(`helpers-${randomBytes(2).toString("hex")}`);
+  await admin.getByLabel("Title").fill("Helper");
+  await admin.getByRole("button", { name: "Create group" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Created.");
+  await admin.getByLabel("Add someone").fill(member);
+  await admin.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(admin.getByTestId("group-members")).toContainText(`@${member}`);
+  {
+    const { violations } = await new AxeBuilder({ page: admin }).analyze();
+    expect(violations.map((v) => v.id)).toEqual([]);
+  }
+
+  await startTopic(
+    helper,
+    "general",
+    unique("Helper here"),
+    "Hello from a helper.",
+  );
+  await expect(
+    post(helper, "Hello from a helper.").getByText("Helper", { exact: true }),
+  ).toBeVisible();
 });

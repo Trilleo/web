@@ -22,7 +22,7 @@ import { listProjects } from "../lib/minecraft/store";
 import { studySubjects } from "../lib/study/content";
 import TopicList from "../components/forum/TopicList.astro";
 import { FORUM_DESCRIPTION, FORUM_NUMBER } from "../lib/forum/public";
-import { forumViewer, loadTree, recentTopics } from "../lib/forum/store";
+import { loadTree, recentTopics } from "../lib/forum/store";
 import {
   STUDY_DESCRIPTION,
   STUDY_NUMBER,
@@ -53,7 +53,7 @@ const HOME_SUBJECT_COUNT = 4;
 const HOME_TOPIC_COUNT = 4;
 const forumTopics = await recentTopics(await getDb(), {
   tree: await loadTree(await getDb()),
-  viewer: forumViewer(null),
+  viewer: null,
   limit: HOME_TOPIC_COUNT,
 });
 

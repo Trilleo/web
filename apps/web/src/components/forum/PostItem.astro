@@ -4,12 +4,13 @@
  * joined) beside what they wrote, then its buttons: quote, edit, delete, and the
  * moderator's. Every button is a link or a POST form, so it works without JS.
  */
-import { postAnchor, postPath } from "@trilleo/forum";
+import { BAN_LENGTHS, REASON_MAX, postAnchor, postPath } from "@trilleo/forum";
 import { counted, formatWhen } from "../../lib/forum/public";
 import type { PostView } from "../../lib/forum/store";
 import { formatPostDate } from "../../lib/listings";
 import { profileHref } from "../../lib/profile/profile";
 import Avatar from "../account/Avatar.astro";
+import ReportForm from "./ReportForm.astro";
 
 interface Props {
   view: PostView;
@@ -21,6 +22,12 @@ interface Props {
   canDelete: boolean;
   /** The viewer moderates this forum. */
   mod: boolean;
+  /** The viewer may report it (signed in, not their own). */
+  canReport?: boolean;
+  /** Who's looking (a moderator isn't offered to ban themselves). */
+  viewerId?: string | undefined;
+  /** The id of the page's split form, which a moderator's tick box joins. */
+  splitForm?: string | undefined;
   /** Where buttons come back to. */
   back: string;
   now?: Date;
@@ -33,6 +40,9 @@ const {
   canEdit,
   canDelete,
   mod,
+  canReport = false,
+  viewerId,
+  splitForm,
   back,
   now = new Date(),
 } = Astro.props;
@@ -81,6 +91,15 @@ const action = "group type-label cursor-pointer text-muted hover:text-ink";
           <span>Joined {formatPostDate(author.joinedAt)}</span>
         </p>
       )}
+      {view.titles.length > 0 && (
+        <p class="flex flex-wrap gap-1.5">
+          {view.titles.map((title) => (
+            <span class="type-label bg-ink px-1.5 py-0.5 text-paper">
+              {title}
+            </span>
+          ))}
+        </p>
+      )}
     </div>
   </header>
 
@@ -96,9 +115,33 @@ const action = "group type-label cursor-pointer text-muted hover:text-ink";
       <time datetime={post.createdAt.toISOString()}>
         {formatWhen(post.createdAt, now)}
       </time>
-      {post.editedAt && (
-        <span title={post.editedAt.toISOString()}>
-          Edited {formatWhen(post.editedAt, now)}
+      {post.editedAt &&
+        (mod ? (
+          <a
+            href={`/forum/history/${String(post.id)}/`}
+            class="group"
+            title={post.editedAt.toISOString()}
+          >
+            <span class="link-wipe">
+              Edited {formatWhen(post.editedAt, now)} · History
+            </span>
+          </a>
+        ) : (
+          <span title={post.editedAt.toISOString()}>
+            Edited {formatWhen(post.editedAt, now)}
+          </span>
+        ))}
+      {splitForm && (
+        <span class="inline-flex items-center gap-1.5">
+          <input
+            id={`${anchor}-split`}
+            type="checkbox"
+            name="posts"
+            value={String(post.id)}
+            form={splitForm}
+            class="size-4 accent-accent"
+          />
+          <label for={`${anchor}-split`}>Split</label>
         </span>
       )}
       {post.state === "pending" && (
@@ -114,7 +157,7 @@ const action = "group type-label cursor-pointer text-muted hover:text-ink";
       <Fragment set:html={html} />
     </div>
 
-    {(quoteHref || canEdit || canDelete || mod) && (
+    {(quoteHref || canEdit || canDelete || mod || canReport) && (
       <div class="flex flex-wrap items-baseline gap-x-5 gap-y-2">
         {quoteHref && (
           <a href={quoteHref} class={action} data-quote={String(post.id)}>
@@ -172,6 +215,70 @@ const action = "group type-label cursor-pointer text-muted hover:text-ink";
             </form>
           </details>
         )}
+        {canReport && (
+          <ReportForm
+            target={{ post: post.id }}
+            back={`${back.split("#")[0] ?? back}#${anchor}`}
+            id={`${anchor}-report`}
+          />
+        )}
+        {mod &&
+          author &&
+          author.id !== viewerId &&
+          !view.titles.includes("Admin") && (
+            <details class="type-label text-muted">
+              <summary class="link-wipe w-fit cursor-pointer hover:text-ink">
+                Ban @{author.username}
+              </summary>
+              <form
+                method="post"
+                action="/forum/action"
+                class="mt-3 flex max-w-md flex-col gap-3 border border-hair p-3 font-sans text-sm tracking-normal text-ink normal-case"
+              >
+                <input type="hidden" name="post" value={String(post.id)} />
+                <input type="hidden" name="action" value="ban" />
+                <input type="hidden" name="back" value={back} />
+                <p>
+                  Stops them posting in the forum. They can still read it and
+                  use the rest of the site.
+                </p>
+                <div class="flex flex-col gap-1">
+                  <label for={`${anchor}-ban-length`} class="font-medium">
+                    How long
+                  </label>
+                  <select
+                    id={`${anchor}-ban-length`}
+                    name="length"
+                    class="h-9 border border-ink bg-paper px-2"
+                  >
+                    {Object.entries(BAN_LENGTHS).map(([value, length]) => (
+                      <option value={value}>{length.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label for={`${anchor}-ban-reason`} class="font-medium">
+                    Why (they’ll see this)
+                  </label>
+                  <input
+                    id={`${anchor}-ban-reason`}
+                    name="reason"
+                    required
+                    maxlength={REASON_MAX}
+                    class="border border-ink bg-paper px-2 py-1.5"
+                  />
+                </div>
+                <p>
+                  <button
+                    type="submit"
+                    class="type-label border border-ink px-2.5 py-1.5 hover:bg-ink hover:text-paper"
+                  >
+                    Ban
+                  </button>
+                </p>
+              </form>
+            </details>
+          )}
       </div>
     )}
   </div>

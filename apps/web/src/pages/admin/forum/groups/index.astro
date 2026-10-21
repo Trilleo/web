@@ -1,0 +1,119 @@
+---
+/**
+ * The forum's groups: the built-in ones (worked out from the account, or the
+ * Moderator group the admin adds people to) and the admin's own. Each row says what
+ * the group may do everywhere; forums can change that on their own pages.
+ */
+import { FORUM_PERMISSIONS, PERMISSION_KEYS } from "@trilleo/forum";
+import AdminNav from "../../../../components/admin/AdminNav.astro";
+import { primaryButton } from "../../../../components/admin/files/styles";
+import DisplayTitle from "../../../../components/DisplayTitle.astro";
+import ForumAdminNav from "../../../../components/forum/ForumAdminNav.astro";
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import { requireAdmin } from "../../../../lib/auth/guard";
+import { getDb } from "../../../../lib/db";
+import { listGroups } from "../../../../lib/forum/groups";
+import { counted } from "../../../../lib/forum/public";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const groups = await listGroups(await getDb());
+const done = Astro.url.searchParams.get("done");
+const row =
+  "grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6";
+const window = (minutes: number | null) =>
+  minutes === null
+    ? "Edit any time"
+    : minutes === 0
+      ? "No editing"
+      : minutes % 1440 === 0
+        ? `Edit for ${counted(minutes / 1440, "day")}`
+        : minutes % 60 === 0
+          ? `Edit for ${counted(minutes / 60, "hour")}`
+          : `Edit for ${counted(minutes, "minute")}`;
+---
+
+<BaseLayout title="Groups · Forum · Admin" noindex>
+  <section
+    aria-labelledby="groups-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="forum" />
+    <DisplayTitle id="groups-title">Groups</DisplayTitle>
+
+    <div class={row}>
+      <p class="type-label col-span-4 md:col-span-2 xl:col-span-2">Forum</p>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
+        <ForumAdminNav current="groups" />
+        {done === "deleted" && (
+          <p role="status" class="type-lead border-l-2 border-accent pl-4">
+            Deleted.
+          </p>
+        )}
+        <p class="text-muted">
+          Someone may do something if any of their groups may. Guests,
+          Newcomers, Members and Admins follow the account; you add people to
+          the others. A forum can allow or deny any of these for any group on
+          its own page.
+        </p>
+        <p>
+          <a href="/admin/forum/groups/new/" class={primaryButton}>
+            New group
+          </a>
+        </p>
+      </div>
+    </div>
+
+    <div class={row}>
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
+        All groups
+      </h2>
+      <ol
+        class="col-span-4 border-b border-ink md:col-span-6 xl:col-span-10"
+        data-testid="forum-groups"
+      >
+        {groups.map(({ group, members, manual }) => (
+          <li class="flex flex-col gap-1.5 border-t border-ink py-3">
+            <p class="flex flex-wrap items-baseline gap-x-3">
+              <a
+                href={`/admin/forum/groups/${String(group.id)}/`}
+                class="group font-semibold"
+              >
+                <span class="link-wipe">{group.name}</span>
+              </a>
+              {group.title && (
+                <span class="type-label bg-ink px-1.5 py-0.5 text-paper">
+                  {group.title}
+                </span>
+              )}
+              <span class="type-label text-muted">
+                {manual ? counted(members, "member") : "Automatic"} ·{" "}
+                {window(group.editWindowMinutes)}
+              </span>
+            </p>
+            {group.description && (
+              <p class="text-sm text-muted">{group.description}</p>
+            )}
+            <p class="text-sm">
+              {PERMISSION_KEYS.filter((key) => group.permissions[key] === true)
+                .length === 0
+                ? "Nothing beyond their other groups."
+                : PERMISSION_KEYS.filter(
+                    (key) => group.permissions[key] === true,
+                  )
+                    .map((key) =>
+                      FORUM_PERMISSIONS[key].label.replace(/ \(.*\)$/, ""),
+                    )
+                    .join(" · ")}
+            </p>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+</BaseLayout>
