@@ -6,7 +6,7 @@ import {
   STRIKE_LIMIT,
   TRUST_AFTER_APPROVALS,
 } from "@trilleo/storage";
-import { BUILT_IN_GROUPS, FORUM_LIMITS } from "@trilleo/forum";
+import { BUILT_IN_GROUPS, FORUM_LIMITS, MESSAGE_LIMITS } from "@trilleo/forum";
 import InfoLayout from "../../layouts/InfoLayout.astro";
 import { COMMENT_MAX_LENGTH, LIMITS } from "../../lib/comments/store";
 import {
@@ -127,6 +127,23 @@ const sections = [
       A moderator can ban someone from posting in the forum for a day, a week, a
       month or for good, with a reason they’ll see when they try to post. They
       can still read the forum and use the rest of the site.
+    </li>
+  </ul>
+
+  <h3>Polls, attachments and messages</h3>
+  <ul>
+    <li>
+      Polls and attached files follow the same rules as posts. Files are scanned
+      for malware, and a newcomer’s wait for review.
+    </li>
+    <li>
+      Private messages are private, not lawless: no spam, harassment or unwanted
+      advances. People choose who can message them and can block anyone; a
+      reported message is read by the admin, who can remove it or ban its
+      sender. To keep spam out, you can send {MESSAGE_LIMITS.burst.count}{" "}
+      messages in {MESSAGE_LIMITS.burst.windowMs / 60_000} minutes,{" "}
+      {MESSAGE_LIMITS.daily.count} a day, and start {MESSAGE_LIMITS.newPerDay}{" "}
+      conversations a day.
     </li>
   </ul>
 

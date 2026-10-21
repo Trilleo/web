@@ -2,7 +2,8 @@ import { can, isReaction, parseTags, type ForumPlace } from "@trilleo/forum";
 import type { APIRoute } from "astro";
 import { requireUser } from "../../lib/auth/guard";
 import { noStoreRedirect, safeNextPath } from "../../lib/auth/redirect";
-import { field, parseId } from "../../lib/comments/form";
+import { field, parseId, parseUserId } from "../../lib/comments/form";
+import { block, unblock } from "../../lib/forum/conversations";
 import { getDb } from "../../lib/db";
 import { logAction } from "../../lib/forum/log";
 import { markAllRead } from "../../lib/forum/reads";
@@ -19,6 +20,13 @@ import {
   getTopic,
   loadTree,
 } from "../../lib/forum/store";
+import {
+  closePoll,
+  pollOfTopic,
+  reopenPoll,
+  unvotePoll,
+  votePoll,
+} from "../../lib/forum/polls";
 import { setSolved, setTopicLabels } from "../../lib/forum/tags";
 
 export const prerender = false;
@@ -31,7 +39,10 @@ export const prerender = false;
  * - solved / unsolved (`topic`): the asker or a moderator.
  * - watch / unwatch (`topic` or `forum`).
  * - read-all: marks every topic read.
+ * - block / unblock (`user`): no messages from them, and theirs are hidden.
  * - labels (`topic`, `prefix`, `tags`): a moderator, or the asker.
+ * - poll-vote (`topic`, `option` once or more), poll-unvote: while the poll's open.
+ * - poll-close / poll-reopen (`topic`): the asker or a moderator.
  *
  * Asked for JSON (the reactions' script), react answers with the post's reactions.
  */
@@ -53,6 +64,14 @@ export const POST: APIRoute = async (context) => {
           headers: { "Content-Type": "text/plain; charset=utf-8" },
         });
   const db = await getDb();
+
+  if (action === "block" || action === "unblock") {
+    const other = parseUserId(field(form, "user"));
+    if (!other) return refuse();
+    if (action === "block") await block(db, user.id, other);
+    else await unblock(db, user.id, other);
+    return done();
+  }
 
   if (action === "read-all") {
     await markAllRead(db, user.id);
@@ -85,6 +104,46 @@ export const POST: APIRoute = async (context) => {
   const asker = topic.authorId === user.id;
 
   switch (action) {
+    case "poll-vote":
+    case "poll-unvote":
+    case "poll-close":
+    case "poll-reopen": {
+      const poll = await pollOfTopic(db, topic.id);
+      if (!poll) return refuse();
+      if (action === "poll-close" || action === "poll-reopen") {
+        if (!(asker || mod)) return refuse();
+        if (action === "poll-close") await closePoll(db, poll);
+        else await reopenPoll(db, poll);
+        return done();
+      }
+      // Voting is like reacting: members who may write, not on hidden topics.
+      if (!can(viewer, "post.react", place, topic, { authorId: null }))
+        return refuse();
+      if (action === "poll-unvote") {
+        await unvotePoll(db, poll, user.id);
+        return done();
+      }
+      const chosen = form
+        .getAll("option")
+        .flatMap((value) => (typeof value === "string" ? [parseId(value)] : []))
+        .filter((id): id is number => id !== null);
+      const problem = await votePoll(db, {
+        poll,
+        userId: user.id,
+        optionIds: chosen,
+      });
+      if (problem) {
+        const url = new URL(back, context.url);
+        url.searchParams.set(
+          "error",
+          problem === "closed"
+            ? "The poll has closed."
+            : "Choose an option (or as many as the poll allows).",
+        );
+        return noStoreRedirect(url.pathname + url.search + url.hash, 303);
+      }
+      return done();
+    }
     case "react": {
       const reaction = field(form, "reaction");
       if (

@@ -945,10 +945,36 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   empty). Posts show their author's group titles.
 - Accounts: the export has `forum` (topics and posts, deleted ones too, their earlier
   versions, reports made, bans, groups, settings, watches, notifications, reactions,
-  votes, points, badges, drafts, reads). Deleting an account keeps its posts without
+  votes, points, badges, drafts, reads, polls, attachments, conversations and the
+  messages they wrote, blocks). Deleting an account keeps its posts without
   the author ("Deleted account"), like wiki revisions; its bans, reports about it and
   memberships go.
-- Later phase (designed, not built): polls, attachments and private messages.
+- Polls (lib/forum/polls.ts; forum_polls, forum_poll_options, forum_poll_votes): one
+  per topic, added on the new-topic form (PollFields, @trilleo/forum's
+  `validatePoll`; permission "poll.create"), single or multiple choice (`maxChoices`),
+  a closing date or closed by the asker or a moderator, votes changeable while open
+  (`validVote`). Totals show after voting, when closed, or if `resultsBeforeVote`;
+  moderators always see them and who voted. The mail delivery pass tells askers
+  their poll closed (`notifyClosedPolls`). Votes are "poll-*" actions on /forum/engage.
+- Attachments (lib/forum/attachments.ts; storage purpose "forum", forum_attachments;
+  permission "post.attach"): the post form's ForumAttachments island uploads straight
+  to storage and keeps each upload for the next post as it starts
+  (/api/forum/attach); posting links them (ATTACHMENT_LIMITS: 10 MB, 5 per post); a
+  refused or previewed post keeps them (PostForm's `pending`). Members the forum
+  trusts skip review (`forumTrustedUpload`, StorageDeps' waivesReview); until public a
+  file shows only to its uploader and moderators. Pictures open in Lightbox.astro
+  (lib/forum/lightbox.ts, a <dialog>). Attaching needs JavaScript.
+- Private messages (lib/forum/conversations.ts; forum_conversations,
+  forum_conversation_members, forum_messages, forum_blocks): 2–10 people. Senders must
+  be trusted (or moderate everywhere) and not banned; reaching someone follows their
+  setting (forum_user_settings.messages: everyone, contacts, nobody) and blocks
+  (`mayMessage`), except for staff. Pages /account/messages/[new/|<id>/] (reply,
+  leave, mute, add people, block, report), counts in the account menu, "message"
+  notifications (emailed per the forum email setting, never with the text). Messages
+  are private: only a report (forum_reports kind "message") shows one, with
+  REPORT_CONTEXT before it, to the admin alone in /forum/moderate/. MESSAGE_LIMITS caps
+  bursts, daily messages and new conversations. Deleting an account deletes its
+  messages and memberships.
 
 ## Mail
 

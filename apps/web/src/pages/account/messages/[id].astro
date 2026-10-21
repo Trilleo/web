@@ -1,0 +1,358 @@
+---
+/**
+ * A conversation, for its members: the messages (oldest first), the reply form, and
+ * its buttons (POST `intent`): reply, leave, mute/unmute, add people (its starter),
+ * block someone, report a message.
+ */
+import { MESSAGE_LIMITS, REPORT_REASONS, isReportReason } from "@trilleo/forum";
+import Avatar from "../../../components/account/Avatar.astro";
+import PostForm from "../../../components/forum/PostForm.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireUser } from "../../../lib/auth/guard";
+import { noStoreRedirect } from "../../../lib/auth/redirect";
+import { field, parseId, parseUserId } from "../../../lib/comments/form";
+import { getDb } from "../../../lib/db";
+import {
+  MESSAGE_ERRORS,
+  addMembers,
+  block,
+  leaveConversation,
+  listMessages,
+  markConversationRead,
+  membersOf,
+  membershipOf,
+  messagingRole,
+  parseRecipients,
+  reportMessage,
+  sendMessage,
+  setMuted,
+} from "../../../lib/forum/conversations";
+import { draftKey } from "../../../lib/forum/drafts";
+import { formatWhen } from "../../../lib/forum/public";
+import { loadTree } from "../../../lib/forum/store";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const id = parseId(Astro.params.id ?? "");
+const membership =
+  id === null ? undefined : await membershipOf(db, id, user.id);
+if (!membership || id === null) return Astro.rewrite("/404");
+const self = `/account/messages/${String(id)}/`;
+const tree = await loadTree(db);
+
+let body = "";
+let error: string | null = null;
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const intent = field(form, "intent");
+  const back = (query: string) => noStoreRedirect(`${self}?${query}`, 303);
+  switch (intent) {
+    case "leave":
+      await leaveConversation(db, id, user.id);
+      return noStoreRedirect("/account/messages/", 303);
+    case "mute":
+    case "unmute":
+      await setMuted(db, id, user.id, intent === "mute");
+      return back(`done=${intent}`);
+    case "add": {
+      const problem = await addMembers(db, {
+        tree,
+        by: user,
+        conversationId: id,
+        to: parseRecipients(field(form, "to")),
+      });
+      if (!problem) return back("done=added");
+      error = MESSAGE_ERRORS[problem];
+      break;
+    }
+    case "block": {
+      const blocked = parseUserId(field(form, "user"));
+      if (blocked) await block(db, user.id, blocked);
+      return back("done=blocked");
+    }
+    case "report": {
+      const reason = field(form, "reason");
+      const messageId = parseId(field(form, "message"));
+      if (messageId === null || !isReportReason(reason)) {
+        error = "Choose a reason.";
+        break;
+      }
+      const result = await reportMessage(db, {
+        reporter: user,
+        messageId,
+        reason,
+        note: field(form, "note"),
+      });
+      return back(
+        result === "ok"
+          ? "done=reported"
+          : `error=${encodeURIComponent(result === "already" ? "You’ve already reported that message." : "You can’t report that message.")}`,
+      );
+    }
+    default: {
+      body = field(form, "body");
+      const result = await sendMessage(db, {
+        tree,
+        sender: user,
+        conversationId: id,
+        body,
+      });
+      if (result.ok)
+        return noStoreRedirect(
+          `${self}#message-${String(result.value.id)}`,
+          303,
+        );
+      error = MESSAGE_ERRORS[result.error];
+      Astro.response.status = 422;
+    }
+  }
+}
+const DONE: Record<string, string> = {
+  mute: "Muted: you won’t be told about new messages here.",
+  unmute: "You’ll be told about new messages here again.",
+  added: "Added.",
+  blocked: "Blocked: you won’t see their messages, and they can’t message you.",
+  reported: "Thanks: the admin will look at it.",
+};
+const notice = DONE[Astro.url.searchParams.get("done") ?? ""] ?? null;
+error ??= Astro.url.searchParams.get("error")?.slice(0, 200) ?? null;
+
+const [messages, members, role] = await Promise.all([
+  listMessages(db, membership, user.id),
+  membersOf(db, id),
+  messagingRole(db, tree, user),
+]);
+await markConversationRead(db, id, user.id);
+const left = membership.member.leftAt !== null;
+const starter = membership.conversation.startedById === user.id;
+const others = members.filter((member) => member.id !== user.id);
+const now = new Date();
+const small = "group type-label cursor-pointer text-muted hover:text-ink";
+---
+
+<BaseLayout title={membership.conversation.subject} noindex>
+  <section
+    aria-labelledby="conversation-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">
+      (Account){" "}
+      <a href="/account/messages/" class="link-wipe">
+        Messages
+      </a>
+    </p>
+    <h1
+      id="conversation-title"
+      class="type-band mt-5 max-w-[22ch] break-words xl:mt-7"
+    >
+      {membership.conversation.subject}
+    </h1>
+    <p class="type-label mt-3 flex flex-wrap gap-x-3 text-muted">
+      <span>
+        With{" "}
+        {others.length === 0
+          ? "nobody else"
+          : others
+              .map(
+                (member) =>
+                  `@${member.username}${member.leftAt ? " (left)" : ""}`,
+              )
+              .join(", ")}
+      </span>
+    </p>
+    {(notice || error) && (
+      <p
+        role={error ? "alert" : "status"}
+        class="mt-6 border-l-2 border-accent pl-4"
+      >
+        {error ?? notice}
+      </p>
+    )}
+
+    <ol class="mt-8 flex flex-col" data-testid="messages">
+      {messages.map((view) => (
+        <li
+          id={`message-${String(view.message.id)}`}
+          class="grid-swiss scroll-mt-6 gap-y-2 border-t border-hair py-4"
+        >
+          <div class="col-span-4 flex items-center gap-3 md:col-span-2 xl:col-span-2">
+            {view.author ? (
+              <Avatar
+                user={{
+                  username: view.author.username,
+                  name: view.author.linkedName,
+                  displayName: view.author.displayName,
+                  avatarHash: view.author.avatarHash,
+                }}
+                size="sm"
+              />
+            ) : null}
+            <div class="flex min-w-0 flex-col">
+              <span class="truncate font-medium">
+                {view.author ? view.author.name : "Deleted account"}
+              </span>
+              <time
+                class="type-label text-muted"
+                datetime={view.message.createdAt.toISOString()}
+              >
+                {formatWhen(view.message.createdAt, now)}
+              </time>
+            </div>
+          </div>
+          <div class="col-span-4 flex min-w-0 flex-col gap-2 md:col-span-6 xl:col-span-7">
+            <div class="comment-body forum-body">
+              <Fragment set:html={view.message.html} />
+            </div>
+            {!view.mine && view.author && (
+              <div class="flex flex-wrap gap-x-5 gap-y-2">
+                <details class="type-label text-muted">
+                  <summary class="link-wipe w-fit cursor-pointer hover:text-ink">
+                    Report
+                  </summary>
+                  <form
+                    method="post"
+                    class="mt-3 flex max-w-md flex-col gap-3 border border-hair p-3 font-sans text-sm tracking-normal text-ink normal-case"
+                  >
+                    <input type="hidden" name="intent" value="report" />
+                    <input
+                      type="hidden"
+                      name="message"
+                      value={String(view.message.id)}
+                    />
+                    <fieldset class="flex flex-col gap-1.5">
+                      <legend class="mb-1.5 font-medium">Why?</legend>
+                      {Object.entries(REPORT_REASONS).map(
+                        ([value, text], index) => (
+                          <div class="flex items-center gap-2">
+                            <input
+                              id={`report-${String(view.message.id)}-${value}`}
+                              type="radio"
+                              name="reason"
+                              value={value}
+                              checked={index === 0}
+                              class="size-4 accent-accent"
+                            />
+                            <label
+                              for={`report-${String(view.message.id)}-${value}`}
+                            >
+                              {text}
+                            </label>
+                          </div>
+                        ),
+                      )}
+                    </fieldset>
+                    <label
+                      for={`report-${String(view.message.id)}-note`}
+                      class="font-medium"
+                    >
+                      Anything to add? (optional)
+                    </label>
+                    <textarea
+                      id={`report-${String(view.message.id)}-note`}
+                      name="note"
+                      rows="2"
+                      class="border border-ink bg-paper px-2 py-1.5"
+                    ></textarea>
+                    <p class="text-muted">
+                      The admin will see this message and the five before it.
+                    </p>
+                    <p>
+                      <button
+                        type="submit"
+                        class="type-label border border-ink px-2.5 py-1.5 hover:bg-ink hover:text-paper"
+                      >
+                        Send report
+                      </button>
+                    </p>
+                  </form>
+                </details>
+                <form method="post">
+                  <input type="hidden" name="intent" value="block" />
+                  <input type="hidden" name="user" value={view.author.id} />
+                  <button type="submit" class={small}>
+                    <span class="link-wipe">Block @{view.author.username}</span>
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
+        </li>
+      ))}
+    </ol>
+
+    <div class="grid-swiss mt-10 gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">Reply</h2>
+      <div class="col-span-4 flex flex-col gap-6 md:col-span-6 xl:col-span-7">
+        {left ? (
+          <p class="text-muted">You left this conversation.</p>
+        ) : role.problem ? (
+          <p class="text-muted">{MESSAGE_ERRORS[role.problem]}</p>
+        ) : (
+          <PostForm
+            action={self}
+            body={body}
+            submitLabel="Send"
+            label="Your message"
+            id="reply-form"
+            rows={5}
+            draftKey={draftKey.message(id)}
+          />
+        )}
+        {!left && (
+          <div class="flex flex-wrap items-center gap-x-5 gap-y-3">
+            <form method="post">
+              <input
+                type="hidden"
+                name="intent"
+                value={membership.member.muted ? "unmute" : "mute"}
+              />
+              <button type="submit" class={small}>
+                <span class="link-wipe">
+                  {membership.member.muted ? "Unmute" : "Mute"}
+                </span>
+              </button>
+            </form>
+            <details class="type-label text-muted">
+              <summary class="link-wipe w-fit cursor-pointer hover:text-ink">
+                Leave
+              </summary>
+              <form method="post" class="mt-2">
+                <input type="hidden" name="intent" value="leave" />
+                <button
+                  type="submit"
+                  class="type-label border border-ink px-2.5 py-1.5 text-ink hover:bg-ink hover:text-paper"
+                >
+                  Yes, leave this conversation
+                </button>
+              </form>
+            </details>
+            {(starter || role.staff) &&
+              others.length + 1 < MESSAGE_LIMITS.members && (
+                <form method="post" class="flex items-center gap-2">
+                  <input type="hidden" name="intent" value="add" />
+                  <label for="add-people" class="type-label">
+                    Add
+                  </label>
+                  <input
+                    id="add-people"
+                    name="to"
+                    placeholder="username"
+                    class="h-9 w-40 border border-ink bg-paper px-2 font-mono text-sm"
+                  />
+                  <button type="submit" class={small}>
+                    <span class="link-wipe">Add</span>
+                  </button>
+                </form>
+              )}
+          </div>
+        )}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

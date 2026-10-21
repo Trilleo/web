@@ -1,0 +1,118 @@
+---
+/**
+ * The signed-in person's conversations, newest activity first, marked when
+ * there's something new. "New message" starts one.
+ */
+import { buttonClasses } from "@trilleo/ui";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireUser } from "../../../lib/auth/guard";
+import { getDb } from "../../../lib/db";
+import {
+  listConversations,
+  messagingRole,
+} from "../../../lib/forum/conversations";
+import { formatWhen } from "../../../lib/forum/public";
+import { loadTree } from "../../../lib/forum/store";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const tree = await loadTree(db);
+const [conversations, role] = await Promise.all([
+  listConversations(db, user.id),
+  messagingRole(db, tree, user),
+]);
+const now = new Date();
+---
+
+<BaseLayout title="Messages" noindex>
+  <section
+    aria-labelledby="messages-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">
+      (Account){" "}
+      <a href="/account/" class="link-wipe">
+        @{user.username}
+      </a>
+    </p>
+    <DisplayTitle id="messages-title" fit={6.6}>
+      Messages
+    </DisplayTitle>
+
+    <div class="grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-2 xl:col-span-2">
+        {role.problem === null ? (
+          <a href="/account/messages/new/" class={buttonClasses()}>
+            New message
+          </a>
+        ) : (
+          <p class="text-sm text-muted">
+            You can send messages once one of your posts or comments has been
+            approved.
+          </p>
+        )}
+        <a
+          href="/account/forum/#messages"
+          class="group type-label text-muted hover:text-ink"
+        >
+          <span class="link-wipe">Who can message you</span>
+        </a>
+      </div>
+      <div class="col-span-4 md:col-span-6 xl:col-span-7">
+        <p class="mb-4 text-sm text-muted">
+          Messages are private: only the people in a conversation read them. If
+          someone reports a message, the admin sees it and the few before it.
+        </p>
+        {conversations.length === 0 ? (
+          <p class="text-muted">No conversations yet.</p>
+        ) : (
+          <ol class="border-b border-ink" data-testid="conversations">
+            {conversations.map((row) => (
+              <li class="flex items-baseline gap-3 border-t border-hair py-3">
+                <span
+                  class:list={[
+                    "size-2 shrink-0",
+                    row.unread ? "bg-accent" : "bg-transparent",
+                  ]}
+                  aria-hidden="true"
+                />
+                <div class="flex min-w-0 flex-col gap-0.5">
+                  <a
+                    href={`/account/messages/${String(row.conversation.id)}/`}
+                    class:list={[
+                      "group break-words",
+                      row.unread && "font-semibold",
+                    ]}
+                  >
+                    <span class="link-wipe">{row.conversation.subject}</span>
+                    {row.unread && <span class="sr-only"> (new messages)</span>}
+                  </a>
+                  <p class="type-label flex flex-wrap gap-x-3 text-muted">
+                    <span>
+                      {row.people.length > 0
+                        ? row.people.map((name) => `@${name}`).join(", ")
+                        : "Just you"}
+                    </span>
+                    <time
+                      datetime={row.conversation.lastMessageAt.toISOString()}
+                    >
+                      {formatWhen(row.conversation.lastMessageAt, now)}
+                    </time>
+                    {row.muted && <span>Muted</span>}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

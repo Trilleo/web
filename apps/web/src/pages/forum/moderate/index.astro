@@ -53,12 +53,21 @@ const tab =
 const ids = [...moderated];
 const [waiting, reportCount] = await Promise.all([
   waitingCount(db, ids),
-  openReportCount(db, { moderatedIds: moderated, everywhere }),
+  openReportCount(db, {
+    moderatedIds: moderated,
+    everywhere,
+    admin: viewer?.admin === true,
+  }),
 ]);
 const queue = tab === "waiting" ? await waitingPosts(db, 100, ids) : [];
 const reports =
   tab === "reports"
-    ? await openReports(db, { tree, moderatedIds: moderated, everywhere })
+    ? await openReports(db, {
+        tree,
+        moderatedIds: moderated,
+        everywhere,
+        admin: viewer?.admin === true,
+      })
     : [];
 const html = new Map<number, string>();
 for (const item of queue)

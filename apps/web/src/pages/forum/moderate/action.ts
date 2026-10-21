@@ -53,6 +53,17 @@ export const POST: APIRoute = async (context) => {
     });
     return noStoreRedirect(back, 303);
   }
+  const messageId = parseId(field(form, "message"));
+  if (messageId !== null) {
+    // Private messages are the admin's alone.
+    if (!viewer?.admin) return forbidden();
+    await resolveReports(db, {
+      target: { kind: "message", messageId },
+      decision,
+      by: user,
+    });
+    return noStoreRedirect(back, 303);
+  }
   const userId = parseUserId(field(form, "user"));
   if (!userId || !moderatesEverywhere(tree, viewer)) return forbidden();
   await resolveReports(db, {

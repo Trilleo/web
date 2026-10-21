@@ -183,6 +183,8 @@ export const NOTIFICATION_KINDS = {
   quote: "quoted you",
   reaction: "reacted to your post",
   accepted: "accepted your answer",
+  message: "sent you a message",
+  "poll-closed": "’s poll closed",
 } as const;
 
 export type NotificationKind = keyof typeof NOTIFICATION_KINDS;
@@ -194,6 +196,7 @@ export const EMAILED_KINDS: ReadonlySet<NotificationKind> = new Set([
   "mention",
   "quote",
   "accepted",
+  "message",
 ]);
 
 export const EMAIL_FREQUENCIES = {

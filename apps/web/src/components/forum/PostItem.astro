@@ -16,6 +16,8 @@ import {
 import type { ReactionSummary } from "../../lib/forum/reactions";
 import type { Reputation } from "../../lib/forum/reputation";
 import Reactions from "./Reactions.astro";
+import Attachments from "./Attachments.astro";
+import type { AttachmentView } from "../../lib/forum/attachments";
 import { counted, formatWhen } from "../../lib/forum/public";
 import type { PostView } from "../../lib/forum/store";
 import { formatPostDate } from "../../lib/listings";
@@ -52,6 +54,9 @@ interface Props {
   replyHref?: string | undefined;
   signature?: string | undefined;
   reputation?: Reputation | undefined;
+  attachments?: readonly AttachmentView[];
+  /** "Message" the author (signed in, someone else's post). */
+  messageHref?: string | undefined;
 }
 
 const {
@@ -73,6 +78,8 @@ const {
   replyHref,
   signature,
   reputation,
+  attachments = [],
+  messageHref,
 } = Astro.props;
 const { post, author, html } = view;
 const anchor = postAnchor(post);
@@ -129,6 +136,11 @@ const action = "group type-label cursor-pointer text-muted hover:text-ink";
             </span>
           </a>
           <span>Joined {formatPostDate(author.joinedAt)}</span>
+          {messageHref && (
+            <a href={messageHref} class="group text-ink">
+              <span class="link-wipe">Message</span>
+            </a>
+          )}
         </p>
       )}
       {reputation && reputation.badges.length > 0 && (
@@ -258,6 +270,11 @@ const action = "group type-label cursor-pointer text-muted hover:text-ink";
         <div class="comment-body forum-body">
           <Fragment set:html={html} />
         </div>
+        {attachments.length > 0 && (
+          <div class="mt-4">
+            <Attachments attachments={attachments} postId={post.id} />
+          </div>
+        )}
         {signature && (
           <p
             class="mt-4 border-t border-hair pt-2 text-sm text-muted"

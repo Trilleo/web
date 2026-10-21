@@ -28,6 +28,11 @@ import BanNotice from "../../../components/forum/BanNotice.astro";
 import Notices from "../../../components/forum/Notices.astro";
 import TopicBadges from "../../../components/forum/TopicBadges.astro";
 import { draftKey } from "../../../lib/forum/drafts";
+import Lightbox from "../../../components/forum/Lightbox.astro";
+import PollBox from "../../../components/forum/PollBox.astro";
+import { attachmentsFor } from "../../../lib/forum/attachments";
+import { pollFor } from "../../../lib/forum/polls";
+import { getStorage } from "../../../lib/storage/config";
 import { isWatching, signaturesOf } from "../../../lib/forum/notifications";
 import { reactionsFor, votesFor } from "../../../lib/forum/reactions";
 import { firstPostAfter, markRead } from "../../../lib/forum/reads";
@@ -108,6 +113,7 @@ const threaded = forum.layout === "threaded";
 const qa = forum.layout === "qa";
 let replyBody = "";
 let parentId: number | null = null;
+let pendingFiles: string[] = [];
 let replyError: string | undefined;
 let preview: string | null = null;
 
@@ -120,6 +126,9 @@ if (Astro.request.method === "POST") {
   const form = await Astro.request.formData();
   replyBody = field(form, "body");
   parentId = threaded ? parseId(field(form, "parent")) : null;
+  pendingFiles = form
+    .getAll("attachments")
+    .filter((value) => typeof value === "string");
   if (field(form, "intent") === "preview") {
     preview = await renderBody(db, replyBody);
   } else {
@@ -130,6 +139,7 @@ if (Astro.request.method === "POST") {
       author: user,
       body: replyBody,
       parentId,
+      attachments: pendingFiles,
     });
     if (result.ok) return noStoreRedirect(postPath(result.value), 303);
     replyError = postErrorMessage(result.error, replyBody.length);
@@ -178,6 +188,11 @@ const [reactions, myVotes, reputation, signatures, tags, prefixes, watching] =
       : Promise.resolve(false),
   ]);
 const topicTags = tags.get(topic.id) ?? [];
+const [poll, attachments] = await Promise.all([
+  pollFor(db, topic.id, user?.id ?? null, { withVoters: mod }),
+  attachmentsFor(db, getStorage(), postIds, { id: user?.id ?? null, mod }),
+]);
+const canAttach = can(viewer, "post.attach", place);
 const prefix =
   topic.prefixId === null ? null : (prefixes.get(topic.prefixId) ?? null);
 // The asker (while they may edit) and moderators can change the prefix and tags.
@@ -555,6 +570,16 @@ const firstPostId = topic.firstPostId ?? 0;
       </div>
     )}
 
+    {poll && (
+      <PollBox
+        view={poll}
+        canVote={can(viewer, "post.react", place, topic, { authorId: null })}
+        canManage={canSolve}
+        mod={mod}
+        back={here}
+      />
+    )}
+
     <div class="mt-8 md:mt-10" data-testid="posts">
       {listed.posts.map((view, index) => (
         <PostItem
@@ -590,6 +615,12 @@ const firstPostId = topic.firstPostId ?? 0;
               : undefined
           }
           signature={view.author ? signatures.get(view.author.id) : undefined}
+          attachments={attachments.get(view.post.id) ?? []}
+          messageHref={
+            user && view.author && view.author.id !== user.id
+              ? `/account/messages/new/?to=${view.author.username}`
+              : undefined
+          }
           reputation={view.author ? reputation.get(view.author.id) : undefined}
           mod={mod}
           back={here}
@@ -656,6 +687,8 @@ const firstPostId = topic.firstPostId ?? 0;
               }
               replyingTo={replyingTo}
               draftKey={draftKey.reply(topic.id)}
+              attach={canAttach ? { room: 5 - pendingFiles.length } : undefined}
+              pending={pendingFiles}
               id="reply-form"
               rows={8}
             />
@@ -681,4 +714,5 @@ const firstPostId = topic.firstPostId ?? 0;
       </div>
     </section>
   </section>
+  <Lightbox />
 </BaseLayout>

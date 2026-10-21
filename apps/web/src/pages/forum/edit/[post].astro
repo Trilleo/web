@@ -3,7 +3,15 @@
  * Editing a post (its author, or a moderator). The opening post's form has the
  * topic's title too. Saved posts are marked "Edited".
  */
-import { can, forumPath, postPath, topicPath } from "@trilleo/forum";
+import {
+  ATTACHMENT_LIMITS,
+  can,
+  forumPath,
+  postPath,
+  topicPath,
+} from "@trilleo/forum";
+import { attachmentsFor } from "../../../lib/forum/attachments";
+import { getStorage } from "../../../lib/storage/config";
 import Breadcrumb from "../../../components/Breadcrumb.astro";
 import PostForm from "../../../components/forum/PostForm.astro";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
@@ -51,11 +59,18 @@ let title = topic.title;
 let body = post.body;
 let errors: { title?: string; body?: string } = {};
 let preview: string | null = null;
+let newFiles: string[] = [];
 
 if (Astro.request.method === "POST") {
   const form = await Astro.request.formData();
   if (first) title = field(form, "title");
   body = field(form, "body");
+  newFiles = form
+    .getAll("attachments")
+    .filter((value) => typeof value === "string");
+  const removeFiles = form
+    .getAll("removeAttachment")
+    .filter((value) => typeof value === "string");
   if (field(form, "intent") === "preview") {
     preview = await renderBody(db, body);
   } else {
@@ -66,6 +81,8 @@ if (Astro.request.method === "POST") {
       post,
       editor: user,
       body,
+      attachments: newFiles,
+      removeAttachments: removeFiles,
       ...(first ? { title } : {}),
     });
     if (result.ok) return noStoreRedirect(postPath(post), 303);
@@ -76,6 +93,11 @@ if (Astro.request.method === "POST") {
     Astro.response.status = postErrorStatus(result.error);
   }
 }
+const current =
+  (await attachmentsFor(db, getStorage(), [post.id], { id: user.id, mod })).get(
+    post.id,
+  ) ?? [];
+const canAttach = mod || can(viewer, "post.attach", place);
 const crumbs = [
   { label: `(${FORUM_NUMBER}) Forum`, href: "/forum/" },
   { label: forum.name, href: forumPath(forum) },
@@ -120,6 +142,18 @@ const crumbs = [
           id="edit-form"
           rows={14}
           cancel={postPath(post)}
+          attached={current.map((file) => ({ id: file.id, name: file.name }))}
+          attach={
+            canAttach
+              ? {
+                  room:
+                    ATTACHMENT_LIMITS.perPost -
+                    current.length -
+                    newFiles.length,
+                }
+              : undefined
+          }
+          pending={newFiles}
         />
       </div>
     </div>

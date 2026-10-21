@@ -29,6 +29,8 @@ export const FORUM_PERMISSIONS = {
   "post.report": { label: "Report posts", group: "Writing" },
   "post.react": { label: "React to posts", group: "Writing" },
   "post.vote": { label: "Vote on answers (Q&A forums)", group: "Writing" },
+  "poll.create": { label: "Add polls to their topics", group: "Writing" },
+  "post.attach": { label: "Attach files to posts", group: "Writing" },
   moderate: {
     label:
       "Moderate: approve, hide, delete, pin, lock, move, merge, split, see edit history, ban",
@@ -72,6 +74,8 @@ const writing: PermissionSet = {
   "post.report": true,
   "post.react": true,
   "post.vote": true,
+  "poll.create": true,
+  "post.attach": true,
 };
 
 /**
@@ -295,6 +299,10 @@ export function can(
       );
     case "post.report":
       return member && topicVisible && allowed("post.report");
+    case "poll.create":
+      return writer && forum.kind === "forum" && allowed("poll.create");
+    case "post.attach":
+      return writer && forum.kind === "forum" && allowed("post.attach");
     case "post.react":
     case "post.vote":
       return (

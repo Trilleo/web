@@ -1,0 +1,128 @@
+---
+/**
+ * "Add a poll" on the new-topic form: a question, options one per line, single or
+ * multiple choice (with an optional most per person), how long it stays open, and
+ * whether totals show before voting. Left empty, there's no poll.
+ */
+import {
+  POLL_LENGTHS,
+  POLL_LIMITS,
+  type PollDraft,
+  type PollField,
+} from "@trilleo/forum";
+
+interface Props {
+  draft: PollDraft;
+  errors?: Partial<Record<PollField, string>>;
+}
+
+const { draft, errors = {} } = Astro.props;
+const open =
+  draft.question.trim() !== "" ||
+  draft.options.trim() !== "" ||
+  Object.keys(errors).length > 0;
+const input =
+  "w-full border border-ink bg-paper px-3 py-2.5 text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-invalid:border-accent";
+---
+
+<details class="border border-hair p-4" open={open} data-poll-fields>
+  <summary class="cursor-pointer font-medium">Add a poll (optional)</summary>
+  <div class="mt-4 flex flex-col gap-4">
+    <div class="flex flex-col gap-2">
+      <label for="poll-question" class="font-medium">
+        Question
+      </label>
+      <input
+        id="poll-question"
+        name="pollQuestion"
+        value={draft.question}
+        maxlength={POLL_LIMITS.question.max * 2}
+        aria-invalid={errors.question ? "true" : undefined}
+        aria-describedby={errors.question ? "poll-question-error" : undefined}
+        class={input}
+      />
+      {errors.question && (
+        <p id="poll-question-error" class="text-sm font-medium">
+          {errors.question}
+        </p>
+      )}
+    </div>
+    <div class="flex flex-col gap-2">
+      <label for="poll-options" class="font-medium">
+        Options, one per line
+      </label>
+      <textarea
+        id="poll-options"
+        name="pollOptions"
+        rows="4"
+        aria-invalid={errors.options ? "true" : undefined}
+        aria-describedby="poll-options-hint"
+        class={input}
+      >{draft.options}</textarea>
+      <p
+        id="poll-options-hint"
+        class:list={["text-sm", errors.options ? "font-medium" : "text-muted"]}
+      >
+        {errors.options ??
+          `${String(POLL_LIMITS.options.min)} to ${String(POLL_LIMITS.options.max)} options.`}
+      </p>
+    </div>
+    <div class="flex flex-wrap items-end gap-6">
+      <div class="flex items-center gap-3">
+        <input
+          id="poll-multiple"
+          type="checkbox"
+          name="pollMultiple"
+          checked={draft.multiple}
+          class="size-4 accent-accent"
+        />
+        <label for="poll-multiple">People can choose more than one</label>
+      </div>
+      <div class="flex flex-col gap-1">
+        <label for="poll-max" class="text-sm">
+          At most (optional)
+        </label>
+        <input
+          id="poll-max"
+          name="pollMax"
+          value={draft.maxChoices}
+          inputmode="numeric"
+          aria-invalid={errors.maxChoices ? "true" : undefined}
+          aria-describedby={errors.maxChoices ? "poll-max-error" : undefined}
+          class="h-10 w-24 border border-ink bg-paper px-2"
+        />
+      </div>
+      <div class="flex flex-col gap-1">
+        <label for="poll-length" class="text-sm">
+          Open for
+        </label>
+        <select
+          id="poll-length"
+          name="pollLength"
+          class="h-10 border border-ink bg-paper px-2"
+        >
+          {Object.entries(POLL_LENGTHS).map(([value, length]) => (
+            <option value={value} selected={draft.length === value}>
+              {length.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+    {errors.maxChoices && (
+      <p id="poll-max-error" class="text-sm font-medium">
+        {errors.maxChoices}
+      </p>
+    )}
+    <div class="flex items-center gap-3">
+      <input
+        id="poll-results"
+        type="checkbox"
+        name="pollResults"
+        checked={draft.resultsBeforeVote}
+        class="size-4 accent-accent"
+      />
+      <label for="poll-results">Show results before people vote</label>
+    </div>
+  </div>
+</details>

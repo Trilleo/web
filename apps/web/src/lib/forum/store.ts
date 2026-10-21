@@ -38,6 +38,7 @@ import {
   renderForumPost,
   slugify,
   type ForumViewer,
+  type PollInput,
 } from "@trilleo/forum";
 import {
   and,
@@ -60,7 +61,9 @@ import { alertAdmin } from "../mail/alerts";
 import { safely } from "../mail/notify";
 import { characterCount, displayName, profileHref } from "../profile/profile";
 import { forumViewer } from "./access";
+import { linkAttachments, unlinkAttachments } from "./attachments";
 import { deleteDraft, draftKey } from "./drafts";
+import { createPoll } from "./polls";
 import { notifyPublished, settingsOf, watch } from "./notifications";
 import { refreshStats } from "./reputation";
 import { prefixesById, setTopicTags, tagsOf, validPrefix } from "./tags";
@@ -770,6 +773,10 @@ export async function createTopic(
     /** Free tags (normalized here) and one of the forum's prefixes. */
     tags?: readonly string[];
     prefixId?: number | null;
+    /** Uploads (attachments.ts) to attach, if they may. */
+    attachments?: readonly string[];
+    /** A poll to add (validated: @trilleo/forum's validatePoll), if they may. */
+    poll?: PollInput | null;
     now?: Date;
   },
 ): Promise<PostResult<{ topic: ForumTopic; post: ForumPost }>> {
@@ -826,6 +833,14 @@ export async function createTopic(
       .returning();
     if (!post) throw new Error("Saving the post returned nothing");
     await setTopicTags(tx, topic.id, input.tags ?? []);
+    if (input.attachments && can(viewer, "post.attach", place))
+      await linkAttachments(tx, {
+        userId: input.author.id,
+        postId: post.id,
+        fileIds: input.attachments,
+      });
+    if (input.poll && can(viewer, "poll.create", place))
+      await createPoll(tx, topic.id, input.poll, now);
     await refreshTopic(tx, topic.id);
     return { topic: { ...topic, firstPostId: post.id }, post };
   });
@@ -851,6 +866,8 @@ export async function createReply(
     body: string;
     /** Threaded forums: the post this answers (another forum's layout ignores it). */
     parentId?: number | null;
+    /** Uploads (attachments.ts) to attach, if they may. */
+    attachments?: readonly string[];
     now?: Date;
   },
 ): Promise<PostResult<ForumPost>> {
@@ -902,6 +919,12 @@ export async function createReply(
       })
       .returning();
     if (!row) throw new Error("Saving the reply returned nothing");
+    if (input.attachments && can(viewer, "post.attach", place))
+      await linkAttachments(tx, {
+        userId: input.author.id,
+        postId: row.id,
+        fileIds: input.attachments,
+      });
     await tx
       .update(forumTopics)
       .set({ updatedAt: now })
@@ -935,6 +958,9 @@ export async function editPost(
     editor: User;
     body: string;
     title?: string;
+    /** New uploads to attach, and attached files to take off. */
+    attachments?: readonly string[];
+    removeAttachments?: readonly string[];
     now?: Date;
   },
 ): Promise<PostResult<ForumPost>> {
@@ -956,6 +982,13 @@ export async function editPost(
   if (problem) return { ok: false, error: problem };
   const html = await renderBody(db, body);
   const titleChanged = title !== null && title !== input.topic.title;
+  await unlinkAttachments(db, input.post.id, input.removeAttachments ?? []);
+  if (input.attachments && (mod || can(viewer, "post.attach", place)))
+    await linkAttachments(db, {
+      userId: input.editor.id,
+      postId: input.post.id,
+      fileIds: input.attachments,
+    });
   if (body === input.post.body && !titleChanged)
     return { ok: true, value: input.post };
   const post = await db.transaction(async (tx) => {

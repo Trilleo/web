@@ -7,6 +7,7 @@
  * about something they can't see.
  */
 import {
+  forumConversations,
   forumNotifications,
   forumPosts,
   forumTopics,
@@ -15,6 +16,8 @@ import {
   forums,
   users,
   type Database,
+  type ForumConversation,
+  type ForumMessage,
   type ForumPost,
   type ForumTopic,
   type ForumUserSettings,
@@ -36,7 +39,17 @@ import {
   type EmailFrequency,
   type NotificationKind,
 } from "@trilleo/forum";
-import { and, count, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  lt,
+  or,
+  sql,
+} from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { absoluteUrl } from "../mail/compose";
 import { notifyUser, safely } from "../mail/notify";
@@ -79,7 +92,7 @@ export async function saveSettings(
   input: Partial<
     Pick<
       ForumUserSettings,
-      "email" | "watchReplies" | "signature" | "readAllAt"
+      "email" | "watchReplies" | "signature" | "readAllAt" | "messages"
     >
   >,
   now = new Date(),
@@ -252,6 +265,10 @@ function subjectFor(
       return `Your answer in “${topic.title}” was accepted`;
     case "reaction":
       return `${actor} reacted to your post`;
+    case "message":
+      return `${actor} sent you a message`;
+    case "poll-closed":
+      return `Your poll in “${topic.title}” closed`;
   }
 }
 
@@ -271,6 +288,8 @@ async function deliver(
   },
 ): Promise<number> {
   const order: NotificationKind[] = [
+    "message",
+    "poll-closed",
     "mention",
     "quote",
     "accepted",
@@ -448,6 +467,90 @@ export async function notifyReaction(
   });
 }
 
+/**
+ * A new private message: its conversation's members (the caller left out the
+ * sender, those who muted it or blocked them) get a notification, and an email at
+ * once if that's their setting. Messages are never quoted in emails.
+ */
+export async function notifyMessage(
+  db: Database,
+  input: {
+    conversation: ForumConversation;
+    message: ForumMessage;
+    sender: User;
+    recipientIds: readonly string[];
+    now: Date;
+  },
+): Promise<void> {
+  const people = await usersById(db, input.recipientIds);
+  for (const person of people) {
+    if (person.blockedAt) continue;
+    const [row] = await db
+      .insert(forumNotifications)
+      .values({
+        userId: person.id,
+        kind: "message",
+        actorId: input.sender.id,
+        conversationId: input.conversation.id,
+        createdAt: input.now,
+      })
+      .returning({ id: forumNotifications.id });
+    if (!row || (await settingsOf(db, person.id)).email !== "instant") continue;
+    const actorName = `@${input.sender.username}`;
+    await safely("message email", () =>
+      notifyUser(
+        db,
+        person,
+        "forum-notification",
+        {
+          subject: `${actorName} sent you a message`,
+          body: {
+            label: "Messages",
+            title: input.conversation.subject,
+            preheader: `${actorName} sent you a message`,
+            blocks: [
+              {
+                type: "text",
+                text: `${actorName} wrote in “${input.conversation.subject}”. Messages stay on the site; read it there.`,
+              },
+              {
+                type: "button",
+                label: "Read it",
+                href: absoluteUrl(
+                  `/account/messages/${String(input.conversation.id)}/`,
+                ),
+              },
+            ],
+          },
+          ref: `forum-message:${String(input.message.id)}`,
+        },
+        input.now,
+      ),
+    );
+    await db
+      .update(forumNotifications)
+      .set({ emailedAt: input.now })
+      .where(eq(forumNotifications.id, row.id));
+  }
+}
+
+/** Tells a poll's asker it closed. */
+export async function notifyPollClosed(
+  db: Database,
+  topic: ForumTopic,
+  post: ForumPost,
+  now = new Date(),
+): Promise<void> {
+  if (!topic.authorId) return;
+  await deliver(db, {
+    recipients: [{ userId: topic.authorId, kind: "poll-closed" }],
+    actor: undefined,
+    topic,
+    post,
+    now,
+  });
+}
+
 export async function notifyAccepted(
   db: Database,
   topic: ForumTopic,
@@ -498,27 +601,34 @@ export async function listNotifications(
         title: forumTopics.title,
       },
       forumSlug: forums.slug,
+      subject: forumConversations.subject,
     })
     .from(forumNotifications)
     .leftJoin(actors, eq(actors.id, forumNotifications.actorId))
     .leftJoin(forumTopics, eq(forumTopics.id, forumNotifications.topicId))
     .leftJoin(forums, eq(forums.id, forumTopics.forumId))
+    .leftJoin(
+      forumConversations,
+      eq(forumConversations.id, forumNotifications.conversationId),
+    )
     .where(eq(forumNotifications.userId, userId))
     .orderBy(desc(forumNotifications.createdAt), desc(forumNotifications.id))
     .limit(limit);
-  return rows.map(({ notification, actor, topic, forumSlug }) => ({
+  return rows.map(({ notification, actor, topic, forumSlug, subject }) => ({
     id: notification.id,
     kind: Object.hasOwn(NOTIFICATION_KINDS, notification.kind)
       ? (notification.kind as NotificationKind)
       : "reply",
     actor,
-    topicTitle: topic?.title ?? null,
+    topicTitle: topic?.title ?? subject ?? null,
     href:
-      notification.postId !== null
-        ? postPath({ id: notification.postId })
-        : topic && forumSlug
-          ? topicPath({ slug: forumSlug }, topic)
-          : "/forum/",
+      notification.conversationId !== null
+        ? `/account/messages/${String(notification.conversationId)}/`
+        : notification.postId !== null
+          ? postPath({ id: notification.postId })
+          : topic && forumSlug
+            ? topicPath({ slug: forumSlug }, topic)
+            : "/forum/",
     detail:
       REACTIONS.find((reaction) => reaction.key === notification.detail)
         ?.emoji ?? "",
@@ -588,10 +698,15 @@ export async function sendForumDigests(
         id: forumNotifications.id,
         kind: forumNotifications.kind,
         postId: forumNotifications.postId,
-        title: forumTopics.title,
+        conversationId: forumNotifications.conversationId,
+        title: sql<string>`coalesce(${forumTopics.title}, ${forumConversations.subject}, '')`,
       })
       .from(forumNotifications)
-      .innerJoin(forumTopics, eq(forumTopics.id, forumNotifications.topicId))
+      .leftJoin(forumTopics, eq(forumTopics.id, forumNotifications.topicId))
+      .leftJoin(
+        forumConversations,
+        eq(forumConversations.id, forumNotifications.conversationId),
+      )
       .where(
         and(
           eq(forumNotifications.userId, settings.userId),
@@ -629,9 +744,15 @@ export async function sendForumDigests(
               type: "list",
               items: pending.map((row) => ({
                 text: `${row.title}: ${NOTIFICATION_KINDS[row.kind as NotificationKind]}`,
-                ...(row.postId !== null
-                  ? { href: absoluteUrl(postPath({ id: row.postId })) }
-                  : {}),
+                ...(row.conversationId !== null
+                  ? {
+                      href: absoluteUrl(
+                        `/account/messages/${String(row.conversationId)}/`,
+                      ),
+                    }
+                  : row.postId !== null
+                    ? { href: absoluteUrl(postPath({ id: row.postId })) }
+                    : {}),
               })),
             },
             {

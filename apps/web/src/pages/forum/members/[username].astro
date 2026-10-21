@@ -11,6 +11,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { normalizeUsername } from "../../../lib/auth/usernames";
 import { getDb } from "../../../lib/db";
 import { FORUM_NUMBER, counted, formatWhen } from "../../../lib/forum/public";
+import { hasBlocked } from "../../../lib/forum/conversations";
 import { reputationOf, statsOf } from "../../../lib/forum/reputation";
 import { forumViewer, loadTree, recentPostsBy } from "../../../lib/forum/store";
 import { formatPostDate } from "../../../lib/listings";
@@ -46,6 +47,8 @@ const [stats, reputation, posts] = await Promise.all([
   }),
 ]);
 const rep = reputation.get(person.id);
+const blockedByViewer =
+  viewerUser && !own ? await hasBlocked(db, viewerUser.id, person.id) : false;
 const earned = new Set(rep?.badges ?? []);
 const name = displayName(person);
 const now = new Date();
@@ -88,6 +91,30 @@ const facts = [
             <a href={profileHref(person.username)} class="group text-ink">
               <span class="link-wipe">Profile</span>
             </a>
+          )}
+          {viewerUser && !own && (
+            <a
+              href={`/account/messages/new/?to=${person.username}`}
+              class="group text-ink"
+            >
+              <span class="link-wipe">Message</span>
+            </a>
+          )}
+          {viewerUser && !own && (
+            <form method="post" action="/forum/engage" class="inline">
+              <input
+                type="hidden"
+                name="do"
+                value={blockedByViewer ? "unblock" : "block"}
+              />
+              <input type="hidden" name="user" value={person.id} />
+              <input type="hidden" name="back" value={Astro.url.pathname} />
+              <button type="submit" class="group cursor-pointer text-ink">
+                <span class="link-wipe">
+                  {blockedByViewer ? "Unblock" : "Block"}
+                </span>
+              </button>
+            </form>
           )}
         </p>
       </div>

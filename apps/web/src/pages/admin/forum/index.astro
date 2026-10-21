@@ -44,7 +44,11 @@ const tree = await loadTree(db);
 const everyForum = new Set(tree.flat().map((node) => node.forum.id));
 const queue =
   (await waitingCount(db)) +
-  (await openReportCount(db, { moderatedIds: everyForum, everywhere: true }));
+  (await openReportCount(db, {
+    moderatedIds: everyForum,
+    everywhere: true,
+    admin: true,
+  }));
 const bans = tab === "bans" ? await activeBans(db) : [];
 const page = pageParam(Astro.url);
 const log = tab === "log" ? await readLog(db, page) : { rows: [], pages: 1 };

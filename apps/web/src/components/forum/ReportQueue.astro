@@ -29,30 +29,43 @@ const reason = (value: string) =>
   <ol class="border-b border-ink" data-testid="report-queue">
     {groups.map((group) => {
       const decisions =
-        group.kind === "post"
+        group.kind === "message"
           ? ([
-              { value: "hide", label: "Hide the post", style: primaryButton },
               {
-                value: "delete",
-                label: "Delete the post",
-                style: secondaryButton,
-              },
-              { value: "dismiss", label: "Dismiss", style: secondaryButton },
-            ] as const)
-          : ([
-              {
-                value: "remove-avatar",
-                label: "Remove the picture",
+                value: "delete-message",
+                label: "Delete the message",
                 style: primaryButton,
               },
               { value: "dismiss", label: "Dismiss", style: secondaryButton },
-            ] as const);
+            ] as const)
+          : group.kind === "post"
+            ? ([
+                { value: "hide", label: "Hide the post", style: primaryButton },
+                {
+                  value: "delete",
+                  label: "Delete the post",
+                  style: secondaryButton,
+                },
+                { value: "dismiss", label: "Dismiss", style: secondaryButton },
+              ] as const)
+            : ([
+                {
+                  value: "remove-avatar",
+                  label: "Remove the picture",
+                  style: primaryButton,
+                },
+                { value: "dismiss", label: "Dismiss", style: secondaryButton },
+              ] as const);
       return (
         <li class="flex flex-col gap-3 border-t border-ink py-4">
           <p class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span class="type-label bg-accent px-1.5 text-on-accent">
-              {group.kind === "post" ? "Post" : "Picture"} ·{" "}
-              {group.reports.length}{" "}
+              {group.kind === "post"
+                ? "Post"
+                : group.kind === "message"
+                  ? "Private message"
+                  : "Picture"}{" "}
+              · {group.reports.length}{" "}
               {group.reports.length === 1 ? "report" : "reports"}
             </span>
             {group.kind === "post" && group.post && group.topic ? (
@@ -78,7 +91,34 @@ const reason = (value: string) =>
               </a>
             </p>
           )}
-          {group.kind === "post" && group.post ? (
+          {group.kind === "message" ? (
+            group.message ? (
+              <ol
+                class="flex max-w-prose flex-col gap-3 border-l-2 border-hair pl-4"
+                aria-label="The message and the ones before it"
+              >
+                {group.message.thread.map((item) => (
+                  <li
+                    class:list={[
+                      item.id === group.message?.message.id &&
+                        "border-l-2 border-accent pl-3",
+                    ]}
+                  >
+                    <p class="type-label text-muted">
+                      {item.author ? `@${item.author}` : "Deleted account"} ·{" "}
+                      {formatWhen(item.createdAt, now)}
+                      {item.id === group.message?.message.id && " · reported"}
+                    </p>
+                    <div class="comment-body forum-body">
+                      <Fragment set:html={item.html} />
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p class="text-muted">The message has gone.</p>
+            )
+          ) : group.kind === "post" && group.post ? (
             <div class="comment-body forum-body max-w-prose border-l-2 border-hair pl-4">
               <Fragment set:html={html.get(group.post.id) ?? ""} />
             </div>
@@ -111,7 +151,13 @@ const reason = (value: string) =>
           <div class="flex flex-wrap gap-2">
             {decisions.map((decision) => (
               <form method="post" action="/forum/moderate/action">
-                {group.kind === "post" && group.post ? (
+                {group.kind === "message" && group.message ? (
+                  <input
+                    type="hidden"
+                    name="message"
+                    value={String(group.message.message.id)}
+                  />
+                ) : group.kind === "post" && group.post ? (
                   <input
                     type="hidden"
                     name="post"

@@ -1891,10 +1891,15 @@ export const forumReports = pgTable(
   "forum_reports",
   {
     id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-    kind: text("kind", { enum: ["post", "avatar"] }).notNull(),
+    kind: text("kind", { enum: ["post", "avatar", "message"] }).notNull(),
     postId: integer("post_id").references(() => forumPosts.id, {
       onDelete: "cascade",
     }),
+    /** For a reported private message (kind "message"). */
+    messageId: integer("message_id").references(
+      (): AnyPgColumn => forumMessages.id,
+      { onDelete: "cascade" },
+    ),
     /** Whose post or picture it is. */
     userId: uuid("user_id").references(() => users.id, {
       onDelete: "cascade",
@@ -2065,6 +2070,10 @@ export const forumNotifications = pgTable(
     postId: integer("post_id").references(() => forumPosts.id, {
       onDelete: "cascade",
     }),
+    conversationId: integer("conversation_id").references(
+      (): AnyPgColumn => forumConversations.id,
+      { onDelete: "cascade" },
+    ),
     /** A reaction's key, for "reacted 👍". */
     detail: text("detail").notNull().default(""),
     createdAt: createdAt(),
@@ -2140,6 +2149,8 @@ export const forumUserSettings = pgTable("forum_user_settings", {
   email: text("email").notNull().default("instant"),
   /** Watch topics they reply to. */
   watchReplies: boolean("watch_replies").notNull().default(true),
+  /** Who may start a conversation with them: everyone, contacts or nobody. */
+  messages: text("messages").notNull().default("everyone"),
   signature: text("signature").notNull().default(""),
   /** "Mark all read": topics with nothing newer count as read. */
   readAllAt: timestamp("read_all_at", { withTimezone: true }),
@@ -2183,6 +2194,161 @@ export const forumRanks = pgTable("forum_ranks", {
   name: text("name").notNull(),
   minPoints: integer("min_points").notNull(),
 });
+
+/** A topic's poll: one per topic. */
+export const forumPolls = pgTable("forum_polls", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  topicId: integer("topic_id")
+    .notNull()
+    .unique()
+    .references(() => forumTopics.id, { onDelete: "cascade" }),
+  question: text("question").notNull(),
+  multiple: boolean("multiple").notNull().default(false),
+  /** For multiple choice: at most this many per person (null: any). */
+  maxChoices: integer("max_choices"),
+  /** Shows totals before people vote (otherwise only after, or once closed). */
+  resultsBeforeVote: boolean("results_before_vote").notNull().default(false),
+  closesAt: timestamp("closes_at", { withTimezone: true }),
+  /** Closed early by its asker or a moderator. */
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+  /** Its asker was told it closed. */
+  closeNotifiedAt: timestamp("close_notified_at", { withTimezone: true }),
+  createdAt: createdAt(),
+});
+
+export const forumPollOptions = pgTable(
+  "forum_poll_options",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    pollId: integer("poll_id")
+      .notNull()
+      .references(() => forumPolls.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    sort: integer("sort").notNull().default(0),
+  },
+  (table) => [index("forum_poll_options_poll_idx").on(table.pollId)],
+);
+
+/** A vote for one option (several rows for a multiple-choice vote). */
+export const forumPollVotes = pgTable(
+  "forum_poll_votes",
+  {
+    pollId: integer("poll_id")
+      .notNull()
+      .references(() => forumPolls.id, { onDelete: "cascade" }),
+    optionId: integer("option_id")
+      .notNull()
+      .references(() => forumPollOptions.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.optionId, table.userId] }),
+    index("forum_poll_votes_poll_idx").on(table.pollId, table.userId),
+  ],
+);
+
+/**
+ * A file attached to a post (storage purpose "forum"). Added as the upload starts,
+ * with no post yet; posting links it (`postId`). Unposted ones go with their
+ * upload's clean-up.
+ */
+export const forumAttachments = pgTable(
+  "forum_attachments",
+  {
+    fileId: text("file_id")
+      .primaryKey()
+      .references(() => files.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    postId: integer("post_id").references(() => forumPosts.id, {
+      onDelete: "cascade",
+    }),
+    sort: integer("sort").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (table) => [index("forum_attachments_post_idx").on(table.postId)],
+);
+
+/** A private conversation between 2–10 people. */
+export const forumConversations = pgTable("forum_conversations", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  subject: text("subject").notNull(),
+  startedById: uuid("started_by_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: createdAt(),
+  lastMessageAt: timestamp("last_message_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const forumConversationMembers = pgTable(
+  "forum_conversation_members",
+  {
+    conversationId: integer("conversation_id")
+      .notNull()
+      .references(() => forumConversations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    joinedAt: timestamp("joined_at", { withTimezone: true }).notNull(),
+    lastReadAt: timestamp("last_read_at", { withTimezone: true }),
+    /** Left: they no longer see new messages or get told about them. */
+    leftAt: timestamp("left_at", { withTimezone: true }),
+    muted: boolean("muted").notNull().default(false),
+  },
+  (table) => [
+    primaryKey({ columns: [table.conversationId, table.userId] }),
+    index("forum_conversation_members_user_idx").on(table.userId),
+  ],
+);
+
+/** A message. Only the conversation's members read it (and the admin, if reported). */
+export const forumMessages = pgTable(
+  "forum_messages",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    conversationId: integer("conversation_id")
+      .notNull()
+      .references(() => forumConversations.id, { onDelete: "cascade" }),
+    /** Goes with the account. */
+    authorId: uuid("author_id").references(() => users.id, {
+      onDelete: "cascade",
+    }),
+    body: text("body").notNull(),
+    html: text("html").notNull(),
+    renderVersion: integer("render_version").notNull().default(0),
+    createdAt: createdAt(),
+    /** Removed after a report. */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("forum_messages_conversation_idx").on(
+      table.conversationId,
+      table.createdAt,
+    ),
+    index("forum_messages_author_idx").on(table.authorId, table.createdAt),
+  ],
+);
+
+/** Someone blocking someone else: no messages from them, and theirs are hidden. */
+export const forumBlocks = pgTable(
+  "forum_blocks",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    blockedId: uuid("blocked_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.blockedId] })],
+);
 
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
@@ -2256,3 +2422,10 @@ export type ForumPrefix = typeof forumPrefixes.$inferSelect;
 export type ForumUserSettings = typeof forumUserSettings.$inferSelect;
 export type ForumUserStats = typeof forumUserStats.$inferSelect;
 export type ForumRank = typeof forumRanks.$inferSelect;
+export type ForumPoll = typeof forumPolls.$inferSelect;
+export type ForumPollOption = typeof forumPollOptions.$inferSelect;
+export type ForumAttachment = typeof forumAttachments.$inferSelect;
+export type ForumConversation = typeof forumConversations.$inferSelect;
+export type ForumConversationMember =
+  typeof forumConversationMembers.$inferSelect;
+export type ForumMessage = typeof forumMessages.$inferSelect;

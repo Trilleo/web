@@ -1,0 +1,76 @@
+---
+/**
+ * A post's attachments: images in a grid (each opens full size in the lightbox,
+ * lib/forum/lightbox.ts; without JavaScript it's a link), other files as a list.
+ * Files still being checked or waiting for review are shown, marked, to their
+ * uploader and moderators only (attachments.ts decides who gets them).
+ */
+import type { AttachmentView } from "../../lib/forum/attachments";
+import { formatBytes } from "@trilleo/tool-kit";
+
+interface Props {
+  attachments: readonly AttachmentView[];
+  /** Makes the lightbox group per post. */
+  postId: number;
+}
+
+const { attachments, postId } = Astro.props;
+const images = attachments.filter((item) => item.image && item.url);
+const others = attachments.filter((item) => !(item.image && item.url));
+---
+
+{attachments.length > 0 && (
+  <div class="flex flex-col gap-3" data-attachments>
+    {images.length > 0 && (
+      <ul class="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="Pictures">
+        {images.map((item) => (
+          <li>
+            <a
+              href={item.url ?? item.pageUrl}
+              class="block border border-hair hover:border-ink focus-visible:outline-2 focus-visible:outline-accent"
+              data-lightbox={String(postId)}
+              data-caption={item.name}
+            >
+              <img
+                src={item.thumbnailUrl ?? item.url ?? ""}
+                alt={item.name}
+                loading="lazy"
+                decoding="async"
+                class="aspect-[4/3] w-full bg-chip object-cover"
+              />
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+    {others.length > 0 && (
+      <ul
+        class="flex flex-col border-t border-hair"
+        aria-label="Attached files"
+      >
+        {others.map((item) => (
+          <li class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-hair py-2 text-sm">
+            {item.url ? (
+              <a
+                href={item.url}
+                download={item.name}
+                class="group font-medium break-all"
+              >
+                <span class="link-wipe">{item.name}</span>
+              </a>
+            ) : (
+              <a href={item.pageUrl} class="group font-medium break-all">
+                <span class="link-wipe">{item.name}</span>
+              </a>
+            )}
+            <span class="type-label text-muted">
+              {formatBytes(item.size)}
+              {item.waiting &&
+                " · waiting for review (only you and moderators see it)"}
+            </span>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+)}

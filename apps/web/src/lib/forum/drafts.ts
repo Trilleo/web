@@ -1,13 +1,14 @@
 /**
  * Drafts: what someone is writing, saved as they type (the post form's script, via
- * /api/forum/drafts), one per place: "topic:<forum id>" or "reply:<topic id>".
+ * /api/forum/drafts), one per place: "topic:<forum id>", "reply:<topic id>" or
+ * "message:<conversation id>".
  * Posting there deletes it.
  */
 import { forumDrafts, type Database } from "@trilleo/db";
 import { FORUM_LIMITS } from "@trilleo/forum";
 import { and, eq } from "drizzle-orm";
 
-const KEY = /^(?:topic|reply):[1-9]\d{0,9}$/;
+const KEY = /^(?:topic|reply|message):[1-9]\d{0,9}$/;
 
 export function isDraftKey(value: string): boolean {
   return KEY.test(value);
@@ -16,6 +17,7 @@ export function isDraftKey(value: string): boolean {
 export const draftKey = {
   topic: (forumId: number) => `topic:${String(forumId)}`,
   reply: (topicId: number) => `reply:${String(topicId)}`,
+  message: (conversationId: number) => `message:${String(conversationId)}`,
 };
 
 export async function getDraft(db: Database, userId: string, key: string) {

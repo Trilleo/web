@@ -9,6 +9,7 @@ import { isAdmin } from "../../lib/auth/guard";
 import { getDb } from "../../lib/db";
 import { isForumModerator } from "../../lib/forum/access";
 import { unreadNotifications } from "../../lib/forum/notifications";
+import { unreadConversations } from "../../lib/forum/conversations";
 import { displayName, profileHref } from "../../lib/profile/profile";
 import Avatar from "./Avatar.astro";
 
@@ -24,6 +25,9 @@ const { user } = Astro.locals;
 const name = user ? displayName(user) : "";
 const moderator = user ? await isForumModerator(await getDb(), user) : false;
 const unread = user ? await unreadNotifications(await getDb(), user.id) : 0;
+const unreadMessages = user
+  ? await unreadConversations(await getDb(), user.id)
+  : 0;
 const links = user
   ? [
       { label: "Your profile", href: profileHref(user.username) },
@@ -69,6 +73,8 @@ const item =
       <span class="sr-only">
         Account menu for {name}
         {unread > 0 && `, ${String(unread)} unread notifications`}
+        {unreadMessages > 0 &&
+          `, ${String(unreadMessages)} conversations with new messages`}
       </span>
     </summary>
     <div class="account-panel absolute top-full right-0 z-50 mt-2 w-64 animate-rise border border-ink bg-paper">

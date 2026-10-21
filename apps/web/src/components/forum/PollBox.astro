@@ -1,0 +1,158 @@
+---
+/**
+ * A topic's poll: the question, then either the choices (a POST form to
+ * /forum/engage) or the totals as bars, or both once someone voted (they can change
+ * their vote while it's open). Moderators see who voted; the asker and moderators
+ * can close or reopen it.
+ */
+import type { PollView } from "../../lib/forum/polls";
+import { formatPostDate } from "../../lib/listings";
+
+interface Props {
+  view: PollView;
+  canVote: boolean;
+  /** The asker or a moderator. */
+  canManage: boolean;
+  mod: boolean;
+  back: string;
+}
+
+const { view, canVote, canManage, mod, back } = Astro.props;
+const { poll } = view;
+const total = view.options.reduce((sum, option) => sum + option.votes, 0);
+const percent = (votes: number) =>
+  total === 0 ? 0 : Math.round((votes / total) * 100);
+const voting = canVote && view.open;
+const choose = poll.multiple ? "checkbox" : "radio";
+const rule = poll.multiple
+  ? poll.maxChoices
+    ? `Choose up to ${String(poll.maxChoices)}.`
+    : "Choose any."
+  : "Choose one.";
+---
+
+<section
+  aria-labelledby="poll-title"
+  class="mt-8 border border-ink p-4 md:p-5"
+  data-poll
+>
+  <p class="type-label text-muted">
+    Poll ·{" "}
+    {view.open
+      ? poll.closesAt
+        ? `closes ${formatPostDate(poll.closesAt)}`
+        : "open"
+      : "closed"}
+    {" · "}
+    {view.voters} {view.voters === 1 ? "voter" : "voters"}
+  </p>
+  <h2 id="poll-title" class="type-card mt-2 break-words">
+    {poll.question}
+  </h2>
+
+  {voting && (
+    <form method="post" action="/forum/engage" class="mt-4 flex flex-col gap-3">
+      <input type="hidden" name="do" value="poll-vote" />
+      <input type="hidden" name="topic" value={String(poll.topicId)} />
+      <input type="hidden" name="back" value={back} />
+      <fieldset class="flex flex-col gap-2">
+        <legend class="mb-1 text-sm text-muted">{rule}</legend>
+        {view.options.map((option) => (
+          <div class="flex items-center gap-3">
+            <input
+              id={`poll-option-${String(option.id)}`}
+              type={choose}
+              name="option"
+              value={String(option.id)}
+              checked={view.mine.includes(option.id)}
+              class="size-4 accent-accent"
+            />
+            <label for={`poll-option-${String(option.id)}`}>
+              {option.label}
+            </label>
+          </div>
+        ))}
+      </fieldset>
+      <p class="flex flex-wrap gap-3">
+        <button
+          type="submit"
+          class="type-label border border-ink bg-ink px-3 py-2 text-paper hover:bg-accent hover:text-on-accent"
+        >
+          {view.mine.length > 0 ? "Change vote" : "Vote"}
+        </button>
+      </p>
+    </form>
+  )}
+
+  {view.showResults ? (
+    <ul class="mt-4 flex flex-col gap-3" aria-label="Results" data-poll-results>
+      {view.options.map((option) => (
+        <li class="flex flex-col gap-1">
+          <p class="flex justify-between gap-3 text-sm">
+            <span>
+              {option.label}
+              {view.mine.includes(option.id) && (
+                <span class="type-label ml-2 text-muted">your vote</span>
+              )}
+            </span>
+            <span class="font-mono">
+              {percent(option.votes)}% · {option.votes}
+            </span>
+          </p>
+          <span class="block h-2 bg-chip" aria-hidden="true">
+            <span
+              class="block h-2 bg-accent"
+              style={`width: ${String(percent(option.votes))}%`}
+            />
+          </span>
+          {mod && option.voters.length > 0 && (
+            <p class="text-xs text-muted">
+              {option.voters.map((name) => `@${name}`).join(", ")}
+            </p>
+          )}
+        </li>
+      ))}
+    </ul>
+  ) : (
+    <p class="mt-4 text-sm text-muted">
+      Results show once you’ve voted, or when the poll closes.
+    </p>
+  )}
+
+  {(canManage || (view.open && view.mine.length > 0 && canVote)) && (
+    <div class="mt-4 flex flex-wrap gap-x-5 gap-y-2">
+      {view.open && view.mine.length > 0 && canVote && (
+        <form method="post" action="/forum/engage">
+          <input type="hidden" name="do" value="poll-unvote" />
+          <input type="hidden" name="topic" value={String(poll.topicId)} />
+          <input type="hidden" name="back" value={back} />
+          <button
+            type="submit"
+            class="group type-label cursor-pointer text-muted hover:text-ink"
+          >
+            <span class="link-wipe">Take back my vote</span>
+          </button>
+        </form>
+      )}
+      {canManage && (
+        <form method="post" action="/forum/engage">
+          <input
+            type="hidden"
+            name="do"
+            value={view.open ? "poll-close" : "poll-reopen"}
+          />
+          <input type="hidden" name="topic" value={String(poll.topicId)} />
+          <input type="hidden" name="back" value={back} />
+          <button
+            type="submit"
+            class="group type-label cursor-pointer text-muted hover:text-ink"
+          >
+            <span class="link-wipe">
+              {view.open ? "Close the poll" : "Reopen the poll"}
+            </span>
+          </button>
+        </form>
+      )}
+    </div>
+  )}
+</section>

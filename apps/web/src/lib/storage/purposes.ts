@@ -15,6 +15,8 @@ import {
   RELEASE_EXTENSIONS,
 } from "../minecraft/catalog";
 
+import { ATTACHMENT_EXTENSIONS, ATTACHMENT_LIMITS } from "@trilleo/forum";
+
 /** Wiki pictures are icons and screenshots: small. */
 export const WIKI_MEDIA_MAX_BYTES = 2 * 1024 * 1024;
 
@@ -71,6 +73,19 @@ export const STORAGE_PURPOSES: readonly StoragePurpose[] = [
     uploaders: "users",
     extensions: GALLERY_EXTENSIONS,
     maxFileBytes: WIKI_MEDIA_MAX_BYTES,
+    visibilities: ["public"],
+    defaultVisibility: "public",
+    review: "untrusted",
+  },
+  {
+    // Files attached to forum posts (lib/forum/attachments.ts). Reviewed until the
+    // uploader is trusted, except that the forum's own trust (users.trusted_at, an
+    // approved post or comment) waives the review for these (waivesReview).
+    slug: "forum",
+    label: "Forum attachments",
+    uploaders: "users",
+    extensions: ATTACHMENT_EXTENSIONS,
+    maxFileBytes: ATTACHMENT_LIMITS.bytes,
     visibilities: ["public"],
     defaultVisibility: "public",
     review: "untrusted",

@@ -44,6 +44,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-21",
+        note: "Private messages and forum attachments are yours too; messages are shown only to their conversation, and to the admin when reported.",
+      },
+      {
+        date: "2026-10-21",
         note: "Added the forum and profile pictures: forum posts stay, without your name, after you delete your account.",
       },
       {
@@ -73,6 +77,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "What Trilleo Network keeps about you, why, for how long, and how to see or delete it.",
     group: "legal",
     changes: [
+      {
+        date: "2026-10-21",
+        note: "Private messages (and when the admin sees one), polls and attached files.",
+      },
       {
         date: "2026-10-21",
         note: "Forum activity: reactions, votes, watching, reading, drafts, notifications and their emails, points and badges.",
@@ -166,6 +174,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-21",
+        note: "Polls, attachments and private messages, with messaging limits.",
+      },
+      {
+        date: "2026-10-21",
         note: "Forum moderation: edit windows, moderators, bans, and reporting posts and profile pictures.",
       },
       {
@@ -210,6 +222,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-21",
+        note: "Polls, attachments and private messages.",
+      },
+      {
+        date: "2026-10-21",
         note: "Forum notifications, points and badges, layouts and drafts.",
       },
       {
@@ -252,6 +268,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "The standard Trilleo Network aims for, what's known not to meet it yet, and how to report a barrier.",
     group: "help",
     changes: [
+      {
+        date: "2026-10-21",
+        note: "The picture lightbox works with the keyboard; attaching files needs JavaScript.",
+      },
       {
         date: "2026-10-21",
         note: "The forum works without JavaScript; the profile picture cropper works with the keyboard.",

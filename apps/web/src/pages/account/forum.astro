@@ -8,7 +8,9 @@ import {
   EMAIL_FREQUENCIES,
   SIGNATURE_MAX,
   forumPath,
+  MESSAGE_PRIVACY,
   isEmailFrequency,
+  isMessagePrivacy,
   topicPath,
 } from "@trilleo/forum";
 import { buttonClasses } from "@trilleo/ui";
@@ -16,7 +18,8 @@ import DisplayTitle from "../../components/DisplayTitle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { requireUser } from "../../lib/auth/guard";
 import { noStoreRedirect } from "../../lib/auth/redirect";
-import { field, parseId } from "../../lib/comments/form";
+import { field, parseId, parseUserId } from "../../lib/comments/form";
+import { blocksOf, privacyOf, unblock } from "../../lib/forum/conversations";
 import { getDb } from "../../lib/db";
 import { notificationsOf } from "../../lib/mail/addresses";
 import {
@@ -39,12 +42,19 @@ if (Astro.request.method === "POST") {
   const intent = field(form, "intent");
   if (intent === "settings") {
     const email = field(form, "email");
+    const messages = field(form, "messages");
     await saveSettings(db, user.id, {
       email: isEmailFrequency(email) ? email : "instant",
       watchReplies: field(form, "watchReplies") === "on",
       signature: field(form, "signature"),
+      messages: isMessagePrivacy(messages) ? messages : "everyone",
     });
     return noStoreRedirect("/account/forum/?saved=1", 303);
+  }
+  if (intent === "unblock") {
+    const blocked = parseUserId(field(form, "user"));
+    if (blocked) await unblock(db, user.id, blocked);
+    return noStoreRedirect("/account/forum/?saved=1#blocked", 303);
   }
   if (intent === "unwatch") {
     const topicId = parseId(field(form, "topic"));
@@ -56,6 +66,10 @@ if (Astro.request.method === "POST") {
 }
 const settings = await settingsOf(db, user.id);
 const watches = await watchesOf(db, user.id);
+const [privacy, blocked] = await Promise.all([
+  privacyOf(db, user.id),
+  blocksOf(db, user.id),
+]);
 const emailOn = user.email !== null && notificationsOf(user).forum;
 const saved = Astro.url.searchParams.has("saved");
 const row = "grid-swiss gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6";
@@ -145,6 +159,32 @@ const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
         </div>
       </div>
 
+      <fieldset id="messages" class:list={[row, "scroll-mt-6"]}>
+        <legend class="sr-only">Messages</legend>
+        <p class={label} aria-hidden="true">
+          Messages
+        </p>
+        <div class={body}>
+          <p class="font-medium">Who can start a conversation with you</p>
+          {Object.entries(MESSAGE_PRIVACY).map(([value, text]) => (
+            <div class="flex items-center gap-3">
+              <input
+                id={`messages-${value}`}
+                type="radio"
+                name="messages"
+                value={value}
+                checked={privacy === value}
+                class="size-4 accent-accent"
+              />
+              <label for={`messages-${value}`}>{text}</label>
+            </div>
+          ))}
+          <p class="text-sm text-muted">
+            Moderators and the admin can always reach you.
+          </p>
+        </div>
+      </fieldset>
+
       <div class={row}>
         <h2 class={label}>Signature</h2>
         <div class={body}>
@@ -175,6 +215,36 @@ const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
         </div>
       </div>
     </form>
+
+    <div id="blocked" class:list={[row, "mt-12 scroll-mt-6"]}>
+      <h2 class={label}>Blocked</h2>
+      <div class={body}>
+        {blocked.length === 0 ? (
+          <p class="text-muted">
+            Nobody. Block someone from a message or their forum page.
+          </p>
+        ) : (
+          <ul class="border-b border-ink" data-testid="blocked">
+            {blocked.map((person) => (
+              <li class="flex items-center justify-between gap-3 border-t border-hair py-2">
+                <span>@{person.username}</span>
+                <form method="post">
+                  <input type="hidden" name="intent" value="unblock" />
+                  <input type="hidden" name="user" value={person.id} />
+                  <button
+                    type="submit"
+                    class="type-label border border-ink px-2.5 py-1.5 hover:bg-chip"
+                    aria-label={`Unblock @${person.username}`}
+                  >
+                    Unblock
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
 
     <div id="watching" class:list={[row, "mt-12 scroll-mt-6"]}>
       <h2 class={label}>What you watch</h2>

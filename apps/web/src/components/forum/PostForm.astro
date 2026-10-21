@@ -7,7 +7,13 @@
  * is saved to the account (`draftKey`) and offered back next time.
  */
 import type { ForumPrefix } from "@trilleo/db";
-import { FORUM_LIMITS, MAX_TAGS } from "@trilleo/forum";
+import {
+  ATTACHMENT_EXTENSIONS,
+  ATTACHMENT_LIMITS,
+  FORUM_LIMITS,
+  MAX_TAGS,
+} from "@trilleo/forum";
+import ForumAttachments from "./ForumAttachments";
 import { buttonClasses } from "@trilleo/ui";
 
 interface Props {
@@ -36,6 +42,12 @@ interface Props {
   draftKey?: string | undefined;
   /** A line above the text, e.g. "Replying to @alice" with a link to cancel it. */
   replyingTo?: { label: string; cancel: string } | undefined;
+  /** Files can be attached: how many more this post can take. */
+  attach?: { room: number } | undefined;
+  /** Files already attached (editing), each with a "remove" box. */
+  attached?: readonly { id: string; name: string }[];
+  /** Uploads sent with a post that came back (refused, or previewed): kept. */
+  pending?: readonly string[];
 }
 
 const {
@@ -55,6 +67,9 @@ const {
   suggestions = [],
   draftKey,
   replyingTo,
+  attach,
+  attached = [],
+  pending = [],
 } = Astro.props;
 const input =
   "w-full border border-ink bg-paper px-3 py-2.5 text-base text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-invalid:border-accent";
@@ -184,6 +199,49 @@ const input =
       </p>
     </div>
   )}
+  {attached.length > 0 && (
+    <fieldset class="flex flex-col gap-2">
+      <legend class="mb-1 font-medium">Attached files</legend>
+      {attached.map((file) => (
+        <div class="flex items-center gap-3 text-sm">
+          <input
+            id={`${id}-remove-${file.id}`}
+            type="checkbox"
+            name="removeAttachment"
+            value={file.id}
+            class="size-4 accent-accent"
+          />
+          <label for={`${id}-remove-${file.id}`}>Remove {file.name}</label>
+        </div>
+      ))}
+    </fieldset>
+  )}
+  {pending.map((fileId) => (
+    <input type="hidden" name="attachments" value={fileId} />
+  ))}
+  {attach && (
+    <div class="flex flex-col gap-2">
+      <p class="font-medium">Attachments (optional)</p>
+      {pending.length > 0 && (
+        <p class="text-sm text-muted">
+          {pending.length} {pending.length === 1 ? "file is" : "files are"}{" "}
+          already uploaded for this post.
+        </p>
+      )}
+      <noscript>
+        <p class="text-sm text-muted">Attaching files needs JavaScript.</p>
+      </noscript>
+      <ForumAttachments
+        client:visible
+        accept={ATTACHMENT_EXTENSIONS.map((extension) => `.${extension}`).join(
+          ",",
+        )}
+        room={attach.room}
+        hint={`Up to ${String(ATTACHMENT_LIMITS.perPost)} files of ${String(ATTACHMENT_LIMITS.bytes / 1024 / 1024)} MB: pictures, PDF, ZIP, text and Minecraft files.`}
+      />
+    </div>
+  )}
+  <slot name="extra" />
   <section
     class="border border-hair p-4"
     aria-label="Live preview"

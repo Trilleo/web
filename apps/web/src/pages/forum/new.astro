@@ -3,7 +3,17 @@
  * Starting a topic in a forum: /forum/new/?in=<forum>. POST here; a refused topic
  * comes back with what was typed and what's wrong, Preview shows it rendered.
  */
-import { can, forumPath, parseTags, postPath } from "@trilleo/forum";
+import {
+  ATTACHMENT_LIMITS,
+  can,
+  forumPath,
+  parseTags,
+  postPath,
+  validatePoll,
+  type PollDraft,
+  type PollField,
+} from "@trilleo/forum";
+import PollFields from "../../components/forum/PollFields.astro";
 import Breadcrumb from "../../components/Breadcrumb.astro";
 import BanNotice from "../../components/forum/BanNotice.astro";
 import PostForm from "../../components/forum/PostForm.astro";
@@ -41,12 +51,24 @@ const node = tree.find(Astro.url.searchParams.get("in") ?? "");
 if (!node || !tree.canView(node.forum, viewer)) return Astro.rewrite("/404");
 const { forum } = node;
 const allowed = can(viewer, "topic.create", tree.place(forum));
+const canPoll = can(viewer, "poll.create", tree.place(forum));
+const canAttach = can(viewer, "post.attach", tree.place(forum));
 const ban = viewer?.banned ? await activeBan(db, user.id) : undefined;
 
 let title = "";
 let body = "";
 let tags = "";
 let prefixId: number | null = null;
+let attachments: string[] = [];
+let poll: PollDraft = {
+  question: "",
+  options: "",
+  multiple: false,
+  maxChoices: "",
+  length: "never",
+  resultsBeforeVote: false,
+};
+let pollErrors: Partial<Record<PollField, string>> = {};
 let errors: { title?: string; body?: string } = {};
 let preview: string | null = null;
 
@@ -56,7 +78,24 @@ if (Astro.request.method === "POST" && allowed) {
   body = field(form, "body");
   tags = field(form, "tags");
   prefixId = parseId(field(form, "prefix"));
-  if (field(form, "intent") === "preview") {
+  attachments = form
+    .getAll("attachments")
+    .filter((value) => typeof value === "string");
+  poll = {
+    question: field(form, "pollQuestion"),
+    options: field(form, "pollOptions"),
+    multiple: field(form, "pollMultiple") === "on",
+    maxChoices: field(form, "pollMax"),
+    length: field(form, "pollLength"),
+    resultsBeforeVote: field(form, "pollResults") === "on",
+  };
+  const checkedPoll = canPoll
+    ? validatePoll(poll, new Date())
+    : { ok: true as const, poll: null };
+  if (!checkedPoll.ok) {
+    pollErrors = checkedPoll.errors;
+    Astro.response.status = 422;
+  } else if (field(form, "intent") === "preview") {
     preview = await renderBody(db, body);
   } else {
     const result = await createTopic(db, {
@@ -67,6 +106,8 @@ if (Astro.request.method === "POST" && allowed) {
       body,
       tags: parseTags(tags),
       prefixId,
+      attachments,
+      poll: checkedPoll.poll,
     });
     if (result.ok) return noStoreRedirect(postPath(result.value.post), 303);
     const message = postErrorMessage(result.error, body.length);
@@ -131,7 +172,9 @@ const crumbs = [
                 </div>
               </div>
             )}
-            {(errors.title || errors.body) && (
+            {(errors.title ||
+              errors.body ||
+              Object.keys(pollErrors).length > 0) && (
               <p role="alert" class="border-l-2 border-accent pl-4">
                 Not posted: check the fields marked below.
               </p>
@@ -152,7 +195,17 @@ const crumbs = [
               id="topic-form"
               rows={14}
               cancel={forumPath(forum)}
-            />
+              attach={
+                canAttach
+                  ? { room: ATTACHMENT_LIMITS.perPost - attachments.length }
+                  : undefined
+              }
+              pending={attachments}
+            >
+              {canPoll && (
+                <PollFields slot="extra" draft={poll} errors={pollErrors} />
+              )}
+            </PostForm>
           </>
         )}
       </div>

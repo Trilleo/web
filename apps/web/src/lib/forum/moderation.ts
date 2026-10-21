@@ -37,6 +37,7 @@ import { alertAdmin } from "../mail/alerts";
 import { safely } from "../mail/notify";
 import { removeAvatar } from "../profile/avatar";
 import { characterCount } from "../profile/profile";
+import { deleteMessage, messageContext } from "./conversations";
 import { logAction } from "./log";
 import {
   moderatePost,
@@ -487,7 +488,9 @@ export async function createReport(
 
 /** Open reports, grouped by what they're about, oldest first. */
 export interface ReportGroup {
-  kind: "post" | "avatar";
+  kind: "post" | "avatar" | "message";
+  /** For a private message: it and the few before it (only the admin sees these). */
+  message: Awaited<ReturnType<typeof messageContext>>;
   /** For a post. */
   post: ForumPost | null;
   topic: ForumTopic | null;
@@ -507,6 +510,8 @@ export async function openReports(
     tree: ForumTree;
     moderatedIds: ReadonlySet<number>;
     everywhere: boolean;
+    /** The admin: also reports about private messages. */
+    admin?: boolean;
   },
 ): Promise<ReportGroup[]> {
   const reporters = alias(users, "reporters");
@@ -535,9 +540,13 @@ export async function openReports(
     const key =
       row.report.kind === "post"
         ? `post:${String(row.report.postId)}`
-        : `avatar:${row.report.userId ?? ""}`;
+        : row.report.kind === "message"
+          ? `message:${String(row.report.messageId)}`
+          : `avatar:${row.report.userId ?? ""}`;
     if (row.report.kind === "post") {
       if (!row.topic || !input.moderatedIds.has(row.topic.forumId)) continue;
+    } else if (row.report.kind === "message") {
+      if (!input.admin || row.report.messageId === null) continue;
     } else if (!input.everywhere) {
       continue;
     }
@@ -546,6 +555,10 @@ export async function openReports(
       const node = row.topic ? input.tree.get(row.topic.forumId) : undefined;
       group = {
         kind: row.report.kind,
+        message:
+          row.report.kind === "message" && row.report.messageId !== null
+            ? await messageContext(db, row.report.messageId)
+            : null,
         post: row.post,
         topic: row.topic,
         forum: node
@@ -563,7 +576,11 @@ export async function openReports(
 
 export async function openReportCount(
   db: Database,
-  input: { moderatedIds: ReadonlySet<number>; everywhere: boolean },
+  input: {
+    moderatedIds: ReadonlySet<number>;
+    everywhere: boolean;
+    admin?: boolean;
+  },
 ): Promise<number> {
   const rows = await db
     .select({ kind: forumReports.kind, forumId: forumTopics.forumId })
@@ -572,16 +589,25 @@ export async function openReportCount(
     .leftJoin(forumTopics, eq(forumTopics.id, forumPosts.topicId))
     .where(eq(forumReports.status, "open"));
   return rows.filter((row) =>
-    row.kind === "avatar"
-      ? input.everywhere
-      : row.forumId !== null && input.moderatedIds.has(row.forumId),
+    row.kind === "message"
+      ? input.admin === true
+      : row.kind === "avatar"
+        ? input.everywhere
+        : row.forumId !== null && input.moderatedIds.has(row.forumId),
   ).length;
 }
 
-export type ReportDecision = "dismiss" | "hide" | "delete" | "remove-avatar";
+export type ReportDecision =
+  "dismiss" | "hide" | "delete" | "remove-avatar" | "delete-message";
 
 export function isReportDecision(value: string): value is ReportDecision {
-  return ["dismiss", "hide", "delete", "remove-avatar"].includes(value);
+  return [
+    "dismiss",
+    "hide",
+    "delete",
+    "remove-avatar",
+    "delete-message",
+  ].includes(value);
 }
 
 /**
@@ -593,7 +619,8 @@ export async function resolveReports(
   input: {
     target:
       | { kind: "post"; post: ForumPost; topic: ForumTopic }
-      | { kind: "avatar"; userId: string };
+      | { kind: "avatar"; userId: string }
+      | { kind: "message"; messageId: number };
     decision: ReportDecision;
     by: User;
     now?: Date;
@@ -603,16 +630,25 @@ export async function resolveReports(
   const { target, decision } = input;
   const valid =
     target.kind === "post"
-      ? decision !== "remove-avatar"
-      : decision === "dismiss" || decision === "remove-avatar";
+      ? decision === "dismiss" || decision === "hide" || decision === "delete"
+      : target.kind === "message"
+        ? decision === "dismiss" || decision === "delete-message"
+        : decision === "dismiss" || decision === "remove-avatar";
   if (!valid) return false;
   const same =
     target.kind === "post"
       ? eq(forumReports.postId, target.post.id)
-      : and(
-          eq(forumReports.kind, "avatar"),
-          eq(forumReports.userId, target.userId),
-        );
+      : target.kind === "message"
+        ? eq(forumReports.messageId, target.messageId)
+        : and(
+            eq(forumReports.kind, "avatar"),
+            eq(forumReports.userId, target.userId),
+          );
+  // Whose message it is, for the log.
+  const messageAuthor =
+    target.kind === "message"
+      ? ((await messageContext(db, target.messageId))?.message.authorId ?? null)
+      : null;
   const settled = await db
     .update(forumReports)
     .set({
@@ -652,6 +688,9 @@ export async function resolveReports(
           now,
         });
     }
+  } else if (target.kind === "message") {
+    if (decision === "delete-message")
+      await deleteMessage(db, target.messageId, now);
   } else if (decision === "remove-avatar") {
     await removeAvatar(db, target.userId);
     await logAction(
@@ -673,7 +712,12 @@ export async function resolveReports(
       topicId: target.kind === "post" ? target.topic.id : null,
       postId: target.kind === "post" ? target.post.id : null,
       targetUserId:
-        target.kind === "post" ? target.post.authorId : target.userId,
+        target.kind === "post"
+          ? target.post.authorId
+          : target.kind === "message"
+            ? messageAuthor
+            : target.userId,
+      ...(target.kind === "message" ? { detail: "A private message" } : {}),
       detail: `${String(settled.length)} ${settled.length === 1 ? "report" : "reports"}`,
     },
     now,

@@ -204,7 +204,11 @@ After the next deploy (or now, if the release with storage is already live):
   raster images up to 10 MB) from the creator pages, and wiki pictures (`wiki-media`,
   raster images up to 2 MB) from a wiki's Files page. A wiki member's picture attached
   to their wiki is published once scanned, without review (`waivesReview`,
-  apps/web/src/lib/wiki/files.ts); anyone else's waits as usual. The general `shared` purpose is
+  apps/web/src/lib/wiki/files.ts); anyone else's waits as usual. Forum attachments
+  (`forum`: pictures, PDF, ZIP, text and Minecraft files up to 10 MB, 5 per post) come
+  from the post form; a member the forum trusts (an approved post or comment) has
+  theirs published once scanned (apps/web/src/lib/forum/attachments.ts), others wait.
+  The general `shared` purpose is
   defined but off; `STORAGE_ENABLE_PURPOSES=shared` in `app.env` would switch it on.
 - **Types**: almost anything. Images, audio, video and PDF open in the browser; every
   other type downloads. HTML, SVG and scripts are stored as plain bytes and always

@@ -1,0 +1,53 @@
+---
+/**
+ * The page's one lightbox: a <dialog> that shows a post's pictures full size, with
+ * previous/next (buttons and arrow keys) and Escape to close. Pages that show
+ * attachments include it once; links with data-lightbox open it.
+ */
+---
+
+<dialog
+  class="m-auto max-h-[92vh] max-w-[94vw] border border-ink bg-paper p-0 text-ink backdrop:bg-ink/80"
+  aria-label="Picture"
+  data-lightbox-dialog
+>
+  <figure class="flex flex-col">
+    <img
+      alt=""
+      class="max-h-[80vh] max-w-[94vw] object-contain"
+      data-lightbox-image
+    />
+    <figcaption class="flex flex-wrap items-center justify-between gap-3 border-t border-ink p-3">
+      <span class="type-label min-w-0 truncate" data-lightbox-caption></span>
+      <span class="flex gap-2">
+        <button
+          type="button"
+          class="type-label border border-ink px-3 py-1.5 hover:bg-chip"
+          data-lightbox-prev
+        >
+          Previous
+        </button>
+        <button
+          type="button"
+          class="type-label border border-ink px-3 py-1.5 hover:bg-chip"
+          data-lightbox-next
+        >
+          Next
+        </button>
+        <button
+          type="button"
+          class="type-label border border-ink bg-ink px-3 py-1.5 text-paper"
+          data-lightbox-close
+        >
+          Close
+        </button>
+      </span>
+    </figcaption>
+  </figure>
+</dialog>
+
+<script>
+  import { enhanceLightbox } from "../../lib/forum/lightbox";
+
+  enhanceLightbox();
+</script>

@@ -7,6 +7,7 @@
 import { authConfig } from "../auth/config";
 import { getDb } from "../db";
 import { purgeNotifications, sendForumDigests } from "../forum/notifications";
+import { notifyClosedPolls } from "../forum/polls";
 import { sendWikiDigests } from "../wiki/watch";
 import { purgeCodes } from "./addresses";
 import { flushAdminAlerts, onAdminAlert } from "./alerts";
@@ -51,6 +52,7 @@ async function pass(): Promise<void> {
     // Queues mail, which starts another pass to send it.
     await sendWikiDigests(deps.db, now);
     await sendForumDigests(deps.db, now);
+    await notifyClosedPolls(deps.db, now);
   }
   await deliverDue(deps);
   if (now.getTime() - lastPurge > PURGE_INTERVAL_MS) {

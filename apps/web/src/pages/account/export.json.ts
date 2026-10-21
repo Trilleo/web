@@ -8,6 +8,9 @@ import { mailOf } from "../../lib/mail/outbox";
 import { memberGroups } from "../../lib/forum/access";
 import { moderationExport } from "../../lib/forum/moderation";
 import { draftsExport } from "../../lib/forum/drafts";
+import { attachmentsExport } from "../../lib/forum/attachments";
+import { messagesExport } from "../../lib/forum/conversations";
+import { pollsExport } from "../../lib/forum/polls";
 import { notificationExport } from "../../lib/forum/notifications";
 import { readsExport } from "../../lib/forum/reads";
 import { engagementExport } from "../../lib/forum/reactions";
@@ -46,6 +49,11 @@ export const GET: APIRoute = async (context) => {
       ...(await engagementExport(db, user.id)),
       drafts: await draftsExport(db, user.id),
       read: await readsExport(db, user.id),
+      polls: await pollsExport(db, user.id),
+      attachments: await attachmentsExport(db, user.id),
+      // Your conversations, the messages you wrote, who you blocked and who may
+      // message you (others' messages are theirs).
+      messages: await messagesExport(db, user.id),
     },
     // Study progress: every review, answer and lesson finished, and the settings.
     study: await studyExport(db, user.id),

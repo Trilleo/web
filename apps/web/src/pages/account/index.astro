@@ -167,12 +167,18 @@ const STATUS = {
       <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">Forum</h2>
       <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-7">
         <p>
-          Replies, mentions and reactions in the forum, how often you’re emailed
-          about them, your signature, and what you watch.
+          Replies, mentions and reactions in the forum, private messages, how
+          often you’re emailed about them, your signature, and what you watch.
         </p>
         <div class="flex flex-wrap gap-3">
           <a href="/account/notifications/" class={buttonClasses()}>
             Notifications
+          </a>
+          <a
+            href="/account/messages/"
+            class={buttonClasses({ variant: "secondary" })}
+          >
+            Messages
           </a>
           <a
             href="/account/forum/"
