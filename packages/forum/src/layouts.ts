@@ -22,13 +22,13 @@ export const FORUM_LAYOUTS = [
     label: "Questions & answers",
     description:
       "The first post asks; answers are voted up or down, and the asker accepts one.",
-    ready: false,
+    ready: true,
   },
   {
     id: "threaded",
     label: "Threaded",
     description: "Replies nest under the post they answer.",
-    ready: false,
+    ready: true,
   },
 ] as const satisfies readonly ForumLayout[];
 

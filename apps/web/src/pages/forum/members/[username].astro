@@ -1,0 +1,168 @@
+---
+/**
+ * Someone in the forum: their rank, points, badges and counts, and their newest
+ * posts in forums the viewer may see. Follows their profile's privacy: a private
+ * profile or a blocked account is a 404 (except to its owner).
+ */
+import { BADGES, postPath, topicPath } from "@trilleo/forum";
+import Avatar from "../../../components/account/Avatar.astro";
+import Breadcrumb from "../../../components/Breadcrumb.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { normalizeUsername } from "../../../lib/auth/usernames";
+import { getDb } from "../../../lib/db";
+import { FORUM_NUMBER, counted, formatWhen } from "../../../lib/forum/public";
+import { reputationOf, statsOf } from "../../../lib/forum/reputation";
+import { forumViewer, loadTree, recentPostsBy } from "../../../lib/forum/store";
+import { formatPostDate } from "../../../lib/listings";
+import { displayName, profileHref } from "../../../lib/profile/profile";
+import { users } from "@trilleo/db";
+import { eq } from "drizzle-orm";
+
+export const prerender = false;
+
+const db = await getDb();
+const [person] = await db
+  .select()
+  .from(users)
+  .where(eq(users.username, normalizeUsername(Astro.params.username ?? "")))
+  .limit(1);
+const viewerUser = Astro.locals.user;
+const own = person !== undefined && viewerUser?.id === person.id;
+if (!person || person.blockedAt || (!person.profilePublic && !own))
+  return Astro.rewrite("/404");
+if (person.username !== Astro.params.username)
+  return Astro.redirect(`/forum/members/${person.username}/`, 301);
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const tree = await loadTree(db);
+const viewer = await forumViewer(db, tree, viewerUser);
+const [stats, reputation, posts] = await Promise.all([
+  statsOf(db, person.id),
+  reputationOf(db, [person.id]),
+  recentPostsBy(db, {
+    userId: person.id,
+    forumIds: tree.visibleIds(viewer),
+    limit: 20,
+  }),
+]);
+const rep = reputation.get(person.id);
+const earned = new Set(rep?.badges ?? []);
+const name = displayName(person);
+const now = new Date();
+const facts = [
+  { label: "Rank", value: rep?.rank ?? "—" },
+  { label: "Points", value: String(rep?.points ?? 0) },
+  { label: "Posts", value: String(stats?.posts ?? 0) },
+  { label: "Topics", value: String(stats?.topics ?? 0) },
+  { label: "Reactions received", value: String(stats?.reactionsReceived ?? 0) },
+  { label: "Accepted answers", value: String(stats?.acceptedAnswers ?? 0) },
+];
+---
+
+<BaseLayout
+  title={`${name} · Forum`}
+  description={`${name} (@${person.username}) in the forum.`}
+  noindex
+>
+  <section
+    aria-labelledby="member-name"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <Breadcrumb
+      items={[
+        { label: `(${FORUM_NUMBER}) Forum`, href: "/forum/" },
+        { label: `@${person.username}` },
+      ]}
+      class="type-label"
+    />
+    <div class="mt-6 flex flex-wrap items-center gap-5">
+      <Avatar user={person} size="lg" />
+      <div class="flex min-w-0 flex-col gap-2">
+        <h1 id="member-name" class="type-band break-words">
+          {name}
+        </h1>
+        <p class="type-label flex flex-wrap gap-x-4 text-muted">
+          <span>@{person.username}</span>
+          <span>Joined {formatPostDate(person.createdAt)}</span>
+          {person.profilePublic && (
+            <a href={profileHref(person.username)} class="group text-ink">
+              <span class="link-wipe">Profile</span>
+            </a>
+          )}
+        </p>
+      </div>
+    </div>
+
+    <dl class="mt-10 grid grid-cols-2 gap-px border border-ink bg-ink md:grid-cols-3 xl:grid-cols-6">
+      {facts.map((fact) => (
+        <div class="flex flex-col gap-1 bg-paper p-4">
+          <dt class="type-label text-muted">{fact.label}</dt>
+          <dd class="text-2xl font-semibold">{fact.value}</dd>
+        </div>
+      ))}
+    </dl>
+
+    <section aria-labelledby="badges-title" class="mt-12">
+      <h2 id="badges-title" class="type-label mb-3">
+        Badges
+      </h2>
+      <ul class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {BADGES.map((badge) => (
+          <li
+            class:list={[
+              "flex flex-col gap-1 border p-3",
+              earned.has(badge.key) ? "border-ink" : "border-hair text-muted",
+            ]}
+          >
+            <span class="font-semibold">
+              {badge.name}
+              {earned.has(badge.key) ? (
+                ""
+              ) : (
+                <span class="sr-only"> (not yet earned)</span>
+              )}
+            </span>
+            <span class="text-sm">{badge.description}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section aria-labelledby="posts-title" class="mt-12">
+      <h2 id="posts-title" class="type-label mb-3">
+        Newest posts
+      </h2>
+      {posts.length === 0 ? (
+        <p class="border-t border-ink pt-4 text-muted">Nothing yet.</p>
+      ) : (
+        <ol class="border-t border-ink" data-testid="member-posts">
+          {posts.map((row) => (
+            <li class="flex flex-col gap-1 border-b border-hair py-3">
+              <p class="flex flex-wrap items-baseline gap-x-3">
+                <a
+                  href={
+                    row.opening
+                      ? topicPath(row.forum, row.topic)
+                      : postPath(row.post)
+                  }
+                  class="group font-semibold"
+                >
+                  <span class="link-wipe">
+                    {row.opening ? row.topic.title : `Re: ${row.topic.title}`}
+                  </span>
+                </a>
+                <span class="type-label text-muted">
+                  {row.forum.name} · {formatWhen(row.post.createdAt, now)}
+                </span>
+              </p>
+              <p class="max-w-prose font-serif text-muted">{row.excerpt}</p>
+            </li>
+          ))}
+        </ol>
+      )}
+      <p class="mt-3 type-label text-muted">
+        {counted(posts.length, "post")} shown.
+      </p>
+    </section>
+  </section>
+</BaseLayout>

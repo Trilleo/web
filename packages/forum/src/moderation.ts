@@ -60,6 +60,9 @@ export const LOG_ACTIONS = {
   "report-dismissed": "dismissed reports",
   "report-actioned": "acted on reports",
   "avatar-removed": "removed a profile picture",
+  accept: "accepted an answer for the asker",
+  labels: "changed a topic’s prefix or tags",
+  solved: "changed whether a topic is solved",
 } as const;
 
 export type LogAction = keyof typeof LOG_ACTIONS;

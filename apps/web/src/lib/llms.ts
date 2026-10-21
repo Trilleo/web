@@ -46,12 +46,19 @@ function item(name: string, path: string, note: string): string {
   return note ? `${line}: ${oneLine(note)}` : line;
 }
 
+export interface LlmsForum {
+  name: string;
+  description: string;
+  path: string;
+}
+
 export function llmsTxt(
   posts: readonly LlmsPost[],
   tools: readonly ToolMeta[],
   games: readonly GameMeta[] = [],
   projects: readonly LlmsProject[] = [],
   subjects: readonly LlmsSubject[] = [],
+  forums: readonly LlmsForum[] = [],
 ): string {
   const live = tools.filter((tool) => tool.status !== "planned");
   const playable = games.filter((game) => game.status !== "planned");
@@ -118,6 +125,21 @@ export function llmsTxt(
           ),
           ...subjects.map((subject) =>
             item(subject.title, subject.path, subject.summary),
+          ),
+          "",
+        ]
+      : []),
+    ...(forums.length > 0
+      ? [
+          "## Forum",
+          "",
+          item(
+            "Forum",
+            "/forum/",
+            "Questions, ideas and conversation, with members' answers.",
+          ),
+          ...forums.map((forum) =>
+            item(forum.name, forum.path, forum.description),
           ),
           "",
         ]

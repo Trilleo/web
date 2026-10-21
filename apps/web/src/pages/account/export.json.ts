@@ -7,6 +7,10 @@ import { notificationsOf } from "../../lib/mail/addresses";
 import { mailOf } from "../../lib/mail/outbox";
 import { memberGroups } from "../../lib/forum/access";
 import { moderationExport } from "../../lib/forum/moderation";
+import { draftsExport } from "../../lib/forum/drafts";
+import { notificationExport } from "../../lib/forum/notifications";
+import { readsExport } from "../../lib/forum/reads";
+import { engagementExport } from "../../lib/forum/reactions";
 import { forumExport } from "../../lib/forum/store";
 import { minecraftExport } from "../../lib/minecraft/service";
 import { exportUserData } from "../../lib/profile/store";
@@ -31,12 +35,17 @@ export const GET: APIRoute = async (context) => {
     storage: await storageExport(db, user.id),
     minecraft: await minecraftExport({ db }, user.id),
     // Topics you started and everything you posted in the forum (deleted ones
-    // too), your posts' earlier versions, reports you made, bans on you, and the
-    // groups you were added to.
+    // too), your posts' earlier versions, reports you made, bans on you, the
+    // groups you were added to, your settings, watches and notifications, your
+    // reactions, votes, points and badges, drafts, and how far you've read.
     forum: {
       ...(await forumExport(db, user.id)),
       ...(await moderationExport(db, user.id)),
       groups: await memberGroups(db, user.id),
+      ...(await notificationExport(db, user.id)),
+      ...(await engagementExport(db, user.id)),
+      drafts: await draftsExport(db, user.id),
+      read: await readsExport(db, user.id),
     },
     // Study progress: every review, answer and lesson finished, and the settings.
     study: await studyExport(db, user.id),

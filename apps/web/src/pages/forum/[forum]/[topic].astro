@@ -2,7 +2,9 @@
 /**
  * A topic: its posts, page by page (?page=), and the reply form (POST here; a
  * refused reply comes back with the text and what's wrong, Preview shows it
- * rendered). ?quote=<post> starts the reply with that post quoted. The address is
+ * rendered). ?quote=<post> starts the reply with that post quoted; in threaded
+ * forums ?reply=<post> answers that post. Posts come in the forum's layout's order.
+ * Opening it marks it read (and offers a jump to what was new). The address is
  * /forum/<forum>/<id>-<slug>/: any other forum or slug redirects there.
  */
 import {
@@ -25,6 +27,14 @@ import PostItem from "../../../components/forum/PostItem.astro";
 import BanNotice from "../../../components/forum/BanNotice.astro";
 import Notices from "../../../components/forum/Notices.astro";
 import TopicBadges from "../../../components/forum/TopicBadges.astro";
+import { draftKey } from "../../../lib/forum/drafts";
+import { isWatching, signaturesOf } from "../../../lib/forum/notifications";
+import { reactionsFor, votesFor } from "../../../lib/forum/reactions";
+import { firstPostAfter, markRead } from "../../../lib/forum/reads";
+import { reputationOf } from "../../../lib/forum/reputation";
+import { prefixesById, prefixesOf, tagsOf } from "../../../lib/forum/tags";
+import { discussionJsonLd, topicCard } from "../../../lib/forum/seo";
+import { breadcrumbJsonLd, ogImagePath } from "../../../lib/seo";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { noStoreRedirect } from "../../../lib/auth/redirect";
 import { field, parseId } from "../../../lib/comments/form";
@@ -94,7 +104,10 @@ const now = new Date();
 const canReply = can(viewer, "topic.reply", place, topic);
 const here = Astro.url.pathname + Astro.url.search;
 
+const threaded = forum.layout === "threaded";
+const qa = forum.layout === "qa";
 let replyBody = "";
+let parentId: number | null = null;
 let replyError: string | undefined;
 let preview: string | null = null;
 
@@ -106,6 +119,7 @@ if (Astro.request.method === "POST") {
     );
   const form = await Astro.request.formData();
   replyBody = field(form, "body");
+  parentId = threaded ? parseId(field(form, "parent")) : null;
   if (field(form, "intent") === "preview") {
     preview = await renderBody(db, replyBody);
   } else {
@@ -115,6 +129,7 @@ if (Astro.request.method === "POST") {
       topic,
       author: user,
       body: replyBody,
+      parentId,
     });
     if (result.ok) return noStoreRedirect(postPath(result.value), 303);
     replyError = postErrorMessage(result.error, replyBody.length);
@@ -122,6 +137,9 @@ if (Astro.request.method === "POST") {
   }
 } else {
   await countView(db, topic.id);
+  parentId = threaded
+    ? parseId(Astro.url.searchParams.get("reply") ?? "")
+    : null;
   const quoteId = parseId(Astro.url.searchParams.get("quote") ?? "");
   const quoted = quoteId === null ? undefined : await getPost(db, quoteId);
   if (quoted && quoted.topicId === topic.id && canReply) {
@@ -132,12 +150,90 @@ if (Astro.request.method === "POST") {
 
 const listed = await listPosts(db, {
   topic,
+  layout: forum.layout,
   viewer,
   mod,
   page: pageParam(Astro.url),
   adminTitle: tree.groups.get("admin")?.title ?? null,
 });
 const ban = viewer?.banned && user ? await activeBan(db, user.id) : undefined;
+const postIds = listed.posts.map((view) => view.post.id);
+const authorIds = listed.posts.flatMap((view) =>
+  view.author ? [view.author.id] : [],
+);
+const [reactions, myVotes, reputation, signatures, tags, prefixes, watching] =
+  await Promise.all([
+    reactionsFor(db, postIds, user?.id ?? null),
+    qa
+      ? votesFor(db, postIds, user?.id ?? null)
+      : Promise.resolve(new Map<number, number>()),
+    reputationOf(db, authorIds),
+    signaturesOf(db, authorIds),
+    tagsOf(db, [topic.id]),
+    topic.prefixId === null
+      ? Promise.resolve(new Map())
+      : prefixesById(db, [topic.prefixId]),
+    user
+      ? isWatching(db, user.id, { topicId: topic.id })
+      : Promise.resolve(false),
+  ]);
+const topicTags = tags.get(topic.id) ?? [];
+const prefix =
+  topic.prefixId === null ? null : (prefixes.get(topic.prefixId) ?? null);
+// The asker (while they may edit) and moderators can change the prefix and tags.
+const canLabel =
+  mod ||
+  (topic.authorId !== null &&
+    topic.authorId === user?.id &&
+    can(viewer, "post.edit-own", place, topic, { authorId: topic.authorId }));
+const forumPrefixes = canLabel ? await prefixesOf(db, forum.id) : [];
+// Reading it: remember how far, and offer a jump to what was new.
+const readBefore =
+  user && Astro.request.method === "GET"
+    ? await markRead(db, user.id, topic)
+    : null;
+const firstUnread =
+  readBefore !== null &&
+  topic.lastPostId !== null &&
+  readBefore < topic.lastPostId
+    ? await firstPostAfter(db, topic.id, readBefore)
+    : null;
+const asker = user !== null && topic.authorId === user.id;
+const canSolve = (asker || mod) && user !== null;
+// Threaded: the post being answered.
+const parent =
+  parentId === null
+    ? undefined
+    : listed.posts.find((view) => view.post.id === parentId);
+const parentPost =
+  parentId === null || parent ? undefined : await getPost(db, parentId);
+const replyingTo =
+  parentId !== null && (parent || parentPost?.topicId === topic.id)
+    ? {
+        label: `Replying to ${parent?.author ? `@${parent.author.username}` : "a post"}`,
+        cancel: `${topicPath(forum, topic)}#reply`,
+      }
+    : undefined;
+const replyHref = (postId: number) =>
+  `${topicPath(forum, topic, listed.page)}${listed.page > 1 ? "&" : "?"}reply=${String(postId)}#reply`;
+const card = topicCard(topic, forum);
+const image = ogImagePath(`forum/${String(topic.id)}`, card);
+const jsonLd =
+  topic.state === "published" && !place.hidden && listed.page === 1
+    ? [
+        discussionJsonLd({
+          topic,
+          path: topicPath(forum, topic),
+          posts: listed.posts,
+          image,
+        }),
+        breadcrumbJsonLd([
+          { name: "Forum", path: "/forum/" },
+          { name: forum.name, path: forumPath(forum) },
+          { name: topic.title, path: topicPath(forum, topic) },
+        ]),
+      ]
+    : [];
 // Where a moderator can move or split to: forums they moderate.
 const targets = mod
   ? tree
@@ -174,6 +270,15 @@ const firstPostId = topic.firstPostId ?? 0;
   }
   description={description}
   noindex={topic.state !== "published" || place.hidden}
+  image={image}
+  imageAlt={topic.title}
+  jsonLd={jsonLd}
+  feeds={[
+    {
+      title: `${topic.title} (RSS)`,
+      href: `${topicPath(forum, topic)}rss.xml`,
+    },
+  ]}
 >
   <section
     aria-labelledby="topic-title"
@@ -186,7 +291,7 @@ const firstPostId = topic.firstPostId ?? 0;
         {topic.title}
       </h1>
       <p class="type-label flex flex-wrap items-center gap-x-4 gap-y-1 text-muted">
-        <TopicBadges topic={topic} />
+        <TopicBadges topic={topic} prefix={prefix} />
         <span>
           Started{" "}
           <time datetime={topic.createdAt.toISOString()}>
@@ -196,6 +301,126 @@ const firstPostId = topic.firstPostId ?? 0;
         <span>{counted(topic.replyCount, "reply", "replies")}</span>
         <span>{counted(topic.viewCount, "view")}</span>
       </p>
+      {topicTags.length > 0 && (
+        <ul class="flex flex-wrap gap-2" aria-label="Tags">
+          {topicTags.map((tag) => (
+            <li>
+              <a
+                href={`/forum/tags/${tag}/`}
+                class="type-label inline-flex border border-hair px-2 py-1 hover:border-ink"
+              >
+                #{tag}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
+        {firstUnread !== null && (
+          <a
+            href={postPath({ id: firstUnread })}
+            class="group type-label inline-flex items-center gap-1.5 text-ink"
+          >
+            <span class="size-2 bg-accent" aria-hidden="true" />
+            <span class="link-wipe">Jump to first unread</span>
+          </a>
+        )}
+        {user && (
+          <form method="post" action="/forum/engage">
+            <input
+              type="hidden"
+              name="do"
+              value={watching ? "unwatch" : "watch"}
+            />
+            <input type="hidden" name="topic" value={String(topic.id)} />
+            <input type="hidden" name="back" value={here} />
+            <button
+              type="submit"
+              class="group type-label cursor-pointer text-muted hover:text-ink"
+            >
+              <span class="link-wipe">
+                {watching ? "Stop watching" : "Watch this topic"}
+              </span>
+            </button>
+          </form>
+        )}
+        {canSolve && (
+          <form method="post" action="/forum/engage">
+            <input
+              type="hidden"
+              name="do"
+              value={topic.solvedAt ? "unsolved" : "solved"}
+            />
+            <input type="hidden" name="topic" value={String(topic.id)} />
+            <input type="hidden" name="back" value={here} />
+            <button
+              type="submit"
+              class="group type-label cursor-pointer text-muted hover:text-ink"
+            >
+              <span class="link-wipe">
+                {topic.solvedAt ? "Mark not solved" : "Mark solved"}
+              </span>
+            </button>
+          </form>
+        )}
+        <a
+          href={`${topicPath(forum, topic)}rss.xml`}
+          class="group type-label text-muted hover:text-ink"
+        >
+          <span class="link-wipe">RSS</span>
+        </a>
+        {canLabel && (
+          <details class="type-label text-muted">
+            <summary class="link-wipe w-fit cursor-pointer hover:text-ink">
+              Prefix and tags
+            </summary>
+            <form
+              method="post"
+              action="/forum/engage"
+              class="mt-3 flex flex-wrap items-end gap-2 font-sans text-sm tracking-normal text-ink normal-case"
+            >
+              <input type="hidden" name="do" value="labels" />
+              <input type="hidden" name="topic" value={String(topic.id)} />
+              <input type="hidden" name="back" value={here} />
+              {forumPrefixes.length > 0 && (
+                <div class="flex flex-col gap-1">
+                  <label for="labels-prefix">Prefix</label>
+                  <select
+                    id="labels-prefix"
+                    name="prefix"
+                    class="h-9 border border-ink bg-paper px-2"
+                  >
+                    <option value="">None</option>
+                    {forumPrefixes.map((option) => (
+                      <option
+                        value={String(option.id)}
+                        selected={option.id === topic.prefixId}
+                      >
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div class="flex flex-col gap-1">
+                <label for="labels-tags">Tags</label>
+                <input
+                  id="labels-tags"
+                  name="tags"
+                  value={topicTags.join(", ")}
+                  class="h-9 w-56 border border-ink bg-paper px-2 font-mono"
+                />
+              </div>
+              <button
+                type="submit"
+                class="type-label h-9 border border-ink px-3 hover:bg-ink hover:text-paper"
+              >
+                Save
+              </button>
+            </form>
+          </details>
+        )}
+      </div>
     </div>
 
     <Notices />
@@ -347,6 +572,25 @@ const firstPostId = topic.firstPostId ?? 0;
           }
           splitForm={mod ? "split-form" : undefined}
           viewerId={viewer?.id}
+          reactions={reactions.get(view.post.id) ?? []}
+          canReact={can(viewer, "post.react", place, topic, view.post)}
+          votes={
+            qa && !view.first
+              ? {
+                  score: view.post.score,
+                  mine: myVotes.get(view.post.id) ?? 0,
+                  canVote: can(viewer, "post.vote", place, topic, view.post),
+                }
+              : undefined
+          }
+          canAccept={qa && !view.first && canSolve}
+          replyHref={
+            threaded && canReply && !view.first
+              ? replyHref(view.post.id)
+              : undefined
+          }
+          signature={view.author ? signatures.get(view.author.id) : undefined}
+          reputation={view.author ? reputation.get(view.author.id) : undefined}
           mod={mod}
           back={here}
           now={now}
@@ -403,8 +647,15 @@ const firstPostId = topic.firstPostId ?? 0;
               action={`${topicPath(forum, topic)}#reply`}
               body={replyBody}
               errors={{ body: replyError }}
-              submitLabel="Post reply"
-              label="Your reply"
+              submitLabel={qa ? "Post answer" : "Post reply"}
+              label={qa ? "Your answer" : "Your reply"}
+              hidden={
+                parentId !== null && replyingTo
+                  ? { parent: String(parentId) }
+                  : {}
+              }
+              replyingTo={replyingTo}
+              draftKey={draftKey.reply(topic.id)}
               id="reply-form"
               rows={8}
             />

@@ -57,7 +57,8 @@ describe("slugs", () => {
 describe("layouts", () => {
   it("knows which layouts can be chosen", () => {
     expect(isReadyLayout("classic")).toBe(true);
-    expect(isReadyLayout("qa")).toBe(false);
+    expect(isReadyLayout("qa")).toBe(true);
+    expect(isReadyLayout("threaded")).toBe(true);
     expect(isReadyLayout("nope")).toBe(false);
     expect(forumLayout("nope")).toBe(FORUM_LAYOUTS[0]);
   });

@@ -1,0 +1,111 @@
+---
+/**
+ * A post's reactions: the ones people used (emoji and count; pressed if it's the
+ * viewer's) and, for those who may react, a picker with all of them. Each is a POST
+ * form (/forum/engage), so it works without JavaScript; with it, the counts update
+ * in place (lib/forum/reactions-client.ts).
+ */
+import { REACTIONS } from "@trilleo/forum";
+import type { ReactionSummary } from "../../lib/forum/reactions";
+
+interface Props {
+  postId: number;
+  reactions: readonly ReactionSummary[];
+  canReact: boolean;
+  back: string;
+}
+
+const { postId, reactions, canReact, back } = Astro.props;
+const used = new Map(reactions.map((reaction) => [reaction.key, reaction]));
+const pill =
+  "inline-flex h-8 items-center gap-1.5 border px-2 text-sm leading-none aria-pressed:border-ink aria-pressed:bg-chip";
+---
+
+<div
+  class="flex flex-wrap items-center gap-1.5"
+  data-reactions={String(postId)}
+  role="group"
+  aria-label="Reactions"
+>
+  {REACTIONS.map((reaction) => {
+    const summary = used.get(reaction.key);
+    const count = summary?.count ?? 0;
+    const people = summary?.people.join(", ") ?? "";
+    const name = `${reaction.label}: ${String(count)}${people ? ` (${people})` : ""}`;
+    return canReact ? (
+      <form
+        method="post"
+        action="/forum/engage"
+        hidden={count === 0}
+        data-reaction={reaction.key}
+      >
+        <input type="hidden" name="do" value="react" />
+        <input type="hidden" name="post" value={String(postId)} />
+        <input type="hidden" name="reaction" value={reaction.key} />
+        <input type="hidden" name="back" value={back} />
+        <button
+          type="submit"
+          class:list={[pill, "cursor-pointer border-hair hover:border-ink"]}
+          aria-pressed={summary?.mine ? "true" : "false"}
+          aria-label={name}
+          title={name}
+        >
+          <span aria-hidden="true">{reaction.emoji}</span>
+          <span class="font-mono text-xs" data-count>
+            {count}
+          </span>
+        </button>
+      </form>
+    ) : (
+      count > 0 && (
+        <span
+          class:list={[pill, "border-hair"]}
+          role="img"
+          aria-label={name}
+          title={name}
+        >
+          <span aria-hidden="true">{reaction.emoji}</span>
+          <span class="font-mono text-xs">{count}</span>
+        </span>
+      )
+    );
+  })}
+  {canReact && (
+    <details class="relative" data-reaction-picker>
+      <summary
+        class="type-label inline-flex h-8 cursor-pointer list-none items-center border border-hair px-2 text-muted hover:border-ink hover:text-ink [&::-webkit-details-marker]:hidden"
+        title="Add a reaction"
+      >
+        React
+      </summary>
+      <div class="absolute bottom-full left-0 z-20 mb-1 flex gap-1 border border-ink bg-paper p-1">
+        {REACTIONS.map((reaction) => (
+          <form
+            method="post"
+            action="/forum/engage"
+            data-reaction={reaction.key}
+          >
+            <input type="hidden" name="do" value="react" />
+            <input type="hidden" name="post" value={String(postId)} />
+            <input type="hidden" name="reaction" value={reaction.key} />
+            <input type="hidden" name="back" value={back} />
+            <button
+              type="submit"
+              class="inline-flex size-9 cursor-pointer items-center justify-center text-lg hover:bg-chip"
+              aria-label={reaction.label}
+              title={reaction.label}
+            >
+              {reaction.emoji}
+            </button>
+          </form>
+        ))}
+      </div>
+    </details>
+  )}
+</div>
+
+<script>
+  import { enhanceReactions } from "../../lib/forum/reactions-client";
+
+  enhanceReactions();
+</script>

@@ -75,6 +75,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-21",
+        note: "Forum activity: reactions, votes, watching, reading, drafts, notifications and their emails, points and badges.",
+      },
+      {
+        date: "2026-10-21",
         note: "Forum moderation: earlier versions of edited posts, reports you make, bans, forum groups, and the moderation log.",
       },
       {
@@ -204,6 +208,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "Short answers about accounts, your data, the tools, the games, comments and the forum.",
     group: "help",
     changes: [
+      {
+        date: "2026-10-21",
+        note: "Forum notifications, points and badges, layouts and drafts.",
+      },
       {
         date: "2026-10-21",
         note: "Forum edit windows, reports and bans.",

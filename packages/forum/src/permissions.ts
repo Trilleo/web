@@ -27,6 +27,8 @@ export const FORUM_PERMISSIONS = {
     group: "Writing",
   },
   "post.report": { label: "Report posts", group: "Writing" },
+  "post.react": { label: "React to posts", group: "Writing" },
+  "post.vote": { label: "Vote on answers (Q&A forums)", group: "Writing" },
   moderate: {
     label:
       "Moderate: approve, hide, delete, pin, lock, move, merge, split, see edit history, ban",
@@ -68,6 +70,8 @@ const writing: PermissionSet = {
   "post.edit-own": true,
   "post.delete-own": true,
   "post.report": true,
+  "post.react": true,
+  "post.vote": true,
 };
 
 /**
@@ -291,6 +295,15 @@ export function can(
       );
     case "post.report":
       return member && topicVisible && allowed("post.report");
+    case "post.react":
+    case "post.vote":
+      return (
+        writer &&
+        topicVisible &&
+        topic?.state !== "hidden" &&
+        !own(post?.authorId) &&
+        allowed(permission)
+      );
     case "post.skip-review":
       return (
         mod ||

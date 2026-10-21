@@ -1,7 +1,9 @@
 ---
 /**
  * A category (its forums) or a forum: its subforums, then its topics, pinned ones
- * first, page by page (?page=). A forum the viewer may not see is a 404.
+ * first, page by page (?page=), filtered by ?filter= (unanswered, solved,
+ * unsolved) and ?prefix=. New ones are marked for the signed-in. A forum the
+ * viewer may not see is a 404.
  */
 import { can, forumPath } from "@trilleo/forum";
 import { buttonClasses } from "@trilleo/ui";
@@ -11,10 +13,17 @@ import Pager from "../../../components/forum/Pager.astro";
 import TopicList from "../../../components/forum/TopicList.astro";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { getDb } from "../../../lib/db";
+import { parseId } from "../../../lib/comments/form";
+import { isWatching } from "../../../lib/forum/notifications";
 import { FORUM_NUMBER, counted, pageParam } from "../../../lib/forum/public";
+import { unreadOf } from "../../../lib/forum/reads";
+import { prefixesOf } from "../../../lib/forum/tags";
 import {
+  TOPIC_FILTERS,
   forumViewer,
+  isTopicFilter,
   lastPostsById,
+  type TopicFilter,
   listTopics,
   loadTree,
 } from "../../../lib/forum/store";
@@ -39,10 +48,40 @@ const lastIds = children.flatMap((child) =>
 );
 const lastPosts = await lastPostsById(db, lastIds);
 const page = pageParam(Astro.url);
+const filterParam = Astro.url.searchParams.get("filter") ?? "all";
+const filter: TopicFilter = isTopicFilter(filterParam) ? filterParam : "all";
+const prefixes = forum.kind === "forum" ? await prefixesOf(db, forum.id) : [];
+const prefixParam = parseId(Astro.url.searchParams.get("prefix") ?? "");
+const prefixId = prefixes.some((prefix) => prefix.id === prefixParam)
+  ? prefixParam
+  : null;
 const listed =
   forum.kind === "forum"
-    ? await listTopics(db, { forum, viewer, mod, page })
+    ? await listTopics(db, { forum, viewer, mod, page, filter, prefixId })
     : { topics: [], total: 0, pages: 1 };
+const unread = user
+  ? await unreadOf(
+      db,
+      user,
+      listed.topics.map((row) => row.topic),
+    )
+  : new Set<number>();
+const watching = user
+  ? await isWatching(db, user.id, { forumId: forum.id })
+  : false;
+const query = (changes: Record<string, string | null>) => {
+  const params = new URLSearchParams();
+  const values = {
+    filter: filter === "all" ? null : filter,
+    prefix: prefixId === null ? null : String(prefixId),
+    ...changes,
+  };
+  for (const [key, value] of Object.entries(values))
+    if (value) params.set(key, value);
+  const text = params.toString();
+  return text ? `${forumPath(forum)}?${text}` : forumPath(forum);
+};
+const listBase = query({});
 const canStart = can(viewer, "topic.create", place);
 const crumbs = [
   { label: `(${FORUM_NUMBER}) Forum`, href: "/forum/" },
@@ -59,7 +98,12 @@ const now = new Date();
 <BaseLayout
   title={page > 1 ? `${forum.name} (page ${String(page)})` : forum.name}
   description={forum.description || `Topics in ${forum.name}.`}
-  noindex={forum.hidden}
+  noindex={forum.hidden || filter !== "all" || prefixId !== null}
+  feeds={
+    forum.kind === "forum"
+      ? [{ title: `${forum.name} (RSS)`, href: `${forumPath(forum)}rss.xml` }]
+      : []
+  }
 >
   <section
     aria-labelledby="forum-title"
@@ -90,6 +134,27 @@ const now = new Date();
               Sign in to post
             </a>
           ) : null)}
+        {user && (
+          <form method="post" action="/forum/engage">
+            <input
+              type="hidden"
+              name="do"
+              value={watching ? "unwatch" : "watch"}
+            />
+            <input type="hidden" name="forum" value={String(forum.id)} />
+            <input
+              type="hidden"
+              name="back"
+              value={Astro.url.pathname + Astro.url.search}
+            />
+            <button
+              type="submit"
+              class={buttonClasses({ variant: "secondary" })}
+            >
+              {watching ? "Stop watching" : "Watch"}
+            </button>
+          </form>
+        )}
         {mod && (
           <a
             href={`/admin/forum/${String(forum.id)}/`}
@@ -126,11 +191,73 @@ const now = new Date();
           </h2>
           <p class="type-label text-muted">{counted(listed.total, "topic")}</p>
         </div>
+        <nav
+          aria-label="Show topics"
+          class="type-label mb-4 flex flex-wrap items-center gap-x-5 gap-y-2"
+        >
+          {Object.entries(TOPIC_FILTERS).map(([key, label]) => (
+            <a
+              href={query({ filter: key === "all" ? null : key })}
+              class="group inline-flex items-center gap-2"
+              aria-current={filter === key ? "page" : undefined}
+            >
+              <span
+                class:list={[
+                  "size-2",
+                  filter === key ? "bg-accent" : "bg-transparent",
+                ]}
+                aria-hidden="true"
+              />
+              <span class="link-wipe">{label}</span>
+            </a>
+          ))}
+          {prefixes.length > 0 && (
+            <form
+              method="get"
+              action={forumPath(forum)}
+              class="flex items-center gap-2"
+            >
+              {filter !== "all" && (
+                <input type="hidden" name="filter" value={filter} />
+              )}
+              <label for="prefix-filter">Prefix</label>
+              <select
+                id="prefix-filter"
+                name="prefix"
+                class="h-8 border border-ink bg-paper px-2"
+              >
+                <option value="">Any</option>
+                {prefixes.map((prefix) => (
+                  <option
+                    value={String(prefix.id)}
+                    selected={prefix.id === prefixId}
+                  >
+                    {prefix.label}
+                  </option>
+                ))}
+              </select>
+              <button type="submit" class="group cursor-pointer">
+                <span class="link-wipe">Show</span>
+              </button>
+            </form>
+          )}
+          <a
+            href={`${forumPath(forum)}rss.xml`}
+            class="group text-muted hover:text-ink"
+          >
+            <span class="link-wipe">RSS</span>
+          </a>
+        </nav>
         <TopicList
           topics={listed.topics}
           now={now}
+          unread={unread}
           empty={
-            canStart ? "No topics yet. Start the first one." : "No topics yet."
+            filter !== "all" || prefixId !== null
+              ? "No topics match."
+              : canStart
+                ? "No topics yet. Start the first one."
+                : "No topics yet."
           }
         />
         {listed.pages > 1 && (
@@ -138,7 +265,7 @@ const now = new Date();
             <Pager
               page={Math.min(page, listed.pages)}
               pages={listed.pages}
-              base={forumPath(forum)}
+              base={listBase}
               label="Topic pages"
             />
           </div>

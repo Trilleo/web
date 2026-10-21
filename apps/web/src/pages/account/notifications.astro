@@ -1,0 +1,120 @@
+---
+/**
+ * The signed-in person's forum notifications, newest first: replies in topics they
+ * watch, new topics in forums they watch, mentions, quotes, reactions and accepted
+ * answers. Opening the page doesn't mark them read; "Mark all read" (POST) does.
+ */
+import { NOTIFICATION_KINDS } from "@trilleo/forum";
+import { buttonClasses } from "@trilleo/ui";
+import DisplayTitle from "../../components/DisplayTitle.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { requireUser } from "../../lib/auth/guard";
+import { noStoreRedirect } from "../../lib/auth/redirect";
+import { getDb } from "../../lib/db";
+import {
+  NOTIFICATION_RETENTION_DAYS,
+  listNotifications,
+  markNotificationsRead,
+} from "../../lib/forum/notifications";
+import { formatWhen } from "../../lib/forum/public";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+if (Astro.request.method === "POST") {
+  await markNotificationsRead(db, user.id);
+  return noStoreRedirect("/account/notifications/", 303);
+}
+const notifications = await listNotifications(db, user.id);
+const unread = notifications.filter((item) => !item.read).length;
+const now = new Date();
+---
+
+<BaseLayout title="Notifications" noindex>
+  <section
+    aria-labelledby="notifications-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">
+      (Account){" "}
+      <a href="/account/" class="link-wipe">
+        @{user.username}
+      </a>
+    </p>
+    <DisplayTitle id="notifications-title" fit={8.6}>
+      Notifications
+    </DisplayTitle>
+
+    <div class="grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-2 xl:col-span-2">
+        <p class="type-label">{unread} unread</p>
+        {unread > 0 && (
+          <form method="post">
+            <button
+              type="submit"
+              class={buttonClasses({ variant: "secondary" })}
+            >
+              Mark all read
+            </button>
+          </form>
+        )}
+        <a
+          href="/account/forum/"
+          class="group type-label text-muted hover:text-ink"
+        >
+          <span class="link-wipe">Forum settings and watching</span>
+        </a>
+      </div>
+      <div class="col-span-4 md:col-span-6 xl:col-span-7">
+        {notifications.length === 0 ? (
+          <p class="text-muted">
+            Nothing yet. Watch a topic or a forum and you’ll hear about what
+            happens there.
+          </p>
+        ) : (
+          <ol class="border-b border-ink" data-testid="notifications">
+            {notifications.map((item) => (
+              <li class="flex items-baseline gap-3 border-t border-hair py-3">
+                <span
+                  class:list={[
+                    "size-2 shrink-0",
+                    item.read ? "bg-transparent" : "bg-accent",
+                  ]}
+                  aria-hidden="true"
+                />
+                <div class="flex min-w-0 flex-col gap-0.5">
+                  <a
+                    href={item.href}
+                    class:list={["group", !item.read && "font-semibold"]}
+                  >
+                    <span class="link-wipe">
+                      {item.actor ? `@${item.actor}` : "Someone"}{" "}
+                      {NOTIFICATION_KINDS[item.kind]}
+                      {item.detail && ` ${item.detail}`}
+                      {item.topicTitle && `: ${item.topicTitle}`}
+                    </span>
+                    {!item.read && <span class="sr-only"> (unread)</span>}
+                  </a>
+                  <time
+                    class="type-label text-muted"
+                    datetime={item.createdAt.toISOString()}
+                  >
+                    {formatWhen(item.createdAt, now)}
+                  </time>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+        <p class="mt-4 text-sm text-muted">
+          Notifications are kept for {NOTIFICATION_RETENTION_DAYS} days.
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

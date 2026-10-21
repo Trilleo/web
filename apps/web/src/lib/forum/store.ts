@@ -10,12 +10,14 @@
 import {
   forumPostRevisions,
   forumPosts,
+  forumTopicTags,
   forumTopics,
   forums,
   users,
   type Database,
   type Forum,
   type ForumPin,
+  type ForumPrefix,
   type ForumPost,
   type ForumPostState,
   type ForumTopic,
@@ -24,6 +26,9 @@ import {
 import {
   FORUM_LIMITS,
   FORUM_RENDER_VERSION,
+  orderPosts,
+  pageOf,
+  pageOfId,
   can,
   excerpt,
   extractMentions,
@@ -42,8 +47,8 @@ import {
   eq,
   gt,
   inArray,
+  isNotNull,
   isNull,
-  lt,
   ne,
   or,
   sql,
@@ -55,6 +60,10 @@ import { alertAdmin } from "../mail/alerts";
 import { safely } from "../mail/notify";
 import { characterCount, displayName, profileHref } from "../profile/profile";
 import { forumViewer } from "./access";
+import { deleteDraft, draftKey } from "./drafts";
+import { notifyPublished, settingsOf, watch } from "./notifications";
+import { refreshStats } from "./reputation";
+import { prefixesById, setTopicTags, tagsOf, validPrefix } from "./tags";
 import { titlesOf } from "./groups";
 import { logAction } from "./log";
 import type { ForumTree } from "./tree";
@@ -139,6 +148,8 @@ export interface TopicRow {
   forum: Pick<Forum, "id" | "slug" | "name">;
   author: ForumAuthor | null;
   lastPoster: ForumAuthor | null;
+  tags: string[];
+  prefix: ForumPrefix | null;
 }
 
 const lastPosts = alias(forumPosts, "last_posts");
@@ -176,11 +187,26 @@ async function topicRows(
     .orderBy(...order)
     .limit(limit)
     .offset(offset);
+  const ids = rows.map((row) => row.topic.id);
+  const [tags, prefixes] = await Promise.all([
+    tagsOf(db, ids),
+    prefixesById(
+      db,
+      rows.flatMap((row) =>
+        row.topic.prefixId === null ? [] : [row.topic.prefixId],
+      ),
+    ),
+  ]);
   return rows.map((row) => ({
     topic: row.topic,
     forum: row.forum,
     author: author(row.author),
     lastPoster: author(row.lastPoster),
+    tags: tags.get(row.topic.id) ?? [],
+    prefix:
+      row.topic.prefixId === null
+        ? null
+        : (prefixes.get(row.topic.prefixId) ?? null),
   }));
 }
 
@@ -192,21 +218,63 @@ function topicsVisibleTo(viewer: ForumViewer | null, mod: boolean) {
   );
 }
 
-/** A forum's topics, pinned ones first, then by latest activity. */
+export const TOPIC_FILTERS = {
+  all: "All",
+  unanswered: "Unanswered",
+  solved: "Solved",
+  unsolved: "Unsolved",
+} as const;
+
+export type TopicFilter = keyof typeof TOPIC_FILTERS;
+
+export function isTopicFilter(value: string): value is TopicFilter {
+  return Object.hasOwn(TOPIC_FILTERS, value);
+}
+
+function filterWhere(input: {
+  filter?: TopicFilter | undefined;
+  tagId?: number | null | undefined;
+  prefixId?: number | null | undefined;
+}): SQL | undefined {
+  return and(
+    input.filter === "unanswered" ? eq(forumTopics.replyCount, 0) : undefined,
+    input.filter === "solved" ? isNotNull(forumTopics.solvedAt) : undefined,
+    input.filter === "unsolved" ? isNull(forumTopics.solvedAt) : undefined,
+    input.tagId != null
+      ? sql`exists (select 1 from ${forumTopicTags} where ${forumTopicTags.topicId} = ${forumTopics.id} and ${forumTopicTags.tagId} = ${input.tagId})`
+      : undefined,
+    input.prefixId != null
+      ? eq(forumTopics.prefixId, input.prefixId)
+      : undefined,
+  );
+}
+
+/**
+ * A forum's topics (or, with `forum` null, every forum the viewer may see in
+ * `forumIds`), pinned ones first, then by latest activity; filtered by state, tag
+ * or prefix.
+ */
 export async function listTopics(
   db: Database,
   input: {
-    forum: Forum;
+    forum: Forum | null;
+    forumIds?: readonly number[];
     viewer: ForumViewer | null;
     mod: boolean;
     page: number;
     perPage?: number;
+    filter?: TopicFilter | undefined;
+    tagId?: number | null | undefined;
+    prefixId?: number | null | undefined;
   },
 ): Promise<{ topics: TopicRow[]; total: number; pages: number }> {
   const perPage = input.perPage ?? FORUM_LIMITS.topicsPerPage;
   const where = and(
-    eq(forumTopics.forumId, input.forum.id),
+    input.forum
+      ? eq(forumTopics.forumId, input.forum.id)
+      : inArray(forumTopics.forumId, [...(input.forumIds ?? []), -1]),
     topicsVisibleTo(input.viewer, input.mod),
+    filterWhere(input),
   );
   const [totalRow] = await db
     .select({ total: count() })
@@ -220,7 +288,7 @@ export async function listTopics(
     db,
     where,
     [
-      sql`${forumTopics.pinned} = 'none'`,
+      ...(input.forum ? [sql`${forumTopics.pinned} = 'none'`] : []),
       desc(forumTopics.lastPostAt),
       desc(forumTopics.id),
     ],
@@ -310,6 +378,10 @@ export interface PostView {
   first: boolean;
   /** Its author's group titles ("Admin", "Moderator", …), to show by their name. */
   titles: string[];
+  /** Threaded forums: how deep it nests (0: the opening post). */
+  depth: number;
+  /** Q&A forums: the asker accepted it. */
+  accepted: boolean;
 }
 
 function postsVisibleTo(viewer: ForumViewer | null, mod: boolean) {
@@ -320,11 +392,41 @@ function postsVisibleTo(viewer: ForumViewer | null, mod: boolean) {
   );
 }
 
-/** A topic's posts, oldest first, one page of them. */
+/** Every post of a topic this viewer may see, in its layout's order. */
+async function placedPosts(
+  db: Database,
+  topic: ForumTopic,
+  layout: string,
+  viewer: ForumViewer | null,
+  mod: boolean,
+) {
+  const light = await db
+    .select({
+      id: forumPosts.id,
+      parentId: forumPosts.parentId,
+      score: forumPosts.score,
+      createdAt: forumPosts.createdAt,
+    })
+    .from(forumPosts)
+    .leftJoin(users, eq(users.id, forumPosts.authorId))
+    .where(and(eq(forumPosts.topicId, topic.id), postsVisibleTo(viewer, mod)));
+  return orderPosts(layout, light, {
+    firstPostId: topic.firstPostId,
+    acceptedPostId: topic.acceptedPostId,
+  });
+}
+
+/**
+ * One page of a topic's posts, in its forum's layout's order (classic: by time; Q&A:
+ * the question, the accepted answer, then by score; threaded: replies under what
+ * they answer, whole threads per page).
+ */
 export async function listPosts(
   db: Database,
   input: {
     topic: ForumTopic;
+    /** The forum's layout (forums.layout). */
+    layout?: string;
     viewer: ForumViewer | null;
     mod: boolean;
     page: number;
@@ -332,32 +434,33 @@ export async function listPosts(
     adminTitle?: string | null;
   },
 ): Promise<{ posts: PostView[]; total: number; pages: number; page: number }> {
-  const perPage = FORUM_LIMITS.postsPerPage;
-  const where = and(
-    eq(forumPosts.topicId, input.topic.id),
-    postsVisibleTo(input.viewer, input.mod),
+  const placed = await placedPosts(
+    db,
+    input.topic,
+    input.layout ?? "classic",
+    input.viewer,
+    input.mod,
   );
-  const [totalRow] = await db
-    .select({ total: count() })
-    .from(forumPosts)
-    .leftJoin(users, eq(users.id, forumPosts.authorId))
-    .where(where);
-  const total = totalRow?.total ?? 0;
-  const pages = Math.max(1, Math.ceil(total / perPage));
-  const page = Math.min(Math.max(1, input.page), pages);
-  const rows = await db
-    .select({
-      post: forumPosts,
-      author: authorColumns,
-      // Only to tell whether the author is an admin; never shown.
-      account: { email: users.email, githubId: users.githubId },
-    })
-    .from(forumPosts)
-    .leftJoin(users, eq(users.id, forumPosts.authorId))
-    .where(where)
-    .orderBy(asc(forumPosts.createdAt), asc(forumPosts.id))
-    .limit(perPage)
-    .offset((page - 1) * perPage);
+  const { items, pages, page } = pageOf(
+    placed,
+    input.page,
+    FORUM_LIMITS.postsPerPage,
+  );
+  const ids = items.map((item) => item.id);
+  const rows =
+    ids.length === 0
+      ? []
+      : await db
+          .select({
+            post: forumPosts,
+            author: authorColumns,
+            // Only to tell whether the author is an admin; never shown.
+            account: { email: users.email, githubId: users.githubId },
+          })
+          .from(forumPosts)
+          .leftJoin(users, eq(users.id, forumPosts.authorId))
+          .where(inArray(forumPosts.id, ids));
+  const byId = new Map(rows.map((row) => [row.post.id, row]));
 
   const authorIds = [
     ...new Set(rows.flatMap((row) => (row.author ? [row.author.id] : []))),
@@ -381,7 +484,9 @@ export async function listPosts(
 
   const titles = await titlesOf(db, authorIds);
   const posts: PostView[] = [];
-  for (const row of rows) {
+  for (const item of items) {
+    const row = byId.get(item.id);
+    if (!row) continue;
     const admin = row.account !== null && isAdmin(row.account);
     posts.push({
       post: row.post,
@@ -393,36 +498,24 @@ export async function listPosts(
         ...(admin && input.adminTitle ? [input.adminTitle] : []),
         ...(row.author ? (titles.get(row.author.id) ?? []) : []),
       ],
+      depth: item.depth,
+      accepted: row.post.id === input.topic.acceptedPostId,
     });
   }
-  return { posts, total, pages, page };
+  return { posts, total: placed.length, pages, page };
 }
 
-/** Which page of its topic a post is on, as this viewer counts posts. */
+/** Which page of its topic a post is on, as this viewer sees the topic. */
 export async function pageOfPost(
   db: Database,
   post: ForumPost,
+  topic: ForumTopic,
+  layout: string,
   viewer: ForumViewer | null,
   mod: boolean,
 ): Promise<number> {
-  const [row] = await db
-    .select({ before: count() })
-    .from(forumPosts)
-    .leftJoin(users, eq(users.id, forumPosts.authorId))
-    .where(
-      and(
-        eq(forumPosts.topicId, post.topicId),
-        postsVisibleTo(viewer, mod),
-        or(
-          lt(forumPosts.createdAt, post.createdAt),
-          and(
-            eq(forumPosts.createdAt, post.createdAt),
-            lt(forumPosts.id, post.id),
-          ),
-        ),
-      ),
-    );
-  return Math.floor((row?.before ?? 0) / FORUM_LIMITS.postsPerPage) + 1;
+  const placed = await placedPosts(db, topic, layout, viewer, mod);
+  return pageOfId(placed, post.id, FORUM_LIMITS.postsPerPage);
 }
 
 /** Someone's username (for quotes), or null for none or a deleted account. */
@@ -597,8 +690,20 @@ export async function refreshTopic(db: Db, topicId: number): Promise<void> {
       ...(last ? { lastPostAt: last.createdAt } : {}),
     })
     .where(eq(forumTopics.id, topicId))
-    .returning({ forumId: forumTopics.forumId });
+    .returning({
+      forumId: forumTopics.forumId,
+      authorId: forumTopics.authorId,
+    });
   if (topic) await refreshForum(db, topic.forumId);
+  // Points follow posts: everyone who wrote here is recounted.
+  const authors = await db
+    .selectDistinct({ authorId: forumPosts.authorId })
+    .from(forumPosts)
+    .where(eq(forumPosts.topicId, topicId));
+  await refreshStats(db, [
+    topic?.authorId ?? null,
+    ...authors.map((row) => row.authorId),
+  ]);
 }
 
 export async function refreshForum(db: Db, forumId: number): Promise<void> {
@@ -662,6 +767,9 @@ export async function createTopic(
     author: User;
     title: string;
     body: string;
+    /** Free tags (normalized here) and one of the forum's prefixes. */
+    tags?: readonly string[];
+    prefixId?: number | null;
     now?: Date;
   },
 ): Promise<PostResult<{ topic: ForumTopic; post: ForumPost }>> {
@@ -682,6 +790,11 @@ export async function createTopic(
   }
   const state: ForumPostState = reviewed ? "pending" : "published";
   const html = await renderBody(db, body);
+  const prefixId = await validPrefix(
+    db,
+    input.forum.id,
+    input.prefixId ?? null,
+  );
 
   const value = await db.transaction(async (tx) => {
     const [topic] = await tx
@@ -691,6 +804,7 @@ export async function createTopic(
         authorId: input.author.id,
         title,
         slug: slugify(title),
+        prefixId,
         state,
         lastPostAt: now,
         createdAt: now,
@@ -711,10 +825,18 @@ export async function createTopic(
       })
       .returning();
     if (!post) throw new Error("Saving the post returned nothing");
+    await setTopicTags(tx, topic.id, input.tags ?? []);
     await refreshTopic(tx, topic.id);
     return { topic: { ...topic, firstPostId: post.id }, post };
   });
+  // People watch their own topics, and the draft is done with.
+  await watch(db, input.author.id, { topicId: value.topic.id }, now);
+  await deleteDraft(db, input.author.id, draftKey.topic(input.forum.id));
   if (reviewed) await alertWaiting(db, input.author, "A new topic", now);
+  else
+    await safely("forum notifications", () =>
+      notifyPublished(db, { ...value.topic, state }, value.post, now),
+    );
   return { ok: true, value };
 }
 
@@ -727,6 +849,8 @@ export async function createReply(
     topic: ForumTopic;
     author: User;
     body: string;
+    /** Threaded forums: the post this answers (another forum's layout ignores it). */
+    parentId?: number | null;
     now?: Date;
   },
 ): Promise<PostResult<ForumPost>> {
@@ -748,12 +872,28 @@ export async function createReply(
     if (pace) return { ok: false, error: pace };
   }
   const html = await renderBody(db, body);
+  let parentId: number | null = null;
+  if (input.forum.layout === "threaded" && input.parentId) {
+    const [parent] = await db
+      .select({ id: forumPosts.id })
+      .from(forumPosts)
+      .where(
+        and(
+          eq(forumPosts.id, input.parentId),
+          eq(forumPosts.topicId, input.topic.id),
+          isNull(forumPosts.deletedAt),
+        ),
+      )
+      .limit(1);
+    parentId = parent?.id ?? null;
+  }
   const post = await db.transaction(async (tx) => {
     const [row] = await tx
       .insert(forumPosts)
       .values({
         topicId: input.topic.id,
         authorId: input.author.id,
+        parentId,
         body,
         html,
         renderVersion: FORUM_RENDER_VERSION,
@@ -769,8 +909,15 @@ export async function createReply(
     await refreshTopic(tx, input.topic.id);
     return row;
   });
+  if ((await settingsOf(db, input.author.id)).watchReplies)
+    await watch(db, input.author.id, { topicId: input.topic.id }, now);
+  await deleteDraft(db, input.author.id, draftKey.reply(input.topic.id));
   if (reviewed && input.topic.state === "published")
     await alertWaiting(db, input.author, "A reply", now);
+  else if (!reviewed)
+    await safely("forum notifications", () =>
+      notifyPublished(db, input.topic, post, now),
+    );
   return { ok: true, value: post };
 }
 
@@ -1049,8 +1196,26 @@ async function applyModeration(
     });
 
   switch (action) {
-    case "approve":
-      return setState(["pending"], "published");
+    case "approve": {
+      const approved = await setState(["pending"], "published");
+      if (approved) {
+        const [fresh] = await db
+          .select()
+          .from(forumTopics)
+          .where(eq(forumTopics.id, topic.id))
+          .limit(1);
+        const [live] = await db
+          .select()
+          .from(forumPosts)
+          .where(eq(forumPosts.id, post.id))
+          .limit(1);
+        if (fresh && live)
+          await safely("forum notifications", () =>
+            notifyPublished(db, fresh, live, now),
+          );
+      }
+      return approved;
+    }
     case "hide":
       return setState(["pending", "published"], "hidden");
     case "unhide":
@@ -1254,4 +1419,46 @@ export async function forumExport(db: Database, userId: string) {
       .orderBy(asc(forumPosts.createdAt)),
   ]);
   return { topics, posts };
+}
+
+/** Someone's newest published posts in forums the viewer may see (their member page). */
+export async function recentPostsBy(
+  db: Database,
+  input: { userId: string; forumIds: readonly number[]; limit: number },
+) {
+  const rows = await db
+    .select({
+      post: {
+        id: forumPosts.id,
+        html: forumPosts.html,
+        createdAt: forumPosts.createdAt,
+      },
+      topic: {
+        id: forumTopics.id,
+        slug: forumTopics.slug,
+        title: forumTopics.title,
+        firstPostId: forumTopics.firstPostId,
+      },
+      forum: { slug: forums.slug, name: forums.name },
+    })
+    .from(forumPosts)
+    .innerJoin(forumTopics, eq(forumTopics.id, forumPosts.topicId))
+    .innerJoin(forums, eq(forums.id, forumTopics.forumId))
+    .where(
+      and(
+        eq(forumPosts.authorId, input.userId),
+        eq(forumPosts.state, "published"),
+        isNull(forumPosts.deletedAt),
+        eq(forumTopics.state, "published"),
+        isNull(forumTopics.deletedAt),
+        inArray(forumTopics.forumId, [...input.forumIds, -1]),
+      ),
+    )
+    .orderBy(desc(forumPosts.createdAt))
+    .limit(input.limit);
+  return rows.map((row) => ({
+    ...row,
+    excerpt: excerpt(plainText(row.post.html), 180),
+    opening: row.post.id === row.topic.firstPostId,
+  }));
 }

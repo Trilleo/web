@@ -1,0 +1,234 @@
+---
+/**
+ * The signed-in person's forum settings: how often they're emailed (at once, a
+ * daily or weekly digest, never), whether replying watches a topic, their signature,
+ * and what they watch (stop watching from here). POST with `intent`.
+ */
+import {
+  EMAIL_FREQUENCIES,
+  SIGNATURE_MAX,
+  forumPath,
+  isEmailFrequency,
+  topicPath,
+} from "@trilleo/forum";
+import { buttonClasses } from "@trilleo/ui";
+import DisplayTitle from "../../components/DisplayTitle.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { requireUser } from "../../lib/auth/guard";
+import { noStoreRedirect } from "../../lib/auth/redirect";
+import { field, parseId } from "../../lib/comments/form";
+import { getDb } from "../../lib/db";
+import { notificationsOf } from "../../lib/mail/addresses";
+import {
+  saveSettings,
+  settingsOf,
+  unwatch,
+  watchesOf,
+} from "../../lib/forum/notifications";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const intent = field(form, "intent");
+  if (intent === "settings") {
+    const email = field(form, "email");
+    await saveSettings(db, user.id, {
+      email: isEmailFrequency(email) ? email : "instant",
+      watchReplies: field(form, "watchReplies") === "on",
+      signature: field(form, "signature"),
+    });
+    return noStoreRedirect("/account/forum/?saved=1", 303);
+  }
+  if (intent === "unwatch") {
+    const topicId = parseId(field(form, "topic"));
+    const forumId = parseId(field(form, "forum"));
+    if (topicId !== null) await unwatch(db, user.id, { topicId });
+    else if (forumId !== null) await unwatch(db, user.id, { forumId });
+    return noStoreRedirect("/account/forum/?unwatched=1#watching", 303);
+  }
+}
+const settings = await settingsOf(db, user.id);
+const watches = await watchesOf(db, user.id);
+const emailOn = user.email !== null && notificationsOf(user).forum;
+const saved = Astro.url.searchParams.has("saved");
+const row = "grid-swiss gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6";
+const label = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
+---
+
+<BaseLayout title="Forum settings" noindex>
+  <section
+    aria-labelledby="forum-settings-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">
+      (Account){" "}
+      <a href="/account/" class="link-wipe">
+        @{user.username}
+      </a>
+    </p>
+    <DisplayTitle id="forum-settings-title">Forum</DisplayTitle>
+    {saved && (
+      <p role="status" class="type-lead mt-6 border-l-2 border-accent pl-4">
+        Saved.
+      </p>
+    )}
+
+    <form method="post" class="mt-7 flex flex-col gap-12 md:mt-8 xl:mt-12">
+      <input type="hidden" name="intent" value="settings" />
+      <fieldset class={row}>
+        <legend class="sr-only">Email</legend>
+        <p class={label} aria-hidden="true">
+          Email
+        </p>
+        <div class={body}>
+          {!emailOn && (
+            <p class="text-muted">
+              {user.email
+                ? "Forum emails are switched off on your "
+                : "Add an address on your "}
+              <a href="/account/email/" class="link-wipe text-ink">
+                email page
+              </a>
+              {user.email
+                ? "; nothing is sent until you switch them on."
+                : " to get forum emails."}
+            </p>
+          )}
+          <p class="font-medium">
+            Email me about replies, new topics, mentions and accepted answers
+          </p>
+          {Object.entries(EMAIL_FREQUENCIES).map(([value, text]) => (
+            <div class="flex items-center gap-3">
+              <input
+                id={`email-${value}`}
+                type="radio"
+                name="email"
+                value={value}
+                checked={settings.email === value}
+                class="size-4 accent-accent"
+              />
+              <label for={`email-${value}`}>{text}</label>
+            </div>
+          ))}
+        </div>
+      </fieldset>
+
+      <div class={row}>
+        <h2 class={label}>Watching</h2>
+        <div class={body}>
+          <div class="flex items-start gap-3">
+            <input
+              id="watchReplies"
+              type="checkbox"
+              name="watchReplies"
+              checked={settings.watchReplies}
+              aria-describedby="watchReplies-hint"
+              class="mt-1 size-4 shrink-0 accent-accent"
+            />
+            <div>
+              <label for="watchReplies" class="font-medium">
+                Watch topics I reply to
+              </label>
+              <p id="watchReplies-hint" class="text-sm text-muted">
+                You always watch topics you start.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class={row}>
+        <h2 class={label}>Signature</h2>
+        <div class={body}>
+          <div class="flex flex-col gap-2">
+            <label for="signature" class="font-medium">
+              Shown under your posts
+            </label>
+            <input
+              id="signature"
+              name="signature"
+              value={settings.signature}
+              maxlength={SIGNATURE_MAX}
+              aria-describedby="signature-hint"
+              class="w-full border border-ink bg-paper px-3 py-2.5 text-base"
+            />
+            <p id="signature-hint" class="text-sm text-muted">
+              One line of plain text, up to {SIGNATURE_MAX} characters.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class={row}>
+        <div class="col-span-4 md:col-span-8 xl:col-span-12">
+          <button type="submit" class={buttonClasses()}>
+            Save
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <div id="watching" class:list={[row, "mt-12 scroll-mt-6"]}>
+      <h2 class={label}>What you watch</h2>
+      <div class={body}>
+        {watches.length === 0 ? (
+          <p class="text-muted">Nothing.</p>
+        ) : (
+          <ul class="border-b border-ink" data-testid="watches">
+            {watches.map((item) => (
+              <li class="flex items-center justify-between gap-3 border-t border-hair py-2">
+                {item.topic?.id && item.topicForum?.slug ? (
+                  <a
+                    href={topicPath(item.topicForum, item.topic)}
+                    class="link-wipe min-w-0 truncate"
+                  >
+                    {item.topic.title}
+                  </a>
+                ) : item.forum?.id ? (
+                  <a
+                    href={forumPath(item.forum)}
+                    class="link-wipe min-w-0 truncate"
+                  >
+                    Forum: {item.forum.name}
+                  </a>
+                ) : (
+                  <span class="text-muted">Gone</span>
+                )}
+                <form method="post">
+                  <input type="hidden" name="intent" value="unwatch" />
+                  {item.topic?.id ? (
+                    <input
+                      type="hidden"
+                      name="topic"
+                      value={String(item.topic.id)}
+                    />
+                  ) : (
+                    <input
+                      type="hidden"
+                      name="forum"
+                      value={String(item.forum?.id ?? "")}
+                    />
+                  )}
+                  <button
+                    type="submit"
+                    class="type-label border border-ink px-2.5 py-1.5 hover:bg-chip"
+                  >
+                    Stop
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

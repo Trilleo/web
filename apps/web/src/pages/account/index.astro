@@ -164,6 +164,33 @@ const STATUS = {
     </div>
 
     <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">Forum</h2>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-7">
+        <p>
+          Replies, mentions and reactions in the forum, how often you’re emailed
+          about them, your signature, and what you watch.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <a href="/account/notifications/" class={buttonClasses()}>
+            Notifications
+          </a>
+          <a
+            href="/account/forum/"
+            class={buttonClasses({ variant: "secondary" })}
+          >
+            Forum settings
+          </a>
+          <a
+            href={`/forum/members/${user.username}/`}
+            class={buttonClasses({ variant: "secondary" })}
+          >
+            Your forum page
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
       <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">Privacy</h2>
       <ul class="col-span-4 flex flex-col md:col-span-6 xl:col-span-7">
         <li class="border-b border-hair">

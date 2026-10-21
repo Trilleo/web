@@ -50,6 +50,7 @@ const PAGES = [
   "/forum/community/",
   "/forum/recent/",
   "/forum/search/?q=hello",
+  "/forum/members/site-owner/",
   // The wiki's host (wiki.localhost; see e2e/wiki.spec.ts).
   "wiki:/",
   "wiki:/skygrid/",

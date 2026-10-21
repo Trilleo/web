@@ -35,7 +35,14 @@ export const GET: APIRoute = async (context) => {
       authorId: post.authorId,
     });
   if (!visible) return context.rewrite("/404");
-  const page = await pageOfPost(db, post, viewer, mod);
+  const page = await pageOfPost(
+    db,
+    post,
+    topic,
+    node.forum.layout,
+    viewer,
+    mod,
+  );
   return new Response(null, {
     status: 302,
     headers: {

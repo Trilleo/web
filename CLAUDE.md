@@ -901,9 +901,41 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   saved). Rendered on save into `html`; bump FORUM_RENDER_VERSION when its output
   changes (stale posts re-render when read). Quotes are plain Markdown (`quoteFor`).
   Changing what's enabled means updating its XSS tests.
-- Layouts (`FORUM_LAYOUTS`): only "classic" is built; Q&A and threaded are listed
-  `ready: false` (the admin sees them, disabled). Blocked accounts' topics and posts
-  are left out of views at read time.
+- Layouts (`FORUM_LAYOUTS`, chosen per forum): classic (by time), qa (the question,
+  the accepted answer, then by `score` from forum_votes; the asker or a moderator
+  accepts, which marks the topic solved and is worth POINTS.acceptedAnswer) and
+  threaded (replies keep `parent_id`, nest up to MAX_DEPTH, pages are whole
+  threads). One order function for all: @trilleo/forum's `orderPosts`/`pageOf`;
+  `listPosts` loads the light rows of everything visible, orders, then fetches the
+  page. Blocked accounts' topics and posts are left out of views at read time.
+- Engagement (lib/forum/): reactions.ts (REACTIONS, one per person per post, toggled;
+  votes; accepting), reputation.ts (forum_user_stats recounted from the rows by
+  `refreshStats`, which `refreshTopic` calls for a topic's authors; badges kept once
+  earned; forum_ranks edited at /admin/forum/ranks/), tags.ts (free tags,
+  normalized, MAX_TAGS; each forum's prefixes, edited on its admin page; solved),
+  reads.ts (forum_reads + "mark all read"; before reading anything, what's older
+  than the account counts as read), drafts.ts (/api/forum/drafts, autosaved by
+  lib/forum/post-form.ts, which also drives the live preview through
+  /api/forum/preview), notifications.ts (watches; `notifyPublished` when a post goes
+  live: forum watchers for a new topic, topic watchers for a reply, and the people
+  its rendered HTML mentions (`data-mention`) or quotes (`quotedPostIds`), one
+  notification each, only if they can see it; reactions and accepted answers too;
+  instant emails ("forum-notification", topic "forum") or digests
+  ("forum-digest", from the mail delivery pass); forum_user_settings holds the
+  frequency, auto-watching replies, the signature). Notifications are purged after
+  NOTIFICATION_RETENTION_DAYS.
+- Member actions are POST /forum/engage (`do`: react, vote, accept, unaccept,
+  solved, unsolved, watch, unwatch, labels, read-all); reactions answer JSON to
+  lib/forum/reactions-client.ts. Pages: /forum/unread/, /forum/tags/<tag>/,
+  /forum/members/<username>/ (rank, points, badges, posts; follows the profile's
+  privacy), /account/notifications/ (the account menu shows the unread count),
+  /account/forum/ (settings, watching). Forum pages filter by ?filter= and ?prefix=.
+- Feeds and search engines: /forum/rss.xml, /forum/<forum>/rss.xml,
+  /forum/<forum>/<topic>/rss.xml (lib/forum/feeds.ts, visitors' view),
+  /sitemap-forum.xml (in robots.txt), a "## Forum" section in llms.txt, share cards
+  /og/forum.png and /og/forum/<topic id>.png (lib/forum/seo.ts), and
+  DiscussionForumPosting JSON-LD on topics. BaseLayout's `feeds` adds a page's
+  RSS links.
 - Pages work without JavaScript: posting, Preview (a round trip), Quote (?quote=<id>),
   editing (/forum/edit/<id>/), and every button (POST /forum/action, with `back`).
   Search is Postgres full-text search over titles and posts (/forum/search/?q=,
@@ -912,12 +944,11 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   layout, moderation, locked, hidden, permissions, moderators; delete only when
   empty). Posts show their author's group titles.
 - Accounts: the export has `forum` (topics and posts, deleted ones too, their earlier
-  versions, reports made, bans, groups). Deleting an account keeps its posts without
+  versions, reports made, bans, groups, settings, watches, notifications, reactions,
+  votes, points, badges, drafts, reads). Deleting an account keeps its posts without
   the author ("Deleted account"), like wiki revisions; its bans, reports about it and
   memberships go.
-- Later phases (designed, not built): Q&A and threaded layouts, reactions, ranks,
-  unread tracking, tags and prefixes, subscriptions and digests, RSS, polls,
-  attachments and private messages.
+- Later phase (designed, not built): polls, attachments and private messages.
 
 ## Mail
 

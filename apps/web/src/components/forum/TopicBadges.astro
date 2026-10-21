@@ -3,10 +3,11 @@
 import type { ForumTopic } from "@trilleo/db";
 
 interface Props {
-  topic: Pick<ForumTopic, "pinned" | "locked" | "state">;
+  topic: Pick<ForumTopic, "pinned" | "locked" | "state" | "solvedAt">;
+  prefix?: { label: string; style: string } | null | undefined;
 }
 
-const { topic } = Astro.props;
+const { topic, prefix } = Astro.props;
 const badges = [
   topic.pinned === "global" && { label: "Announcement", accent: true },
   topic.pinned === "forum" && { label: "Pinned", accent: true },
@@ -16,6 +17,25 @@ const badges = [
 ].filter((badge) => badge !== false);
 ---
 
+{prefix && (
+  <span
+    class:list={[
+      "type-label inline-flex items-center px-1.5 py-0.5",
+      {
+        accent: "bg-accent text-on-accent",
+        ink: "bg-ink text-paper",
+        outline: "border border-ink text-ink",
+      }[prefix.style] ?? "border border-ink text-ink",
+    ]}
+  >
+    {prefix.label}
+  </span>
+)}
+{topic.solvedAt && (
+  <span class="type-label inline-flex items-center gap-1.5 text-ink">
+    <span aria-hidden="true">✓</span>Solved
+  </span>
+)}
 {badges.map((badge) => (
   <span
     class:list={[

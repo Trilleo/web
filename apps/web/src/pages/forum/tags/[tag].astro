@@ -1,0 +1,85 @@
+---
+/** Topics with a tag, across the forums the viewer may see, newest activity first. */
+import { normalizeTag } from "@trilleo/forum";
+import Breadcrumb from "../../../components/Breadcrumb.astro";
+import Pager from "../../../components/forum/Pager.astro";
+import TopicList from "../../../components/forum/TopicList.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { getDb } from "../../../lib/db";
+import { FORUM_NUMBER, counted, pageParam } from "../../../lib/forum/public";
+import { unreadOf } from "../../../lib/forum/reads";
+import { forumViewer, listTopics, loadTree } from "../../../lib/forum/store";
+import { tagId } from "../../../lib/forum/tags";
+
+export const prerender = false;
+
+const tag = normalizeTag(Astro.params.tag ?? "");
+const db = await getDb();
+const id = tag ? await tagId(db, tag) : null;
+if (id === null) return Astro.rewrite("/404");
+if (tag !== Astro.params.tag) return Astro.redirect(`/forum/tags/${tag}/`, 301);
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const user = Astro.locals.user;
+const tree = await loadTree(db);
+const viewer = await forumViewer(db, tree, user);
+const page = pageParam(Astro.url);
+const listed = await listTopics(db, {
+  forum: null,
+  forumIds: tree.visibleIds(viewer),
+  viewer,
+  mod: false,
+  page,
+  tagId: id,
+});
+const unread = user
+  ? await unreadOf(
+      db,
+      user,
+      listed.topics.map((row) => row.topic),
+    )
+  : new Set<number>();
+// Tags with only a topic or two aren't worth a search engine's time.
+const thin = listed.total < 3;
+---
+
+<BaseLayout
+  title={`#${tag} · Forum`}
+  description={`Forum topics tagged ${tag}.`}
+  noindex={thin || page > 1}
+>
+  <section
+    aria-labelledby="tag-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <Breadcrumb
+      items={[
+        { label: `(${FORUM_NUMBER}) Forum`, href: "/forum/" },
+        { label: `#${tag}` },
+      ]}
+      class="type-label"
+    />
+    <h1 id="tag-title" class="type-band mt-5 font-mono break-words xl:mt-7">
+      #{tag}
+    </h1>
+    <p class="type-label mt-4 text-muted">{counted(listed.total, "topic")}</p>
+    <div class="mt-6">
+      <TopicList
+        topics={listed.topics}
+        showForum
+        unread={unread}
+        empty="No topics you can see have this tag."
+      />
+    </div>
+    {listed.pages > 1 && (
+      <div class="mt-6">
+        <Pager
+          page={Math.min(page, listed.pages)}
+          pages={listed.pages}
+          base={`/forum/tags/${tag}/`}
+          label="Topic pages"
+        />
+      </div>
+    )}
+  </section>
+</BaseLayout>

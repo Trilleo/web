@@ -1,10 +1,21 @@
 ---
 /**
- * One post on a topic page: who wrote it (picture, name, how many posts, when they
- * joined) beside what they wrote, then its buttons: quote, edit, delete, and the
- * moderator's. Every button is a link or a POST form, so it works without JS.
+ * One post on a topic page: who wrote it (picture, name, rank, points, badges,
+ * when they joined) beside what they wrote and their signature, then reactions and
+ * its buttons: quote, reply (threaded forums), votes and accepting (Q&A forums),
+ * edit, delete, report, and the moderator's. Every button is a link or a POST form,
+ * so it works without JS. Threaded replies are indented by `view.depth`.
  */
-import { BAN_LENGTHS, REASON_MAX, postAnchor, postPath } from "@trilleo/forum";
+import {
+  BAN_LENGTHS,
+  REASON_MAX,
+  badgeInfo,
+  postAnchor,
+  postPath,
+} from "@trilleo/forum";
+import type { ReactionSummary } from "../../lib/forum/reactions";
+import type { Reputation } from "../../lib/forum/reputation";
+import Reactions from "./Reactions.astro";
 import { counted, formatWhen } from "../../lib/forum/public";
 import type { PostView } from "../../lib/forum/store";
 import { formatPostDate } from "../../lib/listings";
@@ -31,6 +42,16 @@ interface Props {
   /** Where buttons come back to. */
   back: string;
   now?: Date;
+  reactions?: readonly ReactionSummary[];
+  canReact?: boolean;
+  /** Q&A forums: the score, the viewer's vote, and whether they may vote. */
+  votes?: { score: number; mine: number; canVote: boolean } | undefined;
+  /** Q&A forums: the viewer may accept (or take back) this answer. */
+  canAccept?: boolean;
+  /** Threaded forums: "Reply" to this post goes here. */
+  replyHref?: string | undefined;
+  signature?: string | undefined;
+  reputation?: Reputation | undefined;
 }
 
 const {
@@ -45,6 +66,13 @@ const {
   splitForm,
   back,
   now = new Date(),
+  reactions = [],
+  canReact = false,
+  votes,
+  canAccept = false,
+  replyHref,
+  signature,
+  reputation,
 } = Astro.props;
 const { post, author, html } = view;
 const anchor = postAnchor(post);
@@ -59,9 +87,15 @@ const action = "group type-label cursor-pointer text-muted hover:text-ink";
 
 <article
   id={anchor}
-  class="grid-swiss scroll-mt-6 gap-y-3 border-t border-hair py-5 md:py-6"
+  class:list={[
+    "grid-swiss scroll-mt-6 gap-y-3 border-t border-hair py-5 md:py-6",
+    view.depth > 0 && "forum-nested",
+    view.accepted && "border-l-2 border-l-accent pl-3",
+  ]}
+  style={view.depth > 0 ? `--depth: ${String(view.depth)}` : undefined}
   aria-labelledby={`${anchor}-by`}
   data-post={String(post.id)}
+  data-depth={String(view.depth)}
 >
   <header class="col-span-4 flex items-center gap-3 md:col-span-2 md:flex-col md:items-start md:gap-2 xl:col-span-2">
     {person ? (
@@ -87,9 +121,30 @@ const action = "group type-label cursor-pointer text-muted hover:text-ink";
       {author && (
         <p class="type-label flex flex-wrap gap-x-3 text-muted md:flex-col">
           <span>@{author.username}</span>
-          <span>{counted(view.authorPosts, "post")}</span>
+          {reputation?.rank && <span class="text-ink">{reputation.rank}</span>}
+          <a href={`/forum/members/${author.username}/`} class="group">
+            <span class="link-wipe">
+              {counted(view.authorPosts, "post")}
+              {reputation ? ` · ${counted(reputation.points, "point")}` : ""}
+            </span>
+          </a>
           <span>Joined {formatPostDate(author.joinedAt)}</span>
         </p>
+      )}
+      {reputation && reputation.badges.length > 0 && (
+        <ul class="flex flex-wrap gap-1" aria-label="Badges">
+          {reputation.badges.map((key) => {
+            const badge = badgeInfo(key);
+            return badge ? (
+              <li
+                class="type-label border border-hair px-1.5 py-0.5 text-muted"
+                title={badge.description}
+              >
+                {badge.name}
+              </li>
+            ) : null;
+          })}
+        </ul>
       )}
       {view.titles.length > 0 && (
         <p class="flex flex-wrap gap-1.5">
@@ -152,13 +207,110 @@ const action = "group type-label cursor-pointer text-muted hover:text-ink";
       {post.state === "hidden" && (
         <span class="bg-chip px-1.5 py-0.5 text-ink">Hidden</span>
       )}
+      {view.accepted && (
+        <span class="inline-flex items-center gap-1.5 bg-accent px-1.5 py-0.5 text-on-accent">
+          Accepted answer
+        </span>
+      )}
     </p>
-    <div class="comment-body forum-body">
-      <Fragment set:html={html} />
+    <div class="flex gap-4">
+      {votes && (
+        <div
+          class="flex shrink-0 flex-col items-center gap-0.5"
+          role="group"
+          aria-label="Votes"
+        >
+          {([1, -1] as const).map((value) =>
+            votes.canVote ? (
+              <form
+                method="post"
+                action="/forum/engage"
+                class={value === -1 ? "order-last" : undefined}
+              >
+                <input type="hidden" name="do" value="vote" />
+                <input type="hidden" name="post" value={String(post.id)} />
+                <input type="hidden" name="value" value={String(value)} />
+                <input
+                  type="hidden"
+                  name="back"
+                  value={`${back.split("#")[0] ?? back}#${anchor}`}
+                />
+                <button
+                  type="submit"
+                  class="inline-flex size-8 cursor-pointer items-center justify-center border border-hair font-mono hover:border-ink aria-pressed:bg-ink aria-pressed:text-paper"
+                  aria-pressed={votes.mine === value ? "true" : "false"}
+                  aria-label={value === 1 ? "Vote up" : "Vote down"}
+                >
+                  {value === 1 ? "▲" : "▼"}
+                </button>
+              </form>
+            ) : null,
+          )}
+          <span
+            class="font-mono text-sm"
+            aria-label={`Score ${String(votes.score)}`}
+          >
+            {votes.score}
+          </span>
+        </div>
+      )}
+      <div class="min-w-0 flex-1">
+        <div class="comment-body forum-body">
+          <Fragment set:html={html} />
+        </div>
+        {signature && (
+          <p
+            class="mt-4 border-t border-hair pt-2 text-sm text-muted"
+            data-signature
+          >
+            {signature}
+          </p>
+        )}
+      </div>
     </div>
 
-    {(quoteHref || canEdit || canDelete || mod || canReport) && (
+    {(reactions.length > 0 || canReact) && (
+      <Reactions
+        postId={post.id}
+        reactions={reactions}
+        canReact={canReact}
+        back={`${back.split("#")[0] ?? back}#${anchor}`}
+      />
+    )}
+
+    {(quoteHref ||
+      replyHref ||
+      canEdit ||
+      canDelete ||
+      mod ||
+      canReport ||
+      canAccept) && (
       <div class="flex flex-wrap items-baseline gap-x-5 gap-y-2">
+        {replyHref && (
+          <a href={replyHref} class={action}>
+            <span class="link-wipe">Reply</span>
+          </a>
+        )}
+        {canAccept && (
+          <form method="post" action="/forum/engage">
+            <input
+              type="hidden"
+              name="do"
+              value={view.accepted ? "unaccept" : "accept"}
+            />
+            <input type="hidden" name="post" value={String(post.id)} />
+            <input
+              type="hidden"
+              name="back"
+              value={`${back.split("#")[0] ?? back}#${anchor}`}
+            />
+            <button type="submit" class={action}>
+              <span class="link-wipe">
+                {view.accepted ? "Take back acceptance" : "Accept this answer"}
+              </span>
+            </button>
+          </form>
+        )}
         {quoteHref && (
           <a href={quoteHref} class={action} data-quote={String(post.id)}>
             <span class="link-wipe">Quote</span>

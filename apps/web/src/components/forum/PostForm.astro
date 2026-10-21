@@ -1,10 +1,13 @@
 ---
 /**
- * Writing a topic or a reply: an optional title, the text, a short formatting
- * guide, and Preview / Post buttons (preview is a round trip, so it works without
- * JavaScript; the page shows it above the form).
+ * Writing a topic or a reply: an optional title (with a prefix and tags for new
+ * topics), the text, a short formatting guide, and Preview / Post buttons (preview
+ * is a round trip, so it works without JavaScript; the page shows it above the
+ * form). With JavaScript, the preview follows the text as it's typed, and a draft
+ * is saved to the account (`draftKey`) and offered back next time.
  */
-import { FORUM_LIMITS } from "@trilleo/forum";
+import type { ForumPrefix } from "@trilleo/db";
+import { FORUM_LIMITS, MAX_TAGS } from "@trilleo/forum";
 import { buttonClasses } from "@trilleo/ui";
 
 interface Props {
@@ -23,6 +26,16 @@ interface Props {
   id?: string;
   /** Where "Cancel" goes. */
   cancel?: string | undefined;
+  /** The forum's prefixes to choose from, and the chosen one. */
+  prefixes?: readonly ForumPrefix[];
+  prefixId?: number | null;
+  /** Show the tags field with this value; `suggestions` feed its list. */
+  tags?: string | undefined;
+  suggestions?: readonly string[];
+  /** Where drafts are saved (drafts.ts's keys); none: no drafts. */
+  draftKey?: string | undefined;
+  /** A line above the text, e.g. "Replying to @alice" with a link to cancel it. */
+  replyingTo?: { label: string; cancel: string } | undefined;
 }
 
 const {
@@ -36,6 +49,12 @@ const {
   rows = 10,
   id = "post-form",
   cancel,
+  prefixes = [],
+  prefixId = null,
+  tags,
+  suggestions = [],
+  draftKey,
+  replyingTo,
 } = Astro.props;
 const input =
   "w-full border border-ink bg-paper px-3 py-2.5 text-base text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-invalid:border-accent";
@@ -47,25 +66,63 @@ const input =
   class="flex flex-col gap-5"
   id={id}
   novalidate
+  data-post-form
+  data-draft-key={draftKey}
 >
   {Object.entries(hidden).map(([name, value]) => (
     <input type="hidden" name={name} value={value} />
   ))}
+  {replyingTo && (
+    <p class="flex flex-wrap items-baseline gap-x-3 border-l-2 border-accent pl-3 text-sm">
+      <span>{replyingTo.label}</span>
+      <a
+        href={replyingTo.cancel}
+        class="group type-label text-muted hover:text-ink"
+      >
+        <span class="link-wipe">Reply to the topic instead</span>
+      </a>
+    </p>
+  )}
   {title !== undefined && (
     <div class="flex flex-col gap-2">
       <label for={`${id}-title`} class="font-medium">
         Title
       </label>
-      <input
-        id={`${id}-title`}
-        name="title"
-        value={title}
-        required
-        maxlength={FORUM_LIMITS.title.max * 2}
-        aria-invalid={errors.title ? "true" : undefined}
-        aria-describedby={errors.title ? `${id}-title-error` : undefined}
-        class:list={[input, "text-lg font-semibold"]}
-      />
+      <div class="flex flex-wrap gap-2">
+        {prefixes.length > 0 && (
+          <>
+            <label for={`${id}-prefix`} class="sr-only">
+              Prefix
+            </label>
+            <select
+              id={`${id}-prefix`}
+              name="prefix"
+              class="h-12 border border-ink bg-paper px-2 text-sm"
+            >
+              <option value="">No prefix</option>
+              {prefixes.map((prefix) => (
+                <option
+                  value={String(prefix.id)}
+                  selected={prefix.id === prefixId}
+                >
+                  [{prefix.label}]
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+        <input
+          id={`${id}-title`}
+          name="title"
+          value={title}
+          required
+          maxlength={FORUM_LIMITS.title.max * 2}
+          aria-invalid={errors.title ? "true" : undefined}
+          aria-describedby={errors.title ? `${id}-title-error` : undefined}
+          class:list={[input, "min-w-0 flex-1 text-lg font-semibold"]}
+          data-post-title
+        />
+      </div>
       {errors.title && (
         <p id={`${id}-title-error`} class="text-sm font-medium">
           {errors.title}
@@ -100,7 +157,42 @@ const input =
         </>
       )}
     </p>
+    <p class="type-label text-muted" aria-live="polite" data-draft-status></p>
   </div>
+  {tags !== undefined && (
+    <div class="flex flex-col gap-2">
+      <label for={`${id}-tags`} class="font-medium">
+        Tags (optional)
+      </label>
+      <input
+        id={`${id}-tags`}
+        name="tags"
+        value={tags}
+        list={`${id}-tag-list`}
+        autocapitalize="none"
+        aria-describedby={`${id}-tags-hint`}
+        class:list={[input, "font-mono text-sm"]}
+        data-post-tags
+      />
+      <datalist id={`${id}-tag-list`}>
+        {suggestions.map((tag) => (
+          <option value={tag} />
+        ))}
+      </datalist>
+      <p id={`${id}-tags-hint`} class="text-sm text-muted">
+        Up to {MAX_TAGS}, separated by commas or spaces, e.g. “redstone, help”.
+      </p>
+    </div>
+  )}
+  <section
+    class="border border-hair p-4"
+    aria-label="Live preview"
+    hidden
+    data-live-preview
+  >
+    <p class="type-label mb-3 text-muted">Preview</p>
+    <div class="comment-body forum-body" data-live-preview-body></div>
+  </section>
   <div class="flex flex-wrap items-center gap-3">
     <button type="submit" name="intent" value="post" class={buttonClasses()}>
       {submitLabel}
@@ -110,6 +202,7 @@ const input =
       name="intent"
       value="preview"
       class={buttonClasses({ variant: "secondary" })}
+      data-preview-button
     >
       Preview
     </button>
@@ -120,3 +213,9 @@ const input =
     )}
   </div>
 </form>
+
+<script>
+  import { enhancePostForms } from "../../lib/forum/post-form";
+
+  enhancePostForms();
+</script>

@@ -1,5 +1,6 @@
 ---
 import { AVATAR_MAX_BYTES } from "../../lib/profile/avatar";
+import { NOTIFICATION_RETENTION_DAYS } from "../../lib/forum/notifications";
 import { RETENTION_DAYS } from "@trilleo/storage";
 import InfoLayout from "../../layouts/InfoLayout.astro";
 import { NEW_DEVICE_DAYS, SECURITY_LOG_DAYS } from "../../lib/auth/activity";
@@ -167,6 +168,23 @@ const sections = [
           To publish them under your name, and to moderate. Published posts in
           public forums can be seen by anyone; earlier versions only by
           moderators
+        </td>
+      </tr>
+      <tr>
+        <td>
+          Forum activity: your reactions and votes, the topics and forums you
+          watch, how far you’ve read each topic, drafts you’re writing,
+          notifications for you, your forum settings (email frequency,
+          signature) and the points and badges worked out from your posts
+        </td>
+        <td>
+          You react, vote, watch, read or write in the forum while signed in
+        </td>
+        <td>
+          To show reactions and scores (with who reacted), mark what’s new for
+          you, tell you about replies and mentions, and keep your draft.
+          Reactions, votes’ totals, points and badges are public; the rest only
+          you see
         </td>
       </tr>
       <tr>
@@ -429,10 +447,12 @@ const sections = [
       account, your posts stay in their topics without your name (shown as
       “Deleted account”), since others replied to them; delete any you want gone
       first. A deleted post is kept, out of sight, so moderators can act on it,
-      and is included in your data download. Earlier versions of your posts are
-      kept with them. Reports and the moderation log are kept while the forum
-      runs, so decisions can be checked; deleting your account removes your name
-      from them, and removes bans and reports about you.
+      and is included in your data download. Forum notifications:{" "}
+      {NOTIFICATION_RETENTION_DAYS} days. Drafts: until you post or clear them.
+      Earlier versions of your posts are kept with them. Reports and the
+      moderation log are kept while the forum runs, so decisions can be checked;
+      deleting your account removes your name from them, and removes bans and
+      reports about you.
     </li>
     <li>
       Wiki edits: as long as the page’s history. If you delete your account, the

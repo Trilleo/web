@@ -79,3 +79,11 @@
 [id^="post-"]:target {
   animation: comment-flash 2.4s var(--tr-ease) both;
 }
+
+/* Threaded replies step in by their depth (at most 5, @trilleo/forum's MAX_DEPTH),
+   less on phones, with a rule down the left like a thread. */
+.forum-nested {
+  margin-left: calc(var(--depth, 0) * min(1.5rem, 4vw));
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--tr-hair);
+}

@@ -55,6 +55,7 @@ test("signed in, the header's menu has the account's links and signs out", async
   await expect(menu.getByRole("link")).toHaveText([
     "Your profile",
     "Edit profile",
+    "Notifications",
     "Account",
     "Security",
   ]);

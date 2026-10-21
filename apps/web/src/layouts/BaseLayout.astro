@@ -37,6 +37,8 @@ interface Props {
   };
   /** Structured data about the page (see lib/seo.ts). */
   jsonLd?: readonly JsonLd[];
+  /** Feeds of this page's own (a forum's or topic's RSS), besides the site's. */
+  feeds?: readonly { title: string; href: string }[];
 }
 
 const {
@@ -47,6 +49,7 @@ const {
   imageAlt = title ?? SITE_NAME,
   article,
   jsonLd = [],
+  feeds = [],
 } = Astro.props;
 const site = Astro.site ?? SITE_URL;
 const url = new URL(Astro.url.pathname, site);
@@ -141,6 +144,14 @@ const verification = Astro.isPrerendered
       title={`${SITE_NAME} · Writing`}
       href="/rss.xml"
     />
+    {feeds.map((feed) => (
+      <link
+        rel="alternate"
+        type="application/rss+xml"
+        title={feed.title}
+        href={feed.href}
+      />
+    ))}
     <link rel="sitemap" href="/sitemap-index.xml" />
     <title>{formatTitle(title)}</title>
   </head>

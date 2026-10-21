@@ -1,7 +1,8 @@
 /**
  * Which card each share image URL draws: /og/site.png, /og/posts/<slug>.png,
  * /og/tools/<slug>.png, /og/games/<slug>.png, /og/minecraft.png,
- * /og/minecraft/<slug>.png, /og/study.png and /og/study/<subject>.png. The pages link them through ogImagePath, with the same
+ * /og/minecraft/<slug>.png, /og/study.png, /og/study/<subject>.png, /og/forum.png and
+ * /og/forum/<topic id>.png (public topics only). The pages link them through ogImagePath, with the same
  * card, so the `v` in their URLs matches.
  */
 import { findPublicPost, listPublicPosts, toBlogPost } from "../blog/store";
@@ -18,6 +19,9 @@ import {
 import { findGame } from "../games/registry";
 import { findTool } from "../tools/registry";
 import { findSubject } from "@trilleo/study";
+import { can } from "@trilleo/forum";
+import { FORUM_CARD, topicCard } from "../forum/seo";
+import { getTopic, loadTree } from "../forum/store";
 import { studySubjects } from "../study/content";
 import { STUDY_CARD, subjectCard } from "../study/public";
 import { compareVersions } from "../minecraft/game-versions";
@@ -48,6 +52,7 @@ export async function resolveCard(
   if (path === "site") return resolved(SITE_CARD);
   if (path === "minecraft") return resolved(SECTION_CARD);
   if (path === "study") return resolved(STUDY_CARD);
+  if (path === "forum") return resolved(FORUM_CARD);
 
   const [kind, slug, ...rest] = path.split("/");
   if (!slug || rest.length > 0) return undefined;
@@ -78,6 +83,22 @@ export async function resolveCard(
       ...new Set(live.flatMap((entry) => entry.release.gameVersions)),
     ].sort(compareVersions);
     return resolved(projectCard(found.project, found.owner, versions));
+  }
+  if (kind === "forum") {
+    // Topics anyone may see, by id.
+    const id = /^[1-9]\d{0,9}$/.test(slug) ? Number(slug) : null;
+    if (id === null) return undefined;
+    const db = await database();
+    const topic = await getTopic(db, id);
+    const tree = await loadTree(db);
+    const node = topic ? tree.get(topic.forumId) : undefined;
+    if (
+      !topic ||
+      !node ||
+      !can(null, "forum.view", tree.place(node.forum), topic)
+    )
+      return undefined;
+    return resolved(topicCard(topic, node.forum));
   }
   if (kind === "posts") {
     // Only public posts, by their current slug (drafts' previews use the site card).

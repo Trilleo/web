@@ -516,7 +516,11 @@ describe("reading", () => {
       .where(eq(forumPosts.topicId, topic.id))
       .orderBy(forumPosts.id);
     if (!last) throw new Error("no posts");
-    expect(await pageOfPost(handle.db, last, null, false)).toBe(1);
+    const current = await getTopic(handle.db, topic.id);
+    if (!current) throw new Error("no topic");
+    expect(
+      await pageOfPost(handle.db, last, current, "classic", null, false),
+    ).toBe(1);
     const all = await handle.db
       .select()
       .from(forumPosts)
@@ -524,7 +528,9 @@ describe("reading", () => {
       .orderBy(forumPosts.id);
     const final = all.at(-1);
     if (!final) throw new Error("no posts");
-    expect(await pageOfPost(handle.db, final, null, false)).toBe(2);
+    expect(
+      await pageOfPost(handle.db, final, current, "classic", null, false),
+    ).toBe(2);
   });
 
   it("keeps hidden forums out of lists, search and the tree", async () => {

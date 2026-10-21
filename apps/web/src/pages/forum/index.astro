@@ -17,6 +17,9 @@ import {
   FORUM_NUMBER,
   counted,
 } from "../../lib/forum/public";
+import { unreadOf } from "../../lib/forum/reads";
+import { FORUM_CARD } from "../../lib/forum/seo";
+import { ogImagePath } from "../../lib/seo";
 import {
   forumStats,
   forumViewer,
@@ -44,10 +47,22 @@ const lastIds = tree
   .flatMap((node) => (node.lastPostId === null ? [] : [node.lastPostId]));
 const lastPosts = await lastPostsById(db, [...new Set(lastIds)]);
 const now = new Date();
+const unread = user
+  ? await unreadOf(
+      db,
+      user,
+      [...announcements, ...recent].map((row) => row.topic),
+    )
+  : new Set<number>();
 const canPost = user !== undefined && user !== null && user.blockedAt === null;
 ---
 
-<BaseLayout title="Forum" description={FORUM_DESCRIPTION}>
+<BaseLayout
+  title="Forum"
+  description={FORUM_DESCRIPTION}
+  image={ogImagePath("forum", FORUM_CARD)}
+  feeds={[{ title: "Forum (RSS)", href: "/forum/rss.xml" }]}
+>
   <section
     aria-labelledby="forum-title"
     class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
@@ -75,6 +90,14 @@ const canPost = user !== undefined && user !== null && user.blockedAt === null;
           >
             Recent topics
           </a>
+          {user && (
+            <a
+              href="/forum/unread/"
+              class={buttonClasses({ variant: "secondary" })}
+            >
+              Unread
+            </a>
+          )}
           {!canPost && (
             <a
               href={`/sign-in?next=${encodeURIComponent("/forum/")}`}
@@ -112,7 +135,7 @@ const canPost = user !== undefined && user !== null && user.blockedAt === null;
         <h2 id="announcements-title" class="type-label mb-3">
           Announcements
         </h2>
-        <TopicList topics={announcements} showForum now={now} />
+        <TopicList topics={announcements} showForum now={now} unread={unread} />
       </section>
     )}
 
@@ -162,7 +185,7 @@ const canPost = user !== undefined && user !== null && user.blockedAt === null;
             <span class="link-wipe">All recent topics</span>
           </a>
         </div>
-        <TopicList topics={recent} showForum now={now} />
+        <TopicList topics={recent} showForum now={now} unread={unread} />
       </section>
     )}
   </section>

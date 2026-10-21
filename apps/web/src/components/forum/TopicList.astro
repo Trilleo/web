@@ -16,6 +16,8 @@ interface Props {
   /** Said when there are none. */
   empty?: string;
   now?: Date;
+  /** Topics with something new for the viewer. */
+  unread?: ReadonlySet<number>;
 }
 
 const {
@@ -23,6 +25,7 @@ const {
   showForum = false,
   empty = "No topics yet.",
   now = new Date(),
+  unread = new Set<number>(),
 } = Astro.props;
 ---
 
@@ -30,18 +33,39 @@ const {
   <p class="border-t border-ink pt-4 text-muted">{empty}</p>
 ) : (
   <ol class="border-t border-ink" data-testid="topic-list">
-    {topics.map(({ topic, forum, author, lastPoster }) => (
+    {topics.map(({ topic, forum, author, lastPoster, tags, prefix }) => (
       <li class="grid-swiss items-baseline gap-y-2 border-b border-hair py-4">
         <div class="col-span-4 flex min-w-0 flex-col gap-1.5 md:col-span-5 xl:col-span-7">
           <p class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            {unread.has(topic.id) && (
+              <span
+                class="inline-flex items-center gap-1.5 self-center"
+                data-unread
+              >
+                <span class="size-2 bg-accent" aria-hidden="true" />
+                <span class="sr-only">New:</span>
+              </span>
+            )}
             <a
               href={topicPath(forum, topic)}
-              class="group text-lg leading-snug font-semibold break-words"
+              class:list={[
+                "group text-lg leading-snug break-words",
+                unread.has(topic.id) ? "font-bold" : "font-semibold",
+              ]}
             >
               <span class="link-wipe">{topic.title}</span>
             </a>
-            <TopicBadges topic={topic} />
+            <TopicBadges topic={topic} prefix={prefix} />
           </p>
+          {tags.length > 0 && (
+            <p class="flex flex-wrap gap-x-3 gap-y-1 font-mono text-xs text-muted">
+              {tags.map((tag) => (
+                <a href={`/forum/tags/${tag}/`} class="hover:text-ink">
+                  #{tag}
+                </a>
+              ))}
+            </p>
+          )}
           <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
             <span>By</span>
             <AuthorName author={author} avatar={false} class="text-ink" />

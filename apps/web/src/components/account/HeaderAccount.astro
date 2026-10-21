@@ -8,6 +8,7 @@
 import { isAdmin } from "../../lib/auth/guard";
 import { getDb } from "../../lib/db";
 import { isForumModerator } from "../../lib/forum/access";
+import { unreadNotifications } from "../../lib/forum/notifications";
 import { displayName, profileHref } from "../../lib/profile/profile";
 import Avatar from "./Avatar.astro";
 
@@ -22,10 +23,16 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
 const { user } = Astro.locals;
 const name = user ? displayName(user) : "";
 const moderator = user ? await isForumModerator(await getDb(), user) : false;
+const unread = user ? await unreadNotifications(await getDb(), user.id) : 0;
 const links = user
   ? [
       { label: "Your profile", href: profileHref(user.username) },
       { label: "Edit profile", href: "/account/profile/" },
+      {
+        label:
+          unread > 0 ? `Notifications (${String(unread)})` : "Notifications",
+        href: "/account/notifications/",
+      },
       { label: "Account", href: "/account/" },
       { label: "Security", href: "/account/security/" },
       ...(moderator
@@ -44,14 +51,25 @@ const item =
       class="group press flex min-h-11 cursor-pointer list-none items-center gap-2.5 [&::-webkit-details-marker]:hidden"
       data-account-button
     >
-      <Avatar user={user} />
+      <span class="relative">
+        <Avatar user={user} />
+        {unread > 0 && (
+          <span
+            class="absolute -top-1 -right-1 size-2.5 bg-accent ring-2 ring-paper"
+            aria-hidden="true"
+          />
+        )}
+      </span>
       <span
         class="type-nav hidden max-w-36 truncate xl:inline"
         aria-hidden="true"
       >
         <span class="link-wipe">{name}</span>
       </span>
-      <span class="sr-only">Account menu for {name}</span>
+      <span class="sr-only">
+        Account menu for {name}
+        {unread > 0 && `, ${String(unread)} unread notifications`}
+      </span>
     </summary>
     <div class="account-panel absolute top-full right-0 z-50 mt-2 w-64 animate-rise border border-ink bg-paper">
       <p class="flex flex-col gap-0.5 border-b border-ink px-4 py-3">

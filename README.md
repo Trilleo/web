@@ -111,8 +111,9 @@ browser when signed out and in the account (`study_events`) when signed in.
 
 The forum (`/forum/`) starts with a few categories and forums from its migration; the
 admin changes them at `/admin/forum/` (forums, groups and permissions, bans, the
-moderation log), and moderators work through waiting posts and reports at
-`/forum/moderate/`. People add a
+moderation log, ranks), and moderators work through waiting posts and reports at
+`/forum/moderate/`. Forums can be classic, Q&A or threaded; members react, vote,
+watch topics and get notifications (in the outbox in development, like all mail). People add a
 profile picture on `/account/profile/` (cropped in the browser, kept in the database).
 
 Lint, format, and TypeScript base configs live at the repo root (`eslint.config.js`,

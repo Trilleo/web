@@ -1,0 +1,135 @@
+---
+/**
+ * Rank titles by points: someone's rank is the highest whose threshold their points
+ * reach (points: @trilleo/forum's POINTS). Saved all at once; a row with no name
+ * is dropped.
+ */
+import { POINTS } from "@trilleo/forum";
+import { buttonClasses } from "@trilleo/ui";
+import AdminNav from "../../../../components/admin/AdminNav.astro";
+import DisplayTitle from "../../../../components/DisplayTitle.astro";
+import ForumAdminNav from "../../../../components/forum/ForumAdminNav.astro";
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import { requireAdmin } from "../../../../lib/auth/guard";
+import { noStoreRedirect } from "../../../../lib/auth/redirect";
+import { field } from "../../../../lib/comments/form";
+import { getDb } from "../../../../lib/db";
+import { loadRanks, saveRanks } from "../../../../lib/forum/reputation";
+import { cleanLine } from "../../../../lib/profile/profile";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const ROWS_EXTRA = 2;
+let error: string | null = null;
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const ranks: { name: string; minPoints: number }[] = [];
+  for (let n = 0; n < 50; n++) {
+    const name = cleanLine(field(form, `name-${String(n)}`)).slice(0, 40);
+    if (!name) continue;
+    const points = Number(field(form, `points-${String(n)}`) || "0");
+    if (!Number.isInteger(points) || points < 0 || points > 10_000_000) {
+      error = `“${name}” needs a whole number of points.`;
+      break;
+    }
+    ranks.push({ name, minPoints: points });
+  }
+  if (!error) {
+    await saveRanks(db, ranks);
+    return noStoreRedirect("/admin/forum/ranks/?saved=1", 303);
+  }
+  Astro.response.status = 422;
+}
+const ranks = await loadRanks(db);
+const rows = [
+  ...ranks.map((rank) => ({
+    name: rank.name,
+    minPoints: String(rank.minPoints),
+  })),
+  ...Array.from({ length: ROWS_EXTRA }, () => ({ name: "", minPoints: "" })),
+];
+const saved = Astro.url.searchParams.has("saved");
+const input = "w-full border border-ink bg-paper px-3 py-2 text-base";
+---
+
+<BaseLayout title="Ranks · Forum · Admin" noindex>
+  <section
+    aria-labelledby="ranks-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="forum" />
+    <DisplayTitle id="ranks-title">Ranks</DisplayTitle>
+
+    <div class="grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
+      <p class="type-label col-span-4 md:col-span-2 xl:col-span-2">Forum</p>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
+        <ForumAdminNav current="ranks" />
+        {(saved || error) && (
+          <p
+            role={error ? "alert" : "status"}
+            class="type-lead border-l-2 border-accent pl-4"
+          >
+            {error ?? "Saved."}
+          </p>
+        )}
+        <p class="text-muted">
+          Points: {POINTS.post} per published post, {POINTS.reactionReceived}{" "}
+          per reaction someone gives one of their posts, {POINTS.acceptedAnswer}{" "}
+          per accepted answer. Someone’s rank is the highest they reach. Leave a
+          name empty to drop that rank.
+        </p>
+      </div>
+    </div>
+
+    <form method="post" class="grid-swiss mt-8 gap-y-5">
+      <div class="col-span-4 md:col-span-6 md:col-start-3 xl:col-span-6 xl:col-start-3">
+        <table class="w-full border-collapse" data-testid="ranks">
+          <thead>
+            <tr>
+              <th scope="col" class="type-label pb-2 text-left">
+                Name
+              </th>
+              <th scope="col" class="type-label pb-2 text-left">
+                From points
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((rank, index) => (
+              <tr>
+                <td class="pr-3 pb-2">
+                  <input
+                    name={`name-${String(index)}`}
+                    value={rank.name}
+                    aria-label={`Rank ${String(index + 1)} name`}
+                    class={input}
+                  />
+                </td>
+                <td class="pb-2">
+                  <input
+                    name={`points-${String(index)}`}
+                    value={rank.minPoints}
+                    inputmode="numeric"
+                    aria-label={`Rank ${String(index + 1)} points`}
+                    class:list={[input, "font-mono"]}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p class="mt-4">
+          <button type="submit" class={buttonClasses()}>
+            Save ranks
+          </button>
+        </p>
+      </div>
+    </form>
+  </section>
+</BaseLayout>

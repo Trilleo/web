@@ -12,6 +12,7 @@ export const NOTIFICATION_TOPICS = [
   "reviews",
   "wiki",
   "watchlist",
+  "forum",
   "admin",
 ] as const;
 export type NotificationTopic = (typeof NOTIFICATION_TOPICS)[number];
@@ -26,6 +27,7 @@ export const DEFAULT_NOTIFICATIONS: Readonly<NotificationSettings> = {
   reviews: true,
   wiki: true,
   watchlist: true,
+  forum: true,
   admin: true,
 };
 
@@ -55,6 +57,10 @@ export const NOTIFICATION_LABELS: Readonly<
   watchlist: {
     label: "Wiki watchlist",
     hint: "Once a day at most: what changed on the wiki pages you watch.",
+  },
+  forum: {
+    label: "Forum",
+    hint: "Replies in topics you watch, new topics in forums you watch, mentions and accepted answers. How often: on your forum settings page.",
   },
   admin: {
     label: "Admin alerts",
@@ -118,6 +124,12 @@ export const MAIL_KINDS = {
     secret: false,
   },
   "wiki-digest": { label: "Wiki watchlist", topic: "watchlist", secret: false },
+  "forum-notification": {
+    label: "Forum notification",
+    topic: "forum",
+    secret: false,
+  },
+  "forum-digest": { label: "Forum digest", topic: "forum", secret: false },
   "contact-reply": { label: "Contact reply", topic: null, secret: false },
   "admin-alert": { label: "Admin alert", topic: "admin", secret: false },
   test: { label: "Test", topic: null, secret: false },

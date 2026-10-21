@@ -3,14 +3,14 @@
  * Starting a topic in a forum: /forum/new/?in=<forum>. POST here; a refused topic
  * comes back with what was typed and what's wrong, Preview shows it rendered.
  */
-import { can, forumPath, postPath } from "@trilleo/forum";
+import { can, forumPath, parseTags, postPath } from "@trilleo/forum";
 import Breadcrumb from "../../components/Breadcrumb.astro";
 import BanNotice from "../../components/forum/BanNotice.astro";
 import PostForm from "../../components/forum/PostForm.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { requireUser } from "../../lib/auth/guard";
 import { noStoreRedirect } from "../../lib/auth/redirect";
-import { field } from "../../lib/comments/form";
+import { field, parseId } from "../../lib/comments/form";
 import { getDb } from "../../lib/db";
 import {
   isTitleError,
@@ -18,7 +18,9 @@ import {
   postErrorStatus,
 } from "../../lib/forum/messages";
 import { activeBan } from "../../lib/forum/access";
+import { draftKey } from "../../lib/forum/drafts";
 import { FORUM_NUMBER } from "../../lib/forum/public";
+import { popularTags, prefixesOf } from "../../lib/forum/tags";
 import {
   createTopic,
   forumViewer,
@@ -43,6 +45,8 @@ const ban = viewer?.banned ? await activeBan(db, user.id) : undefined;
 
 let title = "";
 let body = "";
+let tags = "";
+let prefixId: number | null = null;
 let errors: { title?: string; body?: string } = {};
 let preview: string | null = null;
 
@@ -50,6 +54,8 @@ if (Astro.request.method === "POST" && allowed) {
   const form = await Astro.request.formData();
   title = field(form, "title");
   body = field(form, "body");
+  tags = field(form, "tags");
+  prefixId = parseId(field(form, "prefix"));
   if (field(form, "intent") === "preview") {
     preview = await renderBody(db, body);
   } else {
@@ -59,6 +65,8 @@ if (Astro.request.method === "POST" && allowed) {
       author: user,
       title,
       body,
+      tags: parseTags(tags),
+      prefixId,
     });
     if (result.ok) return noStoreRedirect(postPath(result.value.post), 303);
     const message = postErrorMessage(result.error, body.length);
@@ -69,6 +77,8 @@ if (Astro.request.method === "POST" && allowed) {
   }
 }
 const waits = !can(viewer, "post.skip-review", tree.place(forum));
+const prefixes = await prefixesOf(db, forum.id);
+const suggestions = (await popularTags(db)).map((row) => row.name);
 const crumbs = [
   { label: `(${FORUM_NUMBER}) Forum`, href: "/forum/" },
   ...tree.ancestors(forum.id).map((parent) => ({
@@ -131,7 +141,14 @@ const crumbs = [
               title={title}
               body={body}
               errors={errors}
-              submitLabel="Post topic"
+              prefixes={prefixes}
+              prefixId={prefixId}
+              tags={tags}
+              suggestions={suggestions}
+              draftKey={draftKey.topic(forum.id)}
+              submitLabel={
+                forum.layout === "qa" ? "Ask question" : "Post topic"
+              }
               id="topic-form"
               rows={14}
               cancel={forumPath(forum)}

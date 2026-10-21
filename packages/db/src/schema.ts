@@ -1702,6 +1702,15 @@ export const forumTopics = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     /** Merged into another topic (and deleted): its address redirects there. */
     mergedInto: integer("merged_into"),
+    /** Its prefix, from its forum's list (forum_prefixes). */
+    prefixId: integer("prefix_id").references(
+      (): AnyPgColumn => forumPrefixes.id,
+      { onDelete: "set null" },
+    ),
+    /** Marked solved (by the asker or a moderator, or by accepting an answer). */
+    solvedAt: timestamp("solved_at", { withTimezone: true }),
+    /** In a Q&A forum: the answer the asker accepted. */
+    acceptedPostId: integer("accepted_post_id"),
   },
   (table) => [
     index("forum_topics_forum_idx").on(
@@ -1741,6 +1750,13 @@ export const forumPosts = pgTable(
       onDelete: "set null",
     }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    /** Threaded forums: the post this one answers. Null: the topic itself. */
+    parentId: integer("parent_id").references(
+      (): AnyPgColumn => forumPosts.id,
+      { onDelete: "set null" },
+    ),
+    /** Q&A forums: up votes minus down votes (forum_votes), cached. */
+    score: integer("score").notNull().default(0),
   },
   (table) => [
     index("forum_posts_topic_idx").on(table.topicId, table.createdAt),
@@ -1952,6 +1968,222 @@ export const forumLog = pgTable(
   (table) => [index("forum_log_created_idx").on(table.createdAt)],
 );
 
+/** A reaction (@trilleo/forum's REACTIONS) to a post: one per person per post. */
+export const forumReactions = pgTable(
+  "forum_reactions",
+  {
+    postId: integer("post_id")
+      .notNull()
+      .references(() => forumPosts.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reaction: text("reaction").notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.postId, table.userId] }),
+    index("forum_reactions_user_idx").on(table.userId),
+  ],
+);
+
+/** A vote on an answer in a Q&A forum: +1 or -1, one per person per post. */
+export const forumVotes = pgTable(
+  "forum_votes",
+  {
+    postId: integer("post_id")
+      .notNull()
+      .references(() => forumPosts.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    value: integer("value").notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [primaryKey({ columns: [table.postId, table.userId] })],
+);
+
+/** How far someone has read a topic: the newest post they've seen. */
+export const forumReads = pgTable(
+  "forum_reads",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    topicId: integer("topic_id")
+      .notNull()
+      .references(() => forumTopics.id, { onDelete: "cascade" }),
+    lastPostId: integer("last_post_id").notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.topicId] })],
+);
+
+/** Someone watching a topic, or a whole forum (exactly one of the two is set). */
+export const forumWatches = pgTable(
+  "forum_watches",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    topicId: integer("topic_id").references(() => forumTopics.id, {
+      onDelete: "cascade",
+    }),
+    forumId: integer("forum_id").references(() => forums.id, {
+      onDelete: "cascade",
+    }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("forum_watches_topic_idx").on(table.userId, table.topicId),
+    uniqueIndex("forum_watches_forum_idx").on(table.userId, table.forumId),
+    index("forum_watches_topic_lookup_idx").on(table.topicId),
+    index("forum_watches_forum_lookup_idx").on(table.forumId),
+  ],
+);
+
+/**
+ * Something someone should hear about (@trilleo/forum's NOTIFICATION_KINDS), shown
+ * on /account/notifications/ and, for some kinds, emailed (at once or in a digest:
+ * `emailedAt` says it's been dealt with).
+ */
+export const forumNotifications = pgTable(
+  "forum_notifications",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    actorId: uuid("actor_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    topicId: integer("topic_id").references(() => forumTopics.id, {
+      onDelete: "cascade",
+    }),
+    postId: integer("post_id").references(() => forumPosts.id, {
+      onDelete: "cascade",
+    }),
+    /** A reaction's key, for "reacted 👍". */
+    detail: text("detail").notNull().default(""),
+    createdAt: createdAt(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    emailedAt: timestamp("emailed_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("forum_notifications_user_idx").on(table.userId, table.createdAt),
+  ],
+);
+
+/** A topic or reply being written, saved as people type: one per place per person. */
+export const forumDrafts = pgTable(
+  "forum_drafts",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** "topic:<forum id>" or "reply:<topic id>". */
+    key: text("key").notNull(),
+    title: text("title").notNull().default(""),
+    body: text("body").notNull().default(""),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.key] })],
+);
+
+/** Tags, written once each (normalized: @trilleo/forum's normalizeTag). */
+export const forumTags = pgTable("forum_tags", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull().unique(),
+  createdAt: createdAt(),
+});
+
+export const forumTopicTags = pgTable(
+  "forum_topic_tags",
+  {
+    topicId: integer("topic_id")
+      .notNull()
+      .references(() => forumTopics.id, { onDelete: "cascade" }),
+    tagId: integer("tag_id")
+      .notNull()
+      .references(() => forumTags.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.topicId, table.tagId] }),
+    index("forum_topic_tags_tag_idx").on(table.tagId),
+  ],
+);
+
+/** A forum's prefixes ([Bug], [Guide] …), which posters choose from. */
+export const forumPrefixes = pgTable(
+  "forum_prefixes",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    forumId: integer("forum_id")
+      .notNull()
+      .references(() => forums.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    /** accent, ink or outline (@trilleo/forum's PREFIX_STYLES). */
+    style: text("style").notNull().default("outline"),
+    sort: integer("sort").notNull().default(0),
+  },
+  (table) => [index("forum_prefixes_forum_idx").on(table.forumId)],
+);
+
+/** Someone's forum settings: email, signature, watching what they reply to. */
+export const forumUserSettings = pgTable("forum_user_settings", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  /** instant, daily, weekly or off (@trilleo/forum's EMAIL_FREQUENCIES). */
+  email: text("email").notNull().default("instant"),
+  /** Watch topics they reply to. */
+  watchReplies: boolean("watch_replies").notNull().default(true),
+  signature: text("signature").notNull().default(""),
+  /** "Mark all read": topics with nothing newer count as read. */
+  readAllAt: timestamp("read_all_at", { withTimezone: true }),
+  digestSentAt: timestamp("digest_sent_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/** Someone's counts and points, recounted from the rows when they change. */
+export const forumUserStats = pgTable("forum_user_stats", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  posts: integer("posts").notNull().default(0),
+  topics: integer("topics").notNull().default(0),
+  reactionsReceived: integer("reactions_received").notNull().default(0),
+  acceptedAnswers: integer("accepted_answers").notNull().default(0),
+  points: integer("points").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/** Badges someone has earned (@trilleo/forum's BADGES), kept once earned. */
+export const forumUserBadges = pgTable(
+  "forum_user_badges",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    badge: text("badge").notNull(),
+    earnedAt: timestamp("earned_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.badge] })],
+);
+
+/** Rank titles by points; the highest someone reaches is theirs. */
+export const forumRanks = pgTable("forum_ranks", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull(),
+  minPoints: integer("min_points").notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type UserIdentity = typeof userIdentities.$inferSelect;
@@ -2016,3 +2248,11 @@ export type ForumReport = typeof forumReports.$inferSelect;
 export type ForumReportStatus = (typeof forumReportStatus.enumValues)[number];
 export type ForumPostRevision = typeof forumPostRevisions.$inferSelect;
 export type ForumLogEntry = typeof forumLog.$inferSelect;
+export type ForumReaction = typeof forumReactions.$inferSelect;
+export type ForumWatch = typeof forumWatches.$inferSelect;
+export type ForumNotification = typeof forumNotifications.$inferSelect;
+export type ForumDraft = typeof forumDrafts.$inferSelect;
+export type ForumPrefix = typeof forumPrefixes.$inferSelect;
+export type ForumUserSettings = typeof forumUserSettings.$inferSelect;
+export type ForumUserStats = typeof forumUserStats.$inferSelect;
+export type ForumRank = typeof forumRanks.$inferSelect;

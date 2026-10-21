@@ -9,12 +9,19 @@ import { projectPath } from "../lib/minecraft/paths";
 import { listedProjectPaths } from "../lib/minecraft/store";
 import { studyPath } from "@trilleo/study";
 import { studySubjects } from "../lib/study/content";
+import { forumPath } from "@trilleo/forum";
+import { loadTree } from "../lib/forum/store";
 
 export const prerender = false;
 
 export const GET: APIRoute = async () => {
   const posts = await listPublicPosts(await getDb());
   const projects = await listedProjectPaths(await getDb());
+  // Forums visitors can see (categories hold no topics of their own).
+  const forums = (await loadTree(await getDb()))
+    .visible(null)
+    .flat()
+    .filter((node) => node.forum.kind === "forum");
   const text = llmsTxt(
     posts.map((post) => ({
       slug: post.id,
@@ -33,6 +40,11 @@ export const GET: APIRoute = async () => {
       title: subject.title,
       summary: subject.summary,
       path: studyPath(subject.slug),
+    })),
+    forums.map((node) => ({
+      name: node.forum.name,
+      description: node.forum.description,
+      path: forumPath(node.forum),
     })),
   );
   return new Response(text, {
