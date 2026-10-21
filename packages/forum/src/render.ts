@@ -167,10 +167,24 @@ export function quoteFor(
   return `> **[${who} wrote](${postHref}):**\n${quoted}\n\n`;
 }
 
+/** HTML with its tags replaced by spaces, in one pass (no backtracking on "<<<…"). */
+function withoutTags(html: string): string {
+  let out = "";
+  let from = 0;
+  for (;;) {
+    const open = html.indexOf("<", from);
+    if (open === -1) return out + html.slice(from);
+    const close = html.indexOf(">", open + 1);
+    // An unclosed "<" isn't a tag: keep the rest as text.
+    if (close === -1) return out + html.slice(from);
+    out += `${html.slice(from, open)} `;
+    from = close + 1;
+  }
+}
+
 /** Visible text from rendered HTML: search results and descriptions. */
 export function plainText(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, " ")
+  return withoutTags(html)
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')

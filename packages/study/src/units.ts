@@ -108,11 +108,23 @@ export function splitUnit(raw: string): [number, string] {
 export function isUnit(text: string): boolean {
   const [, unit] = splitUnit(text);
   if (unit === "" || PLAIN_UNITS.has(unit)) return unit !== "";
-  const head = (unit.split(/[/·*]/)[0] ?? "").replace(
-    /(\^[-−]?\d+|[⁻¹²³]+)$/u,
-    "",
-  );
+  const head = withoutPower(unit.split(/[/·*]/)[0] ?? "");
   return UNITS.includes(head);
+}
+
+const SUPERSCRIPTS = "⁻¹²³";
+
+/**
+ * A unit without its power ("m^-3" → "m", "m²" → "m"), by hand rather than with an
+ * end-anchored regex, which backtracks badly on long runs of superscripts.
+ */
+function withoutPower(unit: string): string {
+  const caret = unit.lastIndexOf("^");
+  if (caret !== -1 && /^\^[-−]?\d+$/u.test(unit.slice(caret)))
+    return unit.slice(0, caret);
+  let end = unit.length;
+  while (end > 0 && SUPERSCRIPTS.includes(unit.charAt(end - 1))) end -= 1;
+  return unit.slice(0, end);
 }
 
 const NUMBER =

@@ -338,13 +338,27 @@ export function resolveRules(
   groups: readonly Pick<GroupDefinition, "slug" | "permissions">[],
   overridesFromTop: readonly (readonly PermissionOverride[])[],
 ): ForumRules {
-  const rules: Record<string, Partial<Record<ForumPermission, boolean>>> = {};
-  for (const group of groups) rules[group.slug] = { ...group.permissions };
+  // Maps, not objects keyed by what the admin typed: a group called "__proto__"
+  // must stay just a group.
+  const rules = new Map<string, Map<ForumPermission, boolean>>();
+  for (const group of groups)
+    rules.set(
+      group.slug,
+      new Map(
+        PERMISSION_KEYS.flatMap((key) => {
+          const allowed = group.permissions[key];
+          return allowed === undefined ? [] : [[key, allowed] as const];
+        }),
+      ),
+    );
   for (const level of overridesFromTop) {
     for (const override of level) {
-      const set = rules[override.group];
-      if (set) set[override.permission] = override.allowed;
+      if (!isForumPermission(override.permission)) continue;
+      rules.get(override.group)?.set(override.permission, override.allowed);
     }
   }
-  return rules;
+  // Object.fromEntries makes own properties, even for "__proto__".
+  return Object.fromEntries(
+    [...rules].map(([slug, set]) => [slug, Object.fromEntries(set)]),
+  );
 }

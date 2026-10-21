@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   formatNumber,
   formatQuantity,
+  isUnit,
   parseQuantity,
   parseTolerance,
   withinTolerance,
@@ -65,5 +66,21 @@ describe("formatQuantity", () => {
     expect(formatNumber(123456)).toBe("123000");
     expect(formatNumber(0.000012)).toBe("1.2×10^−5");
     expect(formatNumber(-2.5)).toBe("−2.5");
+  });
+});
+
+describe("isUnit", () => {
+  test("knows units with their powers", () => {
+    expect(isUnit("m²")).toBe(true);
+    expect(isUnit("m^-3")).toBe(true);
+    expect(isUnit("J/(mol·K)")).toBe(true);
+    expect(isUnit("x²")).toBe(false);
+    expect(isUnit("")).toBe(false);
+  });
+
+  test("stays quick on long runs of superscripts", () => {
+    const started = performance.now();
+    expect(isUnit(`m${"²".repeat(50_000)}x`)).toBe(false);
+    expect(performance.now() - started).toBeLessThan(500);
   });
 });

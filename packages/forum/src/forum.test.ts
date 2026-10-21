@@ -216,6 +216,21 @@ describe("permissions", () => {
     expect(moderates(admin, { ...forum, rules })).toBe(true);
   });
 
+  it("keeps a group called __proto__ an ordinary group", () => {
+    const rules = resolveRules(
+      [
+        {
+          slug: "__proto__",
+          permissions: { moderate: true },
+        },
+      ],
+      [[{ group: "__proto__", permission: "moderate", allowed: false }]],
+    );
+    expect(Object.hasOwn(rules, "__proto__")).toBe(true);
+    expect(rules.__proto__?.moderate).toBe(false);
+    expect(({} as Record<string, unknown>).moderate).toBeUndefined();
+  });
+
   it("works out groups and edit windows", () => {
     expect(groupsOf(null)).toEqual(["guest"]);
     expect(groupsOf(moderator)).toEqual(["member", "moderator"]);
@@ -284,6 +299,14 @@ describe("rendering", () => {
       "> **[@alice wrote](/forum/post/4/):**\n> My point\n> second line\n\n",
     );
     expect(renderForumPost(quote)).toContain("<blockquote>");
+  });
+
+  it("strips tags in one pass, even from hostile input", () => {
+    expect(plainText("a <b>bold</b> < c")).toBe("a bold < c");
+    const hostile = "<".repeat(50_000);
+    const started = performance.now();
+    expect(plainText(hostile)).toBe(hostile);
+    expect(performance.now() - started).toBeLessThan(500);
   });
 
   it("makes plain text and excerpts", () => {
