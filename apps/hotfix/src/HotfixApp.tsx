@@ -76,6 +76,11 @@ const KEYS: Readonly<Record<string, "jump" | "down">> = {
 /** Smaller on phones, where the field is only a few lines tall. */
 const RUN_BUTTON = "max-md:h-9 max-md:px-3";
 
+/** Writes text only when it changed, so the HUD doesn't relayout every frame. */
+function show(element: HTMLElement | null, text: string): void {
+  if (element && element.textContent !== text) element.textContent = text;
+}
+
 const pad = (value: number) => String(value).padStart(5, "0");
 
 /** One line for screen readers, from what a step did. */
@@ -186,17 +191,14 @@ function Game({ seed }: { seed: number | undefined }) {
     );
   }, [runner, say]);
 
-  // The loop: steps at 60 Hz, draws every animation frame.
+  // The loop: the engine steps at 60 Hz; the screen draws as often as it refreshes
+  // (120 Hz and more), each picture in between the last two steps.
   useEffect(() => {
     const screen = canvas.current;
     const box = field.current;
     if (!screen || !box) return;
-    const context = screen.getContext("2d");
-    const buffer = document.createElement("canvas");
-    buffer.width = VIEW_W;
-    buffer.height = VIEW_H;
-    const bufferContext = buffer.getContext("2d");
-    if (!context || !bufferContext) return;
+    const context = screen.getContext("2d", { alpha: false });
+    if (!context) return;
 
     const book = new SpriteBook(readPalette(box));
     const effects = newEffects();
@@ -214,8 +216,10 @@ function Game({ seed }: { seed: number | undefined }) {
     const size = () => {
       const ratio = window.devicePixelRatio || 1;
       const { width } = screen.getBoundingClientRect();
+      // The canvas has the screen's own pixels; the scene is drawn to fit them.
       screen.width = Math.max(VIEW_W, Math.round(width * ratio));
       screen.height = Math.round((screen.width * VIEW_H) / VIEW_W);
+      book.setScale(screen.width / VIEW_W);
     };
     size();
     const resizes = new ResizeObserver(size);
@@ -229,9 +233,9 @@ function Game({ seed }: { seed: number | undefined }) {
       last = now;
       const wasRunning = runner.status === "running";
       const events = runner.advance(elapsed);
-      const state = runner.state;
-      react(effects, events, state, reducedRef.current);
-      age(effects);
+      react(effects, events, runner.state, reducedRef.current);
+      age(effects, Math.min(elapsed, 100) / (1000 / FPS));
+      const state = runner.view();
       for (const event of events) {
         const line = announcement(event);
         if (line) say(line);
@@ -242,20 +246,18 @@ function Game({ seed }: { seed: number | undefined }) {
       }
       if (wasRunning && runner.status === "over") finish();
 
-      drawScene(bufferContext, state, {
+      drawScene(context, state, {
         book,
         effects,
         reduced: reducedRef.current,
       });
-      context.imageSmoothingEnabled = false;
-      context.drawImage(buffer, 0, 0, screen.width, screen.height);
 
       const distance = hudMetres.current;
       const points = hudScore.current;
       const powers = hudPowers.current;
       if (runner.status !== "ready") {
-        if (distance) distance.textContent = `${String(metres(state))} m`;
-        if (points) points.textContent = pad(score(state));
+        show(distance, `${String(metres(state))} m`);
+        show(points, pad(score(state)));
       }
       if (powers) {
         const chips = [
@@ -267,7 +269,7 @@ function Game({ seed }: { seed: number | undefined }) {
             ? `Magnet ${(state.powers.magnet / FPS).toFixed(1)}s`
             : "",
         ].filter(Boolean);
-        powers.textContent = runner.status === "ready" ? "" : chips.join(" · ");
+        show(powers, runner.status === "ready" ? "" : chips.join(" · "));
       }
       frame = requestAnimationFrame(draw);
     };

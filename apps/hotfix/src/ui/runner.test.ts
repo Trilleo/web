@@ -72,3 +72,27 @@ describe("the runner", () => {
     expect(runner.state.seed).toBe(newRun(3).seed);
   });
 });
+
+describe("drawing between steps", () => {
+  it("shows the run part of the way from the last step to the next", () => {
+    const runner = new Runner(() => 5, false);
+    runner.input("jump");
+    runner.advance(STEP * 10);
+    const before = runner.state.distance;
+    runner.advance(STEP * 1.5);
+    const after = runner.state.distance;
+    const view = runner.view();
+    expect(view.distance).toBeGreaterThan(before);
+    expect(view.distance).toBeLessThan(after);
+    // Drawing never changes the run.
+    expect(runner.state.distance).toBe(after);
+  });
+
+  it("shows the run as it is when nothing moves", () => {
+    const runner = new Runner(() => 5, false);
+    runner.input("jump");
+    runner.advance(STEP * 4.5);
+    runner.pause();
+    expect(runner.view()).toBe(runner.state);
+  });
+});

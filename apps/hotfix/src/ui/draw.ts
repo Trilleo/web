@@ -32,9 +32,11 @@ import {
 } from "./sprites";
 
 /*
- * Draws a run at course size (VIEW_W × VIEW_H, one canvas pixel per course pixel).
- * The screen scales that up without smoothing, so pixels stay square. Nothing here
- * changes the run: scenery and sparks come from hashes and the step count.
+ * Draws a run in course pixels (VIEW_W × VIEW_H) onto a canvas of any size. Every
+ * edge is snapped to the screen's own pixels, so things move smoothly, a screen
+ * pixel at a time, rather than in steps of a whole course pixel; sprites are
+ * scaled once and then copied. Nothing here changes the run: scenery and sparks
+ * come from hashes and the step count.
  */
 
 type Ink = keyof Palette;
@@ -114,22 +116,24 @@ export function react(
   }
 }
 
-/** Moves the sparks on by one frame of drawing. */
-export function age(effects: Effects): void {
+/** Moves the sparks on by `steps` (a share of an engine step: screens vary). */
+export function age(effects: Effects, steps: number): void {
   for (const particle of effects.particles) {
-    particle.x += particle.vx;
-    particle.y += particle.vy;
-    particle.vy += 0.12;
-    particle.life--;
+    particle.x += particle.vx * steps;
+    particle.y += particle.vy * steps;
+    particle.vy += 0.12 * steps;
+    particle.life -= steps;
   }
   effects.particles = effects.particles.filter((particle) => particle.life > 0);
-  if (effects.shake > 0) effects.shake--;
+  effects.shake = Math.max(0, effects.shake - steps);
 }
 
-/** Sprites drawn once per palette, then copied. */
+/** Sprites drawn once per palette and scale, then copied. */
 export class SpriteBook {
-  private key = "";
+  private key: string;
   private cache = new Map<Sprite, HTMLCanvasElement>();
+  /** Screen pixels per course pixel. */
+  scale = 1;
 
   constructor(private palette: Palette) {
     this.key = paletteKey(palette);
@@ -143,24 +147,44 @@ export class SpriteBook {
     this.cache.clear();
   }
 
+  setScale(scale: number): void {
+    if (scale === this.scale) return;
+    this.scale = scale;
+    this.cache.clear();
+  }
+
   get colours(): Palette {
     return this.palette;
   }
 
+  /**
+   * The sprite at this scale. Each course pixel covers the screen pixels between
+   * its rounded edges, so at 2.5× they alternate 2 and 3 wide, but the pattern is
+   * fixed: it doesn't shimmer as the sprite moves.
+   */
   get(sprite: Sprite): HTMLCanvasElement | null {
     const cached = this.cache.get(sprite);
     if (cached) return cached;
+    const k = this.scale;
     const canvas = document.createElement("canvas");
-    canvas.width = spriteWidth(sprite);
-    canvas.height = sprite.length;
+    canvas.width = Math.max(1, Math.round(spriteWidth(sprite) * k));
+    canvas.height = Math.max(1, Math.round(sprite.length * k));
     const context = canvas.getContext("2d");
     if (!context) return null;
     sprite.forEach((row, y) => {
+      const top = Math.round(y * k);
+      const bottom = Math.round((y + 1) * k);
       for (let x = 0; x < row.length; x++) {
         const ink = SPRITE_INKS[row.charAt(x)];
         if (!ink) continue;
+        const left = Math.round(x * k);
         context.fillStyle = this.palette[ink];
-        context.fillRect(x, y, 1, 1);
+        context.fillRect(
+          left,
+          top,
+          Math.round((x + 1) * k) - left,
+          bottom - top,
+        );
       }
     });
     this.cache.set(sprite, canvas);
@@ -174,27 +198,36 @@ export interface DrawOptions {
   reduced: boolean;
 }
 
-function blit(
-  context: CanvasRenderingContext2D,
-  book: SpriteBook,
-  sprite: Sprite,
-  x: number,
-  y: number,
-): void {
-  const image = book.get(sprite);
-  if (image) context.drawImage(image, Math.round(x), Math.round(y));
-}
+/** Draws in course pixels, snapped to screen pixels. */
+class Painter {
+  /** A shake, in course pixels. */
+  dx = 0;
+  dy = 0;
 
-function rect(
-  context: CanvasRenderingContext2D,
-  colour: string,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-): void {
-  context.fillStyle = colour;
-  context.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  constructor(
+    readonly context: CanvasRenderingContext2D,
+    readonly book: SpriteBook,
+  ) {}
+
+  private px(value: number): number {
+    return Math.round(value * this.book.scale);
+  }
+
+  rect(colour: string, x: number, y: number, w: number, h: number): void {
+    const left = this.px(x + this.dx);
+    const top = this.px(y + this.dy);
+    const width = Math.max(1, this.px(x + this.dx + w) - left);
+    const height = Math.max(1, this.px(y + this.dy + h) - top);
+    this.context.fillStyle = colour;
+    this.context.fillRect(left, top, width, height);
+  }
+
+  blit(sprite: Sprite, x: number, y: number): void {
+    const image = this.book.get(sprite);
+    if (image) {
+      this.context.drawImage(image, this.px(x + this.dx), this.px(y + this.dy));
+    }
+  }
 }
 
 /** Scenery that scrolls past at `rate` of the running speed, in tiles of `size`. */
@@ -210,7 +243,7 @@ function tiles(
 }
 
 function background(
-  context: CanvasRenderingContext2D,
+  paint: Painter,
   biome: BiomeId,
   state: RunState,
   { book, reduced }: DrawOptions,
@@ -227,7 +260,7 @@ function background(
           const indent = Math.floor(hash(tile, row) * 4) * 6;
           const width = 12 + Math.floor(hash(row, tile) * 60);
           if (hash(tile * 7, row) < 0.25) continue;
-          rect(context, hair, x + indent, 14 + row * 11, width, 2);
+          paint.rect(hair, x + indent, 14 + row * 11, width, 2);
         }
       });
       break;
@@ -236,13 +269,13 @@ function background(
       // Racks, with lights.
       tiles(far, 64, (x, tile) => {
         const top = GROUND_Y - 92;
-        context.strokeStyle = hair;
-        context.lineWidth = 1;
-        context.strokeRect(Math.round(x) + 0.5, top + 0.5, 38, 92);
+        paint.rect(hair, x, top, 38, 1);
+        paint.rect(hair, x, top, 1, 92);
+        paint.rect(hair, x + 37, top, 1, 92);
         for (let slot = 0; slot < 10; slot++) {
-          rect(context, hair, x + 4, top + 6 + slot * 9, 30, 1);
+          paint.rect(hair, x + 4, top + 6 + slot * 9, 30, 1);
           const on = hash(tile, slot + blink * 31) < 0.3;
-          if (on) rect(context, accent, x + 30, top + 3 + slot * 9, 2, 2);
+          if (on) paint.rect(accent, x + 30, top + 3 + slot * 9, 2, 2);
         }
       });
       if (biome === "production") {
@@ -251,53 +284,36 @@ function background(
           const frame = reduced
             ? 0
             : Math.floor((state.frame + tile * 5) / 8) % 2;
-          blit(context, book, frame ? FLAME_B : FLAME_A, x + 10, GROUND_Y - 7);
+          paint.blit(frame ? FLAME_B : FLAME_A, x + 10, GROUND_Y - 7);
         });
       }
       break;
     case "cloud":
       tiles(far, 120, (x, tile) => {
-        blit(
-          context,
-          book,
-          CLOUD,
-          x + hash(tile) * 60,
-          14 + hash(tile, 1) * 40,
-        );
+        paint.blit(CLOUD, x + hash(tile) * 60, 14 + hash(tile, 1) * 40);
       });
       tiles(reduced ? 0 : state.distance * 0.5, 170, (x, tile) => {
-        blit(
-          context,
-          book,
-          CLOUD,
-          x + hash(tile, 2) * 80,
-          50 + hash(tile, 3) * 30,
-        );
+        paint.blit(CLOUD, x + hash(tile, 2) * 80, 50 + hash(tile, 3) * 30);
       });
       break;
   }
 }
 
-function ground(
-  context: CanvasRenderingContext2D,
-  state: RunState,
-  { book }: DrawOptions,
-): void {
+function ground(paint: Painter, state: RunState, { book }: DrawOptions): void {
   const { ink, muted, accent, paper } = book.colours;
   const gaps = state.obstacles.filter((obstacle) => obstacle.kind === "gap");
 
   if (state.biome === "production") {
     // Hazard stripes under the line.
     tiles(state.distance, 16, (x) => {
-      rect(context, accent, x, GROUND_Y + 2, 8, 3);
+      paint.rect(accent, x, GROUND_Y + 2, 8, 3);
     });
   }
   // The floor's grit, scrolling with the course.
   tiles(state.distance, 12, (x, tile) => {
     const r = hash(tile, 11);
     if (r < 0.35)
-      rect(
-        context,
+      paint.rect(
         muted,
         x + r * 10,
         GROUND_Y + 4 + hash(tile) * 14,
@@ -305,16 +321,16 @@ function ground(
         1,
       );
   });
-  rect(context, ink, 0, GROUND_Y, VIEW_W, 1);
+  paint.rect(ink, 0, GROUND_Y, VIEW_W, 1);
 
   for (const gap of gaps) {
-    rect(context, paper, gap.x, GROUND_Y, gap.w, VIEW_H - GROUND_Y);
-    rect(context, ink, gap.x, GROUND_Y, 1, 4);
-    rect(context, ink, gap.x + gap.w - 1, GROUND_Y, 1, 4);
+    paint.rect(paper, gap.x, GROUND_Y, gap.w, VIEW_H - GROUND_Y);
+    paint.rect(ink, gap.x, GROUND_Y, 1, 4);
+    paint.rect(ink, gap.x + gap.w - 1, GROUND_Y, 1, 4);
     if (gap.w >= 20) {
       const left = gap.x + gap.w / 2 - 5;
       (["4", "0", "4"] as const).forEach((digit, index) => {
-        blit(context, book, DIGITS[digit], left + index * 4, GROUND_Y + 9);
+        paint.blit(DIGITS[digit], left + index * 4, GROUND_Y + 9);
       });
     }
   }
@@ -322,35 +338,35 @@ function ground(
 
 /** A stack trace: a block of ink with lines of "text" cut into it. */
 function stack(
-  context: CanvasRenderingContext2D,
+  paint: Painter,
   obstacle: Obstacle,
   { book }: DrawOptions,
 ): void {
   const { ink, paper } = book.colours;
-  rect(context, ink, obstacle.x, obstacle.y, obstacle.w, obstacle.h);
+  paint.rect(ink, obstacle.x, obstacle.y, obstacle.w, obstacle.h);
   for (let line = 3; line < obstacle.h - 2; line += 3) {
     const width = 2 + Math.floor(hash(obstacle.id, line) * (obstacle.w - 4));
-    rect(context, paper, obstacle.x + 2, obstacle.y + line, width, 1);
+    paint.rect(paper, obstacle.x + 2, obstacle.y + line, width, 1);
   }
 }
 
 function obstacles(
-  context: CanvasRenderingContext2D,
+  paint: Painter,
   state: RunState,
   options: DrawOptions,
 ): void {
-  const { book, reduced } = options;
+  const { reduced } = options;
   const flap = reduced ? 0 : Math.floor(state.frame / 3) % 2;
   const scuttle = reduced ? 0 : Math.floor(state.frame / 6) % 2;
   for (const obstacle of state.obstacles) {
     if (obstacle.kind === "gap") continue;
-    context.globalAlpha = obstacle.hit ? 0.4 : 1;
-    if (obstacle.kind === "stack") stack(context, obstacle, options);
+    paint.context.globalAlpha = obstacle.hit ? 0.4 : 1;
+    if (obstacle.kind === "stack") stack(paint, obstacle, options);
     if (obstacle.kind === "bug")
-      blit(context, book, scuttle ? BUG_B : BUG_A, obstacle.x, obstacle.y);
+      paint.blit(scuttle ? BUG_B : BUG_A, obstacle.x, obstacle.y);
     if (obstacle.kind === "drone")
-      blit(context, book, flap ? DRONE_B : DRONE_A, obstacle.x, obstacle.y);
-    context.globalAlpha = 1;
+      paint.blit(flap ? DRONE_B : DRONE_A, obstacle.x, obstacle.y);
+    paint.context.globalAlpha = 1;
   }
 }
 
@@ -361,30 +377,24 @@ const POWER_SPRITES = {
 } as const;
 
 function pickups(
-  context: CanvasRenderingContext2D,
+  paint: Painter,
   state: RunState,
-  { book, reduced }: DrawOptions,
+  { reduced }: DrawOptions,
 ): void {
   for (const pickup of state.pickups) {
     if (pickup.kind === "token") {
-      blit(context, book, TOKEN, pickup.x - 3, pickup.y - 3);
+      paint.blit(TOKEN, pickup.x - 3, pickup.y - 3);
       continue;
     }
     const bob = reduced
       ? 0
       : Math.round(Math.sin((state.frame + pickup.id * 9) / 10) * 2);
-    blit(
-      context,
-      book,
-      POWER_SPRITES[pickup.kind],
-      pickup.x - 6,
-      pickup.y - 6 + bob,
-    );
+    paint.blit(POWER_SPRITES[pickup.kind], pickup.x - 6, pickup.y - 6 + bob);
   }
 }
 
 function robot(
-  context: CanvasRenderingContext2D,
+  paint: Painter,
   state: RunState,
   { book, reduced }: DrawOptions,
 ): void {
@@ -400,19 +410,19 @@ function robot(
         : Math.floor(state.distance / 14) % 2
           ? ROBOT_RUN_B
           : ROBOT_RUN_A;
-  blit(context, book, sprite, PLAYER_X - 1, player.y - sprite.length);
+  paint.blit(sprite, PLAYER_X - 1, player.y - sprite.length);
 
   if (powers.shield && state.alive) {
     // A dotted ring around the robot.
     const cx = PLAYER_X + 7;
     const cy = player.y - (player.sliding ? 5 : 9);
     const spin = reduced ? 0 : state.frame / 30;
-    context.fillStyle = book.colours.accent;
     for (let dot = 0; dot < 16; dot++) {
       const angle = spin + (dot / 16) * Math.PI * 2;
-      context.fillRect(
-        Math.round(cx + Math.cos(angle) * 14),
-        Math.round(cy + Math.sin(angle) * 13),
+      paint.rect(
+        book.colours.accent,
+        cx + Math.cos(angle) * 14,
+        cy + Math.sin(angle) * 13,
         1,
         1,
       );
@@ -420,17 +430,16 @@ function robot(
   }
 }
 
-function particles(
-  context: CanvasRenderingContext2D,
-  effects: Effects,
-  book: SpriteBook,
-): void {
+function particles(paint: Painter, effects: Effects, book: SpriteBook): void {
   for (const particle of effects.particles) {
-    rect(context, book.colours[particle.ink], particle.x, particle.y, 1, 1);
+    paint.rect(book.colours[particle.ink], particle.x, particle.y, 1, 1);
   }
 }
 
-/** Draws one picture of the run onto a VIEW_W × VIEW_H context. */
+/**
+ * Draws one picture of the run onto a canvas `book.scale` times the course's size
+ * (set the scale from the canvas's width first).
+ */
 export function drawScene(
   context: CanvasRenderingContext2D,
   state: RunState,
@@ -438,27 +447,25 @@ export function drawScene(
 ): void {
   const { book, effects, reduced } = options;
   const { paper, accent } = book.colours;
-  context.save();
-  rect(context, paper, 0, 0, VIEW_W, VIEW_H);
+  const paint = new Painter(context, book);
+  paint.rect(paper, 0, 0, VIEW_W, VIEW_H);
   if (!reduced && effects.shake > 0) {
-    context.translate(
-      Math.round(
-        (hash(state.frame, effects.shake) - 0.5) * effects.shake * 0.5,
-      ),
-      Math.round((hash(effects.shake, 5) - 0.5) * effects.shake * 0.4),
-    );
+    const shake = Math.ceil(effects.shake);
+    paint.dx = Math.round((hash(state.frame, shake) - 0.5) * shake * 0.5);
+    paint.dy = Math.round((hash(shake, 5) - 0.5) * shake * 0.4);
   }
-  background(context, state.biome, state, options);
-  ground(context, state, options);
-  pickups(context, state, options);
-  obstacles(context, state, options);
-  robot(context, state, options);
-  particles(context, effects, book);
-  context.restore();
+  background(paint, state.biome, state, options);
+  ground(paint, state, options);
+  pickups(paint, state, options);
+  obstacles(paint, state, options);
+  robot(paint, state, options);
+  particles(paint, effects, book);
+  paint.dx = 0;
+  paint.dy = 0;
 
   if (state.powers.compact > 0) {
     // Slow motion: a thin accent frame.
-    rect(context, accent, 0, 0, VIEW_W, 1);
-    rect(context, accent, 0, VIEW_H - 1, VIEW_W, 1);
+    paint.rect(accent, 0, 0, VIEW_W, 1);
+    paint.rect(accent, 0, VIEW_H - 1, VIEW_W, 1);
   }
 }

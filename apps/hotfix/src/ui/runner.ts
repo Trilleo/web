@@ -12,6 +12,25 @@ import { autopilot } from "../core/autopilot";
 
 export type Status = "ready" | "running" | "paused" | "over";
 
+/** Where things were before the latest step, to draw in-between pictures. */
+interface Snapshot {
+  distance: number;
+  playerY: number;
+  obstacles: Map<number, { x: number; y: number }>;
+  pickups: Map<number, { x: number; y: number }>;
+}
+
+function snapshot(state: RunState): Snapshot {
+  return {
+    distance: state.distance,
+    playerY: state.player.y,
+    obstacles: new Map(state.obstacles.map(({ id, x, y }) => [id, { x, y }])),
+    pickups: new Map(state.pickups.map(({ id, x, y }) => [id, { x, y }])),
+  };
+}
+
+const mix = (from: number, to: number, t: number) => from + (to - from) * t;
+
 const STEP_MS = DT * 1000;
 /** After a long stall (a background tab, a debugger), don't race to catch up. */
 const MAX_CATCH_UP_MS = 250;
@@ -29,6 +48,7 @@ export class Runner {
   seed: number;
 
   private carry = 0;
+  private before: Snapshot | null = null;
   private listeners = new Set<() => void>();
   private demoMemory: Parameters<typeof autopilot>[1] = { plan: [], at: 0 };
 
@@ -59,6 +79,7 @@ export class Runner {
     this.state = newRun(this.seed);
     this.log = [];
     this.carry = 0;
+    this.before = null;
     this.set("running");
   }
 
@@ -103,6 +124,7 @@ export class Runner {
     this.carry += Math.min(ms, MAX_CATCH_UP_MS);
     while (this.carry >= STEP_MS) {
       this.carry -= STEP_MS;
+      this.before = snapshot(this.state);
       if (demoing) {
         this.demoStep();
         continue;
@@ -118,6 +140,35 @@ export class Runner {
     return events;
   }
 
+  /**
+   * The run as it looks between steps, for drawing. The engine steps 60 times a
+   * second; screens draw as often as they like, so each picture sits the right share
+   * of the way from the last step to the next. Never fed back into the run.
+   */
+  view(): RunState {
+    const moving =
+      this.status === "running" || (this.status === "ready" && this.demo);
+    const before = this.before;
+    if (!moving || !before) return this.state;
+    // How far into the next step we are: drawing trails the run by under one step.
+    const t = Math.min(1, this.carry / STEP_MS);
+    const state = this.state;
+    const at = <T extends { id: number; x: number; y: number }>(
+      thing: T,
+      was: { x: number; y: number } | undefined,
+    ): T =>
+      was
+        ? { ...thing, x: mix(was.x, thing.x, t), y: mix(was.y, thing.y, t) }
+        : thing;
+    return {
+      ...state,
+      distance: mix(before.distance, state.distance, t),
+      player: { ...state.player, y: mix(before.playerY, state.player.y, t) },
+      obstacles: state.obstacles.map((o) => at(o, before.obstacles.get(o.id))),
+      pickups: state.pickups.map((p) => at(p, before.pickups.get(p.id))),
+    };
+  }
+
   private demoStep(): void {
     for (const input of autopilot(this.state, this.demoMemory)) {
       press(this.state, input);
@@ -126,6 +177,7 @@ export class Runner {
     if (!this.state.alive) {
       this.state = newRun(this.makeSeed());
       this.demoMemory = { plan: [], at: 0 };
+      this.before = null;
     }
   }
 }

@@ -549,9 +549,13 @@
   src/core/content.ts; bump RULES_VERSION when a change would replay differently.
   core/autopilot.ts plans moves on copies of the run: the balance tests use it to
   show every seed can be run for three minutes, and the waiting screen uses it as
-  a demo. src/ui/ is the browser side (Runner: real time, pause, the log; draw.ts:
-  a 480×160 buffer scaled without smoothing, colours read from the --tr-* tokens
-  through an element's `color`; sprites.ts: pixel art as strings). The robot is our
+  a demo. src/ui/ is the browser side (Runner: real time, pause, the log; sprites.ts:
+  pixel art as strings; draw.ts, colours read from the --tr-* tokens through an
+  element's `color`). The engine stays at 60 Hz; the screen draws every animation
+  frame (120 Hz and up) from `Runner.view()`, the run interpolated between its last
+  two steps, straight onto a canvas at the screen's resolution: edges snap to
+  screen pixels and sprites are pre-scaled per size (SpriteBook), so motion is
+  smooth. Drawing never feeds back into the run; effects age by elapsed time. The robot is our
   own design, kept plain (a block, a visor, two legs). Records (best, furthest,
   runs, tokens) stay in the browser (`trilleo:game:hotfix`); accounts, a daily
   seed and leaderboards are planned, checked by replaying the input log.
