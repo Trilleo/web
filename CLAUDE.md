@@ -28,7 +28,7 @@
   apps/qr, apps/color.
 - apps/<game-name> (@trilleo/game-<name>): each game in its own source-only
   package, like tools (`.` the React app, `./meta` its `GameMeta`), mounted at
-  /games/<name>/. First game: apps/skygrid.
+  /games/<name>/. Games: apps/skygrid, apps/hotfix.
 - packages/tool-kit (@trilleo/tool-kit): what tools share: `ToolMeta`, storage
   (this browser, or the account via the data API), the `useToolItems` hook, and
   file helpers (src/files.ts: `detectFileType` from the first bytes,
@@ -540,6 +540,24 @@
   under the map, never over it, and the map is a little shorter to make room.
 - Server-rendered game content must be visible without JavaScript: don't start it
   at opacity 0 for an entrance animation (axe also flags it mid-fade).
+- Hotfix (apps/hotfix): an endless runner in the dino game's mould, drawn as pixel
+  art on a canvas. `./core` is the engine: a fixed 60 Hz step (`step`), a seeded
+  RNG in the state, no clocks and no transcendental maths (Math.sin etc. may differ
+  between engines), so `replay(seed, inputs, frames)` rebuilds a run exactly; the
+  input log records key presses and releases by frame (held jump = higher jump).
+  Content (biomes every 1000 m, obstacle patterns, power-ups, numbers) lives in
+  src/core/content.ts; bump RULES_VERSION when a change would replay differently.
+  core/autopilot.ts plans moves on copies of the run: the balance tests use it to
+  show every seed can be run for three minutes, and the waiting screen uses it as
+  a demo. src/ui/ is the browser side (Runner: real time, pause, the log; draw.ts:
+  a 480×160 buffer scaled without smoothing, colours read from the --tr-* tokens
+  through an element's `color`; sprites.ts: pixel art as strings). The robot is our
+  own design, kept plain (a block, a visor, two legs). Records (best, furthest,
+  runs, tokens) stay in the browser (`trilleo:game:hotfix`); accounts, a daily
+  seed and leaderboards are planned, checked by replaying the input log.
+- Reduced motion in Hotfix: no demo, sparks, shake, blinking or parallax; the
+  course itself still moves. The HUD is DOM text updated from the loop, not React
+  state, so the page doesn't re-render 60 times a second.
 
 ## Minecraft platform
 

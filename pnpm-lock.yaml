@@ -334,6 +334,46 @@ importers:
         specifier: ^5.0.3
         version: 5.0.3(@types/node@26.6.4)(jsdom@30.1.1)(vite@8.3.1(@types/node@26.6.4)(jiti@2.7.0))
 
+  apps/hotfix:
+    dependencies:
+      '@trilleo/tool-kit':
+        specifier: workspace:*
+        version: link:../../packages/tool-kit
+      '@trilleo/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      motion:
+        specifier: ^13.5.1
+        version: 13.5.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+    devDependencies:
+      '@testing-library/dom':
+        specifier: ^10.4.2
+        version: 10.4.2
+      '@testing-library/react':
+        specifier: ^16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      jsdom:
+        specifier: ^30.1.1
+        version: 30.1.1
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.3
+        version: 5.0.3(@types/node@26.6.4)(jsdom@30.1.1)(vite@8.3.1(@types/node@26.6.4)(jiti@2.7.0))
+
   apps/inspect:
     dependencies:
       '@trilleo/tool-kit':
@@ -550,6 +590,9 @@ importers:
       '@trilleo/forum':
         specifier: workspace:*
         version: link:../../packages/forum
+      '@trilleo/game-hotfix':
+        specifier: workspace:*
+        version: link:../hotfix
       '@trilleo/game-skygrid':
         specifier: workspace:*
         version: link:../skygrid

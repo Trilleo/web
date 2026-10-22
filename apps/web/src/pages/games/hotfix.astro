@@ -1,0 +1,100 @@
+---
+import { HotfixApp, meta } from "@trilleo/game-hotfix";
+import { BIOMES, POWERS, TOKEN_POINTS } from "@trilleo/game-hotfix/core";
+import GameLayout from "../../components/games/GameLayout.astro";
+
+// Nothing here depends on who's visiting: records stay in the browser for now.
+
+const controls = [
+  [
+    "Space / ↑ / W",
+    "Jump. Hold it to jump higher; let go early for a short hop.",
+  ],
+  ["Space in the air", "Jump once more (one double jump per jump)."],
+  ["↓ / S", "Slide under things, or drop faster in the air."],
+  ["P / Esc", "Pause. Leaving the game or the tab pauses it too."],
+  ["Tap / swipe down", "Jump and slide on touch screens, or use the buttons."],
+] as const;
+
+const obstacles = [
+  ["Bugs", "Scuttle along the floor towards you. Jump them."],
+  [
+    "Stack traces",
+    "Stand in the way, short or tall. Jump them, two at a time in Production.",
+  ],
+  [
+    "Drones",
+    "Fly at three heights: jump the low ones, slide under the middle ones, and don’t jump into the high ones.",
+  ],
+  ["404s", "Holes in the floor. Fall in and the run is over."],
+] as const;
+---
+
+<GameLayout meta={meta}>
+  <HotfixApp client:load />
+  <Fragment slot="about">
+    <p class="text-[15px] leading-normal xl:text-base">
+      Production is down and the fix is ready. Run it there: the robot keeps
+      running, faster and faster, and all you choose is when to jump and when to
+      slide. Each metre is a point and each token is worth {TOKEN_POINTS}. The
+      course is different every run.
+    </p>
+    <h3 class="type-label mt-2">How to play</h3>
+    <dl class="grid grid-cols-1 border-t border-ink md:grid-cols-[14rem_1fr]">
+      {controls.map(([keys, what]) => (
+        <>
+          <dt class="pt-3 font-mono text-sm md:border-b md:border-hair md:pb-3">
+            {keys}
+          </dt>
+          <dd class="border-b border-hair pb-3 text-[15px] text-muted md:pt-3">
+            {what}
+          </dd>
+        </>
+      ))}
+    </dl>
+    <h3 class="type-label mt-2">In the way</h3>
+    <dl class="grid grid-cols-1 border-t border-ink md:grid-cols-[14rem_1fr]">
+      {obstacles.map(([name, what]) => (
+        <>
+          <dt class="pt-3 text-[15px] font-semibold md:border-b md:border-hair md:pb-3">
+            {name}
+          </dt>
+          <dd class="border-b border-hair pb-3 text-[15px] text-muted md:pt-3">
+            {what}
+          </dd>
+        </>
+      ))}
+    </dl>
+    <h3 class="type-label mt-2">Power-ups</h3>
+    <dl class="grid grid-cols-1 border-t border-ink md:grid-cols-[14rem_1fr]">
+      {Object.values(POWERS).map((power) => (
+        <>
+          <dt class="pt-3 font-mono text-sm md:border-b md:border-hair md:pb-3">
+            {power.name}
+          </dt>
+          <dd class="border-b border-hair pb-3 text-[15px] text-muted md:pt-3">
+            {power.summary}
+          </dd>
+        </>
+      ))}
+    </dl>
+    <h3 class="type-label mt-2">The way there</h3>
+    <ol class="grid grid-cols-1 border-t border-ink">
+      {BIOMES.map((biome) => (
+        <li class="grid grid-cols-1 border-b border-hair py-3 md:grid-cols-[14rem_1fr]">
+          <span class="text-[15px] font-semibold">
+            {biome.name}
+            <span class="block font-mono text-sm font-normal text-muted">
+              From {biome.fromMetres} m
+            </span>
+          </span>
+          <span class="text-[15px] text-muted">{biome.line}</span>
+        </li>
+      ))}
+    </ol>
+    <p class="text-[15px] leading-normal text-muted">
+      Your best score, your furthest run and every token you’ve picked up are
+      kept in this browser.
+    </p>
+  </Fragment>
+</GameLayout>

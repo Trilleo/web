@@ -2,7 +2,7 @@ export type ToolStatus = "planned" | "in-progress" | "live";
 
 /** The pictogram on a tool or game card (see apps/web/src/components/ToolIcon.astro). */
 export type ToolIcon =
-  "notes" | "convert" | "inspect" | "qr" | "color" | "island";
+  "notes" | "convert" | "inspect" | "qr" | "color" | "island" | "robot";
 
 /** What the site needs to know about a tool: how to list it, and its data rules. */
 export interface ToolMeta {

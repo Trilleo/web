@@ -1,9 +1,10 @@
 import type { GameMeta } from "@trilleo/tool-kit";
+import { meta as hotfix } from "@trilleo/game-hotfix/meta";
 import { meta as skygrid } from "@trilleo/game-skygrid/meta";
 import type { GameListing } from "../listings";
 
 /** Every game, in listing order: /games and the home page read this. */
-export const GAMES: readonly GameMeta[] = [skygrid];
+export const GAMES: readonly GameMeta[] = [skygrid, hotfix];
 
 export function gamePath(slug: string): string {
   return `/games/${slug}/`;

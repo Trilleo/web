@@ -138,6 +138,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "legal",
     changes: [
       {
+        date: "2026-10-22",
+        note: "Listed the Hotfix records kept in your browser (a preference).",
+      },
+      {
         date: "2026-10-16",
         note: "Listed the study progress kept in your browser while signed out (a preference).",
       },

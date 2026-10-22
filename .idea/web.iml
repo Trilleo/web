@@ -24,6 +24,8 @@
       <excludeFolder url="file://$MODULE_DIR$/packages/study/.turbo" />
       <excludeFolder url="file://$MODULE_DIR$/packages/wiki/.turbo" />
       <excludeFolder url="file://$MODULE_DIR$/study-sources" />
+      <excludeFolder url="file://$MODULE_DIR$/apps/web/src/.astro" />
+      <excludeFolder url="file://$MODULE_DIR$/packages/forum/.turbo" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

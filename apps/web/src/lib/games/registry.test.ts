@@ -11,21 +11,23 @@ const planned: GameMeta = {
 };
 
 describe("the games registry", () => {
-  it("lists Skygrid, with unique slugs fit for URLs", () => {
+  it("lists Skygrid and Hotfix, with unique slugs fit for URLs", () => {
     const slugs = GAMES.map((game) => game.slug);
     expect(slugs).toContain("skygrid");
+    expect(slugs).toContain("hotfix");
     expect(new Set(slugs).size).toBe(slugs.length);
     for (const slug of slugs) expect(slug).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
   });
 
   it("finds games by slug", () => {
     expect(findGame("skygrid")?.name).toBe("Skygrid");
+    expect(findGame("hotfix")?.name).toBe("Hotfix");
     expect(findGame("nope")).toBeUndefined();
     expect(findGame(undefined)).toBeUndefined();
   });
 
   it("links games that exist, and not planned ones", () => {
-    const [skygrid, someday] = gameListings([...GAMES, planned]);
+    const [skygrid, , someday] = gameListings([...GAMES, planned]);
     expect(skygrid).toMatchObject({
       name: "Skygrid",
       href: gamePath("skygrid"),

@@ -42,6 +42,7 @@ apps/inspect        @trilleo/tool-inspect: File info (/tools/inspect/)
 apps/qr             @trilleo/tool-qr: QR codes (/tools/qr/)
 apps/color          @trilleo/tool-color: colors (/tools/color/)
 apps/skygrid        @trilleo/game-skygrid: Skygrid, a text-drawn Skyblock-style game (/games/skygrid/)
+apps/hotfix         @trilleo/game-hotfix: Hotfix, a pixel-art endless runner (/games/hotfix/)
 packages/ui         @trilleo/ui: shared React components + Tailwind theme (theme.css)
 packages/db         @trilleo/db: Drizzle schema, migrations, and database client
 packages/tool-kit   @trilleo/tool-kit: what tools share (storage, data hook, file helpers)
