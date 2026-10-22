@@ -1,6 +1,8 @@
 ﻿pnpm-lock.yaml
 LICENSE
 .idea/
+# Claude Code's own files, including other sessions' git worktrees.
+.claude/
 
 **/dist/
 **/dist-e2e/
