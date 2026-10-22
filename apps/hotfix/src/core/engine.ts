@@ -88,6 +88,14 @@ export function newRun(seed: number): RunState {
     spawnIn: RUNWAY,
     powerIn,
     nextId: 1,
+    stats: {
+      jumps: 0,
+      doubleJumps: 0,
+      slides: 0,
+      powers: 0,
+      shields: 0,
+      cleared: 0,
+    },
     events: [],
   };
 }
@@ -159,6 +167,11 @@ function overGap(state: RunState): boolean {
   );
 }
 
+/** Whether the run has ended (a function: TypeScript would keep an earlier check). */
+function crashed(state: RunState): boolean {
+  return !state.alive;
+}
+
 function crash(state: RunState, cause: CrashCause): void {
   state.alive = false;
   state.cause = cause;
@@ -188,16 +201,20 @@ function movePlayer(state: RunState): void {
       player.onGround = false;
       player.coyote = 0;
       player.jumpBuffer = 0;
+      state.stats.jumps++;
       state.events.push({ type: "jump" });
     } else if (player.airJumps > 0) {
       player.vy = DOUBLE_JUMP_V;
       player.airJumps--;
       player.jumpBuffer = 0;
+      state.stats.doubleJumps++;
       state.events.push({ type: "double-jump" });
     }
   }
 
+  const wasSliding = player.sliding;
   player.sliding = player.onGround && held.down;
+  if (player.sliding && !wasSliding) state.stats.slides++;
 
   if (player.onGround) {
     if (overGap(state)) {
@@ -275,6 +292,7 @@ function place(state: RunState, pattern: Pattern, x: number): void {
       w: piece.w,
       h: piece.h,
       hit: false,
+      passed: false,
     });
   }
 }
@@ -302,6 +320,7 @@ function collide(state: RunState): void {
     if (state.player.safe > 0) continue;
     if (shieldTakes(state)) {
       obstacle.hit = true;
+      state.stats.shields++;
       continue;
     }
     crash(state, obstacle.kind);
@@ -319,6 +338,7 @@ function collide(state: RunState): void {
       if (pickup.kind === "compact") state.powers.compact = COMPACT_FRAMES;
       if (pickup.kind === "magnet") state.powers.magnet = MAGNET_FRAMES;
       if (pickup.kind === "shield") state.powers.shield = true;
+      state.stats.powers++;
       state.events.push({ type: "power", kind: pickup.kind });
     }
     return false;
@@ -383,7 +403,7 @@ export function step(state: RunState): void {
   state.pickups = state.pickups.filter((pickup) => pickup.x > -24);
 
   movePlayer(state);
-  if (state.cause !== null) return;
+  if (crashed(state)) return;
   if (powers.magnet > 0) pull(state);
 
   state.spawnIn -= travel;
@@ -391,6 +411,17 @@ export function step(state: RunState): void {
   if (state.spawnIn <= 0) spawn(state);
 
   collide(state);
+  if (crashed(state)) return;
+  for (const obstacle of state.obstacles) {
+    if (
+      !obstacle.passed &&
+      !obstacle.hit &&
+      obstacle.x + obstacle.w < PLAYER_X
+    ) {
+      obstacle.passed = true;
+      state.stats.cleared++;
+    }
+  }
 }
 
 /** What a run looks like after `inputs`, played from `seed` for `frames` steps. */

@@ -3,6 +3,7 @@ import { AVATAR_MAX_BYTES } from "../../lib/profile/avatar";
 import { NOTIFICATION_RETENTION_DAYS } from "../../lib/forum/notifications";
 import { RETENTION_DAYS } from "@trilleo/storage";
 import InfoLayout from "../../layouts/InfoLayout.astro";
+import { TICKET_LIMITS } from "../../lib/games/hotfix/store";
 import { NEW_DEVICE_DAYS, SECURITY_LOG_DAYS } from "../../lib/auth/activity";
 import { UNDO_EMAIL_DAYS } from "../../lib/auth/email-change";
 import { SIGN_IN_LIMITS } from "../../lib/auth/email-sign-in";
@@ -33,6 +34,7 @@ const sections = [
   { slug: "children", text: "Children" },
   { slug: "security", text: "Keeping it safe" },
 ] as const;
+const ticketHours = TICKET_LIMITS.maxAgeMs / 3_600_000;
 ---
 
 <InfoLayout path="/legal/privacy/" sections={sections} history>
@@ -235,6 +237,22 @@ const sections = [
         <td>
           To keep them in your account. Trades are recorded without names, for
           price history
+        </td>
+      </tr>
+      <tr>
+        <td>
+          Hotfix runs: your best endless run and your best Daily Run of each day
+          (score, distance, and the keys you pressed, frame by frame), how many
+          runs and tokens you have, your furthest run, achievements and the
+          accessory you chose. Each run also gets a short-lived ticket (its seed
+          and when it started)
+        </td>
+        <td>You finish a run while signed in</td>
+        <td>
+          To check the run by replaying your keys, and to show it on the
+          leaderboards, where anyone can watch it again with your name (or, with
+          a private profile, without it). Unused tickets go after {ticketHours}{" "}
+          hours
         </td>
       </tr>
       <tr>
@@ -447,9 +465,9 @@ const sections = [
   </ul>
   <p>
     Public things are public: published comments and forum posts, profile
-    pictures, public profiles, published files, Minecraft projects and
-    leaderboard entries can be seen by anyone, and may be copied by search
-    engines. Information may also be disclosed when the law requires it.
+    pictures, public profiles, published files, Minecraft projects, leaderboard
+    entries and the runs on them can be seen by anyone, and may be copied by
+    search engines. Information may also be disclosed when the law requires it.
   </p>
 
   <h2 id="where">Where it is stored</h2>

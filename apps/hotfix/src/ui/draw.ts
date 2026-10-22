@@ -3,6 +3,7 @@ import {
   PLAYER_X,
   VIEW_H,
   VIEW_W,
+  type AccessoryId,
   type BiomeId,
   type Obstacle,
   type RunEvent,
@@ -10,6 +11,7 @@ import {
 } from "../core";
 import { paletteKey, type Palette } from "./palette";
 import {
+  ACCESSORY_ART,
   BUG_A,
   BUG_B,
   CLOUD,
@@ -196,6 +198,8 @@ export interface DrawOptions {
   book: SpriteBook;
   effects: Effects;
   reduced: boolean;
+  /** What the robot wears. */
+  accessory?: AccessoryId | null;
 }
 
 /** Draws in course pixels, snapped to screen pixels. */
@@ -396,7 +400,7 @@ function pickups(
 function robot(
   paint: Painter,
   state: RunState,
-  { book, reduced }: DrawOptions,
+  { book, reduced, accessory }: DrawOptions,
 ): void {
   const { player, powers } = state;
   if (!reduced && player.safe > 0 && Math.floor(player.safe / 4) % 2 === 0)
@@ -411,6 +415,13 @@ function robot(
           ? ROBOT_RUN_B
           : ROBOT_RUN_A;
   paint.blit(sprite, PLAYER_X - 1, player.y - sprite.length);
+  if (accessory) {
+    // The head's top-left corner: further forward and lower when sliding.
+    const art = ACCESSORY_ART[accessory];
+    const headX = sprite === ROBOT_SLIDE ? PLAYER_X + 9 : PLAYER_X + 1;
+    const headY = player.y - sprite.length;
+    paint.blit(art.sprite, headX + art.dx, headY + art.dy);
+  }
 
   if (powers.shield && state.alive) {
     // A dotted ring around the robot.

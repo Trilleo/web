@@ -1,3 +1,4 @@
+import { exportHotfix } from "../games/hotfix/store";
 import {
   comments,
   posts,
@@ -114,7 +115,7 @@ export async function exportUserData(
 ) {
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) return null;
-  const [browsers, own, tools, skygrid, messages, linked, oldNames] =
+  const [browsers, own, tools, skygrid, hotfix, messages, linked, oldNames] =
     await Promise.all([
       db
         .select({
@@ -157,6 +158,7 @@ export async function exportUserData(
         })
         .from(skygridSaves)
         .where(eq(skygridSaves.userId, userId)),
+      exportHotfix(db, userId),
       messagesFrom(db, userId),
       identitiesOf(db, userId),
       usernameHistoryOf(db, userId),
@@ -198,7 +200,7 @@ export async function exportUserData(
     sessions: browsers,
     comments: own,
     toolData: tools,
-    games: { skygrid: skygrid[0] ?? null },
+    games: { skygrid: skygrid[0] ?? null, hotfix },
     contactMessages: messages,
   };
 }

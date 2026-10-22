@@ -43,20 +43,27 @@ const MAX_CATCH_UP_MS = 250;
 export class Runner {
   state: RunState;
   status: Status = "ready";
-  /** Every input of the current run, to replay it (and, later, for the server to check). */
+  /** Every input of the current run, for the server to replay and check. */
   log: LoggedInput[] = [];
   seed: number;
+  /** Where the next run's seed comes from (a server ticket, the day's, or random). */
+  seedFor: () => number;
+  /** Playing back someone's run rather than taking keys. */
+  watching = false;
 
   private carry = 0;
   private before: Snapshot | null = null;
   private listeners = new Set<() => void>();
   private demoMemory: Parameters<typeof autopilot>[1] = { plan: [], at: 0 };
+  private script: readonly LoggedInput[] = [];
+  private scriptAt = 0;
 
   constructor(
-    private readonly makeSeed: () => number = randomSeed,
+    seedFor: () => number = randomSeed,
     readonly demo = true,
   ) {
-    this.seed = makeSeed();
+    this.seedFor = seedFor;
+    this.seed = randomSeed();
     this.state = newRun(this.seed);
   }
 
@@ -73,11 +80,29 @@ export class Runner {
     for (const listener of this.listeners) listener();
   }
 
-  /** A fresh run, from a new seed. */
+  /** The next run's seed (a server ticket's, or the day's). */
+  nextSeed(seed: number): void {
+    this.seedFor = () => seed;
+  }
+
+  /** A fresh run, from the next seed. */
   start(): void {
-    this.seed = this.makeSeed();
-    this.state = newRun(this.seed);
+    this.begin(this.seedFor(), []);
+    this.watching = false;
+  }
+
+  /** Plays a recorded run back, exactly as it went. */
+  watch(seed: number, inputs: readonly LoggedInput[]): void {
+    this.begin(seed, inputs);
+    this.watching = true;
+  }
+
+  private begin(seed: number, script: readonly LoggedInput[]): void {
+    this.seed = seed;
+    this.state = newRun(seed);
     this.log = [];
+    this.script = script;
+    this.scriptAt = 0;
     this.carry = 0;
     this.before = null;
     this.set("running");
@@ -95,6 +120,8 @@ export class Runner {
       if (input !== "jump") return;
       this.resume();
       return;
+    } else if (this.watching) {
+      return;
     }
     this.log.push({ f: this.state.frame, i: input });
     press(this.state, input);
@@ -102,9 +129,11 @@ export class Runner {
 
   pause(): void {
     if (this.status !== "running") return;
-    // Keys let go while paused would otherwise stay held.
-    if (this.state.held.jump) this.input("jump-end");
-    if (this.state.held.down) this.input("down-end");
+    // Keys let go while paused would otherwise stay held. (A replay holds its own.)
+    if (!this.watching) {
+      if (this.state.held.jump) this.input("jump-end");
+      if (this.state.held.down) this.input("down-end");
+    }
     this.set("paused");
   }
 
@@ -128,6 +157,14 @@ export class Runner {
       if (demoing) {
         this.demoStep();
         continue;
+      }
+      while (
+        this.scriptAt < this.script.length &&
+        (this.script[this.scriptAt]?.f ?? Infinity) <= this.state.frame
+      ) {
+        const scripted = this.script[this.scriptAt];
+        if (scripted) press(this.state, scripted.i);
+        this.scriptAt++;
       }
       step(this.state);
       events.push(...this.state.events);
@@ -175,7 +212,7 @@ export class Runner {
     }
     step(this.state);
     if (!this.state.alive) {
-      this.state = newRun(this.makeSeed());
+      this.state = newRun(randomSeed());
       this.demoMemory = { plan: [], at: 0 };
       this.before = null;
     }

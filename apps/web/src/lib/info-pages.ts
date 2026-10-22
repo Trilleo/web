@@ -43,6 +43,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "legal",
     changes: [
       {
+        date: "2026-10-22",
+        note: "Hotfix: runs on its leaderboards are public and can be watched again.",
+      },
+      {
         date: "2026-10-21",
         note: "Private messages and forum attachments are yours too; messages are shown only to their conversation, and to the admin when reported.",
       },
@@ -77,6 +81,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "What Trilleo Network keeps about you, why, for how long, and how to see or delete it.",
     group: "legal",
     changes: [
+      {
+        date: "2026-10-22",
+        note: "Hotfix: checked runs, their key presses, achievements, and run tickets.",
+      },
       {
         date: "2026-10-21",
         note: "Private messages (and when the admin sees one), polls and attached files.",

@@ -16,19 +16,38 @@ import {
   CRASH_LINES,
   FPS,
   POWERS,
+  RULES_VERSION,
   TOKEN_POINTS,
   VIEW_H,
   VIEW_W,
   biomeById,
+  dailySeed,
+  dayOf,
   metres,
   score,
+  unpackInputs,
+  type AccessoryId,
   type BiomeId,
   type Input,
   type RunEvent,
+  type RunMode,
 } from "./core";
+import {
+  Account,
+  type CheckOutcome,
+  type PlayerView,
+  type Ticket,
+} from "./ui/account";
+import { AccountPanel, unlockedLine } from "./ui/AccountPanel";
 import { SpriteBook, age, drawScene, newEffects, react } from "./ui/draw";
 import { FALLBACK_PALETTE, readPalette } from "./ui/palette";
-import { afterRun, loadRecords, saveRecords, type Records } from "./ui/records";
+import {
+  afterRun,
+  dailyBest,
+  loadRecords,
+  saveRecords,
+  type Records,
+} from "./ui/records";
 import { Runner, type Status } from "./ui/runner";
 
 /** localStorage, or this tab's sessionStorage with "preferences" off (consent.ts). */
@@ -99,38 +118,109 @@ function announcement(event: RunEvent): string | null {
   }
 }
 
+/** Someone's best run, to watch (from the leaderboard's links). */
+export interface WatchView {
+  seed: number;
+  /** packInputs form. */
+  inputs: number[];
+  /** The engine's RULES_VERSION when it was run. */
+  rules: number;
+  score: number;
+  /** Null for a private profile. */
+  name: string | null;
+  accessory: AccessoryId | null;
+  /** "endless" or "daily:<day>". */
+  board: string;
+}
+
 export interface HotfixAppProps {
-  /** For tests: the seed of every run. */
+  /** For tests: the seed of every unchecked run. */
   seed?: number;
+  signedIn?: boolean;
+  /** Where "Sign in" goes; it comes back here afterwards. */
+  signInHref?: string;
+  /** Signed in: the player's record (null before their first run). */
+  account?: PlayerView | null;
+  /** A run to offer to watch. */
+  watch?: WatchView | null;
+  leaderboardHref?: string;
+}
+
+const NO_PLAYER: PlayerView = {
+  runs: 0,
+  tokens: 0,
+  furthest: 0,
+  achievements: [],
+  accessory: null,
+  endless: null,
+  daily: null,
+};
+
+/** How the last run was counted. */
+type Check =
+  | { state: "unchecked"; reason: "signed-out" | "no-ticket" }
+  | { state: "checking" }
+  | { state: "done"; outcome: CheckOutcome };
+
+interface Result {
+  score: number;
+  metres: number;
+  tokens: number;
+  cause: string;
+  mode: RunMode;
+  /** Beat this browser's best (unchecked runs). */
+  newBest: boolean;
+  /** A replay that just ended. */
+  watched: boolean;
 }
 
 /**
- * Hotfix: a runner drawn in pixels. Records stay in this browser for now. It starts
- * once it's running in the browser.
+ * Hotfix: a runner drawn in pixels. Signed in, each run gets its seed from the
+ * server and is replayed there when it ends; signed out, records stay in this
+ * browser. It starts once it's running in the browser.
  */
-export function HotfixApp({ seed }: HotfixAppProps) {
+export function HotfixApp(props: HotfixAppProps) {
   const hydrated = useHydrated();
   return (
     <MotionConfig reducedMotion="user">
-      <div className="border-y border-ink bg-fig px-page py-6 md:py-10">
-        <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-3">
-          {hydrated ? (
-            <Game seed={seed} />
-          ) : (
-            <div
-              className="grid place-items-center border border-ink bg-paper"
-              style={{ aspectRatio: `${String(VIEW_W)} / ${String(VIEW_H)}` }}
-            >
-              <p className="type-label text-muted">Booting the robot…</p>
-            </div>
-          )}
-        </div>
-      </div>
+      {hydrated ? (
+        <Game {...props} />
+      ) : (
+        <Band>
+          <div
+            className="grid place-items-center border border-ink bg-paper"
+            style={{ aspectRatio: `${String(VIEW_W)} / ${String(VIEW_H)}` }}
+          >
+            <p className="type-label text-muted">Booting the robot…</p>
+          </div>
+        </Band>
+      )}
     </MotionConfig>
   );
 }
 
-function Game({ seed }: { seed: number | undefined }) {
+function Band({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="border-y border-ink bg-fig px-page py-6 md:py-10">
+      <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-3">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function randomSeed(): number {
+  return crypto.getRandomValues(new Uint32Array(1))[0] ?? 1;
+}
+
+function Game({
+  seed,
+  signedIn = false,
+  signInHref,
+  account: initialPlayer,
+  watch,
+  leaderboardHref = "/games/hotfix/leaderboard/",
+}: HotfixAppProps) {
   const reduced = useReducedMotion();
   const runner = useMemo(
     () => new Runner(seed === undefined ? undefined : () => seed, !reduced),
@@ -138,6 +228,7 @@ function Game({ seed }: { seed: number | undefined }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one runner per mount
     [seed],
   );
+  const account = useMemo(() => (signedIn ? new Account() : null), [signedIn]);
   const status = useSyncExternalStore(
     runner.subscribe,
     runner.getStatus,
@@ -146,20 +237,49 @@ function Game({ seed }: { seed: number | undefined }) {
   const [records, setRecords] = useState<Records>(() =>
     loadRecords(safeStorage()),
   );
+  const [player, setPlayer] = useState<PlayerView | null>(() =>
+    signedIn ? (initialPlayer ?? NO_PLAYER) : null,
+  );
+  const [mode, setMode] = useState<RunMode>("endless");
+  const [check, setCheck] = useState<Check | null>(null);
+  const [today] = useState(() => dayOf(Date.now()));
+  // A replay offered from the leaderboard, while it can still be played back.
+  const replayable = useMemo(() => {
+    if (watch?.rules !== RULES_VERSION) return null;
+    const inputs = unpackInputs(watch.inputs);
+    return inputs ? { ...watch, inputs } : null;
+  }, [watch]);
+  const [offer, setOffer] = useState(
+    () => watch !== undefined && watch !== null,
+  );
+  const [wearing, setWearing] = useState<AccessoryId | null>(
+    () => initialPlayer?.accessory ?? null,
+  );
+
   // The loop reads these between renders.
   const recordsRef = useRef(records);
   const reducedRef = useRef(reduced);
+  const lookRef = useRef<AccessoryId | null>(wearing);
+  const current = useRef<{ mode: RunMode; ticket: Ticket | null; day: string }>(
+    {
+      mode: "endless",
+      ticket: null,
+      day: today,
+    },
+  );
   useEffect(() => {
     reducedRef.current = reduced;
   }, [reduced]);
-  const [result, setResult] = useState<{
-    score: number;
-    metres: number;
-    tokens: number;
-    cause: string;
-    newBest: boolean;
-  } | null>(null);
+  useEffect(() => {
+    if (!runner.watching) lookRef.current = wearing;
+  }, [wearing, runner]);
+  const [result, setResult] = useState<Result | null>(null);
   const [biome, setBiome] = useState<BiomeId | null>(null);
+
+  // Signed in: a ticket waits for the next run in the chosen mode.
+  useEffect(() => {
+    void account?.prefetch(mode);
+  }, [account, mode]);
 
   const field = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -174,22 +294,74 @@ function Game({ seed }: { seed: number | undefined }) {
 
   const finish = useCallback(() => {
     const run = runner.state;
-    const { records: next, newBest } = afterRun(recordsRef.current, run);
+    const cause = run.cause ? CRASH_LINES[run.cause] : "Crashed";
+    const summary = `${String(metres(run))} metres, ${String(run.tokens)} tokens, score ${String(score(run))}.`;
+    if (runner.watching) {
+      setResult({
+        score: score(run),
+        metres: metres(run),
+        tokens: run.tokens,
+        cause,
+        mode: "endless",
+        newBest: false,
+        watched: true,
+      });
+      say(`The replay ended: ${cause}. ${summary}`);
+      return;
+    }
+    const { mode: ranMode, ticket, day } = current.current;
+    const { records: next, newBest } = afterRun(
+      recordsRef.current,
+      run,
+      ranMode,
+      day,
+    );
     saveRecords(safeStorage(), next);
     recordsRef.current = next;
     setRecords(next);
-    const cause = run.cause ? CRASH_LINES[run.cause] : "Crashed";
     setResult({
       score: score(run),
       metres: metres(run),
       tokens: run.tokens,
       cause,
+      mode: ranMode,
       newBest,
+      watched: false,
     });
-    say(
-      `${cause}. ${String(metres(run))} metres, ${String(run.tokens)} tokens, score ${String(score(run))}.${newBest ? " A new best!" : ""} Press Space to run again.`,
-    );
-  }, [runner, say]);
+    say(`${cause}. ${summary} Press Space to run again.`);
+
+    if (!account) {
+      setCheck({ state: "unchecked", reason: "signed-out" });
+      return;
+    }
+    void account.prefetch(ranMode);
+    if (!ticket) {
+      setCheck({ state: "unchecked", reason: "no-ticket" });
+      return;
+    }
+    setCheck({ state: "checking" });
+    const log = [...runner.log];
+    void account.finish(ticket, log).then((outcome) => {
+      setCheck({ state: "done", outcome });
+      if (!outcome.ok) {
+        say(outcome.error);
+        return;
+      }
+      const { checked } = outcome;
+      setPlayer(checked.player);
+      const best =
+        ranMode === "daily" ? checked.player.daily : checked.player.endless;
+      const parts = [
+        checked.newBest && best
+          ? `Counted: a new best, number ${String(best.rank)} on the board.`
+          : "Counted.",
+      ];
+      if (checked.unlocked.length > 0) {
+        parts.push(`Unlocked: ${unlockedLine(checked.unlocked)}.`);
+      }
+      say(parts.join(" "));
+    });
+  }, [runner, account, say]);
 
   // The loop: the engine steps at 60 Hz; the screen draws as often as it refreshes
   // (120 Hz and more), each picture in between the last two steps.
@@ -250,27 +422,26 @@ function Game({ seed }: { seed: number | undefined }) {
         book,
         effects,
         reduced: reducedRef.current,
+        accessory: lookRef.current,
       });
 
-      const distance = hudMetres.current;
-      const points = hudScore.current;
-      const powers = hudPowers.current;
       if (runner.status !== "ready") {
-        show(distance, `${String(metres(state))} m`);
-        show(points, pad(score(state)));
+        show(hudMetres.current, `${String(metres(state))} m`);
+        show(hudScore.current, pad(score(state)));
       }
-      if (powers) {
-        const chips = [
-          state.powers.shield ? "Shield" : "",
-          state.powers.compact > 0
-            ? `/compact ${(state.powers.compact / FPS).toFixed(1)}s`
-            : "",
-          state.powers.magnet > 0
-            ? `Magnet ${(state.powers.magnet / FPS).toFixed(1)}s`
-            : "",
-        ].filter(Boolean);
-        show(powers, runner.status === "ready" ? "" : chips.join(" · "));
-      }
+      const chips = [
+        state.powers.shield ? "Shield" : "",
+        state.powers.compact > 0
+          ? `/compact ${(state.powers.compact / FPS).toFixed(1)}s`
+          : "",
+        state.powers.magnet > 0
+          ? `Magnet ${(state.powers.magnet / FPS).toFixed(1)}s`
+          : "",
+      ].filter(Boolean);
+      show(
+        hudPowers.current,
+        runner.status === "ready" ? "" : chips.join(" · "),
+      );
       frame = requestAnimationFrame(draw);
     };
     frame = requestAnimationFrame(draw);
@@ -293,18 +464,53 @@ function Game({ seed }: { seed: number | undefined }) {
     field.current?.focus({ preventScroll: true });
   }, []);
 
+  const started = useCallback(() => {
+    setResult(null);
+    setBiome(null);
+    setCheck(null);
+    setOffer(false);
+  }, []);
+
+  /** Picks the next run's seed: a ticket's, the day's, or a fresh one. */
+  const prepare = useCallback(() => {
+    const day = dayOf(Date.now());
+    const ticket = account?.take(mode) ?? null;
+    const runSeed =
+      ticket?.seed ??
+      seed ??
+      (mode === "daily" ? dailySeed(day) : randomSeed());
+    current.current = { mode, ticket, day: ticket?.day ?? day };
+    runner.nextSeed(runSeed);
+    lookRef.current = wearing;
+  }, [account, mode, runner, seed, wearing]);
+
   const send = useCallback(
     (input: Input) => {
       const before = runner.status;
+      if ((before === "ready" || before === "over") && input === "jump") {
+        prepare();
+      }
       runner.input(input);
       if (before !== "running" && runner.status === "running") {
-        setResult(null);
-        setBiome(null);
-        say("Running. Jump with Space, slide with the down arrow.");
+        started();
+        say(
+          before === "paused"
+            ? "Carrying on."
+            : `${mode === "daily" ? "Daily Run" : "Running"}. Jump with Space, slide with the down arrow.`,
+        );
       }
     },
-    [runner, say],
+    [runner, prepare, started, say, mode],
   );
+
+  const watchReplay = useCallback(() => {
+    if (!replayable) return;
+    lookRef.current = replayable.accessory;
+    runner.watch(replayable.seed, replayable.inputs);
+    started();
+    say(`Watching ${replayable.name ?? "a player"}’s run.`);
+    field.current?.focus({ preventScroll: true });
+  }, [replayable, runner, started, say]);
 
   const onKeyDown = (event: KeyboardEvent) => {
     const action = KEYS[event.code];
@@ -374,101 +580,206 @@ function Game({ seed }: { seed: number | undefined }) {
     },
   });
 
+  const best =
+    mode === "daily"
+      ? player
+        ? (player.daily?.score ?? 0)
+        : dailyBest(records, today)
+      : player
+        ? (player.endless?.score ?? 0)
+        : records.best;
+  const idle = status === "ready" || status === "over";
+  const runNow = () => {
+    send("jump");
+    send("jump-end");
+    field.current?.focus({ preventScroll: true });
+  };
+
   return (
     <>
-      <Hud
-        status={status}
-        best={records.best}
-        metresRef={hudMetres}
-        scoreRef={hudScore}
-        powersRef={hudPowers}
-      />
-      {/* eslint-disable-next-line jsx-a11y-x/no-static-element-interactions -- keys and taps bubble up from the field (the focus target) */}
-      <div
-        onKeyDown={onKeyDown}
-        onKeyUp={onKeyUp}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-      >
-        <div
-          ref={field}
-          role="application"
-          aria-label="Hotfix. Space or the up arrow jumps: hold it to jump higher, press it again in the air to double jump. The down arrow slides. P pauses."
-          // eslint-disable-next-line jsx-a11y-x/no-noninteractive-tabindex -- the field takes the keyboard: it's what you play with
-          tabIndex={0}
-          onBlur={(event) => {
-            // Focus moving between the field and its own buttons isn't leaving.
-            const to = event.relatedTarget;
-            if (to instanceof Node && event.currentTarget.contains(to)) return;
-            if (runner.status === "running") {
-              runner.pause();
-              say("Paused.");
-            }
-          }}
-          className="relative touch-none border border-ink bg-paper outline-none select-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-          style={{ aspectRatio: `${String(VIEW_W)} / ${String(VIEW_H)}` }}
-        >
-          <canvas
-            ref={canvas}
-            className="block h-full w-full [image-rendering:pixelated]"
-            aria-hidden="true"
-            style={{ backgroundColor: FALLBACK_PALETTE.paper }}
-          />
-          <Overlay
-            status={status}
-            result={result}
-            best={records.best}
-            onRun={() => {
-              send("jump");
-              send("jump-end");
-              field.current?.focus({ preventScroll: true });
+      <Band>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <ModeSwitch
+            mode={mode}
+            disabled={!idle}
+            day={today}
+            onChange={(next) => {
+              setMode(next);
+              setOffer(false);
             }}
           />
-          <AnimatePresence>
-            {biome && status === "running" && (
-              <Banner
-                key={biome}
-                biome={biome}
-                onDone={() => {
-                  setBiome(null);
-                }}
-              />
-            )}
-          </AnimatePresence>
+          {runner.watching && status !== "ready" && replayable && (
+            <p className="type-label text-muted">
+              Replay · {replayable.name ?? "A private player"} ·{" "}
+              {pad(replayable.score)}
+            </p>
+          )}
         </div>
-      </div>
-      <div className="hidden gap-3 pointer-coarse:grid pointer-coarse:grid-cols-2">
-        <button
-          type="button"
-          className="press touch-none border border-ink bg-paper py-5 type-label"
-          {...hold("jump")}
+        <Hud
+          status={status}
+          best={best}
+          mode={mode}
+          metresRef={hudMetres}
+          scoreRef={hudScore}
+          powersRef={hudPowers}
+        />
+        {/* eslint-disable-next-line jsx-a11y-x/no-static-element-interactions -- keys and taps bubble up from the field (the focus target) */}
+        <div
+          onKeyDown={onKeyDown}
+          onKeyUp={onKeyUp}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
         >
-          Jump
-        </button>
-        <button
-          type="button"
-          className="press touch-none border border-ink bg-paper py-5 type-label"
-          {...hold("down")}
-        >
-          Slide
-        </button>
-      </div>
-      <p ref={live} aria-live="polite" className="sr-only" />
+          <div
+            ref={field}
+            role="application"
+            aria-label="Hotfix. Space or the up arrow jumps: hold it to jump higher, press it again in the air to double jump. The down arrow slides. P pauses."
+            // eslint-disable-next-line jsx-a11y-x/no-noninteractive-tabindex -- the field takes the keyboard: it's what you play with
+            tabIndex={0}
+            onBlur={(event) => {
+              // Focus moving between the field and its own buttons isn't leaving.
+              const to = event.relatedTarget;
+              if (to instanceof Node && event.currentTarget.contains(to))
+                return;
+              // A replay needs no keys: it carries on.
+              if (runner.status === "running" && !runner.watching) {
+                runner.pause();
+                say("Paused.");
+              }
+            }}
+            className="relative touch-none border border-ink bg-paper outline-none select-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+            style={{ aspectRatio: `${String(VIEW_W)} / ${String(VIEW_H)}` }}
+          >
+            <canvas
+              ref={canvas}
+              className="block h-full w-full [image-rendering:pixelated]"
+              aria-hidden="true"
+              style={{ backgroundColor: FALLBACK_PALETTE.paper }}
+            />
+            <Overlay
+              status={status}
+              result={result}
+              best={best}
+              check={check}
+              signInHref={signInHref}
+              offer={
+                offer && watch
+                  ? {
+                      name: watch.name,
+                      score: watch.score,
+                      playable: replayable !== null,
+                    }
+                  : null
+              }
+              onRun={runNow}
+              onWatch={replayable ? watchReplay : null}
+            />
+            <AnimatePresence>
+              {biome && status === "running" && (
+                <Banner
+                  key={biome}
+                  biome={biome}
+                  onDone={() => {
+                    setBiome(null);
+                  }}
+                />
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+        <div className="hidden gap-3 pointer-coarse:grid pointer-coarse:grid-cols-2">
+          <button
+            type="button"
+            className="press touch-none border border-ink bg-paper py-5 type-label"
+            {...hold("jump")}
+          >
+            Jump
+          </button>
+          <button
+            type="button"
+            className="press touch-none border border-ink bg-paper py-5 type-label"
+            {...hold("down")}
+          >
+            Slide
+          </button>
+        </div>
+        <p ref={live} aria-live="polite" className="sr-only" />
+      </Band>
+      <AccountPanel
+        player={player}
+        records={records}
+        signInHref={signInHref}
+        leaderboardHref={leaderboardHref}
+        wearing={wearing}
+        onWear={
+          account
+            ? (next) => {
+                const before = wearing;
+                setWearing(next);
+                void account.wear(next).then((done) => {
+                  if (!done) setWearing(before);
+                });
+              }
+            : null
+        }
+      />
     </>
+  );
+}
+
+function ModeSwitch({
+  mode,
+  disabled,
+  day,
+  onChange,
+}: {
+  mode: RunMode;
+  disabled: boolean;
+  day: string;
+  onChange: (mode: RunMode) => void;
+}) {
+  const options: { value: RunMode; label: string }[] = [
+    { value: "endless", label: "Endless" },
+    { value: "daily", label: `Daily Run · ${day}` },
+  ];
+  return (
+    <fieldset className="flex items-center gap-2">
+      <legend className="sr-only">Mode</legend>
+      {options.map((option) => (
+        <label
+          key={option.value}
+          className={`relative press cursor-pointer border border-ink px-3 py-1.5 type-label has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent ${mode === option.value ? "bg-ink text-paper" : "bg-paper hover:bg-chip"}`}
+        >
+          <input
+            type="radio"
+            name="hotfix-mode"
+            className="sr-only"
+            checked={mode === option.value}
+            disabled={disabled}
+            onChange={() => {
+              onChange(option.value);
+            }}
+          />
+          {option.label}
+        </label>
+      ))}
+    </fieldset>
   );
 }
 
 function Hud({
   status,
   best,
+  mode,
   metresRef,
   scoreRef,
   powersRef,
 }: {
   status: Status;
   best: number;
+  mode: RunMode;
   metresRef: RefObject<HTMLSpanElement | null>;
   scoreRef: RefObject<HTMLSpanElement | null>;
   powersRef: RefObject<HTMLSpanElement | null>;
@@ -483,7 +794,8 @@ function Hud({
       </span>
       <span className="flex gap-4 tabular-nums">
         <span className="text-muted">
-          Best <span data-testid="best">{pad(best)}</span>
+          {mode === "daily" ? "Today’s best" : "Best"}{" "}
+          <span data-testid="best">{pad(best)}</span>
         </span>
         <span>
           Score{" "}
@@ -496,28 +808,90 @@ function Hud({
   );
 }
 
+/** How the run was counted, under its result. */
+function CheckLine({
+  check,
+  mode,
+  newBest,
+  best,
+  signInHref,
+}: {
+  check: Check | null;
+  mode: RunMode;
+  newBest: boolean;
+  best: number;
+  signInHref: string | undefined;
+}) {
+  const badge = (text: string) => (
+    <span className="bg-accent px-1.5 py-0.5 text-on-accent">{text}</span>
+  );
+  if (!check || check.state === "unchecked") {
+    return (
+      <p className="type-label text-muted max-md:hidden">
+        {newBest ? badge("New best") : <>Best {pad(best)}</>}
+        {check?.reason === "signed-out" && signInHref && (
+          <>
+            {" · "}
+            <a href={signInHref} className="text-ink underline">
+              Sign in
+            </a>{" "}
+            to be counted
+          </>
+        )}
+        {check?.reason === "no-ticket" && " · Not counted (offline)"}
+      </p>
+    );
+  }
+  if (check.state === "checking") {
+    return <p className="type-label text-muted">Checking…</p>;
+  }
+  if (!check.outcome.ok) {
+    return <p className="type-label text-muted">{check.outcome.error}</p>;
+  }
+  const { checked } = check.outcome;
+  const board =
+    mode === "daily" ? checked.player.daily : checked.player.endless;
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <p className="type-label text-muted">
+        {checked.newBest ? badge("New best") : "Counted"}
+        {board &&
+          ` · #${String(board.rank)}${mode === "daily" ? " today" : ""}`}
+      </p>
+      {checked.unlocked.length > 0 && (
+        <p className="type-label max-md:hidden" data-testid="unlocked">
+          Unlocked: {unlockedLine(checked.unlocked)}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Overlay({
   status,
   result,
   best,
+  check,
+  signInHref,
+  offer,
   onRun,
+  onWatch,
 }: {
   status: Status;
-  result: {
-    score: number;
-    metres: number;
-    tokens: number;
-    cause: string;
-    newBest: boolean;
-  } | null;
+  result: Result | null;
   best: number;
+  check: Check | null;
+  signInHref: string | undefined;
+  offer: { name: string | null; score: number; playable: boolean } | null;
   onRun: () => void;
+  onWatch: (() => void) | null;
 }) {
   if (status === "running") return null;
+  const key = `${status}-${offer ? "offer" : ""}`;
   return (
     <div className="absolute inset-0 grid place-items-center bg-paper/70 p-4">
       <motion.div
-        key={status}
+        key={key}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: MOTION.base, ease: MOTION.easeOut }}
@@ -527,7 +901,33 @@ function Overlay({
           event.stopPropagation();
         }}
       >
-        {status === "ready" && (
+        {status === "ready" && offer && (
+          <>
+            <p className="type-card max-md:text-sm max-md:font-semibold">
+              {offer.name ?? "A private player"}’s run · {pad(offer.score)}
+            </p>
+            {!offer.playable && (
+              <p className="text-[15px] text-muted">
+                It was run under older rules, so it can’t be played back.
+              </p>
+            )}
+            <div className="flex gap-2">
+              {onWatch && (
+                <Button onClick={onWatch} className={RUN_BUTTON}>
+                  Watch
+                </Button>
+              )}
+              <Button
+                variant="secondary"
+                onClick={onRun}
+                className={RUN_BUTTON}
+              >
+                Play instead
+              </Button>
+            </div>
+          </>
+        )}
+        {status === "ready" && !offer && (
           <>
             <p className="type-card max-md:sr-only">Ship the hotfix.</p>
             <p className="text-[15px] text-muted max-md:hidden">
@@ -556,25 +956,36 @@ function Overlay({
               className="type-card max-md:text-sm max-md:font-semibold"
               role="status"
             >
-              {result.cause}
+              {result.watched ? `Replay over: ${result.cause}` : result.cause}
             </p>
             <p className="font-mono text-sm tabular-nums">
               {result.metres} m · {result.tokens} tokens (×{TOKEN_POINTS}) ·{" "}
               <strong>{pad(result.score)}</strong>
             </p>
-            <p className="type-label text-muted max-md:hidden">
-              {result.newBest ? (
-                <span className="bg-accent px-1.5 py-0.5 text-on-accent">
-                  New best
-                </span>
-              ) : (
-                <>Best {pad(best)}</>
+            {!result.watched && (
+              <CheckLine
+                check={check}
+                mode={result.mode}
+                newBest={result.newBest}
+                best={best}
+                signInHref={signInHref}
+              />
+            )}
+            <div className="flex gap-2">
+              {result.watched && onWatch && (
+                <Button
+                  variant="secondary"
+                  onClick={onWatch}
+                  className={RUN_BUTTON}
+                >
+                  Watch again
+                </Button>
               )}
-            </p>
-            <Button onClick={onRun} className={RUN_BUTTON}>
-              Run again
-              <span className="pointer-coarse:hidden"> (Space)</span>
-            </Button>
+              <Button onClick={onRun} className={RUN_BUTTON}>
+                {result.watched ? "Play" : "Run again"}
+                <span className="pointer-coarse:hidden"> (Space)</span>
+              </Button>
+            </div>
           </>
         )}
       </motion.div>

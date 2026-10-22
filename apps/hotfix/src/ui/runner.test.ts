@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DT, newRun, replay } from "../core";
+import { DT, FPS, autoplay, newRun, replay } from "../core";
 import { Runner } from "./runner";
 
 const STEP = DT * 1000;
@@ -67,9 +67,29 @@ describe("the runner", () => {
     runner.input("jump");
     expect(runner.status).toBe("running");
     expect(runner.state.frame).toBe(0);
-    // One seed for the waiting screen, one per run.
-    expect(runner.seed).toBe(3);
-    expect(runner.state.seed).toBe(newRun(3).seed);
+    // One seed per run, from where the runner is told to take them.
+    expect(runner.seed).toBe(2);
+    expect(runner.state.seed).toBe(newRun(2).seed);
+  });
+});
+
+describe("watching a run", () => {
+  it("plays a recorded run back exactly, ignoring the keys", () => {
+    const { state, log } = autoplay(newRun(21), FPS * 20);
+    const ended = replay(21, log, FPS * 600);
+    const runner = new Runner(() => 1, false);
+    runner.watch(21, log);
+    expect(runner.watching).toBe(true);
+    runner.input("down");
+    while (runner.status === "running") runner.advance(STEP * 30);
+    expect(runner.status).toBe("over");
+    expect(runner.state.frame).toBe(ended.frame);
+    expect(runner.state.distance).toBe(ended.distance);
+    expect(state.frame).toBeLessThan(ended.frame + 1);
+    // Jump afterwards plays a run of your own.
+    runner.input("jump");
+    expect(runner.watching).toBe(false);
+    expect(runner.seed).toBe(1);
   });
 });
 

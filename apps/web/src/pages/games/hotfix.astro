@@ -1,9 +1,41 @@
 ---
 import { HotfixApp, meta } from "@trilleo/game-hotfix";
-import { BIOMES, POWERS, TOKEN_POINTS } from "@trilleo/game-hotfix/core";
+import {
+  BIOMES,
+  POWERS,
+  TOKEN_POINTS,
+  packInputs,
+} from "@trilleo/game-hotfix/core";
+import { signInHref } from "@trilleo/tool-kit";
 import GameLayout from "../../components/games/GameLayout.astro";
+import { getDb } from "../../lib/db";
+import { findReplay } from "../../lib/games/hotfix/leaderboard";
+import { loadPlayer } from "../../lib/games/hotfix/store";
+import { gamePath } from "../../lib/games/registry";
 
-// Nothing here depends on who's visiting: records stay in the browser for now.
+// Rendered per visit: signed-in players get their record in the page, and
+// ?watch=<run> offers a run from the leaderboards to watch.
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const { user } = Astro.locals;
+const watchId = Astro.url.searchParams.get("watch");
+const db = user || watchId ? await getDb() : null;
+const account = user && db ? await loadPlayer(db, user.id) : null;
+const replay = watchId && db ? await findReplay(db, watchId) : null;
+const watch = replay
+  ? {
+      seed: replay.seed,
+      inputs: packInputs(replay.inputs),
+      rules: replay.rules,
+      score: replay.score,
+      name: replay.name,
+      accessory: replay.accessory,
+      board: replay.board,
+    }
+  : null;
+const path = gamePath(meta.slug);
 
 const controls = [
   [
@@ -31,7 +63,14 @@ const obstacles = [
 ---
 
 <GameLayout meta={meta}>
-  <HotfixApp client:load />
+  <HotfixApp
+    client:load
+    signedIn={user !== null}
+    signInHref={signInHref(path)}
+    account={account}
+    watch={watch}
+    leaderboardHref={`${path}leaderboard/`}
+  />
   <Fragment slot="about">
     <p class="text-[15px] leading-normal xl:text-base">
       Production is down and the fix is ready. Run it there: the robot keeps
@@ -92,9 +131,23 @@ const obstacles = [
         </li>
       ))}
     </ol>
+    <h3 class="type-label mt-2">Daily Run and leaderboards</h3>
+    <p class="text-[15px] leading-normal">
+      The Daily Run is the same course for everyone, all day (UTC); play it as
+      often as you like. Signed in, every run you finish is checked: the server
+      replays your key presses through the same game, so the score on the board
+      is the one you earned. Your best endless run and each day’s best Daily Run
+      go on the{" "}
+      <a href={`${path}leaderboard/`} class="underline">
+        leaderboards
+      </a>
+      , where anyone can watch them again. Checked runs also earn achievements,
+      and some of those unlock something for the robot to wear.
+    </p>
     <p class="text-[15px] leading-normal text-muted">
-      Your best score, your furthest run and every token you’ve picked up are
-      kept in this browser.
+      Signed out, your best score, furthest run and tokens are kept in this
+      browser, and they stay there when you sign in: only checked runs count in
+      an account.
     </p>
   </Fragment>
 </GameLayout>

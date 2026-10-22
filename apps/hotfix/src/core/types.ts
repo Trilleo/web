@@ -41,6 +41,8 @@ export interface Obstacle {
   h: number;
   /** Knocked aside by a shield: drawn tumbling, no longer in the way. */
   hit: boolean;
+  /** Behind the robot, cleared without a hit (counted once). */
+  passed: boolean;
 }
 
 export interface Pickup {
@@ -88,6 +90,18 @@ export type RunEvent =
   | { type: "milestone"; metres: number }
   | { type: "crash"; cause: CrashCause };
 
+/** Counts kept during a run, for achievements. They never change how it plays. */
+export interface RunStats {
+  jumps: number;
+  doubleJumps: number;
+  slides: number;
+  powers: number;
+  /** Hits a shield took. */
+  shields: number;
+  /** Obstacles left behind (gaps jumped included). */
+  cleared: number;
+}
+
 /** One run, from the first step to the crash. Mutated in place by the engine. */
 export interface RunState {
   /** Version of the rules, for replays. */
@@ -113,6 +127,7 @@ export interface RunState {
   /** Pixels until a power-up may appear. */
   powerIn: number;
   nextId: number;
+  stats: RunStats;
   /** What the last step did. */
   events: RunEvent[];
 }

@@ -556,9 +556,28 @@
   two steps, straight onto a canvas at the screen's resolution: edges snap to
   screen pixels and sprites are pre-scaled per size (SpriteBook), so motion is
   smooth. Drawing never feeds back into the run; effects age by elapsed time. The robot is our
-  own design, kept plain (a block, a visor, two legs). Records (best, furthest,
-  runs, tokens) stay in the browser (`trilleo:game:hotfix`); accounts, a daily
-  seed and leaderboards are planned, checked by replaying the input log.
+  own design, kept plain (a block, a visor, two legs). Signed out, records (best,
+  furthest, runs, tokens, the day's Daily Run best) stay in the browser
+  (`trilleo:game:hotfix`) and never move into an account: only checked runs count.
+- Hotfix accounts (apps/web/src/lib/games/hotfix/): signed in, each run starts from
+  a ticket (hotfix_tickets: seed, mode, day; POST /api/games/hotfix/runs, fetched
+  ahead by the client's `Account` so Space starts at once; TICKET_LIMITS caps unused
+  ones). At the crash the browser posts the input log (/finish, `packInputs`: one
+  number per input); `finishRun` deletes the ticket, replays the log
+  (`replay`, no further than the real time since the ticket, CLOCK_SLACK) and counts
+  what the replay comes to, never the browser's numbers: totals and achievements in
+  hotfix_players, the best run per board in hotfix_bests ("endless" or
+  "daily:<YYYY-MM-DD>", inputs kept with `rules` = RULES_VERSION). The Daily Run's
+  seed is `dailySeed(day)` (UTC), unlimited tries, best counts.
+- Achievements (core/progress.ts, ACHIEVEMENTS: pure checks on a finished run plus
+  totals; runs keep `stats` for them) unlock accessories (ACCESSORIES; pixel art in
+  ui/sprites.ts ACCESSORY_ART, placed against the head; previews are SVG through
+  --tr-* variables, ui/SpriteSvg.tsx); /look wears one, only if unlocked.
+- Leaderboards (/games/hotfix/leaderboard/?board=endless|daily|yesterday) follow the
+  profile rules like Skygrid's; each row links /games/hotfix/?watch=<best id>, which
+  the server-rendered game page loads (`findReplay`) and the Runner plays back
+  (`watch`). A best made under other RULES_VERSION can't be played back. All of it
+  is in the account export and goes with the account.
 - Reduced motion in Hotfix: no demo, sparks, shake, blinking or parallax; the
   course itself still moves. The HUD is DOM text updated from the loop, not React
   state, so the page doesn't re-render 60 times a second.

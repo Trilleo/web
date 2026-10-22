@@ -4,6 +4,7 @@ import {
   NO_RECORDS,
   RECORDS_KEY,
   afterRun,
+  dailyBest,
   loadRecords,
   saveRecords,
 } from "./records";
@@ -33,13 +34,15 @@ describe("records", () => {
     const storage = memoryStorage();
     expect(loadRecords(storage)).toEqual(NO_RECORDS);
     expect(loadRecords(null)).toEqual(NO_RECORDS);
-    saveRecords(storage, { best: 500, furthest: 420, runs: 3, tokens: 8 });
-    expect(loadRecords(storage)).toEqual({
+    const kept = {
       best: 500,
       furthest: 420,
       runs: 3,
       tokens: 8,
-    });
+      daily: { day: "2026-10-22", best: 90 },
+    };
+    saveRecords(storage, kept);
+    expect(loadRecords(storage)).toEqual(kept);
   });
 
   it("ignore broken or tampered data", () => {
@@ -64,10 +67,23 @@ describe("records", () => {
       furthest: 123,
       runs: 1,
       tokens: 4,
+      daily: null,
     });
     const again = afterRun(first.records, run);
     expect(again.newBest).toBe(false);
     expect(again.records.runs).toBe(2);
     expect(again.records.tokens).toBe(8);
+  });
+
+  it("keep the Daily Run's best per day, apart from the endless one", () => {
+    const run = newRun(1);
+    run.distance = 500;
+    const today = afterRun(NO_RECORDS, run, "daily", "2026-10-22");
+    expect(today.newBest).toBe(true);
+    expect(today.records.best).toBe(0);
+    expect(dailyBest(today.records, "2026-10-22")).toBe(score(run));
+    expect(dailyBest(today.records, "2026-10-23")).toBe(0);
+    const tomorrow = afterRun(today.records, run, "daily", "2026-10-23");
+    expect(tomorrow.newBest).toBe(true);
   });
 });

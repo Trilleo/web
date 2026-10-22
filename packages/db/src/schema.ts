@@ -724,6 +724,80 @@ export const skygridTrades = pgTable(
 );
 
 /**
+ * Hotfix (apps/hotfix): a run the server has handed out a seed for. Used once: the
+ * finished run's input log is replayed against it, then the ticket is deleted.
+ * Unused ones go after a day. `seed` is the engine's unsigned 32-bit seed.
+ */
+export const hotfixTickets = pgTable(
+  "hotfix_tickets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    mode: text("mode", { enum: ["endless", "daily"] }).notNull(),
+    /** The Daily Run's day (UTC); null for endless runs. */
+    day: date("day", { mode: "string" }),
+    seed: bigint("seed", { mode: "number" }).notNull(),
+    issuedAt: timestamp("issued_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("hotfix_tickets_user_idx").on(table.userId, table.issuedAt),
+  ],
+);
+
+/**
+ * Each player's best checked run per board: "endless", or "daily:<YYYY-MM-DD>".
+ * The input log is kept so the run can be watched again (replayed under `rules`,
+ * the engine's RULES_VERSION). Leaderboards read this. Goes with the account.
+ */
+export const hotfixBests = pgTable(
+  "hotfix_bests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    board: text("board").notNull(),
+    score: integer("score").notNull(),
+    metres: integer("metres").notNull(),
+    tokens: integer("tokens").notNull(),
+    frames: integer("frames").notNull(),
+    seed: bigint("seed", { mode: "number" }).notNull(),
+    rules: integer("rules").notNull(),
+    inputs: jsonb("inputs").notNull(),
+    achievedAt: timestamp("achieved_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("hotfix_bests_user_board_idx").on(table.userId, table.board),
+    index("hotfix_bests_board_idx").on(table.board, table.score),
+  ],
+);
+
+/**
+ * A Hotfix player's totals from checked runs, the achievements they've earned (ids
+ * from the engine's ACHIEVEMENTS) and the accessory they wear. Goes with the account.
+ */
+export const hotfixPlayers = pgTable("hotfix_players", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  runs: integer("runs").notNull().default(0),
+  tokens: bigint("tokens", { mode: "number" }).notNull().default(0),
+  furthest: integer("furthest").notNull().default(0),
+  achievements: jsonb("achievements").$type<string[]>().notNull().default([]),
+  accessory: text("accessory"),
+  createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
  * A message sent from /contact/. Anyone can write, signed in or not; a signed-in
  * sender's account is linked (and the message goes with the account). `email` is
  * optional: where to reply. status: new, read, or archived by the admin. Deleted a

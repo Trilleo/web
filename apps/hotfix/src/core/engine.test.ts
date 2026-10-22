@@ -49,6 +49,7 @@ function add(
     y,
     ...shape,
     hit: false,
+    passed: false,
   });
 }
 

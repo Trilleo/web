@@ -71,4 +71,52 @@ describe("HotfixApp", () => {
     fireEvent.keyDown(field, { code: "Space" });
     expect(screen.queryByText("Paused")).toBeNull();
   });
+
+  it("signed in, shows the record, achievements and what's unlocked", () => {
+    vi.stubGlobal("fetch", () => Promise.reject(new Error("offline")));
+    render(
+      <HotfixApp
+        seed={3}
+        signedIn
+        account={{
+          runs: 4,
+          tokens: 12,
+          furthest: 480,
+          achievements: ["hello-world"],
+          accessory: "cap",
+          endless: { id: "x", score: 600, metres: 480, rank: 2 },
+          daily: null,
+        }}
+      />,
+    );
+    expect(screen.getByTestId("best").textContent).toBe("00600");
+    expect(screen.getByText("00600 · #2")).toBeTruthy();
+    const cap = screen.getByRole<HTMLInputElement>("radio", { name: /^Cap/ });
+    expect(cap.checked).toBe(true);
+    const crown = screen.getByRole<HTMLInputElement>("radio", {
+      name: /^Crown/,
+    });
+    expect(crown.disabled).toBe(true);
+    expect(screen.getByText("Hello, world").textContent).toContain("earned");
+  });
+
+  it("offers a run from the leaderboard to watch", () => {
+    render(
+      <HotfixApp
+        seed={3}
+        watch={{
+          seed: 9,
+          inputs: [],
+          rules: 1,
+          score: 321,
+          name: "Ada",
+          accessory: null,
+          board: "endless",
+        }}
+      />,
+    );
+    expect(screen.getByText(/Ada’s run/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Watch" }));
+    expect(screen.queryByRole("button", { name: "Watch" })).toBeNull();
+  });
 });

@@ -5,6 +5,8 @@
  *
  * The robot is our own, and kept plain: a block with an orange visor, on two legs.
  */
+import type { AccessoryId } from "../core";
+
 export type Sprite = readonly string[];
 
 const ROBOT_TOP = [
@@ -233,3 +235,69 @@ export const FLAME_B: Sprite = [
 export function spriteWidth(sprite: Sprite): number {
   return Math.max(...sprite.map((row) => row.length));
 }
+
+/**
+ * Accessories, drawn over the robot's head. `dx`/`dy` place the sprite against the
+ * head's top-left corner (rows above the head are negative). Ink and accent only.
+ */
+export interface AccessoryArt {
+  sprite: Sprite;
+  dx: number;
+  dy: number;
+}
+
+export const ACCESSORY_ART: Readonly<Record<AccessoryId, AccessoryArt>> = {
+  cap: {
+    dx: 0,
+    dy: -3,
+    sprite: ["..########....", ".##########...", ".#############"],
+  },
+  antenna: {
+    dx: 4,
+    dy: -5,
+    sprite: [".o.", "ooo", ".o.", ".#.", ".#."],
+  },
+  headphones: {
+    dx: -1,
+    dy: -3,
+    sprite: [
+      "....######....",
+      "...#......#...",
+      "..#........#..",
+      ".#..........#.",
+      "oo..........oo",
+      "oo..........oo",
+      "oo..........oo",
+    ],
+  },
+  halo: {
+    dx: 1,
+    dy: -6,
+    sprite: ["..oooooo..", ".o......o.", "..oooooo.."],
+  },
+  "party-hat": {
+    dx: 2,
+    dy: -8,
+    sprite: [
+      "....#....",
+      "...ooo...",
+      "...o#o...",
+      "..ooooo..",
+      "..o#o#o..",
+      ".ooooooo.",
+      ".o#o#o#o.",
+      "ooooooooo",
+    ],
+  },
+  crown: {
+    dx: 1,
+    dy: -5,
+    sprite: [
+      ".o...o...o.",
+      ".oo.ooo.oo.",
+      ".ooooooooo.",
+      ".o#ooooo#o.",
+      ".ooooooooo.",
+    ],
+  },
+};

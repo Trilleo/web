@@ -21,6 +21,7 @@ const PAGES = [
   "/games/skygrid/",
   "/games/skygrid/leaderboard/",
   "/games/hotfix/",
+  "/games/hotfix/leaderboard/",
   "/minecraft/",
   "/minecraft/browse/",
   "/minecraft/resource-packs/",

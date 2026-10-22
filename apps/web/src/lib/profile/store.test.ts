@@ -194,7 +194,7 @@ describe("exportUserData", () => {
       sessions: [{ userAgent: "Firefox", createdAt: now }],
       comments: [{ body: "mine", status: "pending", post: "live" }],
       toolData: [{ tool: "notes", key: "a", value: { text: "hi" } }],
-      games: { skygrid: { state: { coins: 5 }, version: 3 } },
+      games: { skygrid: { state: { coins: 5 }, version: 3 }, hotfix: null },
     });
     expect(data?.comments).toHaveLength(1);
     expect(data?.toolData).toHaveLength(1);
@@ -204,7 +204,7 @@ describe("exportUserData", () => {
 
   it("has no island for someone who never played", async () => {
     const data = await exportUserData(handle.db, bob.id, now);
-    expect(data?.games).toEqual({ skygrid: null });
+    expect(data?.games).toEqual({ skygrid: null, hotfix: null });
   });
 
   it("returns null for an unknown account", async () => {
