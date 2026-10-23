@@ -555,7 +555,9 @@
   frame (120 Hz and up) from `Runner.view()`, the run interpolated between its last
   two steps, straight onto a canvas at the screen's resolution: edges snap to
   screen pixels and sprites are pre-scaled per size (SpriteBook), so motion is
-  smooth. Drawing never feeds back into the run; effects age by elapsed time. The robot is our
+  smooth. Drawing never feeds back into the run; effects age by elapsed time.
+  Each biome's scenery crossfades in over the last one's for its first
+  SCENE_FADE_METRES (`sceneLayers` in ui/draw.ts, eased). The robot is our
   own design, kept plain (a block, a visor, two legs). Signed out, records (best,
   furthest, runs, tokens, the day's Daily Run best) stay in the browser
   (`trilleo:game:hotfix`) and never move into an account: only checked runs count.

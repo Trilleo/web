@@ -1,5 +1,7 @@
 import {
+  BIOMES,
   GROUND_Y,
+  PIXELS_PER_METRE,
   PLAYER_X,
   VIEW_H,
   VIEW_W,
@@ -303,15 +305,50 @@ function background(
   }
 }
 
-function ground(paint: Painter, state: RunState, { book }: DrawOptions): void {
+/** How far into a new biome its scenery takes to fade in over the last one's. */
+export const SCENE_FADE_METRES = 90;
+
+/**
+ * The scenery to draw, and how strongly: one biome, or two crossfading just after a
+ * boundary (eased, so it starts and ends gently).
+ */
+export function sceneLayers(
+  distance: number,
+): { biome: BiomeId; alpha: number }[] {
+  const metres = distance / PIXELS_PER_METRE;
+  let index = 0;
+  BIOMES.forEach((biome, at) => {
+    if (metres >= biome.fromMetres) index = at;
+  });
+  const current = BIOMES[index];
+  const previous = BIOMES[index - 1];
+  if (!current) return [];
+  const t = Math.min(1, (metres - current.fromMetres) / SCENE_FADE_METRES);
+  if (!previous || t >= 1) return [{ biome: current.id, alpha: 1 }];
+  const eased = t * t * (3 - 2 * t);
+  return [
+    { biome: previous.id, alpha: 1 - eased },
+    { biome: current.id, alpha: eased },
+  ];
+}
+
+function ground(
+  paint: Painter,
+  state: RunState,
+  { book }: DrawOptions,
+  layers: readonly { biome: BiomeId; alpha: number }[],
+): void {
   const { ink, muted, accent, paper } = book.colours;
   const gaps = state.obstacles.filter((obstacle) => obstacle.kind === "gap");
 
-  if (state.biome === "production") {
-    // Hazard stripes under the line.
+  const hazard = layers.find((layer) => layer.biome === "production");
+  if (hazard) {
+    // Hazard stripes under the line, fading in with Production's scenery.
+    paint.context.globalAlpha = hazard.alpha;
     tiles(state.distance, 16, (x) => {
       paint.rect(accent, x, GROUND_Y + 2, 8, 3);
     });
+    paint.context.globalAlpha = 1;
   }
   // The floor's grit, scrolling with the course.
   tiles(state.distance, 12, (x, tile) => {
@@ -465,8 +502,13 @@ export function drawScene(
     paint.dx = Math.round((hash(state.frame, shake) - 0.5) * shake * 0.5);
     paint.dy = Math.round((hash(shake, 5) - 0.5) * shake * 0.4);
   }
-  background(paint, state.biome, state, options);
-  ground(paint, state, options);
+  const layers = sceneLayers(state.distance);
+  for (const layer of layers) {
+    paint.context.globalAlpha = layer.alpha;
+    background(paint, layer.biome, state, options);
+  }
+  paint.context.globalAlpha = 1;
+  ground(paint, state, options, layers);
   pickups(paint, state, options);
   obstacles(paint, state, options);
   robot(paint, state, options);
