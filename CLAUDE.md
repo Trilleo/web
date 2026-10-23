@@ -1158,6 +1158,14 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
 - CI's "Docker image" job builds both images and runs deploy/smoke-test.sh, which
   starts the whole stack like the server does (including a backup). Docker isn't
   installed on the dev machine, so the images are verified in CI.
+- CI (.github/workflows/ci.yml) runs its checks as parallel jobs, each set up by
+  .github/actions/setup: static (format, migrations, typecheck), lint, unit tests for
+  every package but apps/web, apps/web's unit tests in 4 Vitest shards, build +
+  check:server, e2e in 3 Playwright shards (each builds and serves its own site and
+  database), and the Docker image. "CI passed" needs them all: it's the check branch
+  protection requires. New packages, tests and specs are picked up by turbo and the
+  shards; only a new kind of check needs a job. Raise a shard count if its jobs
+  become the slowest.
 
 ## Commands
 
