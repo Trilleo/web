@@ -62,7 +62,8 @@ test("signed in, a run is checked by the server, ranked, and can be watched", as
   await page.goto(`/auth/github?next=${encodeURIComponent(GAME)}`);
   await continueAs(page, me);
   await expect(page).toHaveURL(GAME);
-  await ticket;
+  // The app keeps the ticket once it has read the body, not at the headers.
+  await (await ticket).finished();
   await expect(field(page)).toBeFocused();
 
   await page.keyboard.press("Space");
@@ -76,9 +77,13 @@ test("signed in, a run is checked by the server, ranked, and can be watched", as
   );
 
   // The cap it unlocked can be worn, and stays on.
+  const saved = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/games/hotfix/look") && response.ok(),
+  );
   await page.getByText("Cap", { exact: true }).click();
   await expect(page.getByRole("radio", { name: /Cap/ })).toBeChecked();
-  await page.waitForResponse((r) => r.url().includes("/api/games/hotfix/look"));
+  await saved;
   await page.reload();
   await expect(page.getByRole("radio", { name: /Cap/ })).toBeChecked();
 
