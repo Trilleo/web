@@ -9,7 +9,6 @@ import {
   toolCard,
   toolJsonLd,
 } from "../../lib/seo";
-import { transitionName } from "../../lib/site";
 import { toolPath } from "../../lib/tools/registry";
 import Breadcrumb from "../Breadcrumb.astro";
 
@@ -57,18 +56,11 @@ const image = ogImagePath(`tools/${meta.slug}`, toolCard(meta));
     class="px-page pt-8 pb-24 md:pt-10 xl:pt-14 xl:pb-32"
   >
     <div class="grid-swiss gap-y-4 pb-8 md:pb-10">
-      <!-- Morphs from the tool's name in a list (ToolList). -->
       <h1
         id="tool-title"
         class="type-headline col-span-4 md:col-span-6 xl:col-span-9"
       >
-        <span
-          class="inline-block"
-          data-morph
-          style={`view-transition-name: ${transitionName("tool", meta.name)}; view-transition-class: tr-morph`}
-        >
-          {meta.name}
-        </span>
+        {meta.name}
       </h1>
       <p class="type-dek col-span-4 max-w-[47.5rem] animate-rise text-muted [animation-delay:120ms] md:col-span-6 xl:col-span-9">
         {meta.description}

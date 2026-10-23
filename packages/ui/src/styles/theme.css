@@ -194,9 +194,8 @@
 
 /* ---------------------------------------------------------------------------
  * Page transitions: native cross-document View Transitions (no client router).
- * The header holds still, the page lifts away and the next one rises in. Elements
- * that exist on both pages share a view-transition-name and morph (a tool's name
- * into its page title); give those `view-transition-class: tr-morph` and `data-morph`.
+ * The header holds still, the page lifts away and the next one rises in. Nothing
+ * morphs between pages: text never travels from one page's place to another's.
  * ------------------------------------------------------------------------- */
 @view-transition {
   navigation: auto;
@@ -216,22 +215,6 @@
 }
 ::view-transition-new(site-header) {
   animation: none;
-}
-::view-transition-group(.tr-morph) {
-  animation-duration: var(--tr-dur-slow);
-  animation-timing-function: var(--tr-ease);
-}
-::view-transition-old(.tr-morph),
-::view-transition-new(.tr-morph) {
-  animation-duration: var(--tr-dur-slow);
-}
-/* A morph whose other end is off screen (see ../page-transition.ts) goes with its
-   page instead: leaves like the old page, arrives like the new one. */
-::view-transition-old(.tr-morph):only-child {
-  animation: tr-page-out var(--tr-dur-fast) var(--tr-ease-in) both;
-}
-::view-transition-new(.tr-morph):only-child {
-  animation: tr-page-in var(--tr-dur-base) var(--tr-ease-out) both;
 }
 
 @keyframes tr-page-out {

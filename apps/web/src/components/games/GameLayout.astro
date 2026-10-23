@@ -13,7 +13,6 @@ import {
   gameJsonLd,
   ogImagePath,
 } from "../../lib/seo";
-import { transitionName } from "../../lib/site";
 import Breadcrumb from "../Breadcrumb.astro";
 
 interface Props {
@@ -43,16 +42,7 @@ const image = ogImagePath(`games/${meta.slug}`, gameCard(meta));
       class="type-label col-span-3 text-muted md:col-span-6 xl:col-span-9"
       items={[{ label: "(03) Games", href: "/games/" }]}
     >
-      <!-- Morphs from the game's name in a list (ToolList with morph="game"). -->
-      <h1 class="text-ink">
-        <span
-          class="inline-block"
-          data-morph
-          style={`view-transition-name: ${transitionName("game", meta.name)}; view-transition-class: tr-morph`}
-        >
-          {meta.name}
-        </span>
-      </h1>
+      <h1 class="text-ink">{meta.name}</h1>
     </Breadcrumb>
     <a
       href="/games/"

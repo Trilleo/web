@@ -1,28 +1,19 @@
 ---
-import { ArrowRightIcon } from "@trilleo/ui";
+import { ArrowRightIcon, buttonClasses } from "@trilleo/ui";
 import Colophon from "../components/Colophon.astro";
 import PostList from "../components/PostList.astro";
 import SectionHeader from "../components/SectionHeader.astro";
 import ToolList from "../components/ToolList.astro";
-import ProjectCards from "../components/minecraft/ProjectCards.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { listPublicPosts } from "../lib/blog/store";
 import { getDb } from "../lib/db";
 import { toListings } from "../lib/posts";
 import { authorJsonLd, websiteJsonLd } from "../lib/seo";
 import { SITE_BIO, SITE_DESCRIPTION } from "../lib/site";
-import { gameListings } from "../lib/games/registry";
 import { toolListings } from "../lib/tools/registry";
-import {
-  MINECRAFT_DESCRIPTION,
-  SECTION_NUMBER,
-  countLabel,
-} from "../lib/minecraft/public";
-import { listProjects } from "../lib/minecraft/store";
+import { SECTION_NUMBER } from "../lib/minecraft/public";
 import { studySubjects } from "../lib/study/content";
-import TopicList from "../components/forum/TopicList.astro";
-import { FORUM_DESCRIPTION, FORUM_NUMBER } from "../lib/forum/public";
-import { loadTree, recentTopics } from "../lib/forum/store";
+import { FORUM_NUMBER } from "../lib/forum/public";
 import {
   STUDY_DESCRIPTION,
   STUDY_NUMBER,
@@ -31,8 +22,6 @@ import {
 
 const tools = toolListings();
 const toolCount = `${String(tools.length)} ${tools.length === 1 ? "tool" : "tools"}`;
-const games = gameListings();
-const gameCount = `${String(games.length)} ${games.length === 1 ? "game" : "games"}`;
 
 // The latest posts come from the database, so the page renders per request.
 export const prerender = false;
@@ -41,21 +30,12 @@ const HOME_POST_COUNT = 4;
 const posts = await listPublicPosts(await getDb());
 const latestPosts = toListings(posts).slice(0, HOME_POST_COUNT);
 const postCount = `${String(posts.length)} ${posts.length === 1 ? "post" : "posts"}`;
-const creations = await listProjects(await getDb(), {
-  sort: "updated",
-  perPage: 3,
-});
 
 const subjects = studySubjects();
 const HOME_SUBJECT_COUNT = 4;
 
-// The forum's latest topics, as a visitor sees them (the page is the same for all).
-const HOME_TOPIC_COUNT = 4;
-const forumTopics = await recentTopics(await getDb(), {
-  tree: await loadTree(await getDb()),
-  viewer: null,
-  limit: HOME_TOPIC_COUNT,
-});
+// Games, Minecraft and the forum get a heading and a way in, nothing more.
+const platformLinkClass = buttonClasses({ className: "w-full md:w-auto" });
 
 const pageLinkClass =
   "group flex min-h-12 items-center justify-between border-b border-ink font-semibold";
@@ -165,15 +145,12 @@ const pageArrowClass =
     aria-labelledby="games-title"
     class="px-page pt-16 md:pt-24 xl:pt-30"
   >
-    <SectionHeader
-      number="03"
-      title="Games"
-      headingId="games-title"
-      meta={`All ${gameCount}`}
-      href="/games/"
-    />
-    <div class="mt-6 md:mt-8 xl:mt-10">
-      <ToolList tools={games} code="G" morph="game" />
+    <SectionHeader number="03" title="Games" headingId="games-title" />
+    <div class="mt-6 md:mt-8 xl:mt-10" data-reveal>
+      <a href="/games/" class={platformLinkClass}>
+        Play the games
+        <ArrowRightIcon />
+      </a>
     </div>
   </section>
 
@@ -186,25 +163,12 @@ const pageArrowClass =
       number={SECTION_NUMBER}
       title="Minecraft"
       headingId="minecraft-title"
-      meta={
-        creations.total > 0 ? `All ${countLabel(creations.total)}` : "Browse"
-      }
-      href="/minecraft/"
     />
-    <div class="mt-6 md:mt-8 xl:mt-10">
-      {creations.cards.length > 0 ? (
-        <ProjectCards cards={creations.cards} />
-      ) : (
-        <div class="grid-swiss border-t border-ink pt-6">
-          <p class="type-lead col-span-4 md:col-span-8 xl:col-span-12 text-muted">
-            {MINECRAFT_DESCRIPTION}{" "}
-            <a href="/minecraft/" class="link-wipe text-ink">
-              Have a look
-            </a>
-            .
-          </p>
-        </div>
-      )}
+    <div class="mt-6 md:mt-8 xl:mt-10" data-reveal>
+      <a href="/minecraft/" class={platformLinkClass}>
+        Explore Minecraft creations
+        <ArrowRightIcon />
+      </a>
     </div>
   </section>
 
@@ -277,23 +241,12 @@ const pageArrowClass =
       number={FORUM_NUMBER}
       title="Forum"
       headingId="forum-title"
-      meta="Join in"
-      href="/forum/"
     />
     <div class="mt-6 md:mt-8 xl:mt-10" data-reveal>
-      {forumTopics.length > 0 ? (
-        <TopicList topics={forumTopics} showForum />
-      ) : (
-        <div class="grid-swiss border-t border-ink pt-6">
-          <p class="type-lead col-span-4 text-muted md:col-span-8 xl:col-span-12">
-            {FORUM_DESCRIPTION}{" "}
-            <a href="/forum/" class="link-wipe text-ink">
-              Start a topic
-            </a>
-            .
-          </p>
-        </div>
-      )}
+      <a href="/forum/" class={platformLinkClass}>
+        Visit the forum
+        <ArrowRightIcon />
+      </a>
     </div>
   </section>
 

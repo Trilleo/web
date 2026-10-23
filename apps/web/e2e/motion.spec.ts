@@ -21,23 +21,16 @@ test.describe("with motion", () => {
     await expect(colophon).toHaveCSS("opacity", "1");
   });
 
-  test("a tool's name morphs into its page title", async ({ page }) => {
+  test("nothing morphs across pages", async ({ page }) => {
     await page.goto("/tools/");
     const heading = page.getByRole("heading", { level: 2, name: "Notes" });
-    const name = await heading.evaluate(
-      (element) => getComputedStyle(element).viewTransitionName,
-    );
-    expect(name).toBe("tool-notes");
-
-    // The same name is on the tool page's title, so it morphs across.
+    await expect(heading).toHaveCSS("view-transition-name", "none");
     await heading.getByRole("link").click();
-    await expect(page.locator("#tool-title [data-morph]")).toHaveCSS(
+    await expect(page.locator("#tool-title")).toHaveCSS(
       "view-transition-name",
-      name,
+      "none",
     );
-  });
 
-  test("post titles don't morph", async ({ page }) => {
     await page.goto("/writing/");
     await expect(
       page.locator("[data-search-hides] ol .post-title").first(),

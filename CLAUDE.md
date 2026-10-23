@@ -98,8 +98,10 @@
   tokens switch themselves.
 - Breakpoints: phone < 768px (4 columns), md ≥ 768px (8), xl ≥ 1280px (12). Lay
   pages out with `grid-swiss` + `px-page`, and type with the `type-*` roles.
-- Small labels ("(01)", "About", post meta, contents) hang in a left column:
+- Small labels ("About", post meta, contents) hang in a left column:
   2 of 8 columns on iPad, 2 of 12 on desktop, so content starts at column 3.
+  Section headings (SectionHeader) are the exception: the "(01)" number sits right
+  before the title, at its top, both from column 1.
   Right-hand asides take columns 10–12 on desktop; post text is columns 3–9.
 - Fonts are self-hosted from npm (@fontsource-variable/*); no third-party requests. The
   one exception is the wiki's Minecraft font, committed in packages/wiki/src/fonts.
@@ -149,14 +151,9 @@
   is set (JS on, motion allowed), with a CSS failsafe. Don't nest reveals or put
   them inside server islands (they load after the observer starts).
 - Page transitions are native cross-document View Transitions (no client
-  router). The header holds still. Only a tool's name morphs into its page title
-  (post titles deliberately don't: too busy for the style); morphing elements share
-  `view-transition-name: transitionName(prefix, id)` (src/lib/site.ts) plus
-  `view-transition-class: tr-morph` and `data-morph` (`data-morph="from"` on list
-  items: morphs only go list → page, and never to an off-screen element; see
-  packages/ui/src/page-transition.ts). Names must be unique on a page and sit on a
-  box that doesn't wrap across lines (a fragmented inline box aborts the
-  transition). The theme toggle sweeps the new theme in behind a diagonal
+  router). The header holds still; the page lifts away and the next rises in.
+  Nothing morphs between pages (no shared `view-transition-name`s besides the
+  header): titles don't fly from a list into the next page. The theme toggle sweeps the new theme in behind a diagonal
   edge, top right to bottom left, and is labelled with the mode it switches to
   ("Dark mode" / "Light mode", driven by CSS from <html data-theme>).
 - Everything respects prefers-reduced-motion; never run an infinite animation
@@ -482,8 +479,8 @@
 ## Games
 
 - apps/web/src/lib/games/registry.ts lists every game (`GAMES`); /games, the
-  home page's Games section (03), llms.txt and /og/games/<slug>.png read it. Game
-  cards reuse ToolList (`code="G"`, `morph="game"`); pages use `GameLayout`
+  home page's Games section (03, a heading and a button to /games/), llms.txt and
+  /og/games/<slug>.png read it. Game cards reuse ToolList (`code="G"`); pages use `GameLayout`
   (VideoGame JSON-LD). Adding a game follows the tool recipe (package, registry,
   workspace dependency, Dockerfile, `@source`, page, a11y), minus the data API.
 - Skygrid (apps/skygrid): a Skyblock-style MMO-lite drawn in text. `./core` is the
@@ -611,7 +608,7 @@
   ?loader=, ?channel= → /d/<id>), /minecraft/creators/<login>/ (noindex), /minecraft/
   report (POST). `lookupProject` (src/lib/minecraft/page.ts) handles visibility and
   redirects (old slug or wrong type → 301). The section is "(05) Minecraft" (04 is
-  About): a home page section and a footer link, not in the header. Also in
+  About): a home page section (a heading and a button, no listings) and a footer link, not in the header. Also in
   /sitemap-minecraft.xml, /sitemap/, llms.txt and /og/minecraft[/<slug>].png.
 - Admin: /admin/minecraft/ (?tab=projects|reports): feature, hide (with a reason the
   creator sees; settles open reports), show again, dismiss reports. Files are still
@@ -892,7 +889,8 @@ Name`, `::: inventory 3x9 Title` (slots `5: Item x64`, ranges, `row 2: A, , B`),
 
 ## Forum
 
-- /forum/ is "(07) Forum": a home page section and a footer link, not in the header.
+- /forum/ is "(07) Forum": a home page section (a heading and a button, no topics)
+  and a footer link, not in the header.
   Rules in packages/forum (pure), data in apps/web/src/lib/forum/ (store.ts reads and
   writes, tree.ts the forum tree, admin.ts the admin's forms), pages in
   src/pages/forum/, components in components/forum/, post styles in styles/forum.css.

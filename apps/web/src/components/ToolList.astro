@@ -5,7 +5,6 @@ import {
   formatListingNumber,
   type ToolListing,
 } from "../lib/listings";
-import { transitionName } from "../lib/site";
 import ToolIcon from "./ToolIcon.astro";
 
 interface Props {
@@ -14,11 +13,9 @@ interface Props {
   headingLevel?: 2 | 3;
   /** The card number's letter: T—01 for tools, G—01 for games. */
   code?: string;
-  /** Morphs into the page title that uses the same prefix (ToolLayout, GameLayout). */
-  morph?: string;
 }
 
-const { tools, headingLevel = 3, code = "T", morph = "tool" } = Astro.props;
+const { tools, headingLevel = 3, code = "T" } = Astro.props;
 const Heading = headingLevel === 2 ? "h2" : "h3";
 ---
 
@@ -54,12 +51,7 @@ const Heading = headingLevel === 2 ? "h2" : "h3";
           />
         </div>
         <div class="tool-body flex flex-col gap-2 md:gap-2.5 xl:gap-3">
-          {/* Morphs into the tool or game page's title (ToolLayout, GameLayout). */}
-          <Heading
-            class="type-card w-fit"
-            data-morph="from"
-            style={`view-transition-name: ${transitionName(morph, tool.name)}; view-transition-class: tr-morph`}
-          >
+          <Heading class="type-card w-fit">
             {tool.href ? (
               <a href={tool.href} class="tool-link">
                 {/* The link covers the whole card (::after); the underline sits on the text. */}

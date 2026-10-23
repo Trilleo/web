@@ -37,9 +37,12 @@ test("home renders every section with self-hosted fonts and no errors", async ({
   await expect(
     page.locator("#tools").getByRole("link", { name: /Notes/ }),
   ).toHaveAttribute("href", "/tools/notes/");
-  await expect(
-    page.locator("#games").getByRole("link", { name: /Skygrid/ }),
-  ).toHaveAttribute("href", "/games/skygrid/");
+  // Games, Minecraft and the forum are just a heading and a way in.
+  for (const section of ["games", "minecraft", "forum"]) {
+    const links = page.locator(`#${section}`).getByRole("link");
+    await expect(links).toHaveCount(1);
+    await expect(links).toHaveAttribute("href", `/${section}/`);
+  }
 
   await page.evaluate(() => document.fonts.ready);
   const brandFontLoaded = await page.evaluate(() =>
