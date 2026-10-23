@@ -2516,6 +2516,79 @@ export const apiErrors = pgTable(
   (table) => [index("api_errors_key_idx").on(table.keyId, table.at)],
 );
 
+/**
+ * The daily cryptic: one clue per UTC day, written by the admin (/admin/cryptic/) and
+ * played through the API (a Discord bot). `day` null: a draft not scheduled yet. A
+ * puzzle whose day has come is locked (answer, enumeration, day): guesses depend on it.
+ */
+export const crypticPuzzles = pgTable(
+  "cryptic_puzzles",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    day: date("day", { mode: "string" }),
+    clue: text("clue").notNull(),
+    /** As written: "6", "4,3", "5-4". */
+    enumeration: text("enumeration").notNull(),
+    answer: text("answer").notNull(),
+    /** How the clue works, shown once the day is over. */
+    explanation: text("explanation").notNull().default(""),
+    /** Who set it, if credited. */
+    setter: text("setter"),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [uniqueIndex("cryptic_puzzles_day_idx").on(table.day)],
+);
+
+/**
+ * Someone playing through an API app, known by the app's own ID for them (a Discord
+ * user ID) and the name it last sent. Goes with the app.
+ */
+export const crypticPlayers = pgTable(
+  "cryptic_players",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    appId: integer("app_id")
+      .notNull()
+      .references(() => apiApps.id, { onDelete: "cascade" }),
+    externalId: text("external_id").notNull(),
+    name: text("name").notNull(),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("cryptic_players_app_external_idx").on(
+      table.appId,
+      table.externalId,
+    ),
+  ],
+);
+
+/** A player's go at one day's puzzle, on its day: tries, and when it was solved. */
+export const crypticAttempts = pgTable(
+  "cryptic_attempts",
+  {
+    playerId: integer("player_id")
+      .notNull()
+      .references(() => crypticPlayers.id, { onDelete: "cascade" }),
+    puzzleId: integer("puzzle_id")
+      .notNull()
+      .references(() => crypticPuzzles.id, { onDelete: "cascade" }),
+    /** Counted guesses (the right number of letters), up to and including the solve. */
+    tries: integer("tries").notNull().default(0),
+    firstGuessAt: timestamp("first_guess_at", { withTimezone: true }).notNull(),
+    solvedAt: timestamp("solved_at", { withTimezone: true }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.playerId, table.puzzleId] }),
+    index("cryptic_attempts_puzzle_idx").on(table.puzzleId),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type UserIdentity = typeof userIdentities.$inferSelect;
@@ -2598,3 +2671,6 @@ export type ForumMessage = typeof forumMessages.$inferSelect;
 export type ApiApp = typeof apiApps.$inferSelect;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type ApiErrorRow = typeof apiErrors.$inferSelect;
+export type CrypticPuzzle = typeof crypticPuzzles.$inferSelect;
+export type CrypticPlayer = typeof crypticPlayers.$inferSelect;
+export type CrypticAttempt = typeof crypticAttempts.$inferSelect;

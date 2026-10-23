@@ -8,7 +8,7 @@
 import type { Database } from "@trilleo/db";
 import type { ErrorCode } from "./errors";
 import type { Caller } from "./keys";
-import type { RateDecision } from "./rate-limit";
+import type { RateDecision, RateLimiter } from "./rate-limit";
 import type { InferShape, ObjectSchema, Schema, Shape } from "./schema";
 import type { ApiScope } from "./scopes";
 
@@ -20,6 +20,11 @@ export const API_GROUPS = {
     title: "System",
     intro:
       "The API's own state, and who a key belongs to. Useful as a first call to check that a key works.",
+  },
+  cryptic: {
+    title: "Daily cryptic",
+    intro:
+      "A cryptic crossword clue a day, set on the site. Get today's clue, send players' guesses (the site checks them and keeps score), and read leaderboards and past answers.",
   },
 } as const satisfies Record<string, { title: string; intro: string }>;
 
@@ -35,6 +40,8 @@ export interface HandlerContext<P, Q, B> {
   caller: Caller | null;
   /** This request's rate-limit bucket after taking it. */
   rate: RateDecision;
+  /** The API's limiter, for a route's own limits (use keys of the route's own). */
+  limiter: RateLimiter;
   now: Date;
   request: Request;
   requestId: string;

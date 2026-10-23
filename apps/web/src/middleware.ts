@@ -8,6 +8,7 @@ import {
 import { noStoreRedirect } from "./lib/auth/redirect";
 import { validateSession } from "./lib/auth/sessions";
 import { emailSetupRedirect } from "./lib/auth/setup";
+import { crypticQueueInBackground } from "./lib/cryptic/queue";
 import { getDb } from "./lib/db";
 import { announceInBackground } from "./lib/indexnow";
 import { deliverInBackground, startMailDelivery } from "./lib/mail/delivery";
@@ -36,6 +37,8 @@ function backgroundWork(): void {
   maintainInBackground(storageDeps);
   // Mail retries that came due, and admin alerts that waited out their gap.
   deliverInBackground();
+  // The daily cryptic running short of puzzles (an admin alert, hourly at most).
+  crypticQueueInBackground(getDb);
 }
 
 /**

@@ -108,7 +108,9 @@ The API for other programs (bots, scripts) is the same app again, at
 from the routes' own declarations (`apps/web/src/lib/api/`), along with `/docs.md` (all
 the docs in one file, for agents working on a client) and `/openapi.json`. The admin
 makes apps and their keys at `/admin/api/`, which also shows each app's usage and
-recent failures.
+recent failures. The first thing on it is a daily cryptic crossword clue, written at
+`/admin/cryptic/` and played through a Discord bot, which fetches each day's clue and
+sends players' guesses for the site to check and score.
 
 The study section (`/study/`) is built from the Markdown in `study/`: each subject is a
 folder of numbered units and lessons, with maths, numbered definitions and formulas,

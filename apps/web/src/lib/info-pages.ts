@@ -83,6 +83,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-23",
+        note: "The daily cryptic played through other programs: what's kept, and for how long.",
+      },
+      {
+        date: "2026-10-23",
         note: "The API: what it keeps in memory to limit requests without a key.",
       },
       {
@@ -313,7 +317,7 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-23",
-        note: "Added the API (api.trilleo.net) and its keys to what’s in scope.",
+        note: "Added the API (api.trilleo.net), its keys and the daily cryptic to what’s in scope.",
       },
       {
         date: "2026-10-21",

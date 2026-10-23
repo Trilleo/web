@@ -1,0 +1,279 @@
+---
+/**
+ * The daily cryptic's control panel: today's puzzle and how it's going, the next
+ * fortnight (a puzzle or a gap on each day, with a link to fill it), unscheduled
+ * drafts, and recent days with their players and solvers across every app. A warning
+ * shows when the days ahead run short (the same check emails the admin).
+ */
+import {
+  addDays,
+  dayOf,
+  formatEnumeration,
+  parseEnumeration,
+} from "@trilleo/cryptic";
+import type { CrypticPuzzle } from "@trilleo/db";
+import AdminNav from "../../../components/admin/AdminNav.astro";
+import {
+  primaryButton,
+  secondaryButton,
+} from "../../../components/admin/files/styles";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { apiOrigin } from "../../../lib/api/host";
+import { requireAdmin } from "../../../lib/auth/guard";
+import { crypticOverview, puzzleNumbers } from "../../../lib/cryptic/puzzles";
+import { queueWarning } from "../../../lib/cryptic/queue";
+import { getDb } from "../../../lib/db";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const today = dayOf(new Date());
+const overview = await crypticOverview(db, today);
+const numbers = await puzzleNumbers(db);
+const warning = queueWarning(overview.covered);
+const done = Astro.url.searchParams.get("done");
+const DONE: Record<string, string> = { deleted: "Puzzle deleted." };
+
+const AHEAD = 14;
+const byDay = new Map(
+  overview.upcoming.flatMap((puzzle) =>
+    puzzle.day ? [[puzzle.day, puzzle] as const] : [],
+  ),
+);
+const calendar = Array.from({ length: AHEAD }, (_, i) =>
+  addDays(today, i + 1),
+).map((day) => ({ day, puzzle: byDay.get(day) }));
+const later = overview.upcoming.filter(
+  (puzzle) => puzzle.day !== null && puzzle.day > addDays(today, AHEAD),
+);
+
+const enumerationText = (puzzle: CrypticPuzzle) => {
+  const parsed = parseEnumeration(puzzle.enumeration);
+  return parsed ? formatEnumeration(parsed) : `(${puzzle.enumeration})`;
+};
+const weekday = (day: string) =>
+  new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+const row =
+  "grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6";
+const label = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body =
+  "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
+---
+
+<BaseLayout title="Daily cryptic · Admin" noindex>
+  <section
+    aria-labelledby="admin-cryptic-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="cryptic" />
+
+    <DisplayTitle id="admin-cryptic-title">Cryptic</DisplayTitle>
+
+    <div class={row}>
+      <p class={label}>Today</p>
+      <div class={body}>
+        <p class="type-label flex flex-wrap gap-x-6 gap-y-1 text-muted">
+          <span>{weekday(today)} (UTC)</span>
+          <span>
+            {overview.covered} {overview.covered === 1 ? "day" : "days"} set
+            from today
+          </span>
+          <a
+            href={`${apiOrigin(Astro.url)}/reference/cryptic/`}
+            class="underline"
+          >
+            API docs
+          </a>
+        </p>
+        {warning && (
+          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+            {warning} Bots answer “no puzzle” on a day without one.
+          </p>
+        )}
+        {done && DONE[done] && (
+          <p role="status" class="type-lead border-l-2 border-accent pl-4">
+            {DONE[done]}
+          </p>
+        )}
+        {overview.today ? (
+          <article
+            class="flex flex-col gap-2 border border-ink p-4"
+            data-testid="cryptic-today"
+          >
+            <p class="type-label text-muted">
+              #{numbers.get(today) ?? "?"} · {overview.today.stats.players}{" "}
+              playing · {overview.today.stats.solvers} solved
+              {overview.today.stats.averageTries !== null &&
+                ` · ${String(overview.today.stats.averageTries)} tries on average`}
+            </p>
+            <p class="type-lead">
+              {overview.today.puzzle.clue}{" "}
+              {enumerationText(overview.today.puzzle)}
+            </p>
+            <details>
+              <summary class="type-label cursor-pointer text-muted">
+                Answer
+              </summary>
+              <p class="font-mono">{overview.today.puzzle.answer}</p>
+            </details>
+            <div>
+              <a
+                href={`/admin/cryptic/${String(overview.today.puzzle.id)}/`}
+                class={secondaryButton}
+              >
+                Edit
+              </a>
+            </div>
+          </article>
+        ) : (
+          <p class="text-muted">Nothing today.</p>
+        )}
+        <div>
+          <a href="/admin/cryptic/new/" class={primaryButton}>
+            New puzzle
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class={row}>
+      <h2 class={label}>Coming up</h2>
+      <div class={body}>
+        <ol class="border-b border-ink" data-testid="cryptic-calendar">
+          {calendar.map(({ day, puzzle }) => (
+            <li class="grid gap-2 border-t border-ink py-3 md:grid-cols-[9rem_minmax(0,1fr)_auto] md:items-baseline md:gap-4">
+              <span class="type-label">{weekday(day)}</span>
+              {puzzle ? (
+                <>
+                  <span class="min-w-0">
+                    <span class="type-label mr-2 text-muted">
+                      #{numbers.get(day)}
+                    </span>
+                    {puzzle.clue} {enumerationText(puzzle)}
+                  </span>
+                  <a
+                    href={`/admin/cryptic/${String(puzzle.id)}/`}
+                    class={secondaryButton}
+                  >
+                    Edit
+                  </a>
+                </>
+              ) : (
+                <>
+                  <span class="text-muted">No puzzle yet</span>
+                  <a
+                    href={`/admin/cryptic/new/?day=${day}`}
+                    class={secondaryButton}
+                    aria-label={`Add a puzzle for ${weekday(day)}`}
+                  >
+                    Add
+                  </a>
+                </>
+              )}
+            </li>
+          ))}
+        </ol>
+        {later.length > 0 && (
+          <p class="text-muted">
+            And {later.length} later:{" "}
+            {later.map((puzzle, index) => (
+              <>
+                {index > 0 && ", "}
+                <a
+                  href={`/admin/cryptic/${String(puzzle.id)}/`}
+                  class="underline"
+                >
+                  {puzzle.day}
+                </a>
+              </>
+            ))}
+            .
+          </p>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <h2 class={label}>Drafts</h2>
+      <div class={body}>
+        {overview.drafts.length === 0 ? (
+          <p class="text-muted">No unscheduled puzzles.</p>
+        ) : (
+          <ul class="flex flex-col gap-2" data-testid="cryptic-drafts">
+            {overview.drafts.map((puzzle) => (
+              <li>
+                <a href={`/admin/cryptic/${String(puzzle.id)}/`} class="group">
+                  <span class="link-wipe">{puzzle.clue}</span>
+                </a>{" "}
+                <span class="text-muted">{enumerationText(puzzle)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <h2 class={label}>Past</h2>
+      <div class={body}>
+        {overview.past.length === 0 ? (
+          <p class="text-muted">None yet.</p>
+        ) : (
+          <table class="w-full text-sm">
+            <caption class="sr-only">Recent puzzles</caption>
+            <thead>
+              <tr class="type-label text-muted">
+                <th scope="col" class="text-left font-normal">
+                  Day
+                </th>
+                <th scope="col" class="text-left font-normal">
+                  Clue
+                </th>
+                <th scope="col" class="text-left font-normal">
+                  Answer
+                </th>
+                <th scope="col" class="text-right font-normal">
+                  Solved
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {overview.past.map(({ puzzle, stats }) => (
+                <tr class="border-t border-hair align-baseline">
+                  <td class="py-2 pr-3 whitespace-nowrap">
+                    #{puzzle.day ? numbers.get(puzzle.day) : "?"} · {puzzle.day}
+                  </td>
+                  <td class="py-2 pr-3">
+                    <a
+                      href={`/admin/cryptic/${String(puzzle.id)}/`}
+                      class="underline"
+                    >
+                      {puzzle.clue}
+                    </a>{" "}
+                    {enumerationText(puzzle)}
+                  </td>
+                  <td class="py-2 pr-3 font-mono">{puzzle.answer}</td>
+                  <td class="py-2 text-right whitespace-nowrap">
+                    {stats.solvers} of {stats.players}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

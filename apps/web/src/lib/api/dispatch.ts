@@ -24,6 +24,8 @@ export interface DispatchDeps {
   apiOrigin: string;
   siteOrigin: string;
   now?: () => Date;
+  /** Purge old usage now and then, in the background (default true; off in tests). */
+  purge?: boolean;
 }
 
 const PURGE_EVERY_MS = 60 * 60 * 1000;
@@ -249,6 +251,7 @@ export async function dispatch(
       body,
       caller,
       rate,
+      limiter: deps.limiter,
       now,
       request,
       requestId,
@@ -305,7 +308,11 @@ export async function dispatch(
       console.error(`API ${requestId}: usage not recorded:`, error);
     }
   }
-  if (db && now.getTime() - lastPurge >= PURGE_EVERY_MS) {
+  if (
+    db &&
+    deps.purge !== false &&
+    now.getTime() - lastPurge >= PURGE_EVERY_MS
+  ) {
     lastPurge = now.getTime();
     purgeUsage(db, now).catch((error: unknown) => {
       console.error("API usage purge failed:", error);

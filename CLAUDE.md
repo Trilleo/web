@@ -63,6 +63,9 @@
   @trilleo/wiki's component plugin), quizzes, expressions, units, circuits; `./react`
   the widgets (Quiz, Plot, Explore, CircuitLab); `./dates` exam countdowns (browser);
   `./katex.css`. Source-only.
+- packages/cryptic (@trilleo/cryptic): the daily cryptic's pure rules: enumerations
+  (`parseEnumeration`, `enumerationOf`, `answerFits`), checking guesses by their
+  letters (`checkGuess`), UTC days, streaks. Source-only.
 - study/: study subjects as Markdown files (see Study below and study/README.md).
 - Blog content: Markdown posts in Postgres, written in the admin editor (/admin/posts).
 - The wiki (wiki.trilleo.net) is apps/web on a second host, not its own app: pages in
@@ -1073,6 +1076,34 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   the overview, the guides (guides.ts: authentication, conventions, errors, rate limits,
   versioning, changelog) and one reference page per group (reference.ts). Guides quote
   constants from the code; what they say about behaviour is kept true by hand.
+
+## Daily cryptic
+
+- One cryptic crossword clue per UTC day, written by the admin and played through the
+  API (a Discord bot: the bot fetches the clue and posts players' guesses; the site
+  checks them and keeps score). There's no page for playing it on the site.
+- Puzzles (lib/cryptic/puzzles.ts, cryptic_puzzles): clue, answer (upper case, as
+  written), enumeration ("4,3"; empty in the form: taken from the answer), explanation,
+  setter, and a `day` (null: a draft). One per day. Once its day has come a puzzle is
+  live: answer, enumeration and day are locked and it can't be deleted. Numbers (#42)
+  count puzzle days, so they never change for live ones.
+- Players are per API app (cryptic_players: the app's own ID for them, e.g. a Discord
+  user ID, and the latest name sent; deleted with the app, or by
+  `DELETE /v1/cryptic/players/{id}`). Guesses (lib/cryptic/players.ts `recordGuess`):
+  only letters count (case, spaces, hyphens, accents ignored); a guess with the wrong
+  number of letters is refused and not a try; on today's puzzle each counted guess is
+  a try until solved (cryptic_attempts, one upsert so concurrent guesses can't undo a
+  solve), on a past one it's practice and nothing is kept. Ranks: fewest tries, then
+  soonest. Streaks count puzzles, not days, and today's open puzzle doesn't break one
+  (@trilleo/cryptic `streaks`). Leaderboards and stats are worked out per request.
+- API routes are in lib/api/routes/cryptic.ts (scopes `cryptic:read`, `cryptic:play`;
+  errors `no_puzzle`, `guess_wrong_length`). Answers appear only once a day is over
+  (`publicPuzzle`); days to come are `no_puzzle`, like days without one.
+- Admin: /admin/cryptic/ (today with its numbers, the next fortnight with gaps to
+  fill, drafts, past days) and /admin/cryptic/<id>|new/ (the editor; ?day= prefills).
+  When fewer than CRYPTIC_LIMITS.queueWarnDays days from today have a puzzle, /admin
+  and /admin/cryptic/ warn, and the middleware's hourly check (lib/cryptic/queue.ts)
+  sends an admin alert ("cryptic-queue"), once a day, while the cryptic is in use.
 
 ## Mail
 

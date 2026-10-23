@@ -57,6 +57,16 @@ export const ERROR_CODES = {
     description:
       "No such route, or the thing asked for doesn't exist (or isn't visible to you).",
   },
+  no_puzzle: {
+    status: 404,
+    description:
+      "There's no daily cryptic for that day (none was set, or the day hasn't come yet). Don't fall back to another day's.",
+  },
+  guess_wrong_length: {
+    status: 400,
+    description:
+      "The guess hasn't got the answer's number of letters, so it wasn't counted as a try. `details.letters` is how many the answer has, `details.got` how many the guess had (only letters count).",
+  },
   method_not_allowed: {
     status: 405,
     description:

@@ -4,6 +4,10 @@
  * (the panel's checkboxes and the docs read this list) and in a route's `scope`.
  */
 export const API_SCOPES = {
+  "cryptic:read":
+    "Read the daily cryptic (today's clue, past answers) and the app's own leaderboards and players.",
+  "cryptic:play":
+    "Send players' guesses at the daily cryptic, and forget a player.",
   "usage:read": "Read the app's own request counts (GET /v1/me/usage).",
 } as const satisfies Record<string, string>;
 

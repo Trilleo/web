@@ -29,6 +29,7 @@ COPY apps/notes/package.json apps/notes/
 COPY apps/qr/package.json apps/qr/
 COPY apps/hotfix/package.json apps/hotfix/
 COPY apps/skygrid/package.json apps/skygrid/
+COPY packages/cryptic/package.json packages/cryptic/
 COPY packages/db/package.json packages/db/
 COPY packages/forum/package.json packages/forum/
 COPY packages/mail/package.json packages/mail/

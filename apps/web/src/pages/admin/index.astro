@@ -16,6 +16,9 @@ import {
   postTitles,
 } from "../../lib/blog/store";
 import { moderationOverview } from "../../lib/comments/store";
+import { dayOf } from "@trilleo/cryptic";
+import { daysCovered } from "../../lib/cryptic/puzzles";
+import { queueWarning } from "../../lib/cryptic/queue";
 import { getDb } from "../../lib/db";
 import { indexNowKey } from "../../lib/indexnow";
 import { infoPaths } from "../../lib/info-pages";
@@ -88,6 +91,8 @@ const dateTime = new Intl.DateTimeFormat("en-GB", {
 const expiresAt = Astro.locals.session?.expiresAt;
 
 const migration = await accountMigration(db, admin, authConfig());
+const crypticDays = await daysCovered(db, dayOf(new Date()));
+const crypticWarning = queueWarning(crypticDays);
 
 type Fact = { term: string; value: string } | { term: string; date: Date };
 const facts: Fact[] = [
@@ -158,6 +163,29 @@ const facts: Fact[] = [
             class={buttonClasses({ variant: "secondary" })}
           >
             Your email
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6">
+      <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">
+        Daily cryptic
+      </h2>
+      <div class="col-span-4 flex flex-col gap-3 md:col-span-6 xl:col-span-7">
+        {crypticWarning ? (
+          <p class="border-l-2 border-accent pl-4" data-cryptic-warning>
+            {crypticWarning}
+          </p>
+        ) : (
+          <p>Puzzles are set for the next {crypticDays} days.</p>
+        )}
+        <div>
+          <a
+            href="/admin/cryptic/"
+            class={buttonClasses({ variant: "secondary" })}
+          >
+            Puzzles
           </a>
         </div>
       </div>

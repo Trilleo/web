@@ -349,6 +349,20 @@ const ticketHours = TICKET_LIMITS.maxAgeMs / 3_600_000;
         <td>You write one</td>
         <td>To read and answer it (see below)</td>
       </tr>
+      <tr>
+        <td>
+          If you play the daily cryptic through a program that uses the site’s
+          API (such as a Discord bot): the ID and name that program uses for
+          you, and for each day you play, how many tries you took and when you
+          solved it
+        </td>
+        <td>The program sends a guess of yours</td>
+        <td>
+          To check your guesses and show your place, streak and totals in that
+          program. Only that program sees them; the site never learns who you
+          are elsewhere
+        </td>
+      </tr>
     </tbody>
   </table>
   <p>
@@ -515,6 +529,10 @@ const ticketHours = TICKET_LIMITS.maxAgeMs / 3_600_000;
     <li>
       Sessions: until you sign out, or {sessionDays} days after they were last
       renewed.
+    </li>
+    <li>
+      The daily cryptic through another program: until that program asks the
+      site to forget you (ask it, or me), or stops using the API and is removed.
     </li>
     <li>
       Deleted files: {RETENTION_DAYS.deleted} days (so a mistake can be undone),

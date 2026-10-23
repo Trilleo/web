@@ -425,6 +425,7 @@ describe("dispatch", () => {
     apiOrigin: API,
     siteOrigin: SITE,
     now: () => clock,
+    purge: false,
   });
 
   async function call(

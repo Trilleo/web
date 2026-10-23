@@ -1,5 +1,5 @@
 ---
-/** The admin's sections: the dashboard (comments, account), posts, files, Minecraft, the forum, the API, messages and mail. */
+/** The admin's sections: the dashboard (comments, account), posts, files, Minecraft, the forum, the daily cryptic, the API, messages and mail. */
 interface Props {
   current:
     | "dashboard"
@@ -7,6 +7,7 @@ interface Props {
     | "files"
     | "minecraft"
     | "forum"
+    | "cryptic"
     | "api"
     | "messages"
     | "mail";
@@ -19,6 +20,7 @@ const items = [
   { key: "files", label: "Files", href: "/admin/files/" },
   { key: "minecraft", label: "Minecraft", href: "/admin/minecraft/" },
   { key: "forum", label: "Forum", href: "/admin/forum/" },
+  { key: "cryptic", label: "Cryptic", href: "/admin/cryptic/" },
   { key: "api", label: "API", href: "/admin/api/" },
   { key: "messages", label: "Messages", href: "/admin/messages/" },
   { key: "mail", label: "Mail", href: "/admin/mail/" },

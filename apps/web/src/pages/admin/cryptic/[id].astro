@@ -1,0 +1,341 @@
+---
+/**
+ * Writing a daily cryptic: /admin/cryptic/new/ (?day= to fill a gap) or
+ * /admin/cryptic/<id>/. The clue, the answer, its enumeration (worked out from the
+ * answer if left empty, and checked against it), how it works, who set it, and the
+ * day (empty: a draft). A live puzzle keeps its answer, enumeration and day. Saving
+ * and deleting are POSTs to this page with an `intent`.
+ */
+import {
+  dayOf,
+  formatEnumeration,
+  isDay,
+  parseEnumeration,
+} from "@trilleo/cryptic";
+import AdminNav from "../../../components/admin/AdminNav.astro";
+import {
+  primaryButton,
+  secondaryButton,
+} from "../../../components/admin/files/styles";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireAdmin } from "../../../lib/auth/guard";
+import { noStoreRedirect } from "../../../lib/auth/redirect";
+import { field, parseId } from "../../../lib/comments/form";
+import {
+  CRYPTIC_LIMITS,
+  PUZZLE_PROBLEMS,
+  checkPuzzleInput,
+  createPuzzle,
+  deletePuzzle,
+  getPuzzle,
+  isLive,
+  puzzleInputFromForm,
+  puzzleNumber,
+  puzzleStats,
+  updatePuzzle,
+  type PuzzleInput,
+} from "../../../lib/cryptic/puzzles";
+import { getDb } from "../../../lib/db";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const isNew = Astro.params.id === "new";
+const id = isNew ? null : parseId(Astro.params.id ?? "");
+const puzzle = id === null ? undefined : await getPuzzle(db, id);
+if (!isNew && !puzzle) return Astro.rewrite("/404");
+
+const now = new Date();
+const today = dayOf(now);
+const live = puzzle ? isLive(puzzle, today) : false;
+const askedDay = Astro.url.searchParams.get("day") ?? "";
+
+let error: string | null = null;
+let typed: PuzzleInput = puzzle
+  ? {
+      clue: puzzle.clue,
+      enumeration: puzzle.enumeration,
+      answer: puzzle.answer,
+      explanation: puzzle.explanation,
+      setter: puzzle.setter ?? "",
+      day: puzzle.day ?? "",
+    }
+  : {
+      clue: "",
+      enumeration: "",
+      answer: "",
+      explanation: "",
+      setter: "",
+      day: isDay(askedDay) && askedDay >= today ? askedDay : "",
+    };
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const intent = field(form, "intent");
+  if (intent === "delete" && puzzle) {
+    if (await deletePuzzle(db, puzzle, now))
+      return noStoreRedirect("/admin/cryptic/?done=deleted", 303);
+    error = "A live puzzle can't be deleted: players have guessed at it.";
+  } else if (intent === "save") {
+    typed = puzzleInputFromForm(form);
+    // Disabled fields aren't sent: a live puzzle keeps its own.
+    if (puzzle && live)
+      typed = {
+        ...typed,
+        answer: puzzle.answer,
+        enumeration: puzzle.enumeration,
+        day: puzzle.day ?? "",
+      };
+    // A live puzzle's day is in the past by the time it's edited: it's checked as kept.
+    const checked = checkPuzzleInput(
+      typed,
+      live ? (puzzle?.day ?? today) : today,
+    );
+    if (!checked.ok) {
+      error = PUZZLE_PROBLEMS[checked.problem];
+    } else {
+      let target = puzzle?.id ?? 0;
+      let problem: keyof typeof PUZZLE_PROBLEMS | null = null;
+      if (puzzle) {
+        const updated = await updatePuzzle(db, puzzle, checked.value, now);
+        if (!updated.ok) problem = updated.problem;
+      } else {
+        const created = await createPuzzle(db, checked.value, now);
+        if (created.ok) target = created.puzzle.id;
+        else problem = created.problem;
+      }
+      if (!problem)
+        return noStoreRedirect(
+          `/admin/cryptic/${String(target)}/?done=saved`,
+          303,
+        );
+      error = PUZZLE_PROBLEMS[problem];
+    }
+  } else {
+    error = "Unknown action.";
+  }
+}
+
+const saved =
+  Astro.request.method === "GET" &&
+  Astro.url.searchParams.get("done") === "saved";
+const number = puzzle?.day ? await puzzleNumber(db, puzzle.day) : null;
+const stats = puzzle && live ? await puzzleStats(db, puzzle.id) : null;
+const shown = parseEnumeration(typed.enumeration);
+const title = isNew
+  ? "New cryptic"
+  : number
+    ? `Cryptic #${String(number)}`
+    : "Draft cryptic";
+const row =
+  "grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6";
+const label = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body =
+  "col-span-4 flex min-w-0 flex-col gap-5 md:col-span-6 xl:col-span-7";
+const input =
+  "type-row h-11 w-full border-b border-ink bg-transparent focus:outline-none focus-visible:border-accent disabled:text-muted";
+const area =
+  "w-full border border-ink bg-transparent p-3 text-base focus:outline-none focus-visible:border-accent";
+---
+
+<BaseLayout title={`${title} · Admin`} noindex>
+  <section
+    aria-labelledby="admin-cryptic-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="cryptic" />
+    <p class="type-label mt-6">
+      <a href="/admin/cryptic/" class="group">
+        <span class="link-wipe">Cryptic</span>
+      </a>
+      <span class="text-muted">
+        {" "}
+        / {isNew ? "New" : (puzzle?.day ?? "Draft")}
+      </span>
+    </p>
+
+    <DisplayTitle id="admin-cryptic-title">{title}</DisplayTitle>
+
+    <div class={row}>
+      <p class={label}>{live ? "Live" : puzzle?.day ? "Scheduled" : "Draft"}</p>
+      <form method="post" class={body} id="puzzle-form" data-cryptic-form>
+        <input type="hidden" name="intent" value="save" />
+        {saved && (
+          <p role="status" class="type-lead border-l-2 border-accent pl-4">
+            Saved.
+          </p>
+        )}
+        {error && (
+          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+            {error}
+          </p>
+        )}
+        {live && (
+          <p class="border-l-2 border-hair pl-4 text-muted">
+            Its day has come, so the answer, enumeration and day stay as they
+            are: players' guesses were checked against them. The clue,
+            explanation and setter can still be corrected.
+          </p>
+        )}
+        {stats && (
+          <p class="type-label text-muted">
+            {stats.players} played · {stats.solvers} solved
+            {stats.averageTries !== null &&
+              ` · ${String(stats.averageTries)} tries on average`}
+          </p>
+        )}
+        <label class="flex flex-col gap-1.5">
+          <span class="type-label text-muted">
+            Clue (without the enumeration)
+          </span>
+          <textarea
+            name="clue"
+            required
+            rows="2"
+            maxlength={CRYPTIC_LIMITS.clue}
+            class={area}
+          >{typed.clue}</textarea>
+        </label>
+        <div class="grid gap-5 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <label class="flex flex-col gap-1.5">
+            <span class="type-label text-muted">Answer</span>
+            <input
+              name="answer"
+              required
+              maxlength={CRYPTIC_LIMITS.answer}
+              value={typed.answer}
+              disabled={live}
+              autocomplete="off"
+              class={`${input} font-mono uppercase`}
+              data-answer
+            />
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="type-label text-muted">Enumeration</span>
+            <input
+              name="enumeration"
+              value={
+                shown
+                  ? formatEnumeration(shown).slice(1, -1)
+                  : typed.enumeration
+              }
+              disabled={live}
+              placeholder="From the answer"
+              aria-describedby="enumeration-hint"
+              class={`${input} font-mono`}
+              data-enumeration
+            />
+          </label>
+        </div>
+        <p
+          id="enumeration-hint"
+          class="-mt-3 text-sm text-muted"
+          aria-live="polite"
+          data-enumeration-hint
+        >
+          Word lengths, like 6, 4,3 or 5-4. Leave it empty to take it from the
+          answer as written (spaces between words, hyphens kept).
+        </p>
+        <label class="flex flex-col gap-1.5">
+          <span class="type-label text-muted">
+            How it works (shown after its day)
+          </span>
+          <textarea
+            name="explanation"
+            rows="4"
+            maxlength={CRYPTIC_LIMITS.explanation}
+            class={area}
+          >{typed.explanation}</textarea>
+        </label>
+        <div class="grid gap-5 md:grid-cols-2">
+          <label class="flex flex-col gap-1.5">
+            <span class="type-label text-muted">Setter (optional)</span>
+            <input
+              name="setter"
+              maxlength={CRYPTIC_LIMITS.setter}
+              value={typed.setter}
+              class={input}
+            />
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="type-label text-muted">
+              Day (UTC; empty for a draft)
+            </span>
+            <input
+              name="day"
+              type="date"
+              value={typed.day}
+              min={live ? undefined : today}
+              disabled={live}
+              class={input}
+            />
+          </label>
+        </div>
+        <div>
+          <button type="submit" class={primaryButton}>
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+
+    {puzzle && !live && (
+      <div class={row}>
+        <h2 class={label}>Delete</h2>
+        <form method="post" class={body}>
+          <input type="hidden" name="intent" value="delete" />
+          <p class="text-muted">Not live yet, so it can go without a trace.</p>
+          <div>
+            <button type="submit" class={secondaryButton}>
+              Delete this puzzle
+            </button>
+          </div>
+        </form>
+      </div>
+    )}
+  </section>
+</BaseLayout>
+
+<script>
+  import {
+    enumerationOf,
+    formatEnumeration,
+    parseEnumeration,
+    answerFits,
+  } from "@trilleo/cryptic";
+
+  // As the answer is typed: what enumeration it has, and whether it fits the one given.
+  const form = document.querySelector<HTMLFormElement>("[data-cryptic-form]");
+  const answer = form?.querySelector<HTMLInputElement>("[data-answer]");
+  const enumeration =
+    form?.querySelector<HTMLInputElement>("[data-enumeration]");
+  const hint = form?.querySelector<HTMLElement>("[data-enumeration-hint]");
+  if (answer && enumeration && hint && !answer.disabled) {
+    const original = hint.textContent;
+    const update = () => {
+      const own = enumerationOf(answer.value);
+      if (!own) {
+        hint.textContent = original;
+        return;
+      }
+      const given = enumeration.value.trim()
+        ? parseEnumeration(enumeration.value)
+        : own;
+      hint.textContent = !given
+        ? "That enumeration isn't word lengths like 6, 4,3 or 5-4."
+        : answerFits(answer.value, given)
+          ? `The answer as written is ${formatEnumeration(own)}: it fits.`
+          : `The answer as written is ${formatEnumeration(own)}, not ${formatEnumeration(given)}.`;
+    };
+    answer.addEventListener("input", update);
+    enumeration.addEventListener("input", update);
+    update();
+  }
+</script>

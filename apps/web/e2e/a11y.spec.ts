@@ -77,6 +77,7 @@ const PAGES = [
   "api:/",
   "api:/docs/errors/",
   "api:/reference/system/",
+  "api:/reference/cryptic/",
 ];
 
 /** A path, or "wiki:<path>" / "api:<path>" for the same path on the wiki's or API's host. */
