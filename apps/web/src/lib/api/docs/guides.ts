@@ -10,6 +10,7 @@ import { API_GROUPS, usedGroups, type Route } from "../registry";
 import { API_SCOPES } from "../scopes";
 import { API_CHANGELOG } from "./changelog";
 import type { DocContext } from "./context";
+import { cell } from "./reference";
 
 const n = (value: number) => value.toLocaleString("en");
 
@@ -152,7 +153,7 @@ export function errorsMarkdown(context: DocContext): string {
   const rows = Object.entries(ERROR_CODES)
     .map(
       ([code, info]) =>
-        `| \`${code}\` | ${String(info.status)} | ${info.description.replace(/\|/g, "\\|")} |`,
+        `| \`${code}\` | ${String(info.status)} | ${cell(info.description)} |`,
     )
     .join("\n");
   return `Every error has the same shape, whatever went wrong:

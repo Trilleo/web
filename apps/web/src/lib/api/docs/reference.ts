@@ -12,9 +12,12 @@ import type { ApiGroup, Route } from "../registry";
 import { fieldRows, type Schema } from "../schema";
 import type { DocContext } from "./context";
 
-/** A table cell: pipes and line breaks would end it. */
-function cell(text: string): string {
-  return text.replace(/\|/g, "\\|").replace(/\n+/g, " ");
+/**
+ * A Markdown table cell: pipes and line breaks would end it. Backslashes are escaped
+ * first, so one already in the text can't swallow the escape of a pipe after it.
+ */
+export function cell(text: string): string {
+  return text.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\n+/g, " ");
 }
 
 export function fieldTable(

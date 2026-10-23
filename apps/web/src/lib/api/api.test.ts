@@ -14,7 +14,7 @@ import {
   shiftHeadings,
 } from "./docs/pages";
 import { openApiDocument } from "./docs/openapi";
-import { routeErrors } from "./docs/reference";
+import { cell, routeErrors } from "./docs/reference";
 import { ERROR_CODES } from "./errors";
 import {
   apiOrigin,
@@ -335,6 +335,13 @@ describe("docs", () => {
       }
     }
     expect(llmsTxt(context, ROUTES)).toContain(`${API}/docs.md`);
+  });
+
+  it("escape table cells so text can't end them early", () => {
+    expect(cell("a | b")).toBe("a \\| b");
+    // A trailing backslash would otherwise eat the pipe's escape.
+    expect(cell("a\\| b")).toBe("a\\\\\\| b");
+    expect(cell("one\n\ntwo")).toBe("one two");
   });
 
   it("shift headings outside code only", () => {
