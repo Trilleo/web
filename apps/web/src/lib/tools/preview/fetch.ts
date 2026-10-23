@@ -282,8 +282,13 @@ function requestOnce(
 ): Promise<http.IncomingMessage> {
   return new Promise((resolve, reject) => {
     const client = url.protocol === "https:" ? https : http;
+    // A user-supplied address on purpose (CodeQL's js/request-forgery): checkTarget
+    // vetted it, and `lookup` refuses non-public answers before the socket connects.
     const request = client.request(url, {
       method: "GET",
+      // A fresh connection every time, never a pooled keep-alive socket: each one is
+      // then opened through `lookup`, so no request skips the address check.
+      agent: false,
       headers: {
         "User-Agent": USER_AGENT,
         Accept: "*/*",

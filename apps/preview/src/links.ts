@@ -205,18 +205,35 @@ export function nameFromUrl(href: string): string | null {
  */
 export function nameFromDisposition(header: string | null): string | null {
   if (!header) return null;
-  const star = /filename\*\s*=\s*([^']*)'[^']*'([^;]+)/i.exec(header);
-  if (star?.[2]) {
+  // Split by hand rather than with a regex: the header comes from any site, and
+  // patterns with optional whitespace around "=" backtrack badly on long inputs.
+  const params = new Map<string, string>();
+  for (const part of header.slice(0, MAX_DISPOSITION_LENGTH).split(";")) {
+    const equals = part.indexOf("=");
+    if (equals === -1) continue;
+    const key = part.slice(0, equals).trim().toLowerCase();
+    if (!params.has(key)) params.set(key, part.slice(equals + 1).trim());
+  }
+  // filename*=UTF-8''%E6%8A%A5.pdf: charset, language, then the escaped name.
+  const extended = params.get("filename*")?.split("'");
+  if (extended?.length === 3 && extended[2]) {
     try {
-      return decodeURIComponent(star[2].trim());
+      return decodeURIComponent(extended[2]);
     } catch {
       // Fall through to the plain parameter.
     }
   }
-  const plain = /filename\s*=\s*("([^"]*)"|[^;]+)/i.exec(header);
-  const name = (plain?.[2] ?? plain?.[1] ?? "").trim();
+  const plain = params.get("filename") ?? "";
+  const name = (
+    plain.length >= 2 && plain.startsWith('"') && plain.endsWith('"')
+      ? plain.slice(1, -1)
+      : plain
+  ).trim();
   return name || null;
 }
+
+/** Longer Content-Disposition headers are read only this far. */
+const MAX_DISPOSITION_LENGTH = 2000;
 
 /** Office files Microsoft's online viewer can show (by extension). */
 export const MICROSOFT_VIEWER_EXTENSIONS = [

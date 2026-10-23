@@ -103,6 +103,22 @@ describe("file names", () => {
       ),
     ).toBe("报告.pdf");
     expect(nameFromDisposition(null)).toBeNull();
+    expect(nameFromDisposition("inline; FILENAME = plain.txt ")).toBe(
+      "plain.txt",
+    );
+    expect(nameFromDisposition("attachment; filename*=bad")).toBeNull();
+    expect(
+      nameFromDisposition(
+        "attachment; filename*=UTF-8''%E0%A4%A; filename=ok.pdf",
+      ),
+    ).toBe("ok.pdf");
+  });
+
+  it("reads hostile headers quickly", () => {
+    const start = performance.now();
+    nameFromDisposition(`filename*=${" ".repeat(100_000)}x`);
+    nameFromDisposition(`filename=${'"'.repeat(100_000)}`);
+    expect(performance.now() - start).toBeLessThan(100);
   });
 });
 
