@@ -578,6 +578,12 @@
   the server-rendered game page loads (`findReplay`) and the Runner plays back
   (`watch`). A best made under other RULES_VERSION can't be played back. All of it
   is in the account export and goes with the account.
+- Touch screens in Hotfix (HotfixApp's window touch listeners): as in the dino game,
+  a tap anywhere jumps while a run is on (held: higher; again in the air: the double
+  jump), and in the game's band starts one; taps on links, buttons and fields
+  (`TAPPABLE`) pass through. There's no slide on touch, so no pattern may need one:
+  the balance tests also run every seed with jumps alone (`autoplay` with
+  `slide: false`).
 - Reduced motion in Hotfix: no demo, sparks, shake, blinking or parallax; the
   course itself still moves. The HUD is DOM text updated from the loop, not React
   state, so the page doesn't re-render 60 times a second.

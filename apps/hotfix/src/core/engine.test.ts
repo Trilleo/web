@@ -407,6 +407,18 @@ describe("balance", () => {
     },
   );
 
+  // Touch screens only jump (a tap anywhere): no pattern may need a slide.
+  it.each([1, 2, 3, 4, 5, 6, 7, 8])(
+    "seed %i can be run for three minutes with jumps alone",
+    (seed) => {
+      const { state } = autoplay(newRun(seed), FPS * 180, undefined, {
+        slide: false,
+      });
+      expect(state.cause).toBeNull();
+      expect(state.biome).toBe("production");
+    },
+  );
+
   it("offers power-ups now and then", () => {
     const offered = new Set<number>();
     autoplay(newRun(9), FPS * 120, (running) => {

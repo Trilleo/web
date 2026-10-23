@@ -119,4 +119,20 @@ describe("HotfixApp", () => {
     fireEvent.click(screen.getByRole("button", { name: "Watch" }));
     expect(screen.queryByRole("button", { name: "Watch" })).toBeNull();
   });
+
+  it("on a touch screen, a tap in the game starts a run, and taps on links don't", () => {
+    render(
+      <>
+        <a href="#elsewhere">Elsewhere</a>
+        <HotfixApp seed={3} />
+      </>,
+    );
+    fireEvent.touchStart(screen.getByText("Elsewhere"), { touches: [{}] });
+    expect(screen.getByRole("button", { name: /^Run/ })).toBeTruthy();
+    fireEvent.touchStart(screen.getByRole("application"), { touches: [{}] });
+    fireEvent.touchEnd(screen.getByRole("application"), { touches: [] });
+    expect(screen.queryByRole("button", { name: /^Run/ })).toBeNull();
+    // No buttons of its own: the whole screen is the jump button.
+    expect(screen.queryByRole("button", { name: "Slide" })).toBeNull();
+  });
 });

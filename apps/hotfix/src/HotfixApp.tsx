@@ -84,6 +84,10 @@ function useReducedMotion(): boolean {
   );
 }
 
+/** What a tap still goes to while the game takes the screen's other taps. */
+const TAPPABLE =
+  "a, button, input, label, select, textarea, summary, [role=dialog], [role=menu]";
+
 const KEYS: Readonly<Record<string, "jump" | "down">> = {
   Space: "jump",
   ArrowUp: "jump",
@@ -199,9 +203,18 @@ export function HotfixApp(props: HotfixAppProps) {
   );
 }
 
-function Band({ children }: { children: React.ReactNode }) {
+function Band({
+  children,
+  ref,
+}: {
+  children: React.ReactNode;
+  ref?: RefObject<HTMLDivElement | null>;
+}) {
   return (
-    <div className="border-y border-ink bg-fig px-page py-6 md:py-10">
+    <div
+      ref={ref}
+      className="border-y border-ink bg-fig px-page py-6 select-none md:py-10"
+    >
       <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-3">
         {children}
       </div>
@@ -543,42 +556,48 @@ function Game({
     send(action === "jump" ? "jump-end" : "down-end");
   };
 
-  // Tap to jump; swipe down to slide.
-  const swipe = useRef<{ y: number; down: boolean } | null>(null);
+  // A mouse click on the field jumps (touch is handled below, for the whole screen).
   const onPointerDown = (event: PointerEvent) => {
-    if (event.button !== 0) return;
-    swipe.current = { y: event.clientY, down: false };
+    if (event.pointerType === "touch" || event.button !== 0) return;
     send("jump");
   };
-  const onPointerMove = (event: PointerEvent) => {
-    const start = swipe.current;
-    if (!start || start.down || event.clientY - start.y < 18) return;
-    start.down = true;
+  const onPointerUp = (event: PointerEvent) => {
+    if (event.pointerType === "touch") return;
     send("jump-end");
-    send("down");
-  };
-  const onPointerUp = () => {
-    const start = swipe.current;
-    swipe.current = null;
-    if (!start) return;
-    send(start.down ? "down-end" : "jump-end");
   };
 
-  const hold = (input: "jump" | "down") => ({
-    onPointerDown: (event: PointerEvent) => {
+  // Touch screens, as in the dino game: a tap anywhere jumps (held, higher; again in
+  // the air, the double jump). There's no slide: every course can be run without it.
+  // Before and after a run only the game's band starts one, so the page still
+  // scrolls; links, buttons and fields keep their taps.
+  const band = useRef<HTMLDivElement>(null);
+  const sendRef = useRef(send);
+  useEffect(() => {
+    sendRef.current = send;
+  }, [send]);
+  useEffect(() => {
+    const onStart = (event: TouchEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest(TAPPABLE)) return;
+      const playing = runner.status === "running" || runner.status === "paused";
+      if (!playing && !(target && band.current?.contains(target))) return;
+      if (runner.watching && runner.status === "running") return;
+      // No scrolling, zooming or text selection while the robot runs.
       event.preventDefault();
-      send(input);
-    },
-    onPointerUp: () => {
-      send(input === "jump" ? "jump-end" : "down-end");
-    },
-    onPointerCancel: () => {
-      send(input === "jump" ? "jump-end" : "down-end");
-    },
-    onPointerLeave: () => {
-      send(input === "jump" ? "jump-end" : "down-end");
-    },
-  });
+      sendRef.current("jump");
+    };
+    const onEnd = (event: TouchEvent) => {
+      if (event.touches.length === 0) sendRef.current("jump-end");
+    };
+    window.addEventListener("touchstart", onStart, { passive: false });
+    window.addEventListener("touchend", onEnd);
+    window.addEventListener("touchcancel", onEnd);
+    return () => {
+      window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchend", onEnd);
+      window.removeEventListener("touchcancel", onEnd);
+    };
+  }, [runner]);
 
   const best =
     mode === "daily"
@@ -597,7 +616,7 @@ function Game({
 
   return (
     <>
-      <Band>
+      <Band ref={band}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <ModeSwitch
             mode={mode}
@@ -628,9 +647,7 @@ function Game({
           onKeyDown={onKeyDown}
           onKeyUp={onKeyUp}
           onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
         >
           <div
             ref={field}
@@ -688,22 +705,6 @@ function Game({
               )}
             </AnimatePresence>
           </div>
-        </div>
-        <div className="hidden gap-3 pointer-coarse:grid pointer-coarse:grid-cols-2">
-          <button
-            type="button"
-            className="press touch-none border border-ink bg-paper py-5 type-label"
-            {...hold("jump")}
-          >
-            Jump
-          </button>
-          <button
-            type="button"
-            className="press touch-none border border-ink bg-paper py-5 type-label"
-            {...hold("down")}
-          >
-            Slide
-          </button>
         </div>
         <p ref={live} aria-live="polite" className="sr-only" />
       </Band>

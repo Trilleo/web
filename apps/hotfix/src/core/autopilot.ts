@@ -79,10 +79,20 @@ function idleSurvival(state: RunState, limit: number): number {
   return limit;
 }
 
+/** Plans that never slide: what a touch screen can do (tap to jump, nothing else). */
+const JUMP_PLANS = PLANS.filter((plan) =>
+  plan.every(([, input]) => input === "jump" || input === "jump-end"),
+);
+
 /** How long the run lasts with this plan, then playing on at `depth` - 1. */
-function tryPlan(state: RunState, plan: Plan, depth: number): number {
+function tryPlan(
+  state: RunState,
+  plan: Plan,
+  depth: number,
+  slides: boolean,
+): number {
   const copy = structuredClone(state);
-  const memory: Memory = { plan, at: 0 };
+  const memory: Memory = { plan, at: 0, slide: slides };
   for (const input of release(copy)) press(copy, input);
   for (let offset = 0; offset < HORIZON; offset++) {
     for (const input of follow(copy, memory, depth - 1)) press(copy, input);
@@ -95,6 +105,8 @@ function tryPlan(state: RunState, plan: Plan, depth: number): number {
 interface Memory {
   plan: Plan;
   at: number;
+  /** False: jumps only, as on a touch screen. */
+  slide?: boolean;
 }
 
 function follow(state: RunState, memory: Memory, depth: number): Input[] {
@@ -111,8 +123,8 @@ function follow(state: RunState, memory: Memory, depth: number): Input[] {
   }
   let best: Plan = [];
   let bestScore = -1;
-  for (const plan of PLANS) {
-    const lasted = tryPlan(state, plan, depth);
+  for (const plan of memory.slide === false ? JUMP_PLANS : PLANS) {
+    const lasted = tryPlan(state, plan, depth, memory.slide !== false);
     if (lasted > bestScore) {
       best = plan;
       bestScore = lasted;
@@ -134,8 +146,9 @@ export function autoplay(
   state: RunState,
   frames: number,
   onStep?: (state: RunState) => void,
+  options: { slide?: boolean } = {},
 ): { state: RunState; log: LoggedInput[] } {
-  const memory: Memory = { plan: [], at: 0 };
+  const memory: Memory = { plan: [], at: 0, slide: options.slide ?? true };
   const log: LoggedInput[] = [];
   while (state.alive && state.frame < frames) {
     for (const input of autopilot(state, memory)) {
