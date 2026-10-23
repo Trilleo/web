@@ -76,6 +76,7 @@ const PAGES = [
   // The API's docs, on its host (api.localhost; see e2e/api.spec.ts).
   "api:/",
   "api:/docs/errors/",
+  "api:/docs/webhooks/",
   "api:/reference/system/",
   "api:/reference/cryptic/",
 ];

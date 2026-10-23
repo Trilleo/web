@@ -47,6 +47,7 @@ curl -s ${api}/v1/me -H "Authorization: Bearer $TRILLEO_API_KEY"
 - [Conventions](${api}/docs/conventions/): requests, answers, dates, caching, CORS.
 - [Errors](${api}/docs/errors/): the error shape and every code.
 - [Rate limits](${api}/docs/rate-limits/): how many requests, and the headers that say so.
+- [Webhooks](${api}/docs/webhooks/): events sent to your app as they happen, instead of polling.
 - [Versioning](${api}/docs/versioning/): what may change within v1, and how you'll know.
 - [Changelog](${api}/docs/changelog/): what changed, newest first.
 
@@ -185,7 +186,7 @@ ${rows}
 - Everything else (4xx): no. The same request will fail the same way.`;
 }
 
-export function rateLimitsMarkdown(): string {
+export function rateLimitsMarkdown(context: DocContext): string {
   return `Requests are limited per minute:
 
 | Caller | Limit |
@@ -210,7 +211,7 @@ Over the limit, the answer is \`429 rate_limited\` with \`Retry-After\` (seconds
 ## Being a good client
 
 - Ask for what changed rarely once, and keep it: most things here change at most daily.
-- Don't poll faster than you need; webhooks, when a route has them, are better than polling.
+- Don't poll faster than you need; [webhooks](${context.api}/docs/webhooks/) are better than polling where there's an event for it.
 - Spread scheduled work out a little instead of firing at exactly 00:00:00.`;
 }
 

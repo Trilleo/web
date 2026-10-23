@@ -1,7 +1,7 @@
 /**
  * Admin alerts: things the admin should look at (a contact message, a file waiting
  * for review, a report, an appeal, a newcomer's comment or forum post, the daily
- * cryptic running out). Each is a row in
+ * cryptic running out, a webhook switched off after failing). Each is a row in
  * admin_alerts; delivery bundles whatever has gathered into one email, at most one
  * per ADMIN_ALERT_GAP_MS, so a burst of reports is one message, not twenty.
  *
@@ -42,6 +42,7 @@ export const ALERT_KINDS = {
   forum: "Forum post waiting",
   "forum-report": "Forum report",
   "cryptic-queue": "Daily cryptic running out",
+  "webhook-disabled": "Webhook switched off",
 } as const;
 export type AlertKind = keyof typeof ALERT_KINDS;
 

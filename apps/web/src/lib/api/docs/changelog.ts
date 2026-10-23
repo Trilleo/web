@@ -13,6 +13,12 @@ export const API_CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: "2026-10-23",
     changes: [
+      "Webhooks: signed POSTs to an app's own address, with retries. Events `cryptic.day` (each UTC midnight), `post.published` and `ping` (a test). See the Webhooks guide.",
+    ],
+  },
+  {
+    date: "2026-10-23",
+    changes: [
       "The daily cryptic: `GET /v1/cryptic/today`, `/v1/cryptic/days/{date}`, `/v1/cryptic/archive`, guesses (`POST /v1/cryptic/days/{date}/guesses`), day and all-time leaderboards, and players' stats (`GET` and `DELETE /v1/cryptic/players/{id}`).",
       "Scopes `cryptic:read` and `cryptic:play`; error codes `no_puzzle` and `guess_wrong_length`.",
     ],

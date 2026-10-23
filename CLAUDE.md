@@ -1072,10 +1072,29 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   Usage (usage.ts): api_usage per key, UTC day and route (count, errors, time), and
   api_errors (failed requests, not 429s) for API_LIMITS.errorLogDays; both purged by the
   dispatcher at most hourly. Requests without a key aren't recorded.
+- Webhooks (lib/api/webhooks/, api_webhooks, api_webhook_deliveries): the admin adds
+  up to WEBHOOK_LIMITS.perApp to an app (an https address, or http to localhost; the
+  events its scopes allow) on /admin/api/<id>/ (#webhooks: secret, test ping, new
+  secret, on/off, recent deliveries with "Again"). Events are WEBHOOK_EVENTS
+  (events.ts: summary, when, scope, data schema, example; the Webhooks guide is written
+  from them): `cryptic.day`, `post.published`, `ping`. `emit` queues an event once
+  per webhook and event ID (a unique index), so emitting again is harmless; run.ts
+  queues what's due (today's cryptic.day, posts public within the last day) and sends
+  what's queued, from a timer every minute and just after each UTC midnight
+  (`startWebhooks`, from the middleware module) and at once after a test or
+  redelivery (`kickWebhooks`). deliver.ts POSTs JSON `{ id, type, createdAt, data }`
+  signed `Trilleo-Signature: t=…,v1=HMAC-SHA256("t.body")`; 2xx is sent, no answer,
+  5xx, 408 and 429 retry on WEBHOOK_LIMITS.retryDelaysMs, anything else fails;
+  WEBHOOK_LIMITS.failuresToDisable failed deliveries in a row switch the webhook off
+  with an admin alert ("webhook-disabled"). Deliveries are purged after
+  WEBHOOK_LIMITS.deliveryDays. A new event: add it to WEBHOOK_EVENTS, emit it from
+  run.ts (or where it happens) with a stable ID, and add a changelog entry.
 - The docs (DocsLayout, `.prose .prose-wiki`) are pages from lib/api/docs/pages.ts:
   the overview, the guides (guides.ts: authentication, conventions, errors, rate limits,
-  versioning, changelog) and one reference page per group (reference.ts). Guides quote
-  constants from the code; what they say about behaviour is kept true by hand.
+  versioning, changelog; webhooks.ts: webhooks) and one reference page per group (reference.ts). Guides quote
+  constants from the code; what they say about behaviour is kept true by hand. Keep
+  comments out of their code samples: Shiki's vesper theme greys them below WCAG
+  contrast (axe checks the docs pages in e2e/a11y.spec.ts).
 
 ## Daily cryptic
 

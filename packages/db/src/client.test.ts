@@ -75,6 +75,8 @@ describe("openDatabase", () => {
       "api_errors",
       "api_keys",
       "api_usage",
+      "api_webhook_deliveries",
+      "api_webhooks",
       "avatars",
       "blocked_hashes",
       "comments",

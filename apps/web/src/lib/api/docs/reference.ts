@@ -17,7 +17,10 @@ function cell(text: string): string {
   return text.replace(/\|/g, "\\|").replace(/\n+/g, " ");
 }
 
-function fieldTable(schema: Schema<unknown>, withRequired: boolean): string {
+export function fieldTable(
+  schema: Schema<unknown>,
+  withRequired: boolean,
+): string {
   const rows = fieldRows(schema);
   if (rows.length === 0) return "";
   const head = withRequired

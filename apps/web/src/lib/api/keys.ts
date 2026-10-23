@@ -23,8 +23,11 @@ const KEY_LENGTH = 32;
 /** How much of a key lists show: "trl_" and the next 6 characters. */
 const SHOWN = KEY_PREFIX.length + 6;
 
-/** A new random key (rejection sampling, so every character is equally likely). */
-export function generateKey(): string {
+/**
+ * `prefix` and `KEY_LENGTH` random letters and digits (rejection sampling, so every
+ * character is equally likely). Webhook secrets use it too.
+ */
+export function randomToken(prefix: string): string {
   let out = "";
   while (out.length < KEY_LENGTH) {
     for (const byte of randomBytes(KEY_LENGTH)) {
@@ -33,7 +36,12 @@ export function generateKey(): string {
       if (out.length === KEY_LENGTH) break;
     }
   }
-  return KEY_PREFIX + out;
+  return prefix + out;
+}
+
+/** A new random API key. */
+export function generateKey(): string {
+  return randomToken(KEY_PREFIX);
 }
 
 export function hashKey(key: string): string {

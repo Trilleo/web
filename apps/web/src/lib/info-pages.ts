@@ -317,7 +317,7 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-23",
-        note: "Added the API (api.trilleo.net), its keys and the daily cryptic to what’s in scope.",
+        note: "Added the API (api.trilleo.net), its keys, webhooks and the daily cryptic to what’s in scope.",
       },
       {
         date: "2026-10-21",

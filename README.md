@@ -110,7 +110,9 @@ the docs in one file, for agents working on a client) and `/openapi.json`. The a
 makes apps and their keys at `/admin/api/`, which also shows each app's usage and
 recent failures. The first thing on it is a daily cryptic crossword clue, written at
 `/admin/cryptic/` and played through a Discord bot, which fetches each day's clue and
-sends players' guesses for the site to check and score.
+sends players' guesses for the site to check and score. Apps can also be sent events
+as they happen (webhooks: the day's cryptic at midnight, new posts), signed with a
+secret shown in the same panel.
 
 The study section (`/study/`) is built from the Markdown in `study/`: each subject is a
 folder of numbered units and lessons, with maths, numbered definitions and formulas,

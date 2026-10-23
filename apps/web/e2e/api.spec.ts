@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { FAKE_GITHUB_PORT } from "./fake-github";
 import { adminPage } from "./support";
 
 /**
@@ -141,4 +142,38 @@ test("the docs live on the API's host, and the site's /developers/ goes there", 
 
   await page.goto("/developers/docs/errors/");
   await expect(page).toHaveURL(`${api}/docs/errors/`);
+});
+
+test("the admin adds a webhook, sees its secret, and sends a test", async ({
+  browser,
+  baseURL,
+}) => {
+  const admin = await adminPage(browser, baseURL);
+  await admin.goto("/admin/api/");
+  await admin.getByLabel("Name").fill(`Hooked ${String(Date.now())}`);
+  await admin.getByRole("checkbox", { name: /cryptic:read/ }).check();
+  await admin.getByRole("button", { name: "Make the app" }).click();
+
+  // Somewhere that answers 404 (the fake GitHub), so the test fails for good.
+  const url = `http://127.0.0.1:${String(FAKE_GITHUB_PORT)}/trilleo-webhook`;
+  await admin.getByLabel("Address (https://)").fill(url);
+  await admin.getByRole("checkbox", { name: /cryptic\.day/ }).check();
+  await admin.getByRole("button", { name: "Add the webhook" }).click();
+  await expect(admin.getByText("Webhook added.")).toBeVisible();
+  const webhooks = admin.getByTestId("api-webhooks");
+  await expect(webhooks).toContainText(url);
+  await webhooks.getByText("Signing secret").click();
+  await expect(webhooks.locator("[data-webhook-secret]")).toHaveText(
+    /^whsec_[A-Za-z0-9]{32}$/,
+  );
+
+  await webhooks.getByRole("button", { name: "Send a test" }).click();
+  await expect(admin.getByText("Test sent")).toBeVisible();
+  await expect(async () => {
+    await admin.reload();
+    await expect(admin.getByTestId("api-deliveries")).toContainText(
+      "Answered 404",
+    );
+  }).toPass({ timeout: 15_000 });
+  await expect(admin.getByTestId("api-deliveries")).toContainText("ping:");
 });

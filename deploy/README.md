@@ -422,6 +422,10 @@ beacon shows it), so it lives in the code. Empty: no analytics.
    <https://api.trilleo.net/> shows the docs.
 4. Make apps and keys at <https://www.trilleo.net/admin/api/>. A key is shown once; give
    it to the program as an environment variable (the docs call it `TRILLEO_API_KEY`).
+5. Webhooks are sent from the app container straight to each app's address (no proxy):
+   the server must be able to reach it over HTTPS from mainland China. If a webhook
+   keeps failing (see its deliveries on the app's page), check that first; the app can
+   poll instead.
 
 ## Day to day
 

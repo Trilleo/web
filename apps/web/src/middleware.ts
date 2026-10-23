@@ -1,5 +1,6 @@
 import { defineMiddleware } from "astro:middleware";
 import { apiRedirect, apiRewrite, isApiHost } from "./lib/api/host";
+import { startWebhooks } from "./lib/api/webhooks/run";
 import {
   clearSessionCookie,
   readSessionToken,
@@ -27,6 +28,8 @@ import {
 
 // Queued mail and admin alerts start a delivery pass in this server.
 startMailDelivery();
+// Webhooks: a pass every minute, and one just after each UTC midnight (the cryptic).
+startWebhooks(getDb);
 
 /** Work any request may start (each at most every few minutes, in the background). */
 function backgroundWork(): void {

@@ -15,6 +15,7 @@ import {
   versioningMarkdown,
 } from "./guides";
 import { groupMarkdown } from "./reference";
+import { webhooksMarkdown } from "./webhooks";
 
 export interface DocPage {
   /** Its path on the API's host: "/", "/docs/errors/", "/reference/system/". */
@@ -58,7 +59,15 @@ const GUIDES: readonly DocPage[] = [
     description:
       "How many requests a key or visitor may make, and the headers that say so.",
     section: "guide",
-    markdown: () => rateLimitsMarkdown(),
+    markdown: (context) => rateLimitsMarkdown(context),
+  },
+  {
+    path: "/docs/webhooks/",
+    title: "Webhooks",
+    description:
+      "Events sent to an app's own address as they happen: what arrives, every event, signatures and retries.",
+    section: "guide",
+    markdown: (context) => webhooksMarkdown(context),
   },
   {
     path: "/docs/versioning/",

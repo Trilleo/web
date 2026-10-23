@@ -2517,6 +2517,75 @@ export const apiErrors = pgTable(
 );
 
 /**
+ * Where an API app wants events sent (webhooks): an HTTPS address, the secret that
+ * signs each delivery, and the events it wants. Switched off after too many failed
+ * deliveries in a row (`disabledReason` says why), or by the admin.
+ */
+export const apiWebhooks = pgTable(
+  "api_webhooks",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    appId: integer("app_id")
+      .notNull()
+      .references(() => apiApps.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    /** Kept as is: deliveries are signed with it (HMAC-SHA256). */
+    secret: text("secret").notNull(),
+    events: jsonb("events").$type<string[]>().notNull().default([]),
+    /** Failed deliveries in a row; a success resets it. */
+    failures: integer("failures").notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    disabledAt: timestamp("disabled_at", { withTimezone: true }),
+    disabledReason: text("disabled_reason"),
+  },
+  (table) => [index("api_webhooks_app_idx").on(table.appId)],
+);
+
+/**
+ * One event on its way to one webhook: the outbox. `eventId` is the event's own
+ * stable ID ("cryptic.day:2026-10-23"), unique per webhook, so an event is never
+ * queued twice. Retried on a schedule until it's answered with a 2xx, refused for good,
+ * or out of tries. Purged after a while.
+ */
+export const apiWebhookDeliveries = pgTable(
+  "api_webhook_deliveries",
+  {
+    id: text("id").primaryKey(),
+    webhookId: integer("webhook_id")
+      .notNull()
+      .references(() => apiWebhooks.id, { onDelete: "cascade" }),
+    eventId: text("event_id").notNull(),
+    event: text("event").notNull(),
+    /** The whole body that's sent: { id, type, createdAt, data }. */
+    payload: jsonb("payload").notNull(),
+    /** "queued", "sent" or "failed". */
+    status: text("status").notNull().default("queued"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+    /** The last answer's HTTP status, if it got one. */
+    responseStatus: integer("response_status"),
+    /** What went wrong last (a network error, or the start of the answer). */
+    error: text("error"),
+    createdAt: createdAt(),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("api_webhook_deliveries_event_idx").on(
+      table.webhookId,
+      table.eventId,
+    ),
+    index("api_webhook_deliveries_due_idx").on(
+      table.status,
+      table.nextAttemptAt,
+    ),
+  ],
+);
+
+/**
  * The daily cryptic: one clue per UTC day, written by the admin (/admin/cryptic/) and
  * played through the API (a Discord bot). `day` null: a draft not scheduled yet. A
  * puzzle whose day has come is locked (answer, enumeration, day): guesses depend on it.
@@ -2674,3 +2743,5 @@ export type ApiErrorRow = typeof apiErrors.$inferSelect;
 export type CrypticPuzzle = typeof crypticPuzzles.$inferSelect;
 export type CrypticPlayer = typeof crypticPlayers.$inferSelect;
 export type CrypticAttempt = typeof crypticAttempts.$inferSelect;
+export type ApiWebhook = typeof apiWebhooks.$inferSelect;
+export type ApiWebhookDelivery = typeof apiWebhookDeliveries.$inferSelect;

@@ -38,6 +38,26 @@ import {
 import { API_LIMITS } from "../../../lib/api/limits";
 import { API_SCOPES, effectiveScopes } from "../../../lib/api/scopes";
 import { recentErrors, usageSummary } from "../../../lib/api/usage";
+import {
+  CHOOSABLE_EVENTS,
+  WEBHOOK_EVENTS,
+} from "../../../lib/api/webhooks/events";
+import { kickWebhooks } from "../../../lib/api/webhooks/run";
+import {
+  WEBHOOK_LIMITS,
+  WEBHOOK_PROBLEMS,
+  allowedEvents,
+  createWebhook,
+  deleteWebhook,
+  getWebhook,
+  recentDeliveries,
+  redeliver,
+  rotateSecret,
+  sendTest,
+  setWebhookDisabled,
+  updateWebhook,
+  webhooksOf,
+} from "../../../lib/api/webhooks/store";
 import { requireAdmin } from "../../../lib/auth/guard";
 import { noStoreRedirect } from "../../../lib/auth/redirect";
 import { field, parseId } from "../../../lib/comments/form";
@@ -71,6 +91,8 @@ if (Astro.request.method === "POST") {
   const form = await Astro.request.formData();
   const intent = field(form, "intent");
   const done = (what: string) => noStoreRedirect(`${self}?done=${what}`, 303);
+  const hookDone = (what: string) =>
+    noStoreRedirect(`${self}?done=${what}#webhooks`, 303);
   switch (intent) {
     case "save": {
       const checked = checkAppInput(appInputFromForm(form));
@@ -114,6 +136,80 @@ if (Astro.request.method === "POST") {
       error = "That key was already revoked.";
       break;
     }
+    case "add-webhook": {
+      const made = await createWebhook(db, app, {
+        url: field(form, "url"),
+        events: form
+          .getAll("event")
+          .filter((v): v is string => typeof v === "string"),
+      });
+      if (!made.ok) {
+        error = WEBHOOK_PROBLEMS[made.problem];
+        break;
+      }
+      return hookDone("webhook-added");
+    }
+    case "save-webhook":
+    case "test-webhook":
+    case "rotate-webhook":
+    case "disable-webhook":
+    case "enable-webhook":
+    case "delete-webhook": {
+      const webhookId = parseId(field(form, "webhook"));
+      const webhook =
+        webhookId === null
+          ? undefined
+          : await getWebhook(db, app.id, webhookId);
+      if (!webhook) {
+        error = "There's no such webhook.";
+        break;
+      }
+      if (intent === "save-webhook") {
+        const saved = await updateWebhook(db, app, webhook, {
+          url: field(form, "url"),
+          events: form
+            .getAll("event")
+            .filter((v): v is string => typeof v === "string"),
+        });
+        if (!saved.ok) {
+          error = WEBHOOK_PROBLEMS[saved.problem];
+          break;
+        }
+        return hookDone("webhook-saved");
+      }
+      if (intent === "test-webhook") {
+        await sendTest(db, webhook);
+        kickWebhooks();
+        return hookDone("webhook-tested");
+      }
+      if (intent === "rotate-webhook") {
+        await rotateSecret(db, webhook.id);
+        return hookDone("webhook-rotated");
+      }
+      if (intent === "delete-webhook") {
+        await deleteWebhook(db, webhook.id);
+        return hookDone("webhook-deleted");
+      }
+      await setWebhookDisabled(
+        db,
+        webhook.id,
+        intent === "disable-webhook"
+          ? "Switched off in the control panel."
+          : null,
+      );
+      if (intent === "enable-webhook") kickWebhooks();
+      return hookDone(
+        intent === "disable-webhook" ? "webhook-off" : "webhook-on",
+      );
+    }
+    case "redeliver": {
+      if (await redeliver(db, app.id, field(form, "delivery"))) {
+        kickWebhooks();
+        return hookDone("redelivered");
+      }
+      error = "There's no such delivery.";
+      break;
+    }
     default:
       error = "Unknown action.";
   }
@@ -124,6 +220,9 @@ const now = new Date();
 const keys = await keysOf(db, app.id);
 const usage = await usageSummary(db, { appId: app.id }, 30, now);
 const errors = await recentErrors(db, app.id, 30);
+const webhooks = await webhooksOf(db, app.id);
+const deliveries = await recentDeliveries(db, app.id, 20);
+const offered = allowedEvents(app.scopes, CHOOSABLE_EVENTS);
 const docs = apiOrigin(Astro.url);
 const doneParam = Astro.url.searchParams.get("done");
 const DONE: Record<string, string> = {
@@ -132,6 +231,15 @@ const DONE: Record<string, string> = {
   disabled: "Switched off: its keys stop working until it's back on.",
   enabled: "Switched back on.",
   revoked: "Key revoked. It stops working at once.",
+  "webhook-added":
+    "Webhook added. Give its secret to the app, then send a test.",
+  "webhook-saved": "Webhook saved.",
+  "webhook-tested": "Test sent: its delivery is listed below.",
+  "webhook-rotated": "New secret made. The old one stops working at once.",
+  "webhook-deleted": "Webhook deleted.",
+  "webhook-off": "Webhook switched off. Events wait until it's back on.",
+  "webhook-on": "Webhook switched back on.",
+  redelivered: "Sending it again.",
 };
 // The new key's box says it all; without the cookie (a reload), say what happened.
 if (!secret)
@@ -351,6 +459,250 @@ const STATE_LABEL = { active: "Works", revoked: "Revoked", expired: "Expired" };
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <div class={row}>
+      <h2 class={label} id="webhooks">
+        Webhooks
+      </h2>
+      <div class={body}>
+        <p class="max-w-2xl text-muted">
+          The site sends events to these addresses as signed JSON POSTs (see{" "}
+          <a href={`${docs}/docs/webhooks/`} class="underline">
+            Webhooks
+          </a>{" "}
+          in the docs). Events offered follow the app's scopes.
+        </p>
+        {webhooks.length > 0 && (
+          <ul class="border-b border-ink" data-testid="api-webhooks">
+            {webhooks.map((webhook) => (
+              <li class="flex flex-col gap-3 border-t border-ink py-4">
+                <p class="flex flex-wrap items-baseline gap-x-3">
+                  <code class="font-mono text-sm break-all">{webhook.url}</code>
+                  <span
+                    class:list={[
+                      "type-label px-1.5",
+                      webhook.disabledAt
+                        ? "bg-ink text-paper"
+                        : "bg-accent text-on-accent",
+                    ]}
+                  >
+                    {webhook.disabledAt ? "Off" : "On"}
+                  </span>
+                </p>
+                {webhook.disabledReason && (
+                  <p class="border-l-2 border-accent pl-3 text-sm">
+                    {webhook.disabledReason}
+                  </p>
+                )}
+                <details>
+                  <summary class="type-label cursor-pointer text-muted">
+                    Signing secret
+                  </summary>
+                  <div class="mt-2 flex flex-wrap items-center gap-3">
+                    <code
+                      class="font-mono text-sm break-all select-all"
+                      data-webhook-secret
+                    >
+                      {webhook.secret}
+                    </code>
+                    <CopyButton
+                      client:visible
+                      value={webhook.secret}
+                      label="Copy secret"
+                    />
+                  </div>
+                </details>
+                <form method="post" class="flex flex-col gap-3">
+                  <input
+                    type="hidden"
+                    name="webhook"
+                    value={String(webhook.id)}
+                  />
+                  <label class="flex max-w-2xl flex-col gap-1.5">
+                    <span class="type-label text-muted">Address</span>
+                    <input
+                      name="url"
+                      type="url"
+                      required
+                      maxlength={WEBHOOK_LIMITS.url}
+                      value={webhook.url}
+                      class={input}
+                    />
+                  </label>
+                  <fieldset class="flex flex-col gap-2">
+                    <legend class="type-label mb-1.5 text-muted">Events</legend>
+                    {offered.map((event) => (
+                      <label class="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          name="event"
+                          value={event}
+                          checked={webhook.events.includes(event)}
+                          class="mt-1.5 size-4 accent-(--tr-accent)"
+                        />
+                        <span>
+                          <code class="font-mono text-sm">{event}</code>{" "}
+                          <span class="text-muted">
+                            {WEBHOOK_EVENTS[event].summary}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </fieldset>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      type="submit"
+                      name="intent"
+                      value="save-webhook"
+                      class={primaryButton}
+                    >
+                      Save
+                    </button>
+                    {[
+                      { intent: "test-webhook", label: "Send a test" },
+                      { intent: "rotate-webhook", label: "New secret" },
+                      webhook.disabledAt
+                        ? { intent: "enable-webhook", label: "Switch on" }
+                        : { intent: "disable-webhook", label: "Switch off" },
+                      { intent: "delete-webhook", label: "Delete" },
+                    ].map((action) => (
+                      <button
+                        type="submit"
+                        name="intent"
+                        value={action.intent}
+                        formnovalidate
+                        class={secondaryButton}
+                      >
+                        {action.label}
+                      </button>
+                    ))}
+                  </div>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+        {webhooks.length < WEBHOOK_LIMITS.perApp &&
+          (offered.length === 0 ? (
+            <p class="text-muted">No events fit this app's scopes yet.</p>
+          ) : (
+            <form
+              method="post"
+              class="flex max-w-2xl flex-col gap-4 border border-ink p-4"
+              aria-labelledby="new-webhook-title"
+            >
+              <h3 id="new-webhook-title" class="type-label">
+                New webhook
+              </h3>
+              <input type="hidden" name="intent" value="add-webhook" />
+              <label class="flex flex-col gap-1.5">
+                <span class="type-label text-muted">Address (https://)</span>
+                <input
+                  name="url"
+                  type="url"
+                  required
+                  maxlength={WEBHOOK_LIMITS.url}
+                  placeholder="https://bot.example.com/trilleo"
+                  class={input}
+                />
+              </label>
+              <fieldset class="flex flex-col gap-2">
+                <legend class="type-label mb-1.5 text-muted">Events</legend>
+                {offered.map((event) => (
+                  <label class="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      name="event"
+                      value={event}
+                      class="mt-1.5 size-4 accent-(--tr-accent)"
+                    />
+                    <span>
+                      <code class="font-mono text-sm">{event}</code>{" "}
+                      <span class="text-muted">
+                        {WEBHOOK_EVENTS[event].summary}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+              <div>
+                <button type="submit" class={primaryButton}>
+                  Add the webhook
+                </button>
+              </div>
+            </form>
+          ))}
+        {deliveries.length > 0 && (
+          <table class="w-full text-sm" data-testid="api-deliveries">
+            <caption class="type-label mb-2 text-left text-muted">
+              Recent deliveries (kept {WEBHOOK_LIMITS.deliveryDays} days)
+            </caption>
+            <thead>
+              <tr class="type-label text-muted">
+                <th scope="col" class="text-left font-normal">
+                  Event
+                </th>
+                <th scope="col" class="text-left font-normal">
+                  Result
+                </th>
+                <th scope="col" class="text-left font-normal">
+                  When
+                </th>
+                <th scope="col" class="text-right font-normal">
+                  <span class="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {deliveries.map((delivery) => (
+                <tr class="border-t border-hair align-baseline">
+                  <td class="py-2 pr-3">
+                    <code class="font-mono">{delivery.eventId}</code>
+                    <span class="block text-muted break-all">
+                      {delivery.url}
+                    </span>
+                  </td>
+                  <td class="py-2 pr-3">
+                    {delivery.status === "sent"
+                      ? `Sent (${String(delivery.responseStatus ?? "")})`
+                      : delivery.status === "failed"
+                        ? "Failed"
+                        : delivery.attempts > 0
+                          ? `Retrying (try ${String(delivery.attempts + 1)})`
+                          : "Waiting"}
+                    {delivery.error && (
+                      <span class="block text-muted">{delivery.error}</span>
+                    )}
+                  </td>
+                  <td class="py-2 pr-3 whitespace-nowrap">
+                    {stamp(delivery.lastAttemptAt ?? delivery.createdAt)}
+                  </td>
+                  <td class="py-2 text-right">
+                    {delivery.status !== "queued" && (
+                      <form method="post">
+                        <input type="hidden" name="intent" value="redeliver" />
+                        <input
+                          type="hidden"
+                          name="delivery"
+                          value={delivery.id}
+                        />
+                        <button
+                          type="submit"
+                          class={secondaryButton}
+                          aria-label={`Send ${delivery.eventId} again`}
+                        >
+                          Again
+                        </button>
+                      </form>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
 

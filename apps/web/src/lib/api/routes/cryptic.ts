@@ -26,7 +26,7 @@ import { ApiError } from "../errors";
 import { defineRoute } from "../registry";
 import { t } from "../schema";
 
-const EXAMPLE_PUZZLE: PublicPuzzle = {
+export const EXAMPLE_PUZZLE: PublicPuzzle = {
   number: 42,
   date: "2026-10-23",
   clue: "Silent arrangement to hear",
@@ -40,7 +40,7 @@ const EXAMPLE_PUZZLE: PublicPuzzle = {
   explanation: null,
 };
 
-const EXAMPLE_REVEALED: PublicPuzzle = {
+export const EXAMPLE_REVEALED: PublicPuzzle = {
   ...EXAMPLE_PUZZLE,
   number: 41,
   date: "2026-10-22",
@@ -52,7 +52,7 @@ const EXAMPLE_REVEALED: PublicPuzzle = {
     "An anagram (“arrangement”) of SILENT; the definition is “hear”.",
 };
 
-const puzzleSchema = t.object({
+export const puzzleSchema = t.object({
   number: t.integer({
     description:
       "The puzzle's number (#1 was the first day), to show as “Cryptic #42”.",
