@@ -13,6 +13,13 @@ export const API_CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: "2026-10-23",
     changes: [
+      "Public read routes, no key needed: `GET /v1/site`, `/v1/tools`, `/v1/games`, `/v1/posts`, `/v1/posts/{slug}`, `/v1/tags`, `/v1/study/subjects`, `/v1/study/subjects/{slug}`.",
+      'The Minecraft platform\'s API moves to `GET /v1/minecraft/projects`, `/v1/minecraft/projects/{slug}` and `/v1/minecraft/projects/{slug}/latest`. Lists page with `items` and `nextCursor` (was `projects`, `page` and `perPage`); everything else is as before. The old `https://www.trilleo.net/api/minecraft/v1/` addresses still answer, with `Deprecation` and `Link: rel="successor-version"` headers.',
+    ],
+  },
+  {
+    date: "2026-10-23",
+    changes: [
       "Webhooks: signed POSTs to an app's own address, with retries. Events `cryptic.day` (each UTC midnight), `post.published` and `ping` (a test). See the Webhooks guide.",
     ],
   },

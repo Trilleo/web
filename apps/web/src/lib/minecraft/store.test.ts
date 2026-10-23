@@ -23,6 +23,9 @@ import {
 } from "../storage/service";
 import { setTrust } from "../storage/standing";
 import { getFile } from "../storage/store";
+import { dispatch } from "../api/dispatch";
+import { RateLimiter } from "../api/rate-limit";
+import { ROUTES } from "../api/routes";
 import { answerApi } from "./api";
 import type { ProjectInput, ReleaseInput } from "./input";
 import { previewBytes, previewFor, storePreview } from "./previews";
@@ -889,6 +892,57 @@ describe("the JSON API", () => {
     ).toMatchObject({ status: 404 });
     expect(await answerApi(handle.db, "users", url("users"))).toMatchObject({
       status: 404,
+    });
+  });
+
+  it("answers the same through the API's /v1/minecraft/ routes", async () => {
+    const mod = await newProject(admin);
+    await releaseFile(admin, mod, await newRelease(admin, mod));
+    const api = async (path: string) => {
+      const at = new URL(path, "https://api.trilleo.net");
+      const response = await dispatch(new Request(at), at, {
+        getDb: () => Promise.resolve(handle.db),
+        limiter: new RateLimiter(),
+        routes: ROUTES,
+        clientIp: null,
+        apiOrigin: "https://api.trilleo.net",
+        siteOrigin: "https://www.trilleo.net",
+        purge: false,
+      });
+      return {
+        status: response.status,
+        body: (await response.json()) as unknown,
+      };
+    };
+    const old = (path: string) =>
+      answerApi(handle.db, path, new URL(`https://x/api/minecraft/v1/${path}`));
+
+    const list = await api("/v1/minecraft/projects?type=mods");
+    expect(list).toMatchObject({
+      status: 200,
+      body: {
+        total: 1,
+        nextCursor: null,
+        items: [{ slug: "better-redstone" }],
+      },
+    });
+    const oldList = await old("projects");
+    expect((list.body as { items: unknown[] }).items).toEqual(
+      (oldList.body as { projects: unknown[] }).projects,
+    );
+    const one = await api("/v1/minecraft/projects/better-redstone");
+    expect(one.body).toEqual((await old("projects/better-redstone")).body);
+    const latest = await api("/v1/minecraft/projects/better-redstone/latest");
+    expect(latest.body).toEqual(
+      (await old("projects/better-redstone/latest")).body,
+    );
+    expect((await api("/v1/minecraft/projects?type=nope")).status).toBe(400);
+    expect(
+      (await api("/v1/minecraft/projects/better-redstone/latest?loader=forge"))
+        .status,
+    ).toBe(404);
+    expect((await api("/v1/minecraft/projects/nothing")).body).toMatchObject({
+      error: { code: "not_found" },
     });
   });
 });

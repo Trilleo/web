@@ -14,12 +14,31 @@ import {
   listCrypticArchive,
   postCrypticGuess,
 } from "./cryptic";
+import {
+  getMinecraftLatest,
+  getMinecraftProject,
+  listMinecraftProjects,
+} from "./minecraft";
+import { getPost, listPosts, listTags } from "./posts";
+import { getSite, listGames, listTools } from "./site";
+import { getStudySubject, listStudySubjects } from "./study";
 import { getMe, getMyUsage, getStatus } from "./system";
 
 export const ROUTES: readonly Route[] = [
   getStatus,
   getMe,
   getMyUsage,
+  getSite,
+  listTools,
+  listGames,
+  listPosts,
+  getPost,
+  listTags,
+  listMinecraftProjects,
+  getMinecraftProject,
+  getMinecraftLatest,
+  listStudySubjects,
+  getStudySubject,
   getCrypticToday,
   getCrypticDay,
   listCrypticArchive,

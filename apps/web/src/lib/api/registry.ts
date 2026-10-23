@@ -21,6 +21,24 @@ export const API_GROUPS = {
     intro:
       "The API's own state, and who a key belongs to. Useful as a first call to check that a key works.",
   },
+  site: {
+    title: "Site",
+    intro:
+      "What the site is and what's on it: its sections and feeds, its tools and games. Public: no key needed.",
+  },
+  posts: {
+    title: "Posts",
+    intro: "The blog's public posts and tags. Public: no key needed.",
+  },
+  minecraft: {
+    title: "Minecraft",
+    intro:
+      "The Minecraft platform's public projects and releases, as on /minecraft/. Public: no key needed. (These replace the old /api/minecraft/v1/ addresses on www, which still answer but are deprecated.)",
+  },
+  study: {
+    title: "Study",
+    intro: "The study section's subjects and lessons. Public: no key needed.",
+  },
   cryptic: {
     title: "Daily cryptic",
     intro:

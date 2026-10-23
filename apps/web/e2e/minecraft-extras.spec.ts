@@ -89,14 +89,21 @@ test("a build gets a 3D view, materials, a cover, an API entry and an embed", as
   await expect(visitor.getByLabel(/Layers 1–2/)).toBeVisible();
   await noViolations(visitor);
 
-  // The JSON API, open to other sites.
-  const api = await visitor.request.get(`/api/minecraft/v1/projects/${slug}`);
+  // The JSON API, open to other sites (the site's /api/v1/ is the API's /v1/).
+  const api = await visitor.request.get(`/api/v1/minecraft/projects/${slug}`);
   expect(api.headers()["access-control-allow-origin"]).toBe("*");
   expect(await api.json()).toMatchObject({
     name: "Tiny Hut",
     type: "builds",
     releases: [{ version: "1.0", files: [{ name: "tiny-hut.schem" }] }],
   });
+  // The old address still answers, marked deprecated.
+  const old = await visitor.request.get(`/api/minecraft/v1/projects/${slug}`);
+  expect(await old.json()).toMatchObject({ name: "Tiny Hut" });
+  expect(old.headers().deprecation).toMatch(/^@\d+$/);
+  expect(old.headers().link).toContain(
+    `/v1/minecraft/projects/${slug}>; rel="successor-version"`,
+  );
 
   // The embed card may be framed anywhere.
   const embed = await visitor.request.get(`/minecraft/builds/${slug}/embed/`);

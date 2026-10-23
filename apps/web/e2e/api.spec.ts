@@ -97,6 +97,16 @@ test("the API answers without a key where it may, and says what's wrong where it
   expect(await me.json()).toMatchObject({
     error: { code: "missing_key" },
   });
+  // Public reads: the blog's posts.
+  const listed = await request.get("/api/v1/posts?limit=1");
+  expect(listed.status()).toBe(200);
+  const page = (await listed.json()) as { items: { slug: string }[] };
+  expect(page.items).toHaveLength(1);
+  const one = await request.get(`/api/v1/posts/${page.items[0]?.slug ?? ""}`);
+  expect(await one.json()).toMatchObject({
+    html: expect.any(String),
+  });
+
   // Programs post JSON without an Origin header; the same-origin check lets them through.
   const post = await request.post("/api/v1/status", { data: {} });
   expect(post.status()).toBe(405);

@@ -79,6 +79,7 @@ const PAGES = [
   "api:/docs/webhooks/",
   "api:/reference/system/",
   "api:/reference/cryptic/",
+  "api:/reference/minecraft/",
 ];
 
 /** A path, or "wiki:<path>" / "api:<path>" for the same path on the wiki's or API's host. */

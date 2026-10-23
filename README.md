@@ -80,7 +80,7 @@ read codes there too). People add an address at `/account/email/` to get notific
 production sends through Tencent Cloud SES over SMTP.
 
 The Minecraft platform lives under `/minecraft/` (public pages, a read-only JSON API at
-`/api/minecraft/v1/`) and `/account/minecraft/` (creators); the admin moderates it at
+the API's `/v1/minecraft/`) and `/account/minecraft/` (creators); the admin moderates it at
 `/admin/minecraft/` and `/admin/files/review`. Its list of Minecraft versions comes
 from Mojang's version manifest; set `MINECRAFT_VERSION_MANIFEST=off` in
 `apps/web/.env` to work offline with the list kept in the code.
@@ -106,7 +106,8 @@ and watch pages (a watchlist, plus a daily digest email).
 The API for other programs (bots, scripts) is the same app again, at
 <http://api.localhost:4321/>: `/v1/…` is the API and everything else its docs, written
 from the routes' own declarations (`apps/web/src/lib/api/`), along with `/docs.md` (all
-the docs in one file, for agents working on a client) and `/openapi.json`. The admin
+the docs in one file, for agents working on a client) and `/openapi.json`. Public routes
+(no key) read posts, tags, tools, games, Minecraft projects and study subjects. The admin
 makes apps and their keys at `/admin/api/`, which also shows each app's usage and
 recent failures. The first thing on it is a daily cryptic crossword clue, written at
 `/admin/cryptic/` and played through a Discord bot, which fetches each day's clue and

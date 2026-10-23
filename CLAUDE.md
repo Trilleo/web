@@ -641,8 +641,10 @@
   BuildViewer loads the decoder and voxel-renderer.ts (hand-written WebGL2, no
   three.js) only on "View in 3D"; BuildMaterials is the server-rendered text version.
   Colours are our own (blocks.ts), never Mojang's textures.
-- Public JSON API: /api/minecraft/v1/projects[/<slug>[/latest]] (src/lib/minecraft/
-  api.ts), read-only, CORS *. Embeds: …/<slug>/embed/ sends `frame-ancestors *`,
+- Public JSON API: the site's API, /v1/minecraft/projects[/{slug}[/latest]]
+  (lib/api/routes/minecraft.ts, answers built by src/lib/minecraft/api.ts). The old
+  /api/minecraft/v1/… addresses still answer the old shapes, with `Deprecation` and
+  `Link: rel="successor-version"` headers; remove them in a later release. Embeds: …/<slug>/embed/ sends `frame-ancestors *`,
   which browsers obey over Caddy's X-Frame-Options. Creators see 30-day download
   charts on their dashboard and each project's releases page.
 - Mojang's usage guidelines: pages about the platform carry MOJANG_NOTICE ("Not an
@@ -1039,6 +1041,10 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   (and is exempt from the same-origin check: the API goes by keys, never cookies).
   Locally it's api.localhost:<port>. The API host has no sessions; the middleware only
   rewrites (and starts the usual background work).
+- Groups: System, Site (site, tools, games), Posts (posts, tags), Minecraft, Study
+  (all public, cached a few minutes), and Daily cryptic (key and scopes). Public
+  routes answer from the same lib/ code the pages use, so they show only what the
+  pages show; lists page with `items` + `nextCursor` (opaque base64url cursors).
 - Routes are declared once with `defineRoute` (lib/api/registry.ts): method, path
   (`{name}` parameters), operationId, group (API_GROUPS), summary, description, auth
   ("public" | "key"), scope, params/query/body/response schemas, an example, the handler.

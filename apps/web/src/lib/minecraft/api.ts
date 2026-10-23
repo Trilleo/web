@@ -1,6 +1,8 @@
 /**
  * The platform's public JSON API (read-only, open to any site), for launchers, bots
- * and other tools. Served by src/pages/api/minecraft/v1/[...path].ts:
+ * and other tools. The same data is in the site's API (lib/api/routes/minecraft.ts,
+ * /v1/minecraft/…); the old addresses, served by src/pages/api/minecraft/v1/[...path].ts,
+ * still work but answer with a Deprecation header:
  *
  *   GET /api/minecraft/v1/projects                   listed projects (the listing's
  *       ?q= &type= &version= &loader= &edition= &tag= &sort= &page=)
@@ -24,7 +26,12 @@ import {
 } from "./catalog";
 import { compareVersions } from "./game-versions";
 import { creatorPath, projectPath, releasePath } from "./paths";
-import { creditOf, readListingQuery, toListFilter } from "./public";
+import {
+  creditOf,
+  readListingQuery,
+  toListFilter,
+  type ListingQuery,
+} from "./public";
 import {
   ANONYMOUS,
   findProject,
@@ -112,61 +119,36 @@ export interface ApiAnswer {
 
 const missing: ApiAnswer = { status: 404, body: { error: "Not found." } };
 
-/** Answers an API path ("projects", "projects/<slug>", …) for anyone. */
-export async function answerApi(
+/** The type a ?type= names (its address segment, or its own name); null if unknown. */
+export function projectTypeOf(param: string): McProjectType | null {
+  return (
+    typeFromSegment(param)?.type ??
+    PROJECT_TYPES.find((info) => info.type === param)?.type ??
+    null
+  );
+}
+
+/** A page of listed projects, as the listing would show it. */
+export async function projectsJson(
   db: Database,
-  path: string,
-  url: URL,
-): Promise<ApiAnswer> {
-  const [resource, slug, sub, ...rest] = path.split("/").filter(Boolean);
-  if (resource !== "projects" || rest.length > 0) return missing;
+  query: ListingQuery,
+  type: McProjectType | undefined,
+) {
+  const filter = toListFilter(query, type);
+  const { cards, total } = await listProjects(db, filter);
+  return {
+    total,
+    page: query.page,
+    perPage: filter.perPage,
+    projects: cards.map(cardJson),
+  };
+}
 
-  if (!slug) {
-    const query = readListingQuery(url);
-    const typeParam = url.searchParams.get("type") ?? "";
-    const type =
-      typeFromSegment(typeParam)?.type ??
-      PROJECT_TYPES.find((info) => info.type === typeParam)?.type;
-    if (typeParam && !type)
-      return { status: 400, body: { error: "Unknown type." } };
-    const filter = toListFilter(query, type);
-    const { cards, total } = await listProjects(db, filter);
-    return {
-      status: 200,
-      body: {
-        total,
-        page: query.page,
-        perPage: filter.perPage,
-        projects: cards.map(cardJson),
-      },
-    };
-  }
-
+/** One visible project with its releases and gallery; null if others can't see it. */
+export async function projectJson(db: Database, slug: string) {
   const found = await findProject(db, slug);
-  if (!found || !isVisible(found.project, found.owner)) return missing;
+  if (!found || !isVisible(found.project, found.owner)) return null;
   const { project, owner } = found;
-
-  if (sub === "latest") {
-    const channel = url.searchParams.get("channel");
-    const pick = await pickDownload(db, project.id, {
-      ...(url.searchParams.get("version")
-        ? { version: url.searchParams.get("version") ?? "" }
-        : {}),
-      ...(url.searchParams.get("loader")
-        ? { loader: url.searchParams.get("loader") ?? "" }
-        : {}),
-      ...(CHANNELS.some((entry) => entry.value === channel)
-        ? { channel: channel as (typeof CHANNELS)[number]["value"] }
-        : {}),
-    });
-    if (!pick) return missing;
-    const [entry] = await releasesOf(db, project, ANONYMOUS, {
-      releaseId: pick.release.id,
-    });
-    return entry ? { status: 200, body: releaseJson(project, entry) } : missing;
-  }
-  if (sub !== undefined) return missing;
-
   const storage = getStorage();
   const [releases, gallery, downloads] = await Promise.all([
     releasesOf(db, project, ANONYMOUS),
@@ -176,38 +158,102 @@ export async function answerApi(
   const credit = creditOf(owner);
   const license = licenseInfo(project.license);
   return {
-    status: 200,
-    body: {
-      slug: project.slug,
-      type: typeInfo(project.type).segment,
-      name: project.name,
-      summary: project.summary,
-      description: project.description,
-      url: absolute(projectPath(project)),
-      edition: project.edition,
-      editionName: editionLabel(project.edition),
-      author: {
-        login: credit.login,
-        name: credit.name,
-        url: absolute(creatorPath(credit.login)),
-      },
-      license: {
-        id: project.license,
-        name: license?.label ?? project.license,
-        url: license?.url ?? null,
-        text: project.licenseText,
-      },
-      tags: project.tags,
-      links: project.links,
-      archived: project.state === "archived",
-      downloads,
-      published: project.firstReleasedAt?.toISOString() ?? null,
-      updated: project.lastReleasedAt?.toISOString() ?? null,
-      gallery: gallery.map(({ image, file }) => ({
-        caption: image.caption,
-        url: storage ? fileUrl(storage.publicUrl(file.key)) : null,
-      })),
-      releases: releases.map((entry) => releaseJson(project, entry)),
+    slug: project.slug,
+    type: typeInfo(project.type).segment,
+    name: project.name,
+    summary: project.summary,
+    description: project.description,
+    url: absolute(projectPath(project)),
+    edition: project.edition,
+    editionName: editionLabel(project.edition),
+    author: {
+      login: credit.login,
+      name: credit.name,
+      url: absolute(creatorPath(credit.login)),
     },
+    license: {
+      id: project.license,
+      name: license?.label ?? project.license,
+      url: license?.url ?? null,
+      text: project.licenseText,
+    },
+    tags: project.tags,
+    links: project.links,
+    archived: project.state === "archived",
+    downloads,
+    published: project.firstReleasedAt?.toISOString() ?? null,
+    updated: project.lastReleasedAt?.toISOString() ?? null,
+    gallery: gallery.map(({ image, file }) => ({
+      caption: image.caption,
+      url: storage ? fileUrl(storage.publicUrl(file.key)) : null,
+    })),
+    releases: releases.map((entry) => releaseJson(project, entry)),
   };
+}
+
+export interface LatestOptions {
+  version?: string;
+  loader?: string;
+  channel?: string;
+}
+
+/** The release Download would give (newest stable that fits); null if none. */
+export async function latestJson(
+  db: Database,
+  slug: string,
+  options: LatestOptions,
+) {
+  const found = await findProject(db, slug);
+  if (!found || !isVisible(found.project, found.owner)) return null;
+  const { project } = found;
+  const channel = options.channel;
+  const pick = await pickDownload(db, project.id, {
+    ...(options.version ? { version: options.version } : {}),
+    ...(options.loader ? { loader: options.loader } : {}),
+    ...(CHANNELS.some((entry) => entry.value === channel)
+      ? { channel: channel as (typeof CHANNELS)[number]["value"] }
+      : {}),
+  });
+  if (!pick) return null;
+  const [entry] = await releasesOf(db, project, ANONYMOUS, {
+    releaseId: pick.release.id,
+  });
+  return entry ? releaseJson(project, entry) : null;
+}
+
+/**
+ * Answers an old API path ("projects", "projects/<slug>", …) for anyone. Kept for
+ * clients of /api/minecraft/v1/; the same data is at /v1/minecraft/ in the API.
+ */
+export async function answerApi(
+  db: Database,
+  path: string,
+  url: URL,
+): Promise<ApiAnswer> {
+  const [resource, slug, sub, ...rest] = path.split("/").filter(Boolean);
+  if (resource !== "projects" || rest.length > 0) return missing;
+
+  if (!slug) {
+    const typeParam = url.searchParams.get("type") ?? "";
+    const type = projectTypeOf(typeParam);
+    if (typeParam && !type)
+      return { status: 400, body: { error: "Unknown type." } };
+    return {
+      status: 200,
+      body: await projectsJson(db, readListingQuery(url), type ?? undefined),
+    };
+  }
+
+  if (sub === "latest") {
+    const get = (name: string) => url.searchParams.get(name) ?? undefined;
+    const body = await latestJson(db, slug, {
+      version: get("version"),
+      loader: get("loader"),
+      channel: get("channel"),
+    });
+    return body ? { status: 200, body } : missing;
+  }
+  if (sub !== undefined) return missing;
+  const body = await projectJson(db, slug);
+  return body ? { status: 200, body } : missing;
 }
