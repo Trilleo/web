@@ -59,8 +59,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
-      # Every workspace package but apps/web, whose tests are sharded below.
-      - run: pnpm exec turbo run test --filter='!@trilleo/web'
+      # Every workspace package but apps/web, whose tests are sharded below. Three at a
+      # time: each Vitest run starts its own workers, and turbo's default (10) starves
+      # the runner's 4 vCPUs until jsdom tests hit their 5 s timeout (it's no faster).
+      - run: pnpm exec turbo run test --filter='!@trilleo/web' --concurrency=3
 
   unit-web:
     name: Unit tests (web ${{ matrix.shard }}/4)
