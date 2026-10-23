@@ -82,6 +82,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "legal",
     changes: [
       {
+        date: "2026-10-23",
+        note: "The API: what it keeps in memory to limit requests without a key.",
+      },
+      {
         date: "2026-10-22",
         note: "Hotfix: checked runs, their key presses, achievements, and run tickets.",
       },
@@ -145,6 +149,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "The cookies and browser storage the site uses, what each is for, and how to choose what’s kept.",
     group: "legal",
     changes: [
+      {
+        date: "2026-10-23",
+        note: "Listed the admin's cookie for showing a new API key once, and the API's docs.",
+      },
       {
         date: "2026-10-22",
         note: "Listed the Hotfix records kept in your browser (a preference).",
@@ -304,6 +312,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "help",
     changes: [
       {
+        date: "2026-10-23",
+        note: "Added the API (api.trilleo.net) and its keys to what’s in scope.",
+      },
+      {
         date: "2026-10-21",
         note: "Added the forum and profile pictures to what’s in scope.",
       },
@@ -326,6 +338,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "How Trilleo Network is built and hosted, its typefaces, and the open-source work it stands on.",
     group: "site",
     changes: [
+      {
+        date: "2026-10-23",
+        note: "The API and its docs (api.trilleo.net).",
+      },
       {
         date: "2026-10-16",
         note: "Credited KaTeX (the study lessons' maths) and ts-fsrs (their flashcard reviews).",

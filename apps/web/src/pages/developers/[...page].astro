@@ -1,0 +1,42 @@
+---
+/**
+ * api.trilleo.net's docs pages (the middleware rewrites the API host's paths here;
+ * /developers/ on the main site redirects there). Every page is Markdown from
+ * lib/api/docs/pages.ts, so the HTML says what /docs.md says.
+ */
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import { docPages, findDocPage } from "../../lib/api/docs/pages";
+import { docContext, renderDocPage } from "../../lib/api/docs/render";
+import { publicDocsPath } from "../../lib/api/host";
+import { ROUTES } from "../../lib/api/routes";
+
+export const prerender = false;
+
+const page = findDocPage(ROUTES, publicDocsPath(Astro.url));
+if (!page) return Astro.rewrite("/404");
+// Addresses end in a slash, as the docs link them.
+if (!Astro.url.pathname.endsWith("/"))
+  return Astro.redirect(`${page.path}${Astro.url.search}`, 301);
+
+Astro.response.headers.set("Cache-Control", "public, max-age=300");
+const { html, toc } = await renderDocPage(page, docContext(Astro.url), ROUTES);
+const label =
+  page.section === "start"
+    ? "Docs"
+    : page.section === "guide"
+      ? "Guide"
+      : "Reference";
+---
+
+<DocsLayout page={page} pages={docPages(ROUTES)} toc={toc}>
+  <div class="flex flex-col gap-8">
+    <div class="flex flex-col gap-4">
+      <span class="type-label text-muted">{label}</span>
+      <h1 class="text-[2.75rem] leading-none font-bold tracking-[-0.04em] md:text-[4rem]">
+        {page.section === "start" ? "API" : page.title}
+      </h1>
+      <p class="type-dek text-muted">{page.description}</p>
+    </div>
+    <div class="prose prose-wiki" set:html={html} />
+  </div>
+</DocsLayout>

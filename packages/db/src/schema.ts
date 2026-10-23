@@ -2424,6 +2424,98 @@ export const forumBlocks = pgTable(
   (table) => [primaryKey({ columns: [table.userId, table.blockedId] })],
 );
 
+/**
+ * An application that talks to the site through the API (api.trilleo.net), such as
+ * a Discord bot. Only the admin makes them (/admin/api/). `scopes` is what its keys
+ * may be given; `rateLimit` is requests per minute per key. Disabled apps' keys stop
+ * working.
+ */
+export const apiApps = pgTable("api_apps", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  scopes: jsonb("scopes").$type<string[]>().notNull().default([]),
+  rateLimit: integer("rate_limit").notNull(),
+  /** Who made it (the admin). Kept when the account goes. */
+  createdBy: uuid("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  disabledAt: timestamp("disabled_at", { withTimezone: true }),
+});
+
+/**
+ * An app's secret key. Only the SHA-256 of the whole key is kept; `prefix` (its
+ * first characters, not secret) and `last4` tell keys apart in lists. `scopes` null:
+ * all of the app's; otherwise only these (and only while the app still has them).
+ */
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    appId: integer("app_id")
+      .notNull()
+      .references(() => apiApps.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    prefix: text("prefix").notNull(),
+    last4: text("last4").notNull(),
+    hash: text("hash").notNull(),
+    scopes: jsonb("scopes").$type<string[]>(),
+    createdAt: createdAt(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    /** Written at most once a minute. */
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("api_keys_hash_idx").on(table.hash),
+    index("api_keys_app_idx").on(table.appId),
+  ],
+);
+
+/** Requests per key, per UTC day, per route ("GET /v1/me"): totals for the panel. */
+export const apiUsage = pgTable(
+  "api_usage",
+  {
+    keyId: integer("key_id")
+      .notNull()
+      .references(() => apiKeys.id, { onDelete: "cascade" }),
+    day: date("day", { mode: "string" }).notNull(),
+    route: text("route").notNull(),
+    count: integer("count").notNull().default(0),
+    /** Answers with a 4xx or 5xx status. */
+    errors: integer("errors").notNull().default(0),
+    /** Time spent answering, summed (for the average). */
+    durationMs: bigint("duration_ms", { mode: "number" }).notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.keyId, table.day, table.route] }),
+    index("api_usage_day_idx").on(table.day),
+  ],
+);
+
+/** Recent failed requests made with a key, for the panel; purged after a while. */
+export const apiErrors = pgTable(
+  "api_errors",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    keyId: integer("key_id")
+      .notNull()
+      .references(() => apiKeys.id, { onDelete: "cascade" }),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+    method: text("method").notNull(),
+    path: text("path").notNull(),
+    status: integer("status").notNull(),
+    code: text("code").notNull(),
+    message: text("message").notNull(),
+    requestId: text("request_id").notNull(),
+  },
+  (table) => [index("api_errors_key_idx").on(table.keyId, table.at)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type UserIdentity = typeof userIdentities.$inferSelect;
@@ -2503,3 +2595,6 @@ export type ForumConversation = typeof forumConversations.$inferSelect;
 export type ForumConversationMember =
   typeof forumConversationMembers.$inferSelect;
 export type ForumMessage = typeof forumMessages.$inferSelect;
+export type ApiApp = typeof apiApps.$inferSelect;
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type ApiErrorRow = typeof apiErrors.$inferSelect;

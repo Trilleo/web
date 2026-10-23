@@ -1,0 +1,275 @@
+---
+/**
+ * The API's control panel: every app (keys that work, last use, requests in the last
+ * 30 days), requests across all apps, recent failures, and a form for a new app
+ * (POST here; on success, off to the app's page to make its first key).
+ */
+import AdminNav from "../../../components/admin/AdminNav.astro";
+import {
+  primaryButton,
+  secondaryButton,
+} from "../../../components/admin/files/styles";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import DownloadChart from "../../../components/files/DownloadChart.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { APP_PROBLEMS, appInputFromForm } from "../../../lib/api/admin";
+import { apiOrigin } from "../../../lib/api/host";
+import { checkAppInput, createApp, listApps } from "../../../lib/api/keys";
+import { API_LIMITS } from "../../../lib/api/limits";
+import { API_SCOPES } from "../../../lib/api/scopes";
+import { recentErrors, usageSummary } from "../../../lib/api/usage";
+import { requireAdmin } from "../../../lib/auth/guard";
+import { noStoreRedirect } from "../../../lib/auth/redirect";
+import { getDb } from "../../../lib/db";
+import { formatPostDate } from "../../../lib/listings";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+let error: string | null = null;
+let typed = {
+  name: "",
+  description: "",
+  scopes: [] as readonly string[],
+  rateLimit: String(API_LIMITS.defaultPerMinute),
+};
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const input = appInputFromForm(form);
+  const checked = checkAppInput(input);
+  if (checked.ok) {
+    const app = await createApp(db, checked.value, admin.id);
+    return noStoreRedirect(`/admin/api/${String(app.id)}/?done=created`, 303);
+  }
+  error = APP_PROBLEMS[checked.problem];
+  typed = {
+    name: input.name,
+    description: input.description,
+    scopes: input.scopes,
+    rateLimit: String(form.get("rateLimit") ?? ""),
+  };
+}
+
+const now = new Date();
+const apps = await listApps(db, now);
+const usage = await usageSummary(db, null, 30, now);
+const perApp = new Map(
+  await Promise.all(
+    apps.map(
+      async ({ app }) =>
+        [
+          app.id,
+          (await usageSummary(db, { appId: app.id }, 30, now)).requests,
+        ] as const,
+    ),
+  ),
+);
+const errors = await recentErrors(db, null, 10);
+const docs = apiOrigin(Astro.url);
+const row =
+  "grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6";
+const label = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body =
+  "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
+const input =
+  "type-row h-11 w-full border-b border-ink bg-transparent focus:outline-none focus-visible:border-accent";
+---
+
+<BaseLayout title="API · Admin" noindex>
+  <section
+    aria-labelledby="admin-api-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="api" />
+
+    <DisplayTitle id="admin-api-title">API</DisplayTitle>
+
+    <div class={row}>
+      <p class={label}>Overview</p>
+      <div class={body}>
+        <p class="type-label flex flex-wrap gap-x-6 gap-y-1">
+          <span>
+            {apps.length} {apps.length === 1 ? "app" : "apps"}
+          </span>
+          <span>{usage.requests.toLocaleString("en")} requests in 30 days</span>
+          <span>{usage.errors.toLocaleString("en")} failed</span>
+          <a href={`${docs}/`} class="underline">
+            Docs
+          </a>
+        </p>
+        <DownloadChart
+          days={usage.days.map((day) => ({
+            day: day.day,
+            count: day.requests,
+          }))}
+          label="Requests to the API with a key"
+          noun={["request", "requests"]}
+        />
+      </div>
+    </div>
+
+    <div class={row}>
+      <h2 class={label}>Apps</h2>
+      <div class={body}>
+        {apps.length === 0 ? (
+          <p class="text-muted">
+            No apps yet. Make one below, then give it a key.
+          </p>
+        ) : (
+          <ul class="border-b border-ink" data-testid="api-apps">
+            {apps.map(({ app, activeKeys, lastUsedAt }) => (
+              <li class="grid gap-3 border-t border-ink py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+                <div class="flex min-w-0 flex-col gap-1">
+                  <p class="flex flex-wrap items-baseline gap-x-3">
+                    <a
+                      href={`/admin/api/${String(app.id)}/`}
+                      class="group type-row"
+                    >
+                      <span class="link-wipe">{app.name}</span>
+                    </a>
+                    {app.disabledAt && (
+                      <span class="type-label bg-ink px-1.5 text-paper">
+                        Off
+                      </span>
+                    )}
+                  </p>
+                  {app.description && (
+                    <p class="text-muted">{app.description}</p>
+                  )}
+                  <p class="type-label flex flex-wrap gap-x-4 gap-y-1 text-muted">
+                    <span>
+                      {activeKeys} {activeKeys === 1 ? "key" : "keys"}
+                    </span>
+                    <span>{app.rateLimit}/min</span>
+                    <span>
+                      {app.scopes.length > 0
+                        ? app.scopes.join(", ")
+                        : "No scopes"}
+                    </span>
+                    <span>
+                      {(perApp.get(app.id) ?? 0).toLocaleString("en")} requests
+                      in 30 days
+                    </span>
+                    <span>
+                      {lastUsedAt
+                        ? `Used ${formatPostDate(lastUsedAt)}`
+                        : "Never used"}
+                    </span>
+                  </p>
+                </div>
+                <a
+                  href={`/admin/api/${String(app.id)}/`}
+                  class={secondaryButton}
+                >
+                  Open
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <h2 class={label} id="new-app">
+        New app
+      </h2>
+      <form method="post" class={`${body} max-w-2xl`} aria-labelledby="new-app">
+        {error && (
+          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+            {error}
+          </p>
+        )}
+        <label class="flex flex-col gap-1.5">
+          <span class="type-label text-muted">Name</span>
+          <input
+            name="name"
+            required
+            maxlength="80"
+            value={typed.name}
+            class={input}
+          />
+        </label>
+        <label class="flex flex-col gap-1.5">
+          <span class="type-label text-muted">What it is (optional)</span>
+          <input
+            name="description"
+            maxlength="500"
+            value={typed.description}
+            class={input}
+          />
+        </label>
+        <fieldset class="flex flex-col gap-2">
+          <legend class="type-label mb-1.5 text-muted">Scopes</legend>
+          {Object.entries(API_SCOPES).map(([scope, summary]) => (
+            <label class="flex items-start gap-3">
+              <input
+                type="checkbox"
+                name="scope"
+                value={scope}
+                checked={typed.scopes.includes(scope)}
+                class="mt-1.5 size-4 accent-(--tr-accent)"
+              />
+              <span>
+                <code class="font-mono text-sm">{scope}</code>{" "}
+                <span class="text-muted">{summary}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+        <label class="flex max-w-60 flex-col gap-1.5">
+          <span class="type-label text-muted">
+            Requests per minute, per key
+          </span>
+          <input
+            name="rateLimit"
+            type="number"
+            min="1"
+            max={API_LIMITS.maxPerMinute}
+            required
+            value={typed.rateLimit}
+            class={input}
+          />
+        </label>
+        <div>
+          <button type="submit" class={primaryButton}>
+            Make the app
+          </button>
+        </div>
+      </form>
+    </div>
+
+    {errors.length > 0 && (
+      <div class={row}>
+        <h2 class={label}>Recent failures</h2>
+        <div class={body}>
+          <ul class="flex flex-col gap-2" data-testid="api-errors">
+            {errors.map((failure) => (
+              <li class="border-l-2 border-hair pl-3">
+                <p>
+                  <code class="font-mono text-sm">
+                    {failure.method} {failure.path}
+                  </code>{" "}
+                  → {failure.status}{" "}
+                  <code class="font-mono text-sm">{failure.code}</code>
+                </p>
+                <p class="type-label text-muted">
+                  {failure.keyName} ·{" "}
+                  {failure.at.toISOString().replace("T", " ").slice(0, 19)} UTC
+                  · {failure.requestId}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    )}
+  </section>
+</BaseLayout>

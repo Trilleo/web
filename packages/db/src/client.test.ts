@@ -71,6 +71,10 @@ describe("openDatabase", () => {
     );
     expect(tables.map((row) => row.table_name)).toEqual([
       "admin_alerts",
+      "api_apps",
+      "api_errors",
+      "api_keys",
+      "api_usage",
       "avatars",
       "blocked_hashes",
       "comments",

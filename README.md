@@ -1,7 +1,8 @@
 # web
 
 Personal site, blog, tools, games, a Minecraft creator platform, study notes, file
-storage, and a wiki for each project behind <https://www.trilleo.net> and <https://wiki.trilleo.net>. A pnpm + Turborepo monorepo with an Astro site and shared
+storage, a wiki for each project and an API for other programs behind
+<https://www.trilleo.net>, <https://wiki.trilleo.net> and <https://api.trilleo.net>. A pnpm + Turborepo monorepo with an Astro site and shared
 React UI.
 
 ## Prerequisites
@@ -102,6 +103,13 @@ wiki, whose reference pages are generated from the game's data
 `localhost:4321`. Anyone signed in can propose edits for a wiki's members to review,
 and watch pages (a watchlist, plus a daily digest email).
 
+The API for other programs (bots, scripts) is the same app again, at
+<http://api.localhost:4321/>: `/v1/…` is the API and everything else its docs, written
+from the routes' own declarations (`apps/web/src/lib/api/`), along with `/docs.md` (all
+the docs in one file, for agents working on a client) and `/openapi.json`. The admin
+makes apps and their keys at `/admin/api/`, which also shows each app's usage and
+recent failures.
+
 The study section (`/study/`) is built from the Markdown in `study/`: each subject is a
 folder of numbered units and lessons, with maths, numbered definitions and formulas,
 quizzes, flashcards, plots and circuits (`study/README.md` says how to write them).
@@ -123,7 +131,7 @@ Lint, format, and TypeScript base configs live at the repo root (`eslint.config.
 
 ## Deploying
 
-Pushing to `main` deploys to <https://www.trilleo.net> (and the wiki) once CI passes. Setup, rollback,
+Pushing to `main` deploys to <https://www.trilleo.net> (and the wiki and the API) once CI passes. Setup, rollback,
 and troubleshooting: [deploy/README.md](deploy/README.md). File storage (the OBS bucket,
 `files.trilleo.net`, its certificate, ClamAV and moderation):
 [deploy/storage.md](deploy/storage.md). Email (Tencent Cloud SES, the sender domain,

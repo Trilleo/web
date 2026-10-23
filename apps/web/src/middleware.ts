@@ -1,4 +1,5 @@
 import { defineMiddleware } from "astro:middleware";
+import { apiRedirect, apiRewrite, isApiHost } from "./lib/api/host";
 import {
   clearSessionCookie,
   readSessionToken,
@@ -26,14 +27,34 @@ import {
 // Queued mail and admin alerts start a delivery pass in this server.
 startMailDelivery();
 
+/** Work any request may start (each at most every few minutes, in the background). */
+function backgroundWork(): void {
+  // Scheduled posts go live without anyone saving them: any request may notice
+  // (only with IndexNow set up).
+  announceInBackground(getDb);
+  // Unfinished uploads, stuck processing, bytes past their retention (same idea).
+  maintainInBackground(storageDeps);
+  // Mail retries that came due, and admin alerts that waited out their gap.
+  deliverInBackground();
+}
+
 /**
  * Looks up the signed-in user for server-rendered requests (Astro.locals.user).
  * Pre-built pages are the same for everyone, so they skip this. Requests for the
  * wiki's host (wiki.trilleo.net) are served from src/pages/wiki/ (lib/wiki/host.ts).
+ * The API's host (api.trilleo.net) has no sessions: keys say who's calling, so it
+ * skips all of this (lib/api/host.ts).
  */
 export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.user = null;
   context.locals.session = null;
+  if (isApiHost(context.url)) {
+    backgroundWork();
+    const rewrite = apiRewrite(context.url);
+    return rewrite ? next(rewrite) : next();
+  }
+  const api = apiRedirect(context.url);
+  if (api) return noStoreRedirect(api, 301);
   const wikiHost = isWikiHost(context.url);
   if (!wikiHost) {
     const wiki = wikiRedirect(context.url);
@@ -43,13 +64,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // Cross-site form posts are refused (Astro's check, with one exception).
   if (isForbiddenCrossOrigin(context.request, context.url))
     return crossOriginForbidden(context.request);
-  // Scheduled posts go live without anyone saving them: any request may notice
-  // (at most every few minutes, in the background, only with IndexNow set up).
-  announceInBackground(getDb);
-  // Unfinished uploads, stuck processing, bytes past their retention (same idea).
-  maintainInBackground(storageDeps);
-  // Mail retries that came due, and admin alerts that waited out their gap.
-  deliverInBackground();
+  backgroundWork();
 
   const { cookies, url } = context;
   const token = readSessionToken(cookies, url);

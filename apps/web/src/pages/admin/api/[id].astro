@@ -1,0 +1,547 @@
+---
+/**
+ * One API app in the control panel: its details, scopes and rate limit; its keys
+ * (make one, which is shown once, after the redirect, from a read-once cookie;
+ * revoke one);
+ * requests per day and per route over 30 days; its recent failures; switching it
+ * off, or deleting it. Every button is a POST to this page with an `intent`.
+ */
+import AdminNav from "../../../components/admin/AdminNav.astro";
+import {
+  primaryButton,
+  secondaryButton,
+} from "../../../components/admin/files/styles";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import DownloadChart from "../../../components/files/DownloadChart.astro";
+import { CopyButton } from "@trilleo/ui";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import {
+  APP_PROBLEMS,
+  KEY_PROBLEMS,
+  appInputFromForm,
+  keyInputFromForm,
+  setNewKeyCookie,
+  takeNewKeyCookie,
+} from "../../../lib/api/admin";
+import { apiOrigin } from "../../../lib/api/host";
+import {
+  checkAppInput,
+  createKey,
+  deleteApp,
+  getApp,
+  keyState,
+  keysOf,
+  revokeKey,
+  setAppDisabled,
+  updateApp,
+} from "../../../lib/api/keys";
+import { API_LIMITS } from "../../../lib/api/limits";
+import { API_SCOPES, effectiveScopes } from "../../../lib/api/scopes";
+import { recentErrors, usageSummary } from "../../../lib/api/usage";
+import { requireAdmin } from "../../../lib/auth/guard";
+import { noStoreRedirect } from "../../../lib/auth/redirect";
+import { field, parseId } from "../../../lib/comments/form";
+import { getDb } from "../../../lib/db";
+import { formatPostDate } from "../../../lib/listings";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const id = parseId(Astro.params.id ?? "");
+let app = id === null ? undefined : await getApp(db, id);
+if (!app) return Astro.rewrite("/404");
+const self = `/admin/api/${String(app.id)}/`;
+
+let error: string | null = null;
+let keyName = "";
+const fresh =
+  Astro.request.method === "GET"
+    ? takeNewKeyCookie(Astro.cookies, Astro.url, app.id)
+    : null;
+const secret = fresh?.secret ?? null;
+if (fresh) keyName = fresh.name;
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const intent = field(form, "intent");
+  const done = (what: string) => noStoreRedirect(`${self}?done=${what}`, 303);
+  switch (intent) {
+    case "save": {
+      const checked = checkAppInput(appInputFromForm(form));
+      if (!checked.ok) {
+        error = APP_PROBLEMS[checked.problem];
+        break;
+      }
+      await updateApp(db, app.id, checked.value);
+      return done("saved");
+    }
+    case "disable":
+    case "enable":
+      await setAppDisabled(db, app.id, intent === "disable");
+      return done(intent === "disable" ? "disabled" : "enabled");
+    case "delete":
+      if (field(form, "confirm") !== app.name) {
+        error = "Type the app's name exactly to delete it.";
+        break;
+      }
+      await deleteApp(db, app.id);
+      return noStoreRedirect("/admin/api/", 303);
+    case "create-key": {
+      const result = await createKey(db, app.id, keyInputFromForm(form));
+      if (!result.ok) {
+        error = KEY_PROBLEMS[result.problem];
+        keyName = field(form, "name");
+        break;
+      }
+      // Shown once, on the page this redirects to: never stored, never in a URL.
+      setNewKeyCookie(Astro.cookies, Astro.url, {
+        appId: app.id,
+        name: result.key.name,
+        secret: result.secret,
+      });
+      return done("key");
+    }
+    case "revoke-key": {
+      const keyId = parseId(field(form, "key"));
+      if (keyId !== null && (await revokeKey(db, app.id, keyId)))
+        return done("revoked");
+      error = "That key was already revoked.";
+      break;
+    }
+    default:
+      error = "Unknown action.";
+  }
+  app = (await getApp(db, app.id)) ?? app;
+}
+
+const now = new Date();
+const keys = await keysOf(db, app.id);
+const usage = await usageSummary(db, { appId: app.id }, 30, now);
+const errors = await recentErrors(db, app.id, 30);
+const docs = apiOrigin(Astro.url);
+const doneParam = Astro.url.searchParams.get("done");
+const DONE: Record<string, string> = {
+  created: "App made. Now give it a key.",
+  saved: "Saved.",
+  disabled: "Switched off: its keys stop working until it's back on.",
+  enabled: "Switched back on.",
+  revoked: "Key revoked. It stops working at once.",
+};
+// The new key's box says it all; without the cookie (a reload), say what happened.
+if (!secret)
+  DONE.key = "Key made. It was shown once; make another if it's lost.";
+const notice =
+  Astro.request.method === "GET" && doneParam ? DONE[doneParam] : null;
+const row =
+  "grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6";
+const label = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body =
+  "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
+const input =
+  "type-row h-11 w-full border-b border-ink bg-transparent focus:outline-none focus-visible:border-accent";
+const stamp = (at: Date) =>
+  `${at.toISOString().replace("T", " ").slice(0, 16)} UTC`;
+const STATE_LABEL = { active: "Works", revoked: "Revoked", expired: "Expired" };
+---
+
+<BaseLayout title={`${app.name} · API · Admin`} noindex>
+  <section
+    aria-labelledby="admin-api-app-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="api" />
+    <p class="type-label mt-6">
+      <a href="/admin/api/" class="group">
+        <span class="link-wipe">API</span>
+      </a>
+      <span class="text-muted"> / {app.name}</span>
+    </p>
+
+    <DisplayTitle id="admin-api-app-title">{app.name}</DisplayTitle>
+
+    <div class={row}>
+      <p class={label}>Overview</p>
+      <div class={body}>
+        <p class="type-label flex flex-wrap gap-x-6 gap-y-1">
+          <span class:list={[app.disabledAt && "bg-ink px-1.5 text-paper"]}>
+            {app.disabledAt
+              ? `Off since ${formatPostDate(app.disabledAt)}`
+              : "On"}
+          </span>
+          <span>Made {formatPostDate(app.createdAt)}</span>
+          <span>{usage.requests.toLocaleString("en")} requests in 30 days</span>
+          <span>{usage.errors.toLocaleString("en")} failed</span>
+        </p>
+        {notice && (
+          <p role="status" class="type-lead border-l-2 border-accent pl-4">
+            {notice}
+          </p>
+        )}
+        {error && (
+          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+            {error}
+          </p>
+        )}
+        {secret && (
+          <div
+            role="status"
+            class="flex flex-col gap-3 border border-ink p-4"
+            data-testid="new-key"
+          >
+            <p class="type-lead">
+              The key “{keyName}”. Copy it now: it won't be shown again.
+            </p>
+            <div class="flex flex-wrap items-center gap-3">
+              <code class="font-mono text-sm break-all select-all" data-key>
+                {secret}
+              </code>
+              <CopyButton client:load value={secret} label="Copy key" />
+            </div>
+            <p class="text-sm text-muted">
+              Give it to the app as an environment variable (the docs call it
+              TRILLEO_API_KEY). Check it with{" "}
+              <code class="font-mono">GET {docs}/v1/me</code>.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <h2 class={label}>Keys</h2>
+      <div class={body}>
+        {keys.length === 0 ? (
+          <p class="text-muted">No keys yet.</p>
+        ) : (
+          <ul class="border-b border-ink" data-testid="api-keys">
+            {keys.map((key) => {
+              const state = keyState(key, now);
+              const scopes = effectiveScopes(app.scopes, key.scopes);
+              return (
+                <li class="grid gap-3 border-t border-ink py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+                  <div class="flex min-w-0 flex-col gap-1">
+                    <p class="flex flex-wrap items-baseline gap-x-3">
+                      <span class="type-row">{key.name}</span>
+                      <code class="font-mono text-sm text-muted">
+                        {key.prefix}…{key.last4}
+                      </code>
+                      <span
+                        class:list={[
+                          "type-label px-1.5",
+                          state === "active"
+                            ? "bg-accent text-on-accent"
+                            : "bg-ink text-paper",
+                        ]}
+                      >
+                        {STATE_LABEL[state]}
+                      </span>
+                    </p>
+                    <p class="type-label flex flex-wrap gap-x-4 gap-y-1 text-muted">
+                      <span>
+                        {key.scopes === null
+                          ? `All the app's scopes${scopes.length > 0 ? ` (${scopes.join(", ")})` : ""}`
+                          : scopes.length > 0
+                            ? scopes.join(", ")
+                            : "No scopes"}
+                      </span>
+                      <span>Made {formatPostDate(key.createdAt)}</span>
+                      <span>
+                        {key.lastUsedAt
+                          ? `Last used ${stamp(key.lastUsedAt)}`
+                          : "Never used"}
+                      </span>
+                      {key.expiresAt && (
+                        <span>
+                          {state === "expired" ? "Expired" : "Expires"}{" "}
+                          {formatPostDate(key.expiresAt)}
+                        </span>
+                      )}
+                      {key.revokedAt && (
+                        <span>Revoked {formatPostDate(key.revokedAt)}</span>
+                      )}
+                    </p>
+                  </div>
+                  {!key.revokedAt && (
+                    <form method="post">
+                      <input type="hidden" name="intent" value="revoke-key" />
+                      <input type="hidden" name="key" value={String(key.id)} />
+                      <button
+                        type="submit"
+                        class={secondaryButton}
+                        aria-label={`Revoke the key ${key.name}`}
+                      >
+                        Revoke
+                      </button>
+                    </form>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <form
+          method="post"
+          class="flex max-w-2xl flex-col gap-4 border border-ink p-4"
+          aria-labelledby="new-key-title"
+        >
+          <h3 id="new-key-title" class="type-label">
+            New key
+          </h3>
+          <input type="hidden" name="intent" value="create-key" />
+          <label class="flex flex-col gap-1.5">
+            <span class="type-label text-muted">Label (where it runs)</span>
+            <input
+              name="name"
+              required
+              maxlength="80"
+              value={secret ? "" : keyName}
+              placeholder="Production"
+              class={input}
+            />
+          </label>
+          <fieldset class="flex flex-col gap-2">
+            <legend class="type-label mb-1.5 text-muted">Scopes</legend>
+            <label class="flex items-center gap-3">
+              <input
+                type="radio"
+                name="scopeMode"
+                value="all"
+                checked
+                class="size-4 accent-(--tr-accent)"
+              />
+              <span>All of the app's, now and later</span>
+            </label>
+            <label class="flex items-center gap-3">
+              <input
+                type="radio"
+                name="scopeMode"
+                value="some"
+                class="size-4 accent-(--tr-accent)"
+              />
+              <span>Only the ones ticked below</span>
+            </label>
+            {app.scopes.map((scope) => (
+              <label class="ml-7 flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  name="scope"
+                  value={scope}
+                  class="size-4 accent-(--tr-accent)"
+                />
+                <code class="font-mono text-sm">{scope}</code>
+              </label>
+            ))}
+          </fieldset>
+          <label class="flex max-w-60 flex-col gap-1.5">
+            <span class="type-label text-muted">
+              Expires after (optional, UTC)
+            </span>
+            <input name="expires" type="date" class={input} />
+          </label>
+          <div>
+            <button type="submit" class={primaryButton}>
+              Make a key
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class={row}>
+      <h2 class={label}>Usage</h2>
+      <div class={body}>
+        <DownloadChart
+          days={usage.days.map((day) => ({
+            day: day.day,
+            count: day.requests,
+          }))}
+          label={`Requests from ${app.name}`}
+          noun={["request", "requests"]}
+        />
+        {usage.routes.length > 0 && (
+          <table class="w-full max-w-2xl text-sm">
+            <caption class="type-label mb-2 text-left text-muted">
+              By route, last 30 days
+            </caption>
+            <thead>
+              <tr class="type-label text-muted">
+                <th scope="col" class="text-left font-normal">
+                  Route
+                </th>
+                <th scope="col" class="text-right font-normal">
+                  Requests
+                </th>
+                <th scope="col" class="text-right font-normal">
+                  Failed
+                </th>
+                <th scope="col" class="text-right font-normal">
+                  Average
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {usage.routes.map((route) => (
+                <tr class="border-t border-hair">
+                  <td>
+                    <code class="font-mono">{route.route}</code>
+                  </td>
+                  <td class="text-right">
+                    {route.requests.toLocaleString("en")}
+                  </td>
+                  <td class="text-right">
+                    {route.errors.toLocaleString("en")}
+                  </td>
+                  <td class="text-right">{route.averageMs} ms</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <h2 class={label}>Recent failures</h2>
+      <div class={body}>
+        {errors.length === 0 ? (
+          <p class="text-muted">
+            None in the last {API_LIMITS.errorLogDays} days.
+          </p>
+        ) : (
+          <ul class="flex flex-col gap-2" data-testid="api-errors">
+            {errors.map((failure) => (
+              <li class="border-l-2 border-hair pl-3">
+                <p>
+                  <code class="font-mono text-sm">
+                    {failure.method} {failure.path}
+                  </code>{" "}
+                  → {failure.status}{" "}
+                  <code class="font-mono text-sm">{failure.code}</code>
+                </p>
+                <p class="text-sm">{failure.message}</p>
+                <p class="type-label text-muted">
+                  {failure.keyName} · {stamp(failure.at)} · {failure.requestId}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <h2 class={label} id="settings">
+        Settings
+      </h2>
+      <form
+        method="post"
+        class={`${body} max-w-2xl`}
+        aria-labelledby="settings"
+      >
+        <input type="hidden" name="intent" value="save" />
+        <label class="flex flex-col gap-1.5">
+          <span class="type-label text-muted">Name</span>
+          <input
+            name="name"
+            required
+            maxlength="80"
+            value={app.name}
+            class={input}
+          />
+        </label>
+        <label class="flex flex-col gap-1.5">
+          <span class="type-label text-muted">What it is (optional)</span>
+          <input
+            name="description"
+            maxlength="500"
+            value={app.description}
+            class={input}
+          />
+        </label>
+        <fieldset class="flex flex-col gap-2">
+          <legend class="type-label mb-1.5 text-muted">Scopes</legend>
+          {Object.entries(API_SCOPES).map(([scope, summary]) => (
+            <label class="flex items-start gap-3">
+              <input
+                type="checkbox"
+                name="scope"
+                value={scope}
+                checked={app.scopes.includes(scope)}
+                class="mt-1.5 size-4 accent-(--tr-accent)"
+              />
+              <span>
+                <code class="font-mono text-sm">{scope}</code>{" "}
+                <span class="text-muted">{summary}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+        <label class="flex max-w-60 flex-col gap-1.5">
+          <span class="type-label text-muted">
+            Requests per minute, per key
+          </span>
+          <input
+            name="rateLimit"
+            type="number"
+            min="1"
+            max={API_LIMITS.maxPerMinute}
+            required
+            value={String(app.rateLimit)}
+            class={input}
+          />
+        </label>
+        <div>
+          <button type="submit" class={primaryButton}>
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class={row}>
+      <h2 class={label}>Switch off</h2>
+      <div class={`${body} max-w-2xl`}>
+        <form method="post" class="flex flex-col items-start gap-3">
+          <p class="text-muted">
+            {app.disabledAt
+              ? "Its keys don't work while it's off. Switching it on makes them work again."
+              : "Stops all its keys at once, without revoking them."}
+          </p>
+          <input
+            type="hidden"
+            name="intent"
+            value={app.disabledAt ? "enable" : "disable"}
+          />
+          <button type="submit" class={secondaryButton}>
+            {app.disabledAt ? "Switch on" : "Switch off"}
+          </button>
+        </form>
+        <form
+          method="post"
+          class="flex flex-col items-start gap-3 border-t border-hair pt-4"
+        >
+          <p class="text-muted">
+            Deleting removes the app, its keys and their usage for good.
+          </p>
+          <input type="hidden" name="intent" value="delete" />
+          <label class="flex w-full max-w-sm flex-col gap-1.5">
+            <span class="type-label text-muted">
+              Type “{app.name}” to confirm
+            </span>
+            <input name="confirm" required autocomplete="off" class={input} />
+          </label>
+          <button type="submit" class={secondaryButton}>
+            Delete the app
+          </button>
+        </form>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

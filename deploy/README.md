@@ -21,6 +21,9 @@ visitor ─HTTPS─▶ Cloudflare ─HTTPS (Origin cert, "Full (strict)")─▶ 
   from files; any other file there is a main-site page, so Caddy redirects it to
   `www.trilleo.net`, and everything else goes to the app. It shares the headers
   (`site_headers`) and the Origin certificate (`*.trilleo.net`).
+- `api.trilleo.net` is the same app too: `/v1/…` is the API, everything else its docs
+  (`apps/web/src/lib/api/host.ts`). Its Caddy block serves only built assets and icons
+  from files and sends the rest to the app; `www.trilleo.net/developers/` redirects there.
 - Caddy serves any file that exists and forwards other requests to the app, so prerendered
   pages (/about, /tools, assets) keep working even if the app is down; the home page and
   posts render on the app. Only Caddy's ports are published.
@@ -37,9 +40,10 @@ Placeholders below: `<SERVER_IP>`, `<REGION>` (your Huawei region, e.g. `cn-east
 
 ### 1. Cloudflare (dashboard → trilleo.net)
 
-1. **DNS → Records:** `A  @  <SERVER_IP>`, `A  www  <SERVER_IP>` and `A  wiki
-<SERVER_IP>` (or `CNAME www trilleo.net` and `CNAME wiki trilleo.net`), all **Proxied**
-   (orange cloud). The wiki needs no other setup: the certificate below covers it.
+1. **DNS → Records:** `A  @  <SERVER_IP>`, `A  www  <SERVER_IP>`, `A  wiki  <SERVER_IP>`
+   and `A  api  <SERVER_IP>` (or `CNAME www trilleo.net` and so on), all **Proxied**
+   (orange cloud). The wiki needs no other setup: the certificate below covers it. The
+   API needs one WAF rule (§14).
 2. **SSL/TLS → Overview:** encryption mode **Full (strict)**.
 3. **SSL/TLS → Origin Server → Create Certificate:** key type RSA (2048), hostnames
    `trilleo.net` and `*.trilleo.net`, validity 15 years. Keep the page open: you'll paste
@@ -402,6 +406,22 @@ beacon shows it), so it lives in the code. Empty: no analytics.
    another site to them) and submit `https://wiki.trilleo.net/sitemap.xml`.
 5. For wiki picture uploads: add a CORS rule to the OBS bucket for origin
    `https://wiki.trilleo.net` (the same as www's; see [storage.md](storage.md) §2).
+
+### 14. The API (once, before the release that adds it)
+
+1. In Cloudflare, add `A  api  <SERVER_IP>` (or `CNAME api trilleo.net`), **Proxied**.
+   The Origin certificate already covers it, and Caddy's `api.trilleo.net` block ships in
+   the web image.
+2. Programs call the API, not browsers, so Cloudflare's bot checks must leave it alone:
+   **Security → WAF → Custom rules → Create rule**, "API: skip bot checks", field
+   _Hostname_ equals `api.trilleo.net`, action **Skip** with _All Super Bot Fight Mode
+   rules_ and _Browser Integrity Check_ ticked (on the Free plan, where Bot Fight Mode
+   can't be skipped per host, leave Bot Fight Mode off). Otherwise a bot's requests can be
+   answered with a challenge page instead of JSON.
+3. Deploy, then check <https://api.trilleo.net/v1/status> answers `{"ok":true,…}` and
+   <https://api.trilleo.net/> shows the docs.
+4. Make apps and keys at <https://www.trilleo.net/admin/api/>. A key is shown once; give
+   it to the program as an environment variable (the docs call it `TRILLEO_API_KEY`).
 
 ## Day to day
 

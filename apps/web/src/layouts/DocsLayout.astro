@@ -1,0 +1,185 @@
+---
+/**
+ * Pages on api.trilleo.net: the API's docs. The site's tokens and grid, set like the
+ * wiki (dense reference text, `.prose .prose-wiki`): the docs' pages in columns 1–2,
+ * the page in 3–9, its contents in 10–12. No reveals or morphs; links to the main
+ * site are absolute, since this is another host.
+ */
+import "../styles/global.css";
+import type { PostHeading } from "@trilleo/db";
+import { THEME_COLORS, themeInitScript } from "@trilleo/ui/theme";
+import CookieConsent from "../components/CookieConsent.astro";
+import Logo from "../components/Logo.astro";
+import TableOfContents from "../components/TableOfContents.astro";
+import ThemeToggle from "../components/ThemeToggle.astro";
+import WikiFooter from "../components/wiki/WikiFooter.astro";
+import type { DocPage } from "../lib/api/docs/pages";
+import { apiOrigin, publicDocsPath, siteOrigin } from "../lib/api/host";
+import { SITE_IMAGE } from "../lib/seo";
+
+interface Props {
+  page: DocPage;
+  pages: readonly DocPage[];
+  toc?: readonly PostHeading[];
+}
+
+const { page, pages, toc = [] } = Astro.props;
+const main = siteOrigin(Astro.url);
+const api = apiOrigin(Astro.url);
+const here = publicDocsPath(Astro.url);
+const canonical = new URL(page.path, api);
+const documentTitle =
+  page.section === "start" ? page.title : `${page.title} · API docs`;
+const contents = toc.filter((heading) => heading.depth === 2);
+const sections = [
+  { label: "Start", pages: pages.filter((p) => p.section === "start") },
+  { label: "Guides", pages: pages.filter((p) => p.section === "guide") },
+  { label: "Reference", pages: pages.filter((p) => p.section === "reference") },
+];
+const files = [
+  { label: "docs.md", href: "/docs.md" },
+  { label: "openapi.json", href: "/openapi.json" },
+  { label: "llms.txt", href: "/llms.txt" },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="theme-color"
+      content={THEME_COLORS.light}
+      media="(prefers-color-scheme: light)"
+    />
+    <meta
+      name="theme-color"
+      content={THEME_COLORS.dark}
+      media="(prefers-color-scheme: dark)"
+    />
+    <script is:inline set:html={themeInitScript}></script>
+    <meta name="description" content={page.description} />
+    <link rel="canonical" href={canonical} />
+    <link
+      rel="alternate"
+      type="text/markdown"
+      href="/docs.md"
+      title="All the docs in Markdown"
+    />
+    <meta property="og:site_name" content="Trilleo Network API" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:title" content={documentTitle} />
+    <meta property="og:description" content={page.description} />
+    <meta property="og:image" content={new URL(SITE_IMAGE, main)} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>{documentTitle}</title>
+  </head>
+  <body id="top" class="flex min-h-dvh flex-col bg-paper text-ink">
+    <!-- Pages change at once, as on the wiki. -->
+    <style is:inline>
+      @view-transition {
+        navigation: none;
+      }
+    </style>
+    <a
+      href="#main"
+      class="type-nav sr-only bg-accent px-4 py-3 text-on-accent focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50"
+    >
+      Skip to content
+    </a>
+    <header class="border-b border-ink">
+      <div class="grid-swiss px-page items-center gap-y-3 py-3">
+        <a
+          href="/"
+          class="col-span-2 inline-flex min-h-11 items-center gap-2.5 text-lg font-bold tracking-[-0.03em]"
+        >
+          <Logo class="size-6 shrink-0" />
+          <span>API</span>
+          <span class="type-label bg-ink px-1.5 py-0.5 text-paper">v1</span>
+        </a>
+        <div class="col-span-2 flex items-center justify-end gap-1 whitespace-nowrap md:col-span-6 md:gap-3 xl:col-span-10">
+          <a
+            href={`${main}/`}
+            class="group type-nav hidden min-h-11 items-center md:inline-flex"
+          >
+            <span class="link-wipe">trilleo.net</span>
+          </a>
+          <ThemeToggle />
+        </div>
+      </div>
+    </header>
+    <div class="grid-swiss px-page flex-1 gap-y-10 py-8 md:py-10">
+      <nav
+        aria-label="Docs"
+        class="type-label col-span-4 flex flex-col gap-6 border-t border-ink pt-6 max-md:order-last md:col-span-2 md:border-t-0 md:pt-0 xl:col-span-2"
+      >
+        {sections.map((section) => (
+          <div class="flex flex-col gap-2">
+            <span class="text-muted">{section.label}</span>
+            <ul class="flex flex-col gap-2">
+              {section.pages.map((item) => (
+                <li>
+                  <a
+                    href={item.path}
+                    class="group inline-flex items-center gap-2"
+                    aria-current={item.path === here ? "page" : undefined}
+                  >
+                    <span
+                      class:list={[
+                        "size-2 shrink-0",
+                        item.path === here ? "bg-accent" : "bg-transparent",
+                      ]}
+                      aria-hidden="true"
+                    />
+                    <span class="link-wipe">
+                      {item.section === "start" ? "Overview" : item.title}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+        <div class="flex flex-col gap-2">
+          <span class="text-muted">Files</span>
+          <ul class="flex flex-col gap-2 normal-case">
+            {files.map((file) => (
+              <li>
+                <a href={file.href} class="group pl-4">
+                  <span class="link-wipe">{file.label}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </nav>
+      <main
+        id="main"
+        tabindex="-1"
+        class="col-span-4 min-w-0 focus:outline-none md:col-span-6 xl:col-span-7"
+      >
+        <slot />
+      </main>
+      {contents.length > 1 && (
+        <aside
+          aria-label="On this page"
+          class="hidden xl:col-span-3 xl:flex xl:flex-col xl:gap-8"
+        >
+          <TableOfContents headings={contents} />
+        </aside>
+      )}
+    </div>
+    <WikiFooter
+      main={main}
+      name="The API"
+      note="Its docs are written from its code, so they describe it as it is."
+    />
+    <CookieConsent origin={main} />
+  </body>
+</html>

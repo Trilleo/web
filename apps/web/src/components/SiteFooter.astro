@@ -9,6 +9,7 @@ import {
   SITE_DESCRIPTION,
   SITE_NAME,
 } from "../lib/site";
+import { apiOrigin } from "../lib/api/host";
 import { wikiOrigin } from "../lib/wiki/host";
 
 const year = new Date().getFullYear();
@@ -44,6 +45,7 @@ const groups = [
     label: "Elsewhere",
     links: [
       { label: "RSS", href: "/rss.xml" },
+      { label: "API", href: `${apiOrigin(Astro.url)}/` },
       { label: "GitHub", href: GITHUB_URL },
     ],
   },

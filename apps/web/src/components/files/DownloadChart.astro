@@ -10,9 +10,11 @@ interface Props {
   days: readonly DayCount[];
   /** What the chart counts, e.g. "Downloads of castle.zip". */
   label: string;
+  /** What one bar counts, singular and plural (API requests use this chart too). */
+  noun?: readonly [string, string];
 }
 
-const { days, label } = Astro.props;
+const { days, label, noun = ["download", "downloads"] } = Astro.props;
 const total = days.reduce((sum, day) => sum + day.count, 0);
 const peak = Math.max(0, ...days.map((day) => day.count));
 const max = Math.max(1, peak);
@@ -53,7 +55,7 @@ const last = days.at(-1);
       return (
         <g>
           <title>
-              {shortDate(day.day)}: {day.count} {day.count === 1 ? "download" : "downloads"}
+              {shortDate(day.day)}: {day.count} {day.count === 1 ? noun[0] : noun[1]}
             </title>
           {/* The whole column answers hover, not just the (maybe tiny) bar. */}
           <rect x={x} y="0" width={BAR} height={HEIGHT} fill="transparent" />
@@ -89,8 +91,8 @@ const last = days.at(-1);
           <th scope="col" class="text-left font-normal">
             Day (UTC)
           </th>
-          <th scope="col" class="text-right font-normal">
-            Downloads
+          <th scope="col" class="text-right font-normal capitalize">
+            {noun[1]}
           </th>
         </tr>
       </thead>

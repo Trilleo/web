@@ -383,7 +383,9 @@ const ticketHours = TICKET_LIMITS.maxAgeMs / 3_600_000;
       No IP address is stored. To count a download once per visitor per day, a
       hash of your address and browser is held in the server’s memory for that
       day only; the contact form keeps a similar hash in memory for a day to
-      limit spam.
+      limit spam, and the API (api.trilleo.net) keeps one in memory, for a
+      minute or two, to limit requests made without a key. Programs with an API
+      key are counted by their key, not by who you are.
     </li>
     <li>
       Emails carry no tracking pixels or tracked links: nobody learns whether

@@ -72,7 +72,7 @@ docker compose up --detach --wait --wait-timeout 180 web app db || fail "the sta
 site() {
 	curl --silent --show-error --insecure --max-time 10 \
 		--resolve www.trilleo.net:443:127.0.0.1 --resolve trilleo.net:443:127.0.0.1 \
-		--resolve wiki.trilleo.net:443:127.0.0.1 "$@"
+		--resolve wiki.trilleo.net:443:127.0.0.1 --resolve api.trilleo.net:443:127.0.0.1 "$@"
 }
 
 echo "==> home page: 200, security headers, revalidating cache"
@@ -178,6 +178,21 @@ grep -qi '^location: https://wiki.trilleo.net/skygrid/Wheat' <<<"$headers" || fa
 headers="$(site --dump-header - --output /dev/null "https://wiki.trilleo.net/-/sign-in?next=/skygrid/")"
 grep -qi '^location: https://www.trilleo.net/auth/wiki?state=' <<<"$headers" || fail "wiki sign-in should start on the main site: $headers"
 grep -qi '^set-cookie: __Host-trilleo_wiki_state=' <<<"$headers" || fail "no __Host-trilleo_wiki_state cookie: $headers"
+
+echo "==> the API: its own host, JSON answers, keys required, and its docs"
+body="$(site "https://api.trilleo.net/v1/status")"
+grep -q '"ok":true' <<<"$body" || fail "api.trilleo.net/v1/status: $body"
+headers="$(site --dump-header - --output "$stack/api-me.json" "https://api.trilleo.net/v1/me")"
+grep -qi '^HTTP/[0-9.]* 401' <<<"$headers" || fail "/v1/me without a key: $headers"
+grep -q '"missing_key"' "$stack/api-me.json" || fail "/v1/me without a key should say missing_key"
+grep -qi '^request-id: req_' <<<"$headers" || fail "API answers need a Request-Id: $headers"
+status="$(site --output "$stack/api-docs.md" --write-out '%{http_code}' "https://api.trilleo.net/docs.md")"
+[[ "$status" == "200" ]] || fail "api.trilleo.net/docs.md answered $status"
+grep -q 'https://api.trilleo.net/v1/me' "$stack/api-docs.md" || fail "docs.md should use the API's own address"
+status="$(site --output /dev/null --write-out '%{http_code}' "https://api.trilleo.net/docs/errors/")"
+[[ "$status" == "200" ]] || fail "api.trilleo.net/docs/errors/ answered $status"
+headers="$(site --dump-header - --output /dev/null "https://www.trilleo.net/developers/docs/errors/")"
+grep -qi '^location: https://api.trilleo.net/docs/errors/' <<<"$headers" || fail "/developers/ should go to the API's docs: $headers"
 
 echo "==> the database was migrated"
 migrations="$(docker compose exec -T db psql --username=trilleo --dbname=trilleo --tuples-only --no-align \

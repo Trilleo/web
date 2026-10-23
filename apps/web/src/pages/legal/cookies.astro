@@ -7,6 +7,7 @@ import {
   PENDING_MAX_AGE_S,
   WEBAUTHN_MAX_AGE_S,
 } from "../../lib/auth/cookies";
+import { NEW_KEY_MAX_AGE_S } from "../../lib/api/admin";
 import { SESSION_TTL_MS } from "../../lib/auth/sessions";
 import { STATE_MAX_AGE_S } from "../../lib/wiki/handoff";
 
@@ -114,13 +115,24 @@ import { STUDY_STORAGE_KEY } from "@trilleo/study/client";
         </td>
         <td>{STATE_MAX_AGE_S / 60} minutes, or until you’re back</td>
       </tr>
+      <tr>
+        <td>
+          <code>__Host-trilleo_new_key</code>
+        </td>
+        <td>
+          For the site’s admin only: a new API key, carried from the form that
+          makes it to the page that shows it once.
+        </td>
+        <td>{NEW_KEY_MAX_AGE_S / 60} minutes, or until it’s shown</td>
+      </tr>
     </tbody>
   </table>
   <p>
     The wiki is another address, so your browser keeps its cookies and storage
     apart: signed in there, it has its own <code>__Host-trilleo_session</code>
     (listed with your other sessions), and it asks for your cookie choices
-    again.
+    again. So do the API’s docs (api.trilleo.net), which set no cookies of their
+    own.
   </p>
   <p>
     Cloudflare, which delivers the site, may set its own strictly necessary

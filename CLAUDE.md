@@ -10,7 +10,8 @@
   update it in the same change. That means this file, README.md, deploy/README.md,
   deploy/storage.md, deploy/mail.md, apps/web/.env.example, and the information pages (legal, FAQ,
   accessibility, security, colophon, about), which state facts about the code. A
-  change to a legal page's substance also gets an entry in its `changes`.
+  change to a legal page's substance also gets an entry in its `changes`. A change to
+  the API gets an entry in its changelog (apps/web/src/lib/api/docs/changelog.ts).
 
 ## Architecture
 
@@ -66,6 +67,9 @@
 - Blog content: Markdown posts in Postgres, written in the admin editor (/admin/posts).
 - The wiki (wiki.trilleo.net) is apps/web on a second host, not its own app: pages in
   src/pages/wiki/, logic in src/lib/wiki/ (see Wiki below).
+- The API (api.trilleo.net) is apps/web on a third host: the dispatcher at
+  src/pages/api/v1/[...path].ts, docs in src/pages/developers/, logic in src/lib/api/
+  (see API below).
 - Workspace packages use the `@trilleo/*` scope.
 
 ## Decisions
@@ -1023,6 +1027,53 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   bursts, daily messages and new conversations. Deleting an account deletes its
   messages and memberships.
 
+## API
+
+- api.trilleo.net is the API for other programs (bots, scripts), served by apps/web:
+  src/middleware.ts rewrites the API host's /v1/… to src/pages/api/v1/[...path].ts and
+  everything else to the docs in src/pages/developers/ (`apiRewrite`, lib/api/host.ts);
+  /developers/ on www 301s there. The site's own /api/v1/… reaches the same dispatcher
+  (and is exempt from the same-origin check: the API goes by keys, never cookies).
+  Locally it's api.localhost:<port>. The API host has no sessions; the middleware only
+  rewrites (and starts the usual background work).
+- Routes are declared once with `defineRoute` (lib/api/registry.ts): method, path
+  (`{name}` parameters), operationId, group (API_GROUPS), summary, description, auth
+  ("public" | "key"), scope, params/query/body/response schemas, an example, the handler.
+  ROUTES (lib/api/routes/index.ts) lists them. The dispatcher (dispatch.ts) checks the
+  key and scope, takes from the rate limit, checks inputs, runs the handler and records
+  usage; handlers throw `ApiError(code, message, details)`. The docs pages, /docs.md
+  (everything in one Markdown file, for agents writing clients), /openapi.json and
+  /llms.txt are all written from the same declarations (lib/api/docs/), so they can't
+  drift; api.test.ts checks every route's examples against its own schemas.
+- Schemas (lib/api/schema.ts): a small hand-written validator (`t.string`, `t.integer`,
+  `t.object`, `t.optional`, `t.nullable`, `t.array`, `t.enum`, `t.date`, `t.dateTime`),
+  each also its JSON Schema and the docs' field rows; no zod. Unknown fields are
+  ignored; query values are read from text.
+- Conventions (stated on the docs' Conventions and Versioning pages, so keep them
+  true): JSON always; successes are the resource itself, not wrapped; errors are
+  `{ error: { code, message, details?, requestId } }` with codes from ERROR_CODES
+  (errors.ts); camelCase fields, null for "not set"; ISO times in UTC, `YYYY-MM-DD`
+  days (UTC); lists page with `items` + `nextCursor`; every answer has Request-Id.
+  Public routes send CORS `*` and may be cached (`cacheSeconds`); keyed routes are
+  `private, no-store` and send no CORS. Within v1 only additions: never rename, remove
+  or change the meaning of a field, route or code.
+- Keys (keys.ts, api_apps, api_keys): only the admin makes apps (/admin/api/, with
+  scopes and a per-key rate limit) and their keys (`trl_` + 32 characters, shown once,
+  stored as SHA-256; a label, all of the app's scopes or a chosen few, an optional
+  expiry; revocable). Switching an app off stops its keys. Scopes are API_SCOPES
+  (scopes.ts). `Authorization: Bearer <key>`; a key sent to a public route is checked
+  too. `last_used_at` is written at most once a minute.
+- Limits (limits.ts, API_LIMITS; the docs quote them): token buckets in memory
+  (rate-limit.ts), per key at the app's rate, or per hashed IP without a key (idle
+  buckets dropped after a minute, as the privacy page says); bodies up to 64 KB.
+  Usage (usage.ts): api_usage per key, UTC day and route (count, errors, time), and
+  api_errors (failed requests, not 429s) for API_LIMITS.errorLogDays; both purged by the
+  dispatcher at most hourly. Requests without a key aren't recorded.
+- The docs (DocsLayout, `.prose .prose-wiki`) are pages from lib/api/docs/pages.ts:
+  the overview, the guides (guides.ts: authentication, conventions, errors, rate limits,
+  versioning, changelog) and one reference page per group (reference.ts). Guides quote
+  constants from the code; what they say about behaviour is kept true by hand.
+
 ## Mail
 
 - Runbook: deploy/mail.md. Production sends through Tencent Cloud SES (Hong Kong) over
@@ -1237,3 +1288,21 @@ Copy apps/notes as the template, then:
    pages (categories, the infobox's placement) a case in apps/web's
    lib/wiki/render.test.ts. Bump WIKI_RENDER_VERSION when existing pages' HTML changes.
 5. /<wiki>/-/components documents it by itself; e2e/a11y.spec.ts checks that page.
+
+## Adding an API route
+
+1. Pick or add its group in `API_GROUPS` (lib/api/registry.ts, with a one-line intro).
+   A new scope goes in `API_SCOPES` (lib/api/scopes.ts); the admin then ticks it for
+   the apps that need it.
+2. Declare it with `defineRoute` in lib/api/routes/<group>.ts: describe every field
+   (the docs' tables are made from the descriptions), give an example that fits the
+   schemas, name its own error codes (`errors`), and throw `ApiError` for them. A new
+   error code goes in ERROR_CODES with a description. Logic that isn't about HTTP lives
+   in its feature's lib/ module, as usual.
+3. Add it to `ROUTES` (lib/api/routes/index.ts) and an entry to API_CHANGELOG
+   (lib/api/docs/changelog.ts). If it introduces a convention or a limit, update the
+   guide that states it (lib/api/docs/guides.ts).
+4. Tests: its behaviour in Vitest through `dispatch` (see lib/api/api.test.ts); the
+   route-list tests check its examples and docs by themselves.
+5. Check /docs.md reads well: it's what another repository's agent reads to write a
+   client (`pnpm dev`, then http://api.localhost:4321/docs.md).

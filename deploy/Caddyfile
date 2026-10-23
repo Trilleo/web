@@ -124,6 +124,32 @@ wiki.trilleo.net {
 	}
 }
 
+# The API (api.trilleo.net) is the same app: /v1/… is the API, everything else its docs
+# (apps/web/src/lib/api/host.ts). Only built assets and icons are served from files.
+# The API answers with its own Cache-Control and CORS headers; the docs are pages.
+api.trilleo.net {
+	import cloudflare_only
+	import origin_tls
+	import site_headers
+
+	root * /srv/site
+	encode zstd gzip
+
+	@fingerprinted path /_astro/*
+	header @fingerprinted Cache-Control "public, max-age=31536000, immutable"
+
+	route {
+		respond /api/health 404
+
+		@asset path /_astro/* /favicon-32.png /favicon-192.png /apple-touch-icon.png
+		handle @asset {
+			file_server
+		}
+
+		reverse_proxy app:4321
+	}
+}
+
 # Health check for Docker. Port 8080 is not published outside the container.
 :8080 {
 	respond /healthz "ok" 200

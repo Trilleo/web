@@ -3,7 +3,9 @@
  * (astro/dist/core/app/origin-check.js), done in our middleware instead so one kind
  * of request can be let through: one-click unsubscribes (RFC 8058). Mail providers
  * POST those from their own servers, with no Origin header. The link's secret token
- * is what authorises them, and all they can do is switch notifications off.
+ * is what authorises them, and all they can do is switch notifications off. And the
+ * API (/api/v1/), which is called by other programs and goes by its keys, never by
+ * the session cookie.
  */
 
 const FORM_CONTENT_TYPES = [
@@ -14,7 +16,10 @@ const FORM_CONTENT_TYPES = [
 const SAFE_METHODS = ["GET", "HEAD", "OPTIONS"];
 
 /** Paths that take cross-site form posts. Keep this list short. */
-export const CROSS_SITE_POST_PATHS = ["/mail/unsubscribe/"] as const;
+export const CROSS_SITE_POST_PATHS = [
+  "/mail/unsubscribe/",
+  "/api/v1/",
+] as const;
 
 export function isCrossSiteExempt(pathname: string): boolean {
   return CROSS_SITE_POST_PATHS.some((prefix) => pathname.startsWith(prefix));

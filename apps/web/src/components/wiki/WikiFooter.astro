@@ -1,16 +1,24 @@
 ---
 /**
- * The wiki's footer: where it belongs (Trilleo Network), the legal pages it shares
- * with the main site, cookie settings, and the mainland filing numbers every page
- * of the site carries.
+ * The wiki's footer (and the API docs'): where it belongs (Trilleo Network), the
+ * legal pages it shares with the main site, cookie settings, and the mainland filing
+ * numbers every page of the site carries.
  */
 import { ICP_FILING, PSB_FILING, SITE_NAME } from "../../lib/site";
 
 interface Props {
   main: string;
+  /** Which part of the site this is. */
+  name?: string;
+  /** A line about it, after "is part of Trilleo Network." */
+  note?: string;
 }
 
-const { main } = Astro.props;
+const {
+  main,
+  name = "Wiki",
+  note = "Each wiki's pages are written by its members.",
+} = Astro.props;
 const links = [
   { label: "Terms", href: `${main}/legal/terms/` },
   { label: "Privacy", href: `${main}/legal/privacy/` },
@@ -24,13 +32,13 @@ const small = "hover:underline";
 <footer class="border-t border-ink">
   <div class="grid-swiss px-page gap-y-4 py-6 text-sm">
     <p class="col-span-4 md:col-span-8 xl:col-span-6">
-      <span class="font-semibold">Wiki</span>{" "}
+      <span class="font-semibold">{name}</span>{" "}
       <span class="text-muted">
         is part of{" "}
         <a href={`${main}/`} class="text-ink underline">
           {SITE_NAME}
         </a>
-        . Each wiki's pages are written by its members.
+        . {note}
       </span>
     </p>
     <ul class="type-label col-span-4 flex flex-wrap gap-x-5 gap-y-2 md:col-span-8 xl:col-span-6 xl:justify-end">

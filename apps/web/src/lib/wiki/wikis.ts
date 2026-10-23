@@ -30,6 +30,7 @@ export const RESERVED_WIKI_SLUGS: ReadonlySet<string> = new Set([
   "comments",
   "contact",
   "d",
+  "developers",
   "faq",
   "favicon",
   "files",

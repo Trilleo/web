@@ -73,14 +73,19 @@ const PAGES = [
   "wiki:/townymenu/Map",
   "wiki:/townymenu/Reading_the_menus",
   "wiki:/townymenu/-/components",
+  // The API's docs, on its host (api.localhost; see e2e/api.spec.ts).
+  "api:/",
+  "api:/docs/errors/",
+  "api:/reference/system/",
 ];
 
-/** A path, or "wiki:<path>" for the same path on the wiki's host. */
+/** A path, or "wiki:<path>" / "api:<path>" for the same path on the wiki's or API's host. */
 function address(path: string, baseURL: string | undefined): string {
-  if (!path.startsWith("wiki:")) return path;
+  const host = /^(wiki|api):/.exec(path)?.[1];
+  if (!host) return path;
   const url = new URL(baseURL ?? "http://127.0.0.1:4329");
-  url.hostname = "wiki.localhost";
-  return url.origin + path.slice("wiki:".length);
+  url.hostname = `${host}.localhost`;
+  return url.origin + path.slice(host.length + 1);
 }
 const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 900 },
