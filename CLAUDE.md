@@ -1164,7 +1164,8 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   check:server, e2e in 3 Playwright shards (each builds and serves its own site and
   database), and the Docker image. "CI passed" needs them all: it's the check branch
   protection requires. New packages, tests and specs are picked up by turbo and the
-  shards; only a new kind of check needs a job. Raise a shard count if its jobs
+  shards; only a new kind of check needs a job. apps/web's lint runs `astro sync`
+  first: type-aware rules need the generated .astro/ types (import.meta.env, astro:*). Raise a shard count if its jobs
   become the slowest.
 
 ## Commands

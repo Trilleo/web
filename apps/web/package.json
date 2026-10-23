@@ -10,7 +10,7 @@
     "check:server": "node scripts/check-server-bundle.ts dist",
     "preview": "astro preview",
     "typecheck": "astro check",
-    "lint": "eslint .",
+    "lint": "astro sync && eslint .",
     "test": "vitest run",
     "test:e2e": "playwright test"
   },
