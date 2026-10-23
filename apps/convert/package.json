@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./meta": "./src/meta.ts"
+    "./meta": "./src/meta.ts",
+    "./decode": "./src/image.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

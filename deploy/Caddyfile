@@ -32,6 +32,13 @@
 
 # The headers every page gets, on the site and the wiki.
 (site_headers) {
+	# The Preview tool (/tools/preview/) reads documents from other sites in the browser
+	# (connect-src https:) and can open Microsoft's Office viewer in a frame (frame-src);
+	# no other page may do either.
+	map {path} {tr_preview_connect} {tr_preview_frame} {
+		~^/tools/preview(/|$) " https:" " https://view.officeapps.live.com"
+		default "" ""
+	}
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
@@ -47,7 +54,7 @@
 		# files.trilleo.net: stored files' previews; the OBS bucket: browsers upload to it
 		# directly, and the review queue previews files that aren't public through it;
 		# see deploy/storage.md.)
-		Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://files.trilleo.net https://trilleo-web-storage.obs.cn-southwest-2.myhuaweicloud.com; media-src 'self' blob: https://files.trilleo.net https://trilleo-web-storage.obs.cn-southwest-2.myhuaweicloud.com; worker-src 'self' blob:; font-src 'self'; connect-src 'self' data: blob: https://cloudflareinsights.com https://trilleo-web-storage.obs.cn-southwest-2.myhuaweicloud.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+		Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://files.trilleo.net https://trilleo-web-storage.obs.cn-southwest-2.myhuaweicloud.com; media-src 'self' blob: https://files.trilleo.net https://trilleo-web-storage.obs.cn-southwest-2.myhuaweicloud.com; worker-src 'self' blob:; font-src 'self'; connect-src 'self' data: blob: https://cloudflareinsights.com https://trilleo-web-storage.obs.cn-southwest-2.myhuaweicloud.com{tr_preview_connect}; frame-src 'self'{tr_preview_frame}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
 		-Server
 		# Pages and other unhashed files: always revalidate (cheap, thanks to ETags).
 		?Cache-Control "public, max-age=0, must-revalidate"

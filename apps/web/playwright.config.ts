@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 import { FAKE_CLAMD_PORT } from "./e2e/fake-clamd";
+import { FAKE_DOCS, FAKE_DOCS_PORT } from "./e2e/fake-docs";
 import { FAKE_CLIENT, FAKE_GITHUB_PORT, FAKE_USERS } from "./e2e/fake-github";
 
 // Its own port, so a dev server on 4321 is never mistaken for the build under test.
@@ -37,6 +38,9 @@ const e2eEnv = {
   MIGRATIONS_DIR: fileURLToPath(
     new URL("../../packages/db/migrations", import.meta.url),
   ),
+  // The Preview tool's server fetch may reach e2e/fake-docs.ts (it refuses
+  // loopback addresses otherwise).
+  PREVIEW_ALLOW_HOSTS: `127.0.0.1:${String(FAKE_DOCS_PORT)}`,
   // Sign-in goes to e2e/fake-github.ts instead of GitHub.
   GITHUB_CLIENT_ID: FAKE_CLIENT.id,
   GITHUB_CLIENT_SECRET: FAKE_CLIENT.secret,
@@ -90,6 +94,11 @@ export default defineConfig({
       ...serverDefaults,
       command: "node e2e/fake-github.ts",
       url: `${FAKE_GITHUB}/health`,
+    },
+    {
+      ...serverDefaults,
+      command: "node e2e/fake-docs.ts",
+      url: `${FAKE_DOCS}/health`,
     },
     {
       ...serverDefaults,

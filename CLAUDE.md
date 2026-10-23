@@ -26,7 +26,7 @@
 - apps/<tool-name> (@trilleo/tool-<name>): each tool in its own source-only
   package, exporting its details (`./meta`) and a React app that apps/web mounts
   at /tools/<name>/. Tools: apps/notes, apps/convert, apps/inspect (File info),
-  apps/qr, apps/color.
+  apps/preview, apps/qr, apps/color.
 - apps/<game-name> (@trilleo/game-<name>): each game in its own source-only
   package, like tools (`.` the React app, `./meta` its `GameMeta`), mounted at
   /games/<name>/. Games: apps/skygrid, apps/hotfix.
@@ -461,7 +461,7 @@
   with `client:load` (Astro can only hydrate components it sees imported, so
   there's no shared dynamic route). Pages render on the server, so the app gets
   the signed-in state and, for signed-in people, their data up front. Tools that
-  keep no account data (convert, inspect, qr, color) are prerendered.
+  keep no account data (convert, inspect, preview, qr, color) are prerendered.
 - Cards (components/ToolList.astro, shared with games) show the meta's `icon`, a
   flat pictogram from components/ToolIcon.astro (120×120 grid, ink plus one
   accent part, even-odd holes; keep them simple and on-grid). Icons rest in ink;
@@ -476,6 +476,24 @@
   (the threaded one needs cross-origin isolation), libheif-js for HEIC, gifenc,
   utif2, hash-wasm, exifr, fflate. AAC and Opus use the browser's own WebCodecs
   encoders, so formats a browser can't write are shown disabled.
+- Preview (apps/preview) shows a document from a link or a file without saving it.
+  Links: share pages rewritten to their file (links.ts: GitHub, GitLab, Bitbucket,
+  Dropbox, Google, OneDrive), fetched by the browser, or, when the site sends no
+  CORS, through POST /api/tools/preview/fetch (src/lib/tools/preview/fetch.ts:
+  http(s) on ports 80/443 only, every resolved address and redirect checked public
+  in the socket's own DNS lookup (`guardedLookup`), PREVIEW_FETCH_LIMITS, streamed,
+  never stored, answered as `application/octet-stream` + `attachment` + a sandbox
+  CSP). MAX_PREVIEW_BYTES on both paths. PREVIEW_ALLOW_HOSTS lets e2e's
+  e2e/fake-docs.ts through; nothing else. The viewer is picked from the bytes
+  (detect.ts; ZIPs by their entries), each viewer a lazy chunk: pdf.js (its CMaps,
+  fonts and decoders served at /_pdfjs/<version>/ by the package's Astro integration,
+  `@trilleo/tool-preview/integration`), docx-preview, SheetJS (from its own CDN
+  tarball: npm's copy is stale), PPTX/ODF/EPUB/RTF readers by hand (src/formats/),
+  Shiki on its JS engine with only the grammars in viewers/languages.ts. HTML from
+  documents goes through sanitize.ts (DOMPurify; nothing remote loads) into a
+  shadow root or .prose; web pages render in a sandboxed srcdoc frame with its own
+  CSP. Microsoft's Office viewer is opt-in, after a notice. Recent links:
+  `trilleo:tool:preview:recent` (preferenceStore).
 - Tools work signed out, keeping data in this browser; signed in, it goes to the
   account. Notes offers to move browser data into a newly signed-in account.
 - Account data: the tool_data table (user, tool, key → JSON value) behind
@@ -1256,7 +1274,9 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
 - deploy/Caddyfile accepts only Cloudflare's ranges (deploy/cloudflare-ips.txt;
   CI checks it against Cloudflare's live list). It serves files that exist and
   proxies everything else to the app, so new server routes need no Caddy change;
-  /api/health stays internal. CSP is report-only for now; it allows
+  /api/health stays internal. The CSP widens per path through a `map` in
+  `site_headers`: /tools/preview/ alone gets `connect-src https:` and Microsoft's
+  viewer in `frame-src`. CSP is report-only for now; it allows
   'wasm-unsafe-eval' and blob: (images, media, workers) for the file tools. Its
   `frame-ancestors 'none'` and X-Frame-Options DENY don't stop Minecraft embeds,
   which send their own enforced `frame-ancestors *`; when the CSP is enforced, leave

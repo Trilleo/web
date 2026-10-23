@@ -107,9 +107,26 @@ import { DEFAULT_SETTINGS } from "@trilleo/study";
   <h2 id="tools">Tools</h2>
   <h3>Are my files uploaded when I convert them?</h3>
   <p>
-    No. Convert, File info, QR and Color run entirely in your browser; the files
-    never leave your device. That’s also why some formats depend on what your
-    browser supports.
+    No. Convert, File info, Preview, QR and Color run entirely in your browser;
+    the files never leave your device. That’s also why some formats depend on
+    what your browser supports.
+  </p>
+  <h3>Why does Preview say a link was fetched through the server?</h3>
+  <p>
+    Browsers may only read a file from another site if that site allows it, and
+    many don’t. Then Preview asks this site’s server to fetch it for you, which
+    passes the file straight on and keeps nothing. The server is in mainland
+    China, so links to services blocked there (Google Drive, Dropbox, OneDrive
+    and others) only work if the site allows browsers in; otherwise download the
+    file and drop it on the page.
+  </p>
+  <h3>Why do some Word or PowerPoint files look different in Preview?</h3>
+  <p>
+    Office files are laid out in your browser by small open-source readers, not
+    by Office. Word documents come close; PowerPoint slides show their text,
+    pictures and tables roughly where they sit. For a public link, Preview can
+    open Microsoft’s own viewer instead, after telling you the link goes to
+    Microsoft.
   </p>
   <h3>Where are my notes kept?</h3>
   <p>

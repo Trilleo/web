@@ -3,6 +3,7 @@ import node from "@astrojs/node";
 import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
+import { pdfjsAssets } from "@trilleo/tool-preview/integration";
 import type { AstroIntegration } from "astro";
 import { defineConfig } from "astro/config";
 import { SITE_URL, inSitemap } from "./src/lib/site";
@@ -62,6 +63,8 @@ export default defineConfig({
     // the visitor's own study records; leave those out.
     sitemap({ filter: (page) => inSitemap(new URL(page).pathname) }),
     bundleServerDependencies,
+    // pdf.js's CMaps, fonts and decoders for the Preview tool (/_pdfjs/<version>/).
+    pdfjsAssets(),
   ],
   markdown: {
     shikiConfig: { theme: "vesper" },

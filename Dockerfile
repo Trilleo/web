@@ -26,6 +26,7 @@ COPY apps/color/package.json apps/color/
 COPY apps/convert/package.json apps/convert/
 COPY apps/inspect/package.json apps/inspect/
 COPY apps/notes/package.json apps/notes/
+COPY apps/preview/package.json apps/preview/
 COPY apps/qr/package.json apps/qr/
 COPY apps/hotfix/package.json apps/hotfix/
 COPY apps/skygrid/package.json apps/skygrid/

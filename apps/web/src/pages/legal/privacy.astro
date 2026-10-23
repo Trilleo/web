@@ -13,6 +13,7 @@ import { CONTACT_RETENTION_DAYS } from "../../lib/contact/store";
 import { CODE_LIMITS, CODE_RETENTION_DAYS } from "../../lib/mail/addresses";
 import { MAIL_LOG_DAYS, MAIL_RETENTION_DAYS } from "../../lib/mail/outbox";
 import { CONTACT_EMAIL, SITE_NAME } from "../../lib/site";
+import { PREVIEW_FETCH_LIMITS } from "../../lib/tools/preview/fetch";
 
 const sessionDays = SESSION_TTL_MS / (24 * 60 * 60 * 1000);
 // deploy/server/trilleo-backup keeps this many days of nightly dumps (KEEP_DAYS).
@@ -407,8 +408,19 @@ const ticketHours = TICKET_LIMITS.maxAgeMs / 3_600_000;
     </li>
     <li>
       Files are scanned for malware on the server, but nothing in them is used
-      for anything else. The file tools (convert, file info, QR, colour) work
-      entirely in your browser: what you open in them is never uploaded.
+      for anything else. The file tools (convert, file info, preview, QR,
+      colour) work entirely in your browser: what you open in them is never
+      uploaded.
+    </li>
+    <li>
+      Preview opens links in your browser. When the site a link points to
+      doesn’t let browsers read it, your browser asks this site’s server to
+      fetch it instead: the server sees the link, passes the file straight on to
+      you and keeps neither, and nothing about the request is logged. To limit
+      how often one visitor can do that ({PREVIEW_FETCH_LIMITS.perVisitorHourly}{" "}
+      times an hour), a hash of your IP address is held in memory for an hour.
+      The site you linked to sees this server asking, not you. Links you preview
+      are remembered in your browser (see the cookie policy).
     </li>
   </ul>
 
@@ -477,6 +489,12 @@ const ticketHours = TICKET_LIMITS.maxAgeMs / 3_600_000;
     <li>
       <strong>GitHub</strong> handles signing in with GitHub, if you use it.
       Then GitHub learns that you used this site.
+    </li>
+    <li>
+      <strong>Microsoft</strong>, only if you ask Preview to open an Office file
+      in Microsoft’s online viewer (it says so first): the link (not the file)
+      goes to Microsoft, whose servers fetch the file and show it. See
+      Microsoft’s own privacy statement.
     </li>
   </ul>
   <p>

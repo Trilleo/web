@@ -44,6 +44,11 @@ const sections = [
       (including ways to cheat the server’s checks), and the Minecraft platform:
       projects, releases, 3D previews, embeds and its JSON API.
     </li>
+    <li>
+      The Preview tool, including its server fetch (ways to make the server
+      reach a private address, or to run a fetched document as part of this
+      site).
+    </li>
     <li>The source code of this site on GitHub.</li>
   </ul>
 
@@ -112,6 +117,13 @@ const sections = [
       pictures are checked from their bytes (never SVG). Uploaded files are
       scanned for malware, and anything that could run in a browser is served as
       a download from a separate domain.
+    </li>
+    <li>
+      Preview’s server fetch reaches only public addresses on the usual web
+      ports, checking every address a link resolves to and every redirect, and
+      hands back what it fetched as a download that can’t run. Documents shown
+      in Preview are cleaned of scripts and can’t load anything from other
+      sites; web pages are drawn in a sandbox with scripts off.
     </li>
     <li>
       Dependencies are kept up to date automatically, and code is scanned on

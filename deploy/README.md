@@ -486,7 +486,10 @@ beacon shows it), so it lives in the code. Empty: no analytics.
   (`/minecraft/<type>/<slug>/embed/`) are meant to be framed by other sites and send
   their own `frame-ancestors *`: an enforced `frame-ancestors 'none'` from Caddy would
   block them, so leave those paths out of that header (a `path_regexp` matcher) when
-  you enforce it.
+  you enforce it. The Preview tool (`/tools/preview/`) reads documents from other
+  sites in the browser: the `map` at the top of `site_headers` adds `connect-src
+https:` and Microsoft's viewer (`frame-src`) for that path only; keep it when you
+  rename the header.
 - **Origin certificate** is valid for 15 years; to replace it, redo steps 1.3 and 4d, then
   `sudo -u deploy docker compose restart` in `/srv/trilleo`.
 

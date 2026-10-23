@@ -40,6 +40,7 @@ apps/web            Astro site (static by default, a Node server for dynamic rou
 apps/notes          @trilleo/tool-notes: Notes (/tools/notes/)
 apps/convert        @trilleo/tool-convert: file converter (/tools/convert/)
 apps/inspect        @trilleo/tool-inspect: File info (/tools/inspect/)
+apps/preview        @trilleo/tool-preview: Preview, documents from links or files (/tools/preview/)
 apps/qr             @trilleo/tool-qr: QR codes (/tools/qr/)
 apps/color          @trilleo/tool-color: colors (/tools/color/)
 apps/skygrid        @trilleo/game-skygrid: Skygrid, a text-drawn Skyblock-style game (/games/skygrid/)

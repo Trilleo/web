@@ -37,6 +37,7 @@
     "@trilleo/tool-inspect": "workspace:*",
     "@trilleo/tool-kit": "workspace:*",
     "@trilleo/tool-notes": "workspace:*",
+    "@trilleo/tool-preview": "workspace:*",
     "@trilleo/tool-qr": "workspace:*",
     "@trilleo/ui": "workspace:*",
     "@trilleo/wiki": "workspace:*",

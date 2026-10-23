@@ -83,6 +83,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-23",
+        note: "Preview: links the server fetches for you (passed on, not kept), the hashed address that limits it, and Microsoft's viewer if you choose it.",
+      },
+      {
+        date: "2026-10-23",
         note: "The daily cryptic played through other programs: what's kept, and for how long.",
       },
       {
@@ -153,6 +157,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "The cookies and browser storage the site uses, what each is for, and how to choose what’s kept.",
     group: "legal",
     changes: [
+      {
+        date: "2026-10-23",
+        note: "Listed the links Preview remembers in your browser (a preference).",
+      },
       {
         date: "2026-10-23",
         note: "Listed the admin's cookie for showing a new API key once, and the API's docs.",
