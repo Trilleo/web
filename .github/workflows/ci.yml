@@ -19,18 +19,17 @@ env:
   SKIP_INSTALL_SIMPLE_GIT_HOOKS: 1
 
 jobs:
-  checks:
-    name: Typecheck, lint, test, build
+  # The checks run as parallel jobs, so a run takes as long as its slowest job. Each
+  # job sets up on its own (about 20 s with the cached pnpm store). New packages, unit
+  # tests and e2e specs are picked up by turbo and the shards; only a new kind of check
+  # needs a job here. "CI passed" at the end is the one check branch protection needs.
+  static:
+    name: Format, migrations, typecheck
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
       - name: Format check
         run: pnpm format:check
       - name: Migrations match the schema
@@ -43,32 +42,71 @@ jobs:
           fi
       - name: Typecheck
         run: pnpm typecheck
-      - name: Lint
-        run: pnpm lint
-      - name: Unit tests
-        run: pnpm test
-      - name: Build
-        run: pnpm build
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm lint
+
+  unit-packages:
+    name: Unit tests (packages)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      # Every workspace package but apps/web, whose tests are sharded below. Three at a
+      # time: each Vitest run starts its own workers, and turbo's default (10) starves
+      # the runner's 4 vCPUs until jsdom tests hit their 5 s timeout (it's no faster).
+      - run: pnpm exec turbo run test --filter='!@trilleo/web' --concurrency=3
+
+  unit-web:
+    name: Unit tests (web ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      # apps/web's tests (most start a PGlite database) are most of the unit-test time.
+      - run: pnpm --filter @trilleo/web exec vitest run --shard=${{ matrix.shard }}/4
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm build
       # The app image has no node_modules, so the server must run from its bundle alone.
       - name: Server runs without node_modules
         run: pnpm --filter @trilleo/web run check:server
 
   e2e:
-    name: E2E (Playwright)
+    name: E2E (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
       - name: Install Playwright Chromium
         run: pnpm --filter @trilleo/web exec playwright install --with-deps chromium
       # Build and test are separate steps (not `pnpm test:e2e`) so each has its own
-      # logs and time limit; Playwright then only starts `astro preview`.
+      # logs and time limit; Playwright then only starts `astro preview`. Every shard
+      # builds and serves its own site with its own in-memory database, and runs
+      # e2e/posts.setup.ts itself.
       - name: Build the e2e site
         run: pnpm --filter @trilleo/web run build:e2e
         timeout-minutes: 5
@@ -79,7 +117,7 @@ jobs:
           # As in playwright.config.ts: the sample study subject (a draft) is built.
           STUDY_DRAFTS: "1"
       - name: E2E tests
-        run: pnpm --filter @trilleo/web exec playwright test
+        run: pnpm --filter @trilleo/web exec playwright test --shard=${{ matrix.shard }}/3
         timeout-minutes: 12
         env:
           E2E_PREBUILT: "1"
@@ -89,7 +127,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: apps/web/playwright-report
           retention-days: 7
 
@@ -127,3 +165,18 @@ jobs:
         run: bash deploy/smoke-test.sh trilleo-web:ci trilleo-app:ci "${{ github.sha }}"
       - name: Cloudflare IP list is current
         run: bash deploy/check-cloudflare-ips.sh
+
+  passed:
+    name: CI passed
+    # Runs even when a job above fails, so it reports a result instead of "skipped".
+    if: always()
+    needs: [static, lint, unit-packages, unit-web, build, e2e, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every job passed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: |
+          echo "::error::Some CI jobs didn't pass."
+          exit 1
+      - run: echo "All CI jobs passed."
