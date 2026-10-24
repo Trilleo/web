@@ -214,3 +214,20 @@ test("a suggested name, once approved, finds the song", async ({
     page.getByTestId("chunithm-results").last().getByText(DRAWN.title),
   ).toBeVisible();
 });
+
+test("a list asks the server for the jackets it's missing", async ({
+  page,
+  request,
+}) => {
+  await catalogReady(request);
+  const asked = page.waitForRequest(
+    (sent) =>
+      sent.url().endsWith("/api/chunithm/jackets") && sent.method() === "POST",
+  );
+  await page.goto(`/tools/chunithm/?q=${encodeURIComponent(UNDRAWN.title)}`);
+  const sent = await asked;
+  expect((sent.postDataJSON() as { songs: number[] }).songs).toContain(
+    UNDRAWN.id,
+  );
+  expect((await sent.response())?.status()).toBe(202);
+});

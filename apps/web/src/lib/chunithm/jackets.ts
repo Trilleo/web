@@ -6,7 +6,8 @@
  * (sync.ts), so a new catalog has its jackets within hours. Opening a chart copies its
  * song's jacket at once if it's missing (build.ts). A song's own chart pages are tried
  * first, then its Ultima and World's End ones; a jacket that couldn't be copied is
- * tried again after JACKET_RETRY_DAYS.
+ * tried again after JACKET_RETRY_DAYS. The tool's lists ask for the missing jackets of
+ * the songs they show (`wantJackets`, from POST /api/chunithm/jackets).
  */
 import { sdvxJacket, sdvxPathInfo, sdvxScriptOf } from "@trilleo/chunithm";
 import {
@@ -263,4 +264,68 @@ export function startJacketBatch(deps: {
       batch = null;
     });
   return true;
+}
+
+/** Jackets asked for by the tool's lists (`wantJackets`). */
+export const LIST_JACKETS = {
+  /** Songs one request may ask for (a page of results). */
+  perRequest: 60,
+  /** Songs waiting at most; asks beyond it are dropped (a later list asks again). */
+  queued: 300,
+};
+
+const wanted = new Set<number>();
+let listWorker: Promise<void> | null = null;
+
+/**
+ * Copies the missing jackets of songs a list is showing, in the background: one
+ * worker per server, one song at a time like every sdvx.in request, newest asks
+ * last. Songs that have a jacket, or failed lately, are skipped by `copyJackets`.
+ * Returns how many were taken.
+ */
+export function wantJackets(
+  deps: {
+    db: Database;
+    storage: StorageDriver;
+    sdvxOrigin: string;
+    fetch?: typeof fetch;
+  },
+  songIds: number[],
+): number {
+  let taken = 0;
+  for (const id of songIds.slice(0, LIST_JACKETS.perRequest)) {
+    if (wanted.size >= LIST_JACKETS.queued) break;
+    if (!wanted.has(id) && !copying.has(id)) taken++;
+    wanted.add(id);
+  }
+  listWorker ??= (async () => {
+    while (wanted.size > 0) {
+      const ids = [...wanted].slice(0, LIST_JACKETS.perRequest);
+      for (const id of ids) copying.add(id);
+      try {
+        await copyJackets(deps.db, deps.storage, {
+          ...(deps.fetch ? { fetch: deps.fetch } : {}),
+          sdvxOrigin: deps.sdvxOrigin,
+          now: new Date(),
+          songIds: ids,
+          limit: ids.length,
+        });
+      } catch (error) {
+        console.warn("CHUNITHM jackets for a list failed:", error);
+      } finally {
+        for (const id of ids) {
+          wanted.delete(id);
+          copying.delete(id);
+        }
+      }
+    }
+  })().finally(() => {
+    listWorker = null;
+  });
+  return taken;
+}
+
+/** For tests: wait until the list worker is idle. */
+export async function listJacketsIdle(): Promise<void> {
+  while (listWorker) await listWorker;
 }

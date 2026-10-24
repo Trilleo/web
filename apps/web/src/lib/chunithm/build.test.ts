@@ -7,7 +7,7 @@ import {
   openDatabase,
   type DatabaseHandle,
 } from "@trilleo/db";
-import { LocalDriver, readBytes } from "@trilleo/storage/server";
+import { LocalDriver, StorageError, readBytes } from "@trilleo/storage/server";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { restoreChart, withdrawChart } from "./admin";
@@ -245,6 +245,53 @@ describe("building a chart's picture", () => {
     // Nothing half-built was kept.
     const [row] = await handle.db.select().from(chuniBuilds);
     expect(row?.manifest).toBeNull();
+  });
+
+  it("says so when a layer's download breaks off partway", async () => {
+    const cutting: typeof fetch = (input, init) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+      if (url.endsWith("00001bar.png"))
+        return Promise.resolve(
+          new Response(
+            new ReadableStream({
+              start(controller) {
+                controller.enqueue(new Uint8Array([137, 80, 78, 71]));
+                controller.error(new TypeError("terminated"));
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      return fakeFetch(input, init);
+    };
+    await requestBuild(deps(), chartId, "normal");
+    expect(await runBuilds(deps({ fetch: cutting }))).toBe(0);
+    const state = await requestBuild(deps(), chartId, "normal");
+    expect(state).toMatchObject({
+      status: "failed",
+      error:
+        "The measure numbers layer's download broke off partway; it's tried again later.",
+    });
+  });
+
+  it("says so when storage refuses the picture", async () => {
+    const refusing = new LocalDriver({
+      root: null,
+      baseUrl: "/api/storage/local",
+    });
+    refusing.put = () => Promise.reject(new StorageError("Access Denied", 403));
+    await requestBuild(deps(), chartId, "normal");
+    expect(await runBuilds(deps({ storage: refusing }))).toBe(0);
+    const state = await requestBuild(deps(), chartId, "normal");
+    expect(state).toMatchObject({
+      status: "failed",
+      error: "The picture couldn't be saved to storage (Access Denied).",
+    });
   });
 
   it("refuses a layer that isn't a PNG, or one of another size", async () => {

@@ -380,6 +380,33 @@ export async function failedBuilds(db: Database): Promise<
     .limit(100);
 }
 
+/** sdvx.in scripts the last read of failed, with why (they're tried again after a day). */
+export async function failedScripts(
+  db: Database,
+): Promise<{ script: string; error: string; readAt: Date | null }[]> {
+  return db
+    .select({
+      script: chuniSdvxEntries.script,
+      error: sql<string>`${chuniSdvxEntries.readError}`,
+      readAt: chuniSdvxEntries.readAt,
+    })
+    .from(chuniSdvxEntries)
+    .where(isNotNull(chuniSdvxEntries.readError))
+    .orderBy(desc(chuniSdvxEntries.readAt))
+    .limit(100);
+}
+
+/** "Read again": the next pass reads the script first. */
+export async function rereadScript(
+  db: Database,
+  script: string,
+): Promise<void> {
+  await db
+    .update(chuniSdvxEntries)
+    .set({ readAt: null })
+    .where(eq(chuniSdvxEntries.script, script));
+}
+
 /** "master" → "master"; anything else null. */
 export function difficultyFrom(value: string): Difficulty | null {
   return isDifficulty(value) ? value : null;

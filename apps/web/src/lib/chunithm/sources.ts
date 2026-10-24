@@ -107,9 +107,27 @@ export async function fetchText(
     await response.body?.cancel();
     throw new FetchError(url, "too large");
   }
-  const bytes = new Uint8Array(await response.arrayBuffer());
+  const bytes = await readBody(response, url);
   if (bytes.byteLength > maxBytes) throw new FetchError(url, "too large");
   return new TextDecoder("utf-8").decode(bytes);
+}
+
+/**
+ * The response's body. A download that stalls or drops partway (the timeout runs
+ * on, so a slow body is cut off) is a FetchError like no answer at all.
+ */
+export async function readBody(
+  response: Response,
+  url: string,
+): Promise<Uint8Array> {
+  try {
+    return new Uint8Array(await response.arrayBuffer());
+  } catch (error) {
+    throw new FetchError(
+      url,
+      `the download broke off (${error instanceof Error ? error.message : "failed"})`,
+    );
+  }
 }
 
 export async function fetchJson(

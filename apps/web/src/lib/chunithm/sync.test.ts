@@ -36,9 +36,11 @@ let handle: DatabaseHandle;
 let clock: Date;
 let files: Map<string, string | Uint8Array>;
 let silent: Set<string>;
+let cutOff: Set<string>;
 let requests: string[];
 
 const SONGS = 600;
+const DAY_MS = 24 * 3600 * 1000;
 
 const segaRow = (id: number, over: Record<string, string> = {}) => ({
   id: String(id),
@@ -116,6 +118,19 @@ const fakeFetch: typeof fetch = (input) => {
   // A request that never answers (it times out).
   if (silent.has(url))
     return Promise.reject(new Error("The operation timed out."));
+  // One that answers, then breaks off partway through the body.
+  if (cutOff.has(url))
+    return Promise.resolve(
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode("function"));
+            controller.error(new TypeError("terminated"));
+          },
+        }),
+        { status: 200 },
+      ),
+    );
   const body = files.get(url);
   return Promise.resolve(
     body === undefined
@@ -142,6 +157,7 @@ beforeEach(async () => {
   requests = [];
   files = new Map();
   silent = new Set();
+  cutOff = new Set();
   setSources();
   for (const page of SDVX_LIST_PAGES)
     files.set(`${SOURCES.sdvxOrigin}${page}`, "<html></html>");
@@ -511,6 +527,46 @@ describe("syncCatalog", () => {
     const second = await syncCatalog(handle.db, deps());
     expect(second.scriptsRead).toBe(1);
     expect(second.scriptsLeft).toBe(0);
+  });
+
+  it("leaves a script whose download broke off for the next pass", async () => {
+    cutOff.add(`${SOURCES.sdvxOrigin}/chunithm/01/js/00002sort.js`);
+    const first = await syncCatalog(handle.db, deps());
+    expect(first.scriptsLeft).toBe(1);
+    cutOff.clear();
+    const second = await syncCatalog(handle.db, deps());
+    expect(second.scriptsLeft).toBe(0);
+    const [entry] = await handle.db
+      .select()
+      .from(chuniSdvxEntries)
+      .where(eq(chuniSdvxEntries.script, "01/00002sort"));
+    expect(entry?.readError).toBeNull();
+  });
+
+  it("reads a script that failed again a day later", async () => {
+    files.set(
+      `${SOURCES.sdvxOrigin}/chunithm/01/js/00002sort.js`,
+      "not a script",
+    );
+    await syncCatalog(handle.db, deps());
+    const failed = async () =>
+      (
+        await handle.db
+          .select({ error: chuniSdvxEntries.readError })
+          .from(chuniSdvxEntries)
+          .where(eq(chuniSdvxEntries.script, "01/00002sort"))
+      )[0]?.error ?? null;
+    expect(await failed()).not.toBeNull();
+    files.set(
+      `${SOURCES.sdvxOrigin}/chunithm/01/js/00002sort.js`,
+      script("00002", "Song 2", "Artist 2"),
+    );
+    requests = [];
+    await syncCatalog(handle.db, deps());
+    expect(requests.some((url) => url.endsWith("00002sort.js"))).toBe(false);
+    clock = new Date(clock.getTime() + SDVX_PASS.retryFailedDays * DAY_MS + 1);
+    await syncCatalog(handle.db, deps());
+    expect(await failed()).toBeNull();
   });
 
   it("stops reading when sdvx.in stops answering", async () => {

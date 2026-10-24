@@ -13,8 +13,8 @@ import {
   type StoredItem,
 } from "@trilleo/tool-kit";
 import { Button, Field, ToolSection, fieldClasses } from "@trilleo/ui";
-import { useEffect, useMemo, useState } from "react";
-import { chartHref, fetchIndex } from "./api";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { askForJackets, chartHref, fetchIndex } from "./api";
 import {
   NO_FILTERS,
   browse,
@@ -28,6 +28,10 @@ import { chartOfKey, meta, type SavedChart } from "./meta";
 
 /** Rows shown at first, and added by "Show more". */
 export const PAGE_SIZE = 50;
+/** After a list settles, how long before asking for its missing jackets. */
+export const JACKET_ASK_DELAY_MS = 800;
+/** After asking, when to load the index again to show the copied jackets. */
+export const JACKET_REFRESH_MS = 20_000;
 
 const SHORT: Record<Difficulty, string> = {
   basic: "BAS",
@@ -123,6 +127,55 @@ export function ChunithmApp({
       .sort((a, b) => b.at.localeCompare(a.at));
   const favourites = savedCharts("favourite");
   const recent = savedCharts("recent").slice(0, 12);
+
+  // Songs on screen without a jacket: the server copies theirs, and a later load of
+  // the index shows them.
+  const missingJackets = [
+    ...new Set(
+      [
+        ...(index && browsing
+          ? [
+              ...newest(index),
+              ...favourites.map((chart) => chart.song),
+              ...recent.map((chart) => chart.song),
+            ]
+          : []),
+        ...results.slice(0, shown).map((item) => item.song),
+      ]
+        .filter((song) => !song.jacket)
+        .map((song) => song.id),
+    ),
+  ].join(",");
+  const asked = useRef(new Set<number>());
+  const refresh = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!missingJackets) return;
+    const timer = setTimeout(() => {
+      const ids = missingJackets
+        .split(",")
+        .map(Number)
+        .filter((id) => !asked.current.has(id));
+      if (ids.length === 0) return;
+      for (const id of ids) asked.current.add(id);
+      void askForJackets(ids).then(() => {
+        refresh.current ??= setTimeout(() => {
+          refresh.current = null;
+          fetchIndex().then(setIndex, () => {
+            // Keep the index we have.
+          });
+        }, JACKET_REFRESH_MS);
+      });
+    }, JACKET_ASK_DELAY_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [missingJackets]);
+  useEffect(
+    () => () => {
+      if (refresh.current) clearTimeout(refresh.current);
+    },
+    [],
+  );
 
   return (
     <div className="flex flex-col gap-10">

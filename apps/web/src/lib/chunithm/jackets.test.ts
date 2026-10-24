@@ -8,7 +8,13 @@ import {
 import { LocalDriver } from "@trilleo/storage/server";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { JACKET_RETRY_DAYS, copyJackets, jacketsDue } from "./jackets";
+import {
+  JACKET_RETRY_DAYS,
+  copyJackets,
+  jacketsDue,
+  listJacketsIdle,
+  wantJackets,
+} from "./jackets";
 import { encodePng } from "./png";
 
 const ORIGIN = "https://sdvx.test";
@@ -132,5 +138,24 @@ describe("copying jackets", () => {
       }),
     ).toBe(1);
     expect(await jacketOf(2)).toBeNull();
+  });
+
+  it("copies the jackets a list asks for, in the background", async () => {
+    served.set(`${ORIGIN}/chunithm/02/jacket/00002.png`, png());
+    served.set(`${ORIGIN}/chunithm/01/jacket/00001.png`, png());
+    const deps = {
+      db: handle.db,
+      storage,
+      sdvxOrigin: ORIGIN,
+      fetch: fakeFetch,
+    };
+    expect(wantJackets(deps, [2, 3])).toBe(2);
+    // Asked again while waiting: not taken twice.
+    expect(wantJackets(deps, [2])).toBe(0);
+    await listJacketsIdle();
+    expect(await jacketOf(2)).not.toBeNull();
+    // Song 1 wasn't asked for, and song 3 has no page.
+    expect(await jacketOf(1)).toBeNull();
+    expect(await jacketOf(3)).toBeNull();
   });
 });

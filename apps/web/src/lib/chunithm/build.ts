@@ -43,7 +43,7 @@ import {
   type Database,
 } from "@trilleo/db";
 import { PUBLIC_CACHE } from "@trilleo/storage";
-import type { StorageDriver } from "@trilleo/storage/server";
+import { StorageError, type StorageDriver } from "@trilleo/storage/server";
 import { randomBytes, createHash } from "node:crypto";
 import { and, asc, count, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { copyJacketSoon } from "./jackets";
@@ -56,6 +56,7 @@ import {
   USER_AGENT,
   chunithmSources,
   fetchText,
+  readBody,
 } from "./sources";
 import { BUILD_LIMITS } from "./limits";
 import { encodeWebp } from "./webp";
@@ -382,7 +383,8 @@ export async function buildChart(
       error instanceof BuildError ||
       error instanceof ChartLayoutError ||
       error instanceof PngError ||
-      error instanceof FetchError
+      error instanceof FetchError ||
+      error instanceof StorageError
     ))
       console.warn(
         `CHUNITHM chart ${String(build.chartId)} build failed:`,
@@ -401,7 +403,10 @@ function describe(error: unknown): string {
     return error.message;
   if (error instanceof FetchError)
     return `Couldn't download ${error.url}: ${error.message.slice(error.url.length + 2)}`;
-  return "Something went wrong while building it.";
+  if (error instanceof StorageError)
+    return `The picture couldn't be saved to storage (${error.message}).`;
+  // Kept for the admin page, which lists failures with their reasons.
+  return `Something went wrong while building it (${error instanceof Error ? error.message : String(error)}).`;
 }
 
 async function readImages(
@@ -455,7 +460,14 @@ async function fetchLayer(
     await response.body?.cancel();
     throw new BuildError(`The ${name} layer is too large.`);
   }
-  const bytes = new Uint8Array(await response.arrayBuffer());
+  let bytes: Uint8Array;
+  try {
+    bytes = await readBody(response, url);
+  } catch {
+    throw new BuildError(
+      `The ${name} layer's download broke off partway; it's tried again later.`,
+    );
+  }
   if (bytes.byteLength > BUILD_LIMITS.maxLayerBytes)
     throw new BuildError(`The ${name} layer is too large.`);
   if (!isPng(bytes))

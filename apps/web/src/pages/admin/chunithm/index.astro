@@ -22,12 +22,14 @@ import {
   catalogOverview,
   chartsWithoutPage,
   failedBuilds,
+  failedScripts,
   findChart,
   difficultyFrom,
   forgetPage,
   listOverrides,
   placePage,
   restoreChart,
+  rereadScript,
   songTitles,
   withdrawChart,
   withdrawnCharts,
@@ -133,6 +135,9 @@ if (Astro.request.method === "POST") {
         error = BUILD_REASONS[state.reason] ?? state.reason;
       else done = state.status === "ready" ? "built" : "building";
     }
+  } else if (intent === "reread") {
+    await rereadScript(db, field(form, "script"));
+    done = "reread";
   } else if (intent === "rebuild") {
     const chart = parseId(field(form, "chart"));
     if (chart !== null) await resetBuilds(db, getStorage(), chart);
@@ -156,6 +161,7 @@ const DONE: Record<string, string> = {
   built: "That chart is built already.",
   building: "Building it now. Reload in a moment.",
   reset: "Its picture was thrown away; the next view builds it again.",
+  reread: "The next update reads that script first.",
 };
 const done = Astro.url.searchParams.get("done");
 const overview = await catalogOverview(db);
@@ -178,6 +184,7 @@ const missing = await chartsWithoutPage(db);
 const builds = await buildOverview(db);
 const waitingNames = (await waitingSuggestions(db)).length;
 const failed = await failedBuilds(db);
+const failedReads = await failedScripts(db);
 const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 const fetching = chunithmSources() !== null;
 const running = syncRunning();
@@ -288,6 +295,36 @@ const td = "border-b border-hair py-2 pr-4 align-top";
             </dd>
           </div>
         </dl>
+        {failedReads.length > 0 && (
+          <details data-testid="chunithm-failed-scripts">
+            <summary class="cursor-pointer type-label">
+              sdvx.in scripts that failed ({failedReads.length})
+            </summary>
+            <p class="mt-2 text-muted">
+              Each is tried again a day after it failed, or now with “Read
+              again”.
+            </p>
+            <ul class="flex flex-col">
+              {failedReads.map((entry) => (
+                <li class="flex flex-wrap items-center justify-between gap-3 border-b border-hair py-3">
+                  <span>
+                    <span class="font-mono">{entry.script}</span>
+                    <span class="block text-muted">
+                      {entry.error} · {when(entry.readAt)}
+                    </span>
+                  </span>
+                  <form method="post">
+                    <input type="hidden" name="intent" value="reread" />
+                    <input type="hidden" name="script" value={entry.script} />
+                    <button type="submit" class={secondaryButton}>
+                      Read again
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
         <p class="text-muted">
           Updates run every few hours by themselves, on a timer (one after
           another, a minute and a half apart, while sdvx.in scripts are still to

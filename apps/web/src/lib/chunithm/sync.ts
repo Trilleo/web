@@ -56,6 +56,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  or,
   sql,
   type Column,
 } from "drizzle-orm";
@@ -91,6 +92,8 @@ export const SDVX_PASS = {
   delayMs: 300,
   /** A script read this long ago is read again, for designers or levels that changed. */
   rereadDays: 30,
+  /** A script that failed (cut off, or not readable) is tried again after this. */
+  retryFailedDays: 1,
   /** Requests in a row that get no answer (timeouts, 5xx) before a pass stops asking. */
   failuresToStop: 5,
 };
@@ -413,9 +416,19 @@ async function dueScripts(
     .select({ script: chuniSdvxEntries.script })
     .from(chuniSdvxEntries)
     .where(
-      lt(
-        chuniSdvxEntries.readAt,
-        new Date(now.getTime() - SDVX_PASS.rereadDays * DAY_MS),
+      or(
+        lt(
+          chuniSdvxEntries.readAt,
+          new Date(now.getTime() - SDVX_PASS.rereadDays * DAY_MS),
+        ),
+        // One that failed (cut off, or not a chart we could read): sooner.
+        and(
+          isNotNull(chuniSdvxEntries.readError),
+          lt(
+            chuniSdvxEntries.readAt,
+            new Date(now.getTime() - SDVX_PASS.retryFailedDays * DAY_MS),
+          ),
+        ),
       ),
     )
     .orderBy(asc(chuniSdvxEntries.readAt))

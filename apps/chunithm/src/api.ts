@@ -68,3 +68,27 @@ export async function fetchIndex(signal?: AbortSignal): Promise<SongIndex> {
 export function chartHref(songId: number, difficulty: Difficulty): string {
   return `/tools/chunithm/${String(songId)}/${difficulty}/`;
 }
+
+/** Songs one ask may name (the server's LIST_JACKETS.perRequest). */
+export const JACKETS_PER_ASK = 60;
+
+/**
+ * Asks the server to copy the missing jackets of songs a list is showing; they
+ * appear in the index once copied. Best effort: failures are ignored.
+ */
+export async function askForJackets(songIds: number[]): Promise<void> {
+  for (let at = 0; at < songIds.length; at += JACKETS_PER_ASK) {
+    try {
+      await fetch("/api/chunithm/jackets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          songs: songIds.slice(at, at + JACKETS_PER_ASK),
+        }),
+      });
+    } catch {
+      // Offline, or the server's busy: a later visit asks again.
+      return;
+    }
+  }
+}
