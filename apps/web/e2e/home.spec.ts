@@ -33,7 +33,8 @@ test("home renders every section with self-hosted fonts and no errors", async ({
     page.getByRole("heading", { level: 2, name: /Built by hand/ }),
   ).toBeVisible();
   await expect(page.locator("#writing ol > li")).toHaveCount(4);
-  await expect(page.locator("#tools ul > li")).toHaveCount(6);
+  // Every tool in TOOLS (lib/tools/registry.ts), CHUNITHM charts the seventh.
+  await expect(page.locator("#tools ul > li")).toHaveCount(7);
   await expect(
     page.locator("#tools").getByRole("link", { name: /Notes/ }),
   ).toHaveAttribute("href", "/tools/notes/");

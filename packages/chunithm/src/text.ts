@@ -19,16 +19,43 @@ const ENTITIES: Record<string, string> = {
   nbsp: " ",
 };
 
-/** Text inside a bit of HTML: tags dropped, entities decoded, spaces trimmed. */
+/**
+ * Text inside a bit of HTML: tags dropped, entities decoded, spaces trimmed. One pass
+ * from each "<" to its ">" (an unclosed tag drops the rest), so no regex can backtrack
+ * on hostile input. The result is text, never HTML: wherever it's shown it's escaped,
+ * so a decoded "&lt;" stays a harmless "<".
+ */
 export function htmlText(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, "")
-    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, name: string) => {
-      if (name.startsWith("#x") || name.startsWith("#X"))
-        return String.fromCodePoint(parseInt(name.slice(2), 16));
-      if (name.startsWith("#"))
-        return String.fromCodePoint(Number(name.slice(1)));
-      return ENTITIES[name.toLowerCase()] ?? whole;
-    })
+  let text = "";
+  let at = 0;
+  while (at < html.length) {
+    const open = html.indexOf("<", at);
+    if (open === -1) {
+      text += html.slice(at);
+      break;
+    }
+    text += html.slice(at, open);
+    const close = html.indexOf(">", open + 1);
+    if (close === -1) break;
+    at = close + 1;
+  }
+  return text
+    .replace(
+      /&(#x[0-9a-f]{1,6}|#\d{1,7}|[a-z]{2,8});/gi,
+      (whole, name: string) => {
+        if (name.startsWith("#x") || name.startsWith("#X"))
+          return codePoint(parseInt(name.slice(2), 16)) ?? whole;
+        if (name.startsWith("#"))
+          return codePoint(Number(name.slice(1))) ?? whole;
+        return ENTITIES[name.toLowerCase()] ?? whole;
+      },
+    )
     .trim();
+}
+
+/** A character for a numeric entity, or null for one that isn't a character. */
+function codePoint(n: number): string | null {
+  return Number.isInteger(n) && n > 0 && n <= 0x10ffff
+    ? String.fromCodePoint(n)
+    : null;
 }

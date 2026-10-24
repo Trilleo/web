@@ -337,7 +337,10 @@ describe("delivering", () => {
     expect(webhook.id).toBe(after?.id);
 
     // Sent again by hand: from the start of its retries.
-    expect(await redeliver(handle.db, app.id, last?.id ?? "")).toBe(true);
+    // (On the test's clock: the real one would make it due long after `at`.)
+    expect(
+      await redeliver(handle.db, app.id, last?.id ?? "", new Date(at)),
+    ).toBe(true);
     expect(await deliverDue(handle.db, receiver().send, new Date(at))).toBe(1);
     const [fixed] = await webhooksOf(handle.db, app.id);
     expect(fixed?.failures).toBe(0);

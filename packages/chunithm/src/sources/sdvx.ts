@@ -67,7 +67,15 @@ export function sdvxScriptUrl(script: string): string {
 }
 
 const TOKENS =
-  /CHUNITHM([A-Z]*)LG\(\)|<div class=adv1>([^<]*?)\s*(\d{4})\/(\d{2})\/(\d{2})\s*配信停止|src="\/chunithm\/(\d{2}|ult|end)\/js\/(\d{5})(sort|ult|end\d*)\.js"([^\n]*)/g;
+  /CHUNITHM([A-Z]*)LG\(\)|<div class=adv1>([^<]{0,200})<\/div>|src="\/chunithm\/(\d{2}|ult|end)\/js\/(\d{5})(sort|ult|end\d*)\.js"([^\n]*)/g;
+
+/** The text of the first <!--comment--> in a line (the entry's title), if any. */
+function commentIn(line: string): string | undefined {
+  const open = line.indexOf("<!--");
+  if (open === -1) return undefined;
+  const close = line.indexOf("-->", open + 4);
+  return close === -1 ? undefined : line.slice(open + 4, close).trim();
+}
 
 /** The entries a list page links, in order, with their version sections. */
 export function parseSdvxList(html: string): SdvxListEntry[] {
@@ -76,15 +84,22 @@ export function parseSdvxList(html: string): SdvxListEntry[] {
   let version: string | null = null;
   let removed: SdvxListEntry["removed"] = null;
   for (const match of html.matchAll(TOKENS)) {
-    const [, logo, gone, year, month, day, dir, id, kind, rest] = match;
+    const [, logo, header, dir, id, kind, rest] = match;
     if (logo !== undefined) {
       version = sdvxLogoSlug(logo);
       continue;
     }
-    if (year !== undefined) {
+    if (header !== undefined) {
+      // "X-VERSE-X 2025/12/11 配信停止": a removal section (other headers aren't).
+      const text = header.trim();
+      if (!text.endsWith("配信停止")) continue;
+      const before = text.slice(0, -"配信停止".length).trimEnd();
+      const date = /(\d{4})\/(\d{2})\/(\d{2})$/.exec(before);
+      if (!date) continue;
+      const [, year = "", month = "", day = ""] = date;
       removed = {
-        version: versionSlug(gone ?? "") || null,
-        on: `${year}-${month ?? ""}-${day ?? ""}`,
+        version: versionSlug(before.slice(0, date.index)) || null,
+        on: `${year}-${month}-${day}`,
       };
       continue;
     }
@@ -92,7 +107,7 @@ export function parseSdvxList(html: string): SdvxListEntry[] {
     const script = `${dir}/${id}${kind}`;
     if (seen.has(script)) continue;
     seen.add(script);
-    const comment = /<!--(.*?)-->/.exec(rest ?? "")?.[1]?.trim();
+    const comment = commentIn(rest ?? "");
     entries.push({
       script,
       entryId: id,
