@@ -35,6 +35,7 @@ const e2eEnv = {
   STUDY_DRAFTS: "1",
   // Minecraft versions: the list kept in the code, never Mojang's manifest.
   MINECRAFT_VERSION_MANIFEST: "off",
+  CHUNITHM_SYNC: "off",
   MIGRATIONS_DIR: fileURLToPath(
     new URL("../../packages/db/migrations", import.meta.url),
   ),

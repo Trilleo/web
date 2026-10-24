@@ -66,6 +66,10 @@
 - packages/cryptic (@trilleo/cryptic): the daily cryptic's pure rules: enumerations
   (`parseEnumeration`, `enumerationOf`, `answerFits`), checking guesses by their
   letters (`checkGuess`), UTC days, streaks. Source-only.
+- packages/chunithm (@trilleo/chunithm): the CHUNITHM catalog's pure rules:
+  difficulties and constants (tenths), versions (`versionSlug` for every source's
+  names), readers for SEGA's song list, otoge-db and sdvx.in (scripts read as text,
+  never run), and `buildCatalog`, which merges them by SEGA's IDs. Source-only.
 - study/: study subjects as Markdown files (see Study below and study/README.md).
 - Blog content: Markdown posts in Postgres, written in the admin editor (/admin/posts).
 - The wiki (wiki.trilleo.net) is apps/web on a second host, not its own app: pages in
@@ -1147,6 +1151,52 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   When fewer than CRYPTIC_LIMITS.queueWarnDays days from today have a puzzle, /admin
   and /admin/cryptic/ warn, and the middleware's hourly check (lib/cryptic/queue.ts)
   sends an admin alert ("cryptic-queue"), once a day, while the cryptic is in use.
+
+## CHUNITHM catalog
+
+- The song catalog behind the CHUNITHM chart viewer (/tools/chunithm/, coming in a
+  later phase). Pure rules in packages/chunithm, data and updates in
+  apps/web/src/lib/chunithm/ (sources.ts, sync.ts, admin.ts), tables chuni_*.
+- Sources: SEGA's music.json (what's in the Japanese game, official IDs; the authority),
+  otoge-db (otoge-db.net: constants, note counts, designers, versions and dates, links
+  to sdvx.in pages, removed songs, and each ended version's frozen constants in
+  music-ex-<version>-final.json), and sdvx.in (the chart pictures: list pages, then one
+  script per entry for title, artist, BPM, designer, CHAIN and each chart's page).
+  sdvx.in's 配信停止 page lists songs SEGA removed from the game (with the version and
+  day), not charts sdvx.in took down.
+- Songs are keyed by SEGA's ID; World's End charts are songs of their own (IDs from
+  8000), with a kanji and 1–5 stars. Songs and charts are never deleted: removed ones
+  stay with `inGame` false. sdvx.in has hundreds more pages for songs removed before
+  otoge-db's records: they have no official ID and stay unplaced ("older" on the admin
+  page, never alerted).
+- Links from charts to sdvx.in pages (`sdvxPath`, "11/11061mst"), strongest first: the
+  admin's (chuni_sdvx_overrides, which can also ignore a page), otoge-db's, then the
+  same title (+ artist; World's End also kanji and stars). One page per chart, one
+  chart per page.
+- Constants are kept per version (chuni_constants, tenths): the current version's from
+  music-ex.json, only for songs in the game; an ended version's from its final file,
+  looked for daily until it appears. `chuni_charts.constant` is the current one.
+  Versions (chuni_versions) are ordered by KNOWN_VERSIONS, then unknown ones by start
+  (the first day with LAUNCH_SONGS songs); the last is the game now. A new version
+  works without a code change; add it to KNOWN_VERSIONS for its proper name.
+- Updates (sync.ts `syncCatalog`): from any request every SYNC_EVERY_MS (every
+  BACKLOG_EVERY_MS while scripts are unread), or "Check now" on /admin/chunithm/. The
+  song lists are all-or-nothing, and a SEGA list under MIN_SHARE_KEPT of the songs we
+  have is refused. sdvx.in is read one request at a time (SDVX_PASS: 100 scripts a
+  pass, 500 ms apart, reread after 30 days), with our User-Agent; the first fill takes
+  a few hours. Each pass is logged in chuni_syncs (the last 50). Alerts
+  ("chunithm-update"): new songs, new versions, pages sdvx.in added since the first
+  fill that couldn't be placed (`newPagePaths`), and four failed passes in a row.
+- /admin/chunithm/: counts, recent passes, charts without a page (link one by its
+  path), pages to place (link to a SEGA ID or ignore), placements by hand, withdrawn
+  charts (hidden and never built; updates leave them), and versions with their
+  constants.
+- Settings: CHUNITHM_SYNC=off never fetches (e2e); CHUNITHM_SEGA_URL,
+  CHUNITHM_OTOGE_URL and CHUNITHM_SDVX_URL point elsewhere. Tests pass fetch, sources
+  and a clock to `syncCatalog` instead.
+- sdvx.in's chart pictures (later phases) are three layers per chart (bg, obj, bar),
+  each a row of columns 200px apart read bottom to top; the column count follows the
+  image's width. A chart is built only when all three layers load at the same size.
 
 ## Mail
 

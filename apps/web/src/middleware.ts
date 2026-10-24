@@ -9,6 +9,7 @@ import {
 import { noStoreRedirect } from "./lib/auth/redirect";
 import { validateSession } from "./lib/auth/sessions";
 import { emailSetupRedirect } from "./lib/auth/setup";
+import { chunithmSyncInBackground } from "./lib/chunithm/sync";
 import { crypticQueueInBackground } from "./lib/cryptic/queue";
 import { getDb } from "./lib/db";
 import { announceInBackground } from "./lib/indexnow";
@@ -42,6 +43,8 @@ function backgroundWork(): void {
   deliverInBackground();
   // The daily cryptic running short of puzzles (an admin alert, hourly at most).
   crypticQueueInBackground(getDb);
+  // The CHUNITHM catalog: SEGA's list, otoge-db and sdvx.in (every few hours).
+  chunithmSyncInBackground(getDb);
 }
 
 /**

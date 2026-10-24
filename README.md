@@ -116,6 +116,13 @@ sends players' guesses for the site to check and score. Apps can also be sent ev
 as they happen (webhooks: the day's cryptic at midnight, new posts), signed with a
 secret shown in the same panel.
 
+The CHUNITHM catalog (for a chart viewer, still being built) is kept up to date by the
+server: SEGA's song list, otoge-db's constants and links, and sdvx.in's chart pages,
+merged by SEGA's IDs (`packages/chunithm`, `apps/web/src/lib/chunithm/`). The admin
+watches it at `/admin/chunithm/`. `pnpm dev` starts filling it on the first requests
+(a few hours of slow passes over sdvx.in); set `CHUNITHM_SYNC=off` in `apps/web/.env`
+to keep it from fetching.
+
 The study section (`/study/`) is built from the Markdown in `study/`: each subject is a
 folder of numbered units and lessons, with maths, numbered definitions and formulas,
 quizzes, flashcards, plots and circuits (`study/README.md` says how to write them).

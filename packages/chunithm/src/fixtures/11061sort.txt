@@ -1,0 +1,13 @@
+var TITLE11061="<div class=f1>コンクエスト・チャレンジ</div>";
+var ARTIST11061="<div class=b2>　/ サツキ feat.ろん</div>";
+var BPM11061="<table><tr><td class=b2>BPM<td width=2><td class=f1>210</table>";
+var CR11061E="<table><tr><td class=ef>NOTES DESIGNER / みぞれヤナギ</table>";
+var CR11061M="<table><tr><td class=ef>NOTES DESIGNER / ミニミライト</table>";
+var LV11061B="<table><tr><td><href=/chunithm/11/11061bsc.htm><img src=/chunithm/chfiles/chlv/bsc_4.png width=18 height=16></a></table>";
+var LV11061A="<table><tr><td><href=/chunithm/11/11061adv.htm><img src=/chunithm/chfiles/chlv/adv_8+.png width=18 height=16></a></table>";
+var LV11061E="<table><tr><td><a href=/chunithm/11/11061exp.htm><img src=/chunithm/chfiles/chlv/exp11.png width=18 height=16></a></table>";
+var LV11061M="<table><tr><td><a href=/chunithm/11/11061mst.htm><img src=/chunithm/chfiles/chlv/mst14+.png width=18 height=16></a></table>";
+var CH11061B="<table><tr><td class=b2>CHAIN<td width=2><td class=bsc1>	</table>";
+var CH11061A="<table><tr><td class=b2>CHAIN<td width=2><td class=adv1>	</table>";
+var CH11061E="<table><tr><td class=b2>CHAIN<td width=2><td class=exp1>1741</table>";
+var CH11061M="<table><tr><td class=b2>CHAIN<td width=2><td class=mst1>2630</table>";

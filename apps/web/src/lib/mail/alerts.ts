@@ -43,6 +43,7 @@ export const ALERT_KINDS = {
   "forum-report": "Forum report",
   "cryptic-queue": "Daily cryptic running out",
   "webhook-disabled": "Webhook switched off",
+  "chunithm-update": "CHUNITHM catalog",
 } as const;
 export type AlertKind = keyof typeof ALERT_KINDS;
 

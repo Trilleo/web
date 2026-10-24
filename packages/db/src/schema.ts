@@ -2658,6 +2658,215 @@ export const crypticAttempts = pgTable(
   ],
 );
 
+/**
+ * CHUNITHM's song catalog, for the chart viewer (/tools/chunithm/). Built from three
+ * sources by apps/web/src/lib/chunithm/sync.ts: SEGA's song list (what's in the game,
+ * by SEGA's IDs), otoge-db (constants, designers, links to sdvx.in) and sdvx.in (the
+ * chart pictures). Songs and charts are never deleted: a removed song stays, out of
+ * the game, so its charts can still be viewed.
+ */
+export const chuniDifficulty = pgEnum("chuni_difficulty", [
+  "basic",
+  "advanced",
+  "expert",
+  "master",
+  "ultima",
+  "worldsend",
+]);
+/** Who linked a chart to its sdvx.in page: the admin, otoge-db, or the same title. */
+export const chuniLinkSource = pgEnum("chuni_link_source", [
+  "admin",
+  "otoge-db",
+  "title",
+]);
+
+/** The game's versions, in order (`sortOrder`); the last is the game now. */
+export const chuniVersions = pgTable("chuni_versions", {
+  slug: text("slug").primaryKey(),
+  name: text("name").notNull(),
+  sortOrder: integer("sort_order").notNull(),
+  startedOn: date("started_on", { mode: "string" }),
+  /** When otoge-db's frozen constants for this version were read (once it ended). */
+  finalConstantsAt: timestamp("final_constants_at", { withTimezone: true }),
+  /** When we last looked for them (they appear some time after a version ends). */
+  finalCheckedAt: timestamp("final_checked_at", { withTimezone: true }),
+});
+
+/** A song, by SEGA's ID. World's End charts are songs of their own (IDs from 8000). */
+export const chuniSongs = pgTable("chuni_songs", {
+  id: integer("id").primaryKey(),
+  title: text("title").notNull(),
+  /** SEGA's katakana sort key (no dakuten or small kana). */
+  reading: text("reading").notNull().default(""),
+  artist: text("artist").notNull().default(""),
+  /** SEGA's category ("ORIGINAL", "東方Project"). */
+  genre: text("genre").notNull().default(""),
+  /** The jacket's file name on SEGA's site. */
+  image: text("image").notNull().default(""),
+  bpm: text("bpm"),
+  /** The version it came in (not a foreign key: versions are written in the same pass). */
+  version: text("version"),
+  addedOn: date("added_on", { mode: "string" }),
+  /** In SEGA's list now. */
+  inGame: boolean("in_game").notNull().default(true),
+  removedOn: date("removed_on", { mode: "string" }),
+  removedIn: text("removed_in"),
+  firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/** A song at one difficulty, with its sdvx.in page when it has one. */
+export const chuniCharts = pgTable(
+  "chuni_charts",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    songId: integer("song_id")
+      .notNull()
+      .references(() => chuniSongs.id, { onDelete: "cascade" }),
+    difficulty: chuniDifficulty("difficulty").notNull(),
+    /** "14+"; for World's End, its kanji. */
+    level: text("level").notNull(),
+    worldsEndStars: integer("worlds_end_stars"),
+    /** The current version's constant, in tenths (147 = 14.7); history in chuni_constants. */
+    constant: integer("constant"),
+    notes: integer("notes"),
+    designer: text("designer"),
+    /** sdvx.in's CHAIN (full combo count). */
+    chain: integer("chain"),
+    /** The chart's sdvx.in page, "11/11061mst" (@trilleo/chunithm's sdvx.ts). */
+    sdvxPath: text("sdvx_path"),
+    linkedBy: chuniLinkSource("linked_by"),
+    /** Taken down by the admin (sdvx.in asked, say): not shown, not built. */
+    withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }),
+    withdrawnReason: text("withdrawn_reason"),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("chuni_charts_song_difficulty_idx").on(
+      table.songId,
+      table.difficulty,
+    ),
+    uniqueIndex("chuni_charts_sdvx_path_idx").on(table.sdvxPath),
+    index("chuni_charts_constant_idx").on(table.constant),
+  ],
+);
+
+/** A chart's constant in each version it was known in (tenths). */
+export const chuniConstants = pgTable(
+  "chuni_constants",
+  {
+    chartId: integer("chart_id")
+      .notNull()
+      .references(() => chuniCharts.id, { onDelete: "cascade" }),
+    version: text("version")
+      .notNull()
+      .references(() => chuniVersions.slug, { onDelete: "cascade" }),
+    constant: integer("constant").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.chartId, table.version] })],
+);
+
+/** What an sdvx.in entry's script says (@trilleo/chunithm's SdvxEntryDetails). */
+export interface ChuniSdvxDetails {
+  title: string;
+  artist: string;
+  bpm: string | null;
+  charts: {
+    difficulty: string;
+    path: string;
+    level: string | null;
+    worldsEndStars: number | null;
+    designer: string | null;
+    chain: number | null;
+  }[];
+}
+
+/**
+ * An entry on sdvx.in's lists: one script ("11/11061sort", "end/01066end2"), read
+ * a few at a time (`readAt`), new ones first, then the longest unread.
+ */
+export const chuniSdvxEntries = pgTable(
+  "chuni_sdvx_entries",
+  {
+    script: text("script").primaryKey(),
+    entryId: text("entry_id").notNull(),
+    kind: text("kind").notNull(),
+    listTitle: text("list_title"),
+    version: text("version"),
+    removedOn: date("removed_on", { mode: "string" }),
+    removedIn: text("removed_in"),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** Last seen on a list page (entries that drop off stay, for their pages). */
+    listedAt: timestamp("listed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    readError: text("read_error"),
+    details: jsonb("details").$type<ChuniSdvxDetails>(),
+  },
+  (table) => [index("chuni_sdvx_entries_read_idx").on(table.readAt)],
+);
+
+/**
+ * The admin's word on an sdvx.in page: it's this chart (song + difficulty), or it's
+ * nothing of ours (both null). Beats every other way of linking.
+ */
+export const chuniSdvxOverrides = pgTable("chuni_sdvx_overrides", {
+  path: text("path").primaryKey(),
+  songId: integer("song_id").references(() => chuniSongs.id, {
+    onDelete: "cascade",
+  }),
+  difficulty: chuniDifficulty("difficulty"),
+  createdAt: createdAt(),
+});
+
+/** What one catalog update found (the admin page shows the latest few). */
+export interface ChuniSyncSummary {
+  songs: number;
+  charts: number;
+  linked: number;
+  newSongs: number[];
+  newCharts: number;
+  removedSongs: number[];
+  newVersions: string[];
+  constants: number;
+  scriptsRead: number;
+  scriptsLeft: number;
+  unmatched: {
+    path: string;
+    title: string;
+    artist: string;
+    difficulty: string;
+    level: string | null;
+    reason: string;
+    candidates: number[];
+  }[];
+  errors: string[];
+}
+
+export const chuniSyncs = pgTable("chuni_syncs", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+  /** False when a source failed (what it would have changed wasn't applied). */
+  ok: boolean("ok").notNull().default(false),
+  summary: jsonb("summary").$type<ChuniSyncSummary>(),
+});
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type UserIdentity = typeof userIdentities.$inferSelect;
@@ -2745,3 +2954,9 @@ export type CrypticPlayer = typeof crypticPlayers.$inferSelect;
 export type CrypticAttempt = typeof crypticAttempts.$inferSelect;
 export type ApiWebhook = typeof apiWebhooks.$inferSelect;
 export type ApiWebhookDelivery = typeof apiWebhookDeliveries.$inferSelect;
+export type ChuniVersion = typeof chuniVersions.$inferSelect;
+export type ChuniSong = typeof chuniSongs.$inferSelect;
+export type ChuniChart = typeof chuniCharts.$inferSelect;
+export type ChuniDifficulty = (typeof chuniDifficulty.enumValues)[number];
+export type ChuniSdvxEntry = typeof chuniSdvxEntries.$inferSelect;
+export type ChuniSync = typeof chuniSyncs.$inferSelect;

@@ -30,6 +30,7 @@ COPY apps/preview/package.json apps/preview/
 COPY apps/qr/package.json apps/qr/
 COPY apps/hotfix/package.json apps/hotfix/
 COPY apps/skygrid/package.json apps/skygrid/
+COPY packages/chunithm/package.json packages/chunithm/
 COPY packages/cryptic/package.json packages/cryptic/
 COPY packages/db/package.json packages/db/
 COPY packages/forum/package.json packages/forum/

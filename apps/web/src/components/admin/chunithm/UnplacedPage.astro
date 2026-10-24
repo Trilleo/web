@@ -1,0 +1,78 @@
+---
+/**
+ * An sdvx.in page the catalog update couldn't place, on /admin/chunithm/: what it is,
+ * why it wasn't placed, and two forms: link it to a song (its SEGA ID; the difficulty
+ * is the page's own) or ignore it.
+ */
+import { DIFFICULTY_LABELS, sdvxPathInfo } from "@trilleo/chunithm";
+import type { ChuniSyncSummary } from "@trilleo/db";
+import { SDVX_ORIGIN } from "../../../lib/chunithm/sources";
+import { secondaryButton } from "../files/styles";
+
+interface Props {
+  page: ChuniSyncSummary["unmatched"][number];
+  /** Titles of candidate songs, by ID. */
+  titles: Map<number, string>;
+}
+
+const { page, titles } = Astro.props;
+const REASONS: Record<string, string> = {
+  "no-song": "No song with that title",
+  ambiguous: "Several songs fit",
+  taken: "Its chart already has a page",
+  "no-chart": "The song has no such difficulty",
+};
+const difficulty = sdvxPathInfo(page.path)?.difficulty ?? null;
+const input =
+  "type-row h-9 w-24 border-b border-ink bg-transparent focus:outline-none focus-visible:border-accent";
+---
+
+<li class="flex flex-col gap-2 border-b border-hair py-3">
+  <p>
+    <a
+      href={`${SDVX_ORIGIN}/chunithm/${page.path}.htm`}
+      class="underline"
+      rel="noreferrer"
+    >
+      {page.title}
+    </a>{" "}
+    <span class="text-muted">
+      / {page.artist} · {difficulty ? DIFFICULTY_LABELS[difficulty] : "—"}
+      {page.level && ` ${page.level}`} · {page.path}
+    </span>
+  </p>
+  <p class="type-label text-muted">
+    {REASONS[page.reason] ?? page.reason}
+    {page.candidates.length > 0 &&
+      `: ${page.candidates
+        .map((id) => `#${String(id)} ${titles.get(id) ?? ""}`.trim())
+        .join(", ")}`}
+  </p>
+  <div class="flex flex-wrap items-end gap-3">
+    <form method="post" class="flex flex-wrap items-end gap-3">
+      <input type="hidden" name="intent" value="link" />
+      <input type="hidden" name="path" value={page.path} />
+      <input type="hidden" name="difficulty" value={difficulty ?? ""} />
+      <label class="flex flex-col gap-1">
+        <span class="type-label text-muted">Song ID</span>
+        <input
+          name="song"
+          inputmode="numeric"
+          required
+          class={input}
+          value={page.candidates.length === 1 ? String(page.candidates[0]) : ""}
+        />
+      </label>
+      <button type="submit" class={secondaryButton}>
+        Link
+      </button>
+    </form>
+    <form method="post">
+      <input type="hidden" name="intent" value="ignore" />
+      <input type="hidden" name="path" value={page.path} />
+      <button type="submit" class={secondaryButton}>
+        Ignore
+      </button>
+    </form>
+  </div>
+</li>

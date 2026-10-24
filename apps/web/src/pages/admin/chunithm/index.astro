@@ -1,0 +1,543 @@
+---
+/**
+ * The CHUNITHM catalog's control panel: what the catalog holds, recent updates (with
+ * "Check now"), sdvx.in pages the last update couldn't place (link each to a chart,
+ * or ignore it), the admin's own placements, withdrawn charts, and each version's
+ * constants. Every button is a POST to this page with an `intent`.
+ */
+import { DIFFICULTY_LABELS } from "@trilleo/chunithm";
+import AdminNav from "../../../components/admin/AdminNav.astro";
+import UnplacedPage from "../../../components/admin/chunithm/UnplacedPage.astro";
+import {
+  primaryButton,
+  secondaryButton,
+} from "../../../components/admin/files/styles";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireAdmin } from "../../../lib/auth/guard";
+import { noStoreRedirect } from "../../../lib/auth/redirect";
+import {
+  DIFFICULTIES,
+  WITHDRAW_REASON_MAX,
+  catalogOverview,
+  chartsWithoutPage,
+  difficultyFrom,
+  forgetPage,
+  listOverrides,
+  placePage,
+  restoreChart,
+  songTitles,
+  withdrawChart,
+  withdrawnCharts,
+} from "../../../lib/chunithm/admin";
+import { chunithmSources, SDVX_ORIGIN } from "../../../lib/chunithm/sources";
+import {
+  newPagePaths,
+  startSync,
+  syncRunning,
+} from "../../../lib/chunithm/sync";
+import { field, parseId } from "../../../lib/comments/form";
+import { getDb } from "../../../lib/db";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+let error: string | null = null;
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const intent = field(form, "intent");
+  const path = field(form, "path");
+  const songId = parseId(field(form, "song"));
+  const difficulty = difficultyFrom(field(form, "difficulty"));
+  let done: string | null = null;
+  if (intent === "sync") {
+    done = startSync(getDb) ? "syncing" : "busy";
+  } else if (intent === "link") {
+    const result =
+      songId === null || difficulty === null
+        ? { ok: false as const, error: "Give a song ID and a difficulty." }
+        : await placePage(db, path, { songId, difficulty });
+    if (result.ok) done = "linked";
+    else error = result.error;
+  } else if (intent === "ignore") {
+    const result = await placePage(db, path, null);
+    if (result.ok) done = "ignored";
+    else error = result.error;
+  } else if (intent === "forget") {
+    await forgetPage(db, path);
+    done = "forgotten";
+  } else if (intent === "withdraw") {
+    const result =
+      songId === null || difficulty === null
+        ? { ok: false as const, error: "Give a song ID and a difficulty." }
+        : await withdrawChart(db, songId, difficulty, field(form, "reason"));
+    if (result.ok) done = "withdrawn";
+    else error = result.error;
+  } else if (intent === "restore") {
+    const chart = parseId(field(form, "chart"));
+    if (chart !== null) await restoreChart(db, chart);
+    done = "restored";
+  } else {
+    error = "Unknown action.";
+  }
+  if (done) return noStoreRedirect(`/admin/chunithm/?done=${done}`, 303);
+}
+
+const DONE: Record<string, string> = {
+  syncing: "Checking for updates now. Reload in a minute to see what it found.",
+  busy: "An update is already running.",
+  linked: "Page linked. Later updates keep it.",
+  ignored: "Page ignored. Later updates leave it out.",
+  forgotten: "Placement removed. The next update links that page as usual.",
+  withdrawn: "Chart withdrawn.",
+  restored: "Chart restored.",
+};
+const done = Astro.url.searchParams.get("done");
+const overview = await catalogOverview(db);
+const overrides = await listOverrides(db);
+const withdrawn = await withdrawnCharts(db);
+const unmatched = overview.lastGood?.summary?.unmatched ?? [];
+const added = await newPagePaths(
+  db,
+  unmatched.map((page) => page.path),
+);
+const fresh = unmatched.filter((page) => added.has(page.path));
+const older = unmatched.filter((page) => !added.has(page.path));
+const SHOWN = 100;
+const titles = await songTitles(db, [
+  ...new Set(
+    [...fresh, ...older.slice(0, SHOWN)].flatMap((row) => row.candidates),
+  ),
+]);
+const missing = await chartsWithoutPage(db);
+const fetching = chunithmSources() !== null;
+const running = syncRunning();
+
+const when = (date: Date | null | undefined) =>
+  date
+    ? date.toLocaleString("en-GB", {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "UTC",
+      }) + " UTC"
+    : "—";
+const difficultyLabel = (value: string | null) =>
+  value && value in DIFFICULTY_LABELS
+    ? DIFFICULTY_LABELS[value as keyof typeof DIFFICULTY_LABELS]
+    : "—";
+const pageUrl = (path: string) => `${SDVX_ORIGIN}/chunithm/${path}.htm`;
+
+const row =
+  "grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6";
+const label = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body =
+  "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
+const input =
+  "type-row h-9 border-b border-ink bg-transparent focus:outline-none focus-visible:border-accent";
+const table = "w-full border-collapse text-left text-sm";
+const th = "type-label border-b border-ink py-2 pr-4 font-normal text-muted";
+const td = "border-b border-hair py-2 pr-4 align-top";
+---
+
+<BaseLayout title="CHUNITHM · Admin" noindex>
+  <section
+    aria-labelledby="admin-chunithm-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="chunithm" />
+
+    <DisplayTitle id="admin-chunithm-title" fit={5.5}>
+      CHUNITHM
+    </DisplayTitle>
+
+    <div class={row}>
+      <p class={label}>Catalog</p>
+      <div class={body}>
+        {done && DONE[done] && (
+          <p role="status" class="type-lead border-l-2 border-accent pl-4">
+            {DONE[done]}
+          </p>
+        )}
+        {error && (
+          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+            {error}
+          </p>
+        )}
+        {!fetching && (
+          <p class="border-l-2 border-hair pl-4 text-muted">
+            Fetching is switched off here (CHUNITHM_SYNC=off).
+          </p>
+        )}
+        <dl
+          class="grid grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-4"
+          data-testid="chunithm-counts"
+        >
+          <div>
+            <dt class="type-label text-muted">Songs</dt>
+            <dd class="type-lead">
+              {overview.inGame}
+              <span class="text-muted">
+                {" "}
+                + {overview.songs - overview.inGame} removed
+              </span>
+            </dd>
+          </div>
+          <div>
+            <dt class="type-label text-muted">Charts with a page</dt>
+            <dd class="type-lead">
+              {overview.linked}{" "}
+              <span class="text-muted">of {overview.charts}</span>
+            </dd>
+          </div>
+          <div>
+            <dt class="type-label text-muted">Version</dt>
+            <dd class="type-lead">{overview.versions[0]?.name ?? "—"}</dd>
+          </div>
+          <div>
+            <dt class="type-label text-muted">sdvx.in scripts to read</dt>
+            <dd class="type-lead">
+              {overview.scriptsLeft}
+              {overview.scriptErrors > 0 && (
+                <span class="text-muted">
+                  {" "}
+                  ({overview.scriptErrors} failed)
+                </span>
+              )}
+            </dd>
+          </div>
+        </dl>
+        <p class="text-muted">
+          Updates run every few hours by themselves (every few minutes while
+          sdvx.in scripts are still to be read). Sources: SEGA’s song list,
+          otoge-db and sdvx.in.
+        </p>
+        <form method="post">
+          <input type="hidden" name="intent" value="sync" />
+          <button
+            type="submit"
+            class={primaryButton}
+            disabled={!fetching || running}
+          >
+            {running ? "Checking…" : "Check now"}
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class={row}>
+      <p class={label}>Recent updates</p>
+      <div class={`${body} overflow-x-auto`}>
+        {overview.syncs.length === 0 ? (
+          <p class="text-muted">None yet.</p>
+        ) : (
+          <table class={table}>
+            <thead>
+              <tr>
+                <th class={th} scope="col">
+                  Started
+                </th>
+                <th class={th} scope="col">
+                  Result
+                </th>
+                <th class={th} scope="col">
+                  New songs
+                </th>
+                <th class={th} scope="col">
+                  Scripts read
+                </th>
+                <th class={th} scope="col">
+                  Problems
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {overview.syncs.map((sync) => (
+                <tr>
+                  <td class={td}>{when(sync.startedAt)}</td>
+                  <td class={td}>
+                    {!sync.finishedAt
+                      ? "Running"
+                      : sync.ok
+                        ? "Updated"
+                        : "Not applied"}
+                  </td>
+                  <td class={td}>{sync.summary?.newSongs.length ?? "—"}</td>
+                  <td class={td}>{sync.summary?.scriptsRead ?? "—"}</td>
+                  <td class={`${td} break-words`}>
+                    {sync.summary?.errors.length
+                      ? sync.summary.errors.join(" · ")
+                      : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <p class={label}>Charts without a page</p>
+      <div class={body}>
+        <p class="text-muted">
+          Charts in the game, Expert and up, that have no sdvx.in page yet
+          (sdvx.in may not have drawn them). If it has, give the page’s address
+          after /chunithm/, e.g. 11/11061mst.
+        </p>
+        {missing.length === 0 ? (
+          <p>Every chart has a page.</p>
+        ) : (
+          <ul class="flex flex-col" data-testid="chunithm-missing">
+            {missing.map((chart) => (
+              <li class="flex flex-wrap items-end justify-between gap-3 border-b border-hair py-3">
+                <span>
+                  #{chart.songId} {chart.title}
+                  <span class="text-muted">
+                    {" "}
+                    / {chart.artist} · {DIFFICULTY_LABELS[chart.difficulty]}{" "}
+                    {chart.level}
+                  </span>
+                </span>
+                <form method="post" class="flex items-end gap-3">
+                  <input type="hidden" name="intent" value="link" />
+                  <input
+                    type="hidden"
+                    name="song"
+                    value={String(chart.songId)}
+                  />
+                  <input
+                    type="hidden"
+                    name="difficulty"
+                    value={chart.difficulty}
+                  />
+                  <label class="flex flex-col gap-1">
+                    <span class="type-label text-muted">sdvx.in page</span>
+                    <input name="path" required class={`${input} w-36`} />
+                  </label>
+                  <button type="submit" class={secondaryButton}>
+                    Link
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <p class={label}>Pages to place</p>
+      <div class={body}>
+        <p class="text-muted">
+          Pages sdvx.in added since the catalog was first filled that the last
+          update couldn’t match to a chart. Link one to a song (its ID in SEGA’s
+          list), or ignore it if it’s nothing in our catalog.
+        </p>
+        {fresh.length === 0 ? (
+          <p>Nothing to place.</p>
+        ) : (
+          <ul class="flex flex-col" data-testid="chunithm-unmatched">
+            {fresh.map((page) => (
+              <UnplacedPage page={page} titles={titles} />
+            ))}
+          </ul>
+        )}
+        {older.length > 0 && (
+          <details>
+            <summary class="type-label cursor-pointer text-muted">
+              {older.length} older {older.length === 1 ? "page" : "pages"} with
+              no chart (mostly songs and World’s End charts long gone from the
+              game, with no ID in SEGA’s list)
+            </summary>
+            <ul class="mt-2 flex flex-col">
+              {older.slice(0, SHOWN).map((page) => (
+                <UnplacedPage page={page} titles={titles} />
+              ))}
+            </ul>
+            {older.length > SHOWN && (
+              <p class="mt-2 text-muted">
+                And {older.length - SHOWN} more after these.
+              </p>
+            )}
+          </details>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <p class={label}>Placed by hand</p>
+      <div class={`${body} overflow-x-auto`}>
+        {overrides.length === 0 ? (
+          <p class="text-muted">None.</p>
+        ) : (
+          <table class={table}>
+            <thead>
+              <tr>
+                <th class={th} scope="col">
+                  Page
+                </th>
+                <th class={th} scope="col">
+                  Chart
+                </th>
+                <th class={th} scope="col">
+                  <span class="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {overrides.map((override) => (
+                <tr>
+                  <td class={td}>
+                    <a
+                      href={pageUrl(override.path)}
+                      class="underline"
+                      rel="noreferrer"
+                    >
+                      {override.path}
+                    </a>
+                  </td>
+                  <td class={td}>
+                    {override.songId === null
+                      ? "Ignored"
+                      : `#${String(override.songId)} ${override.title ?? ""} · ${difficultyLabel(override.difficulty)}`}
+                  </td>
+                  <td class={td}>
+                    <form method="post">
+                      <input type="hidden" name="intent" value="forget" />
+                      <input type="hidden" name="path" value={override.path} />
+                      <button type="submit" class={secondaryButton}>
+                        Remove
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <p class={label}>Withdrawn</p>
+      <div class={body}>
+        <p class="text-muted">
+          A withdrawn chart isn’t shown or built (if sdvx.in asks us to take one
+          down, say). Updates leave it withdrawn.
+        </p>
+        <form method="post" class="flex flex-wrap items-end gap-3">
+          <input type="hidden" name="intent" value="withdraw" />
+          <label class="flex flex-col gap-1">
+            <span class="type-label text-muted">Song ID</span>
+            <input
+              name="song"
+              inputmode="numeric"
+              required
+              class={`${input} w-24`}
+            />
+          </label>
+          <label class="flex flex-col gap-1">
+            <span class="type-label text-muted">Difficulty</span>
+            <select name="difficulty" class={input}>
+              {DIFFICULTIES.map((difficulty) => (
+                <option value={difficulty} selected={difficulty === "master"}>
+                  {DIFFICULTY_LABELS[difficulty]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label class="flex min-w-48 flex-1 flex-col gap-1">
+            <span class="type-label text-muted">Reason</span>
+            <input
+              name="reason"
+              required
+              maxlength={WITHDRAW_REASON_MAX}
+              class={`${input} w-full`}
+            />
+          </label>
+          <button type="submit" class={secondaryButton}>
+            Withdraw
+          </button>
+        </form>
+        {withdrawn.length > 0 && (
+          <ul class="flex flex-col" data-testid="chunithm-withdrawn">
+            {withdrawn.map((chart) => (
+              <li class="flex flex-wrap items-center justify-between gap-3 border-b border-hair py-3">
+                <span>
+                  #{chart.songId} {chart.title} ·{" "}
+                  {DIFFICULTY_LABELS[chart.difficulty]}
+                  <span class="text-muted">
+                    {" "}
+                    · {chart.withdrawnReason} · {when(chart.withdrawnAt)}
+                  </span>
+                </span>
+                <form method="post">
+                  <input type="hidden" name="intent" value="restore" />
+                  <input type="hidden" name="chart" value={String(chart.id)} />
+                  <button type="submit" class={secondaryButton}>
+                    Restore
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <p class={label}>Versions</p>
+      <div class={`${body} overflow-x-auto`}>
+        {overview.versions.length === 0 ? (
+          <p class="text-muted">None yet.</p>
+        ) : (
+          <table class={table}>
+            <thead>
+              <tr>
+                <th class={th} scope="col">
+                  Version
+                </th>
+                <th class={th} scope="col">
+                  Started
+                </th>
+                <th class={th} scope="col">
+                  Constants
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {overview.versions.map((version, index) => (
+                <tr>
+                  <td class={td}>
+                    {version.name}
+                    {index === 0 && <span class="text-muted"> (now)</span>}
+                  </td>
+                  <td class={td}>{version.startedOn ?? "—"}</td>
+                  <td class={td}>
+                    {version.constants > 0
+                      ? `${String(version.constants)}${version.finalConstantsAt ? " (final)" : index === 0 ? " (current)" : ""}`
+                      : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <p class="text-muted">
+          Constants are kept per version: the current one’s change as otoge-db
+          learns them, and an ended version’s are frozen from otoge-db’s final
+          file.
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
