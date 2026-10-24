@@ -150,16 +150,7 @@ const hasMirror = ["expert", "master", "ultima", "worldsend"].includes(
     class="px-page pt-8 pb-24 md:pt-10 xl:pt-14 xl:pb-32"
   >
     <div class="grid-swiss gap-y-6 pb-8">
-      <div class="col-span-4 flex gap-5 md:col-span-8 xl:col-span-9">
-        {page.jacket ? (
-          <img
-            src={page.jacket}
-            alt=""
-            width={120}
-            height={120}
-            class="size-24 shrink-0 border border-hair md:size-30"
-          />
-        ) : null}
+      <div class="col-span-4 md:col-span-8 xl:col-span-9">
         <div class="flex min-w-0 flex-col gap-3">
           <p class="type-label text-muted">
             {DIFFICULTY_LABELS[difficulty]} {levelText}
@@ -177,39 +168,64 @@ const hasMirror = ["expert", "master", "ultima", "worldsend"].includes(
           </p>
         </div>
       </div>
-      <dl
-        class="col-span-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 self-start text-sm md:col-span-8 xl:col-span-3"
-        data-testid="chart-facts"
+      <div
+        class="col-span-4 flex flex-col gap-5 self-start md:col-span-8 md:flex-row md:items-start xl:col-span-3 xl:flex-col"
+        data-testid="chart-info"
       >
-        {facts.flatMap(([name, value]) =>
-          value
-            ? [
-                <dt class="type-label text-muted">{name}</dt>,
-                <dd
-                  lang={
-                    name === "Artist" ||
-                    name === "Notes designer" ||
-                    name === "Also known as"
-                      ? "ja"
-                      : undefined
-                  }
-                >
-                  {value}
-                </dd>,
-              ]
-            : [],
-        )}
-        {history.length > 0 && (
-          <>
-            <dt class="type-label text-muted">Before</dt>
-            <dd>
-              {history
-                .map((row) => `${formatConstant(row.constant)} (${row.name})`)
-                .join(", ")}
-            </dd>
-          </>
-        )}
-      </dl>
+        {
+          /* The jacket at its own 300px (never enlarged), smaller where the column is. */
+          page.jacket ? (
+            <img
+              src={page.jacket}
+              alt=""
+              width={300}
+              height={300}
+              data-testid="chart-jacket"
+              class="aspect-square w-full max-w-[300px] shrink-0 border border-hair md:w-56 xl:w-full"
+            />
+          ) : (
+            <p
+              data-testid="chart-jacket-missing"
+              class="flex aspect-square w-full max-w-[300px] shrink-0 items-center justify-center border border-hair p-4 text-center type-label text-muted md:w-56 xl:w-full"
+            >
+              No jacket yet
+            </p>
+          )
+        }
+        <dl
+          class="grid min-w-0 flex-1 grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 self-stretch text-sm"
+          data-testid="chart-facts"
+        >
+          {facts.flatMap(([name, value]) =>
+            value
+              ? [
+                  <dt class="type-label text-muted">{name}</dt>,
+                  <dd
+                    lang={
+                      name === "Artist" ||
+                      name === "Notes designer" ||
+                      name === "Also known as"
+                        ? "ja"
+                        : undefined
+                    }
+                  >
+                    {value}
+                  </dd>,
+                ]
+              : [],
+          )}
+          {history.length > 0 && (
+            <>
+              <dt class="type-label text-muted">Before</dt>
+              <dd>
+                {history
+                  .map((row) => `${formatConstant(row.constant)} (${row.name})`)
+                  .join(", ")}
+              </dd>
+            </>
+          )}
+        </dl>
+      </div>
       <nav
         aria-label="Difficulties"
         class="col-span-4 md:col-span-8 xl:col-span-12"

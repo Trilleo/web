@@ -71,6 +71,19 @@ test("someone finds a chart by romaji, opens its picture and keeps it", async ({
     `Measure 1 of ${String(DRAWN_MEASURES)}`,
   );
   await expect(page.getByTestId("chart-facts")).toContainText("14.7 (Mate)");
+  // Its jacket sits in the info box, from our own storage (copied by the update, or
+  // when the chart was opened), at its own size.
+  await expect(async () => {
+    await page.reload();
+    await expect(page.getByTestId("chart-jacket")).toBeVisible({
+      timeout: 1000,
+    });
+  }).toPass({ timeout: 30_000 });
+  await expect(page.getByTestId("chart-jacket")).toHaveAttribute(
+    "src",
+    /\/chunithm\/jackets\/3062-/,
+  );
+  await expect(page.getByTestId("chart-picture")).toBeVisible();
   expect(await axe(page)).toEqual([]);
 
   // Both layouts draw it.

@@ -10,9 +10,9 @@
  * 4. Merge everything (@trilleo/chunithm's buildCatalog) and write it in one
  *    transaction: versions, songs, charts and the current version's constants.
  * 5. Look for otoge-db's frozen constants of versions that have ended.
- * 6. Copy a few songs' jackets into storage (jackets.ts).
+ * 6. Copy a batch of songs' jackets into storage (jackets.ts).
  *
- * A pass runs every SYNC_EVERY_MS from any request (more often while scripts are
+ * A pass runs every SYNC_EVERY_MS from any request (more often while scripts or jackets are
  * still waiting to be read), or from /admin/chunithm/'s "Check now". New songs, new
  * versions, sdvx.in pages it couldn't place and repeated failures alert the admin.
  */
@@ -59,7 +59,8 @@ import {
 import type { StorageDriver } from "@trilleo/storage/server";
 import { alertAdmin } from "../mail/alerts";
 import { getStorage } from "../storage/config";
-import { copyJackets } from "./jackets";
+import { copyJackets, jacketsDue } from "./jackets";
+import { forgetIndex } from "./viewer";
 import {
   FETCH_LIMITS,
   FetchError,
@@ -280,6 +281,9 @@ export async function syncCatalog(
     })),
   });
   await writeCatalog(db, catalog, summary, now());
+  // The index is cached by finished passes; this one isn't finished yet, but the
+  // catalog has changed: build the index afresh on its next read.
+  forgetIndex();
 
   // 5. Ended versions' constants.
   try {
@@ -288,7 +292,7 @@ export async function syncCatalog(
     summary.errors.push(errorText(error));
   }
 
-  // 6. A few jackets.
+  // 6. A batch of jackets.
   const storage = deps.storage === undefined ? getStorage() : deps.storage;
   if (storage)
     try {
@@ -298,6 +302,7 @@ export async function syncCatalog(
         now: now(),
         sleep: (ms) => sleep(sources.delayMs ?? ms),
       });
+      summary.jacketsLeft = await jacketsDue(db, now());
     } catch (error) {
       summary.errors.push(errorText(error));
     }
@@ -804,7 +809,7 @@ export function startSync(
   running = getDb()
     .then((db) => syncCatalog(db, deps))
     .then((result) => {
-      backlog = result.scriptsLeft > 0;
+      backlog = result.scriptsLeft > 0 || (result.jacketsLeft ?? 0) > 0;
     })
     .catch((error: unknown) => {
       console.warn("CHUNITHM catalog update failed:", error);
@@ -837,7 +842,9 @@ export function chunithmSyncInBackground(
       )
       .then(([last]) => {
         lastStart = last?.startedAt.getTime() ?? 0;
-        backlog = last?.summary ? last.summary.scriptsLeft > 0 : true;
+        backlog = last?.summary
+          ? last.summary.scriptsLeft > 0 || (last.summary.jacketsLeft ?? 0) > 0
+          : true;
       })
       .catch(() => {
         lastStart = 0;

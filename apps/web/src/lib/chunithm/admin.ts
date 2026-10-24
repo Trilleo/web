@@ -50,6 +50,9 @@ export interface CatalogOverview {
   withdrawn: number;
   scriptsLeft: number;
   scriptErrors: number;
+  /** Songs whose jacket is in storage, and songs with a page on sdvx.in still without one. */
+  jackets: number;
+  jacketsMissing: number;
   versions: {
     slug: string;
     name: string;
@@ -83,6 +86,15 @@ export async function catalogOverview(db: Database): Promise<CatalogOverview> {
       errors: sql<number>`count(${chuniSdvxEntries.readError})::int`,
     })
     .from(chuniSdvxEntries);
+  const [jackets] = await db
+    .select({ n: count() })
+    .from(chuniSongs)
+    .where(isNotNull(chuniSongs.jacketKey));
+  const [jacketsMissing] = await db
+    .select({ n: sql<number>`count(distinct ${chuniSongs.id})::int` })
+    .from(chuniSongs)
+    .innerJoin(chuniCharts, eq(chuniCharts.songId, chuniSongs.id))
+    .where(and(isNull(chuniSongs.jacketKey), isNotNull(chuniCharts.sdvxPath)));
   const versions = await db
     .select({
       slug: chuniVersions.slug,
@@ -112,6 +124,8 @@ export async function catalogOverview(db: Database): Promise<CatalogOverview> {
     withdrawn: charts?.withdrawn ?? 0,
     scriptsLeft: scripts?.left ?? 0,
     scriptErrors: scripts?.errors ?? 0,
+    jackets: jackets?.n ?? 0,
+    jacketsMissing: jacketsMissing?.n ?? 0,
     versions,
     currentVersion: versions[0]?.slug ?? null,
     syncs,

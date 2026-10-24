@@ -2985,6 +2985,8 @@ export interface ChuniSyncSummary {
   scriptsLeft: number;
   /** Jackets copied into storage (absent before jackets were kept). */
   jackets?: number;
+  /** Songs still due a jacket after the pass (absent before it was counted). */
+  jacketsLeft?: number;
   unmatched: {
     path: string;
     title: string;

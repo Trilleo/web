@@ -166,7 +166,9 @@ describe("building a chart's picture", () => {
     expect(await served(manifest.tiles[0]?.url ?? "")).toBe(true);
 
     // Every layer was fetched once, without following redirects.
-    const layers = requests.filter((r) => r.url.endsWith(".png"));
+    const layers = requests.filter(
+      (r) => r.url.endsWith(".png") && !r.url.includes("/jacket/"),
+    );
     expect(layers.map((r) => r.redirect)).toEqual([
       "manual",
       "manual",
@@ -196,6 +198,26 @@ describe("building a chart's picture", () => {
     // WebP: RIFF....WEBP.
     expect(new TextDecoder().decode(bytes.subarray(8, 12))).toBe("WEBP");
     expect(row?.manifest?.tiles[0]?.height).toBe(chart.total);
+  });
+
+  it("copies the song's jacket when one of its charts is opened", async () => {
+    files.set(`${ORIGIN}/chunithm/01/jacket/00001.png`, {
+      body: encodePng({
+        width: 4,
+        height: 4,
+        data: new Uint8Array(64).fill(90),
+      }),
+    });
+    await requestBuild(deps(), chartId, "normal");
+    await expect
+      .poll(async () => {
+        const [song] = await handle.db
+          .select({ jacketKey: chuniSongs.jacketKey })
+          .from(chuniSongs)
+          .where(eq(chuniSongs.id, 1));
+        return song?.jacketKey ?? null;
+      })
+      .toMatch(/^chunithm\/jackets\/1-[0-9a-f]{8}\.webp$/);
   });
 
   it("builds the mirror from sdvx.in's mirrored notes", async () => {

@@ -42,6 +42,11 @@ import {
 } from "../../../lib/chunithm/build";
 import { chunithmSources, SDVX_ORIGIN } from "../../../lib/chunithm/sources";
 import { waitingSuggestions } from "../../../lib/chunithm/aliases";
+import {
+  JACKETS_PER_PASS,
+  jacketBatchRunning,
+  startJacketBatch,
+} from "../../../lib/chunithm/jackets";
 import { getStorage } from "../../../lib/storage/config";
 import {
   newPagePaths,
@@ -75,7 +80,11 @@ if (Astro.request.method === "POST") {
   const songId = parseId(field(form, "song"));
   const difficulty = difficultyFrom(field(form, "difficulty"));
   let done: string | null = null;
-  if (intent === "sync") {
+  if (intent === "jackets") {
+    const deps = await siteBuildDeps();
+    if (!deps) error = "Storage or fetching is off here.";
+    else done = startJacketBatch(deps) ? "jackets" : "jackets-busy";
+  } else if (intent === "sync") {
     done = startSync(getDb) ? "syncing" : "busy";
   } else if (intent === "link") {
     const result =
@@ -136,6 +145,8 @@ if (Astro.request.method === "POST") {
 
 const DONE: Record<string, string> = {
   syncing: "Checking for updates now. Reload in a minute to see what it found.",
+  jackets: `Copying up to ${String(JACKETS_PER_PASS)} jackets now (half a second apart). Reload in a minute.`,
+  "jackets-busy": "Jackets are being copied already.",
   busy: "An update is already running.",
   linked: "Page linked. Later updates keep it.",
   ignored: "Page ignored. Later updates leave it out.",
@@ -170,6 +181,7 @@ const failed = await failedBuilds(db);
 const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 const fetching = chunithmSources() !== null;
 const running = syncRunning();
+const copyingJackets = jacketBatchRunning();
 
 const when = (date: Date | null | undefined) =>
   date
@@ -229,7 +241,7 @@ const td = "border-b border-hair py-2 pr-4 align-top";
           </p>
         )}
         <dl
-          class="grid grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-4"
+          class="grid grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-5"
           data-testid="chunithm-counts"
         >
           <div>
@@ -254,6 +266,16 @@ const td = "border-b border-hair py-2 pr-4 align-top";
             <dd class="type-lead">{overview.versions[0]?.name ?? "—"}</dd>
           </div>
           <div>
+            <dt class="type-label text-muted">Jackets</dt>
+            <dd class="type-lead">
+              {overview.jackets}
+              <span class="text-muted">
+                {" "}
+                · {overview.jacketsMissing} missing
+              </span>
+            </dd>
+          </div>
+          <div>
             <dt class="type-label text-muted">sdvx.in scripts to read</dt>
             <dd class="type-lead">
               {overview.scriptsLeft}
@@ -268,8 +290,8 @@ const td = "border-b border-hair py-2 pr-4 align-top";
         </dl>
         <p class="text-muted">
           Updates run every few hours by themselves (every few minutes while
-          sdvx.in scripts are still to be read). Sources: SEGA’s song list,
-          otoge-db and sdvx.in.
+          sdvx.in scripts are still to be read or jackets to be copied).
+          Sources: SEGA’s song list, otoge-db and sdvx.in.
         </p>
         <form method="post">
           <input type="hidden" name="intent" value="sync" />
@@ -279,6 +301,18 @@ const td = "border-b border-hair py-2 pr-4 align-top";
             disabled={!fetching || running}
           >
             {running ? "Checking…" : "Check now"}
+          </button>
+        </form>
+        <form method="post">
+          <input type="hidden" name="intent" value="jackets" />
+          <button
+            type="submit"
+            class={secondaryButton}
+            disabled={
+              !fetching || copyingJackets || overview.jacketsMissing === 0
+            }
+          >
+            {copyingJackets ? "Copying jackets…" : "Copy jackets now"}
           </button>
         </form>
       </div>

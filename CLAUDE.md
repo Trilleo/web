@@ -1189,11 +1189,16 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   pass, 500 ms apart, reread after 30 days; songs' folders newest first, then Ultima
   and World's End), with our User-Agent; the first fill takes a few hours. Each pass
   then copies JACKETS_PER_PASS jackets (jackets.ts: sdvx.in's 300px PNGs as WebP under
-  `chunithm/jackets/`, newest songs first; SEGA's image server can't be reached from
-  the server). Each pass is logged in chuni_syncs (the last 50). Alerts
+  `chunithm/jackets/` in storage, newest songs first, a song's own chart pages tried
+  before its Ultima and World's End ones; failures are tried again after
+  JACKET_RETRY_DAYS), and passes keep the BACKLOG_EVERY_MS pace while any song is due
+  one (`jacketsDue`, the summary's `jacketsLeft`). Opening a chart copies its song's
+  missing jacket in the background (`copyJacketSoon`, from the picture route). SEGA's
+  image server can't be reached from the server, so pages only ever show our copies. Each pass is logged in chuni_syncs (the last 50). Alerts
   ("chunithm-update"): new songs, new versions, pages sdvx.in added since the first
   fill that couldn't be placed (`newPagePaths`), and four failed passes in a row.
-- /admin/chunithm/: counts, recent passes, suggested names waiting (a link to
+- /admin/chunithm/: counts (jackets copied and missing, with "Copy jackets now": one
+  batch in the background), recent passes, suggested names waiting (a link to
   /admin/chunithm/aliases/), charts without a page (link one by its
   path), pages to place (link to a SEGA ID or ignore), placements by hand, withdrawn
   charts (hidden and never built; updates leave them), and versions with their
@@ -1238,7 +1243,8 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
 - The tool (apps/chunithm): /tools/chunithm/ (`ChunithmApp`) loads the catalog index
   (/api/chunithm/index.json, lib/chunithm/viewer.ts `songIndex`: every song with a
   chart, viewable or not, its jacket's URL and aliases; rebuilt after each catalog
-  update and each admin change to names, links or withdrawals (`forgetIndex`), at
+  update's catalog write, each batch of copied jackets, and each admin change to names,
+  links or withdrawals (`forgetIndex`), at
   most every few minutes otherwise; its ETag is a hash of the content, and the tool
   fetches it with `cache: "no-cache"`, so changes show at once)
   and searches it in the browser (packages/chunithm's search.ts: titles, aliases,
@@ -1246,7 +1252,8 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   readings, `romajiToKana` reads romaji; then browse.ts's filters: difficulty, level,
   constant, genre, version, in the game or removed). ?q= keeps the search.
 - A chart's page, /tools/chunithm/<SEGA id>/<difficulty>/ (server-rendered, noindex,
-  the tool's share card): facts (constant per version, notes, full combo, designer,
+  the tool's share card): an info box (the jacket at its own 300px, never enlarged,
+  or "No jacket yet"; facts: constant per version, notes, full combo, designer,
   versions), other difficulties, a credit linking the sdvx.in page, and `ChartViewer`.
   The page only reads the build (`peekBuild`, so crawlers start none); the viewer asks
   the picture route (starting the build) and asks again every POLL_MS. Layouts: strip

@@ -46,6 +46,7 @@ import { PUBLIC_CACHE } from "@trilleo/storage";
 import type { StorageDriver } from "@trilleo/storage/server";
 import { randomBytes, createHash } from "node:crypto";
 import { and, asc, count, eq, gt, inArray, lt, sql } from "drizzle-orm";
+import { copyJacketSoon } from "./jackets";
 import { decodePng, giveWay, isPng, PngError } from "./png";
 import { getDb } from "../db";
 import { getStorage } from "../storage/config";
@@ -186,12 +187,15 @@ export async function requestBuild(
   const [chart] = await db
     .select({
       id: chuniCharts.id,
+      songId: chuniCharts.songId,
       sdvxPath: chuniCharts.sdvxPath,
       withdrawnAt: chuniCharts.withdrawnAt,
     })
     .from(chuniCharts)
     .where(eq(chuniCharts.id, chartId));
   if (!chart) return { status: "unavailable", reason: "no-chart" };
+  // Someone's looking at it: make sure its song has its jacket (if it's missing).
+  copyJacketSoon(deps, chart.songId);
   if (chart.withdrawnAt) return { status: "unavailable", reason: "withdrawn" };
   if (!chart.sdvxPath) return { status: "unavailable", reason: "no-page" };
   const [row] = await db
