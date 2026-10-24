@@ -927,8 +927,9 @@ export function chunithmSyncInBackground(
 
 /**
  * Checks every TICK_MS whether a pass is due, so the catalog keeps up with no visitors
- * (the site has few). Started once per server, from the middleware's module, like
- * the webhooks; the timer doesn't keep the process alive.
+ * (the site has few). Started once per server by the middleware's first
+ * server-rendered request (never during the build), like the webhooks; the timer
+ * doesn't keep the process alive.
  */
 export function startChunithmSync(getDb: () => Promise<Database>): void {
   if (ticking || !chunithmSources()) return;

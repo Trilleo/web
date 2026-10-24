@@ -33,13 +33,22 @@ import {
 
 // Queued mail and admin alerts start a delivery pass in this server.
 startMailDelivery();
-// Webhooks: a pass every minute, and one just after each UTC midnight (the cryptic).
-startWebhooks(getDb);
-// The CHUNITHM catalog: a pass whenever one is due, visitors or not.
-startChunithmSync(getDb);
+
+/**
+ * Timers that keep running with no visitors, started by the first server-rendered
+ * request (the health check, when the container starts) rather than when this module
+ * loads: the build loads it too, to prerender pages, and has no database.
+ */
+function startTimers(): void {
+  // Webhooks: a pass every minute, and one just after each UTC midnight (the cryptic).
+  startWebhooks(getDb);
+  // The CHUNITHM catalog: a pass whenever one is due.
+  startChunithmSync(getDb);
+}
 
 /** Work any request may start (each at most every few minutes, in the background). */
 function backgroundWork(): void {
+  startTimers();
   // Scheduled posts go live without anyone saving them: any request may notice
   // (only with IndexNow set up).
   announceInBackground(getDb);

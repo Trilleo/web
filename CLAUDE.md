@@ -1111,7 +1111,9 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   per webhook and event ID (a unique index), so emitting again is harmless; run.ts
   queues what's due (today's cryptic.day, posts public within the last day) and sends
   what's queued, from a timer every minute and just after each UTC midnight
-  (`startWebhooks`, from the middleware module) and at once after a test or
+  (`startWebhooks`, started by the middleware's first server-rendered request, the
+  health check: never at module load, which the build's prerendering does too, with
+  no database) and at once after a test or
   redelivery (`kickWebhooks`). deliver.ts POSTs JSON `{ id, type, createdAt, data }`
   signed `Trilleo-Signature: t=…,v1=HMAC-SHA256("t.body")`; 2xx is sent, no answer,
   5xx, 408 and 429 retry on WEBHOOK_LIMITS.retryDelaysMs, anything else fails;
@@ -1182,8 +1184,8 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   Versions (chuni_versions) are ordered by KNOWN_VERSIONS, then unknown ones by start
   (the first day with LAUNCH_SONGS songs); the last is the game now. A new version
   works without a code change; add it to KNOWN_VERSIONS for its proper name.
-- Updates (sync.ts `syncCatalog`): a timer (`startChunithmSync`, from the middleware's
-  module like the webhooks; every TICK_MS it checks `passDue`) or any request starts a
+- Updates (sync.ts `syncCatalog`): a timer (`startChunithmSync`, started like the
+  webhooks' by the first server-rendered request; every TICK_MS it checks `passDue`) or any request starts a
   pass every SYNC_EVERY_MS, and BACKLOG_GAP_MS after the last one ended while scripts
   or jackets are waiting; "Check now" on /admin/chunithm/ starts one at once. One pass
   at a time per server. The song lists are all-or-nothing, and a SEGA list under
