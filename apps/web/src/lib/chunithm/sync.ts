@@ -10,6 +10,7 @@
  * 4. Merge everything (@trilleo/chunithm's buildCatalog) and write it in one
  *    transaction: versions, songs, charts and the current version's constants.
  * 5. Look for otoge-db's frozen constants of versions that have ended.
+ * 6. Copy a few songs' jackets into storage (jackets.ts).
  *
  * A pass runs every SYNC_EVERY_MS from any request (more often while scripts are
  * still waiting to be read), or from /admin/chunithm/'s "Check now". New songs, new
@@ -55,7 +56,10 @@ import {
   sql,
   type Column,
 } from "drizzle-orm";
+import type { StorageDriver } from "@trilleo/storage/server";
 import { alertAdmin } from "../mail/alerts";
+import { getStorage } from "../storage/config";
+import { copyJackets } from "./jackets";
 import {
   FETCH_LIMITS,
   FetchError,
@@ -102,6 +106,8 @@ export interface SyncDeps {
   /** Where to fetch from; null: fetching is off. Read from the environment if left out. */
   sources?: ChunithmSources | null;
   now?: () => Date;
+  /** Where jackets are copied to; null: none. Read from the environment if left out. */
+  storage?: StorageDriver | null;
   /** Waits between sdvx.in requests (tests pass a no-op). */
   sleep?: (ms: number) => Promise<void>;
   scriptsPerPass?: number;
@@ -221,7 +227,7 @@ export async function syncCatalog(
     } catch (error) {
       summary.errors.push(errorText(error));
     }
-    await sleep(SDVX_PASS.delayMs);
+    await sleep(sources.delayMs ?? SDVX_PASS.delayMs);
   }
   await recordEntries(db, [...listed.values()], now());
 
@@ -253,7 +259,7 @@ export async function syncCatalog(
       })
       .where(eq(chuniSdvxEntries.script, script));
     summary.scriptsRead += 1;
-    await sleep(SDVX_PASS.delayMs);
+    await sleep(sources.delayMs ?? SDVX_PASS.delayMs);
   }
   const [left] = await db
     .select({ count: sql<number>`count(*)::int` })
@@ -281,6 +287,20 @@ export async function syncCatalog(
   } catch (error) {
     summary.errors.push(errorText(error));
   }
+
+  // 6. A few jackets.
+  const storage = deps.storage === undefined ? getStorage() : deps.storage;
+  if (storage)
+    try {
+      summary.jackets = await copyJackets(db, storage, {
+        fetch: fetcher,
+        sdvxOrigin: sources.sdvxOrigin,
+        now: now(),
+        sleep: (ms) => sleep(sources.delayMs ?? ms),
+      });
+    } catch (error) {
+      summary.errors.push(errorText(error));
+    }
   return finish(true);
 }
 
@@ -328,8 +348,13 @@ async function dueScripts(
     .select({ script: chuniSdvxEntries.script })
     .from(chuniSdvxEntries)
     .where(isNull(chuniSdvxEntries.readAt))
-    // Newest folders first ("ult", "end", "11", "10", …): the songs people look for.
-    .orderBy(asc(chuniSdvxEntries.firstSeenAt), desc(chuniSdvxEntries.script))
+    // Songs' folders newest first ("11", "10", …), then Ultima and World's End
+    // ("ult/", "end/", mostly old charts): new songs are the ones people look for.
+    .orderBy(
+      asc(chuniSdvxEntries.firstSeenAt),
+      sql`case when ${chuniSdvxEntries.kind} = 'song' then 0 else 1 end`,
+      desc(chuniSdvxEntries.script),
+    )
     .limit(limit);
   if (fresh.length >= limit) return fresh.map((row) => row.script);
   const stale = await db
@@ -362,6 +387,7 @@ async function storedEntries(db: Database): Promise<SdvxEntry[]> {
     details: row.details
       ? {
           ...row.details,
+          jacket: row.details.jacket ?? null,
           charts: row.details.charts.map((chart) => ({
             ...chart,
             difficulty: chart.difficulty as Difficulty,

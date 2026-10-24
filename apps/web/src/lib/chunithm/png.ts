@@ -4,7 +4,8 @@
  * anything over PNG_LIMITS, is refused with a PngError rather than guessed at. Native
  * image libraries can't go in the server bundle, and this is all the charts need.
  */
-import { deflateSync, inflateSync } from "node:zlib";
+import { promisify } from "node:util";
+import { deflateSync, inflate } from "node:zlib";
 import type { RgbaImage } from "@trilleo/chunithm";
 
 export const PNG_LIMITS = {
@@ -28,9 +29,23 @@ export function isPng(bytes: Uint8Array): boolean {
   return SIGNATURE.every((byte, i) => bytes[i] === byte);
 }
 
+/** Rows decoded between turns for other work. */
+const ROWS_PER_TURN = 256;
+
+/** Lets anything waiting on the event loop run. */
+export function giveWay(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
 const CHANNELS: Record<number, number> = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
 
-export function decodePng(bytes: Uint8Array): RgbaImage {
+const inflateAsync = promisify(inflate);
+
+/**
+ * Decodes a PNG. The inflating runs on zlib's thread pool and the row filters give
+ * way every few hundred rows, so a big chart layer doesn't hold up other requests.
+ */
+export async function decodePng(bytes: Uint8Array): Promise<RgbaImage> {
   if (!isPng(bytes)) throw new PngError("Not a PNG.");
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let offset = 8;
@@ -88,7 +103,7 @@ export function decodePng(bytes: Uint8Array): RgbaImage {
   const stride = width * channels;
   let raw: Buffer;
   try {
-    raw = inflateSync(Buffer.concat(idat), {
+    raw = await inflateAsync(Buffer.concat(idat), {
       maxOutputLength: (stride + 1) * height,
     });
   } catch {
@@ -100,6 +115,7 @@ export function decodePng(bytes: Uint8Array): RgbaImage {
   // Undo the row filters in place.
   const rows = new Uint8Array(stride * height);
   for (let y = 0; y < height; y++) {
+    if (y % ROWS_PER_TURN === 0 && y > 0) await giveWay();
     const filter = raw[y * (stride + 1)];
     const src = y * (stride + 1) + 1;
     const out = y * stride;

@@ -120,6 +120,8 @@ export interface SdvxEntryDetails {
   title: string;
   artist: string;
   bpm: string | null;
+  /** The song's jacket (a 300px PNG), as a site path. */
+  jacket: string | null;
   charts: SdvxChart[];
 }
 
@@ -178,7 +180,11 @@ export function parseSdvxScript(
     const chart = readChart(vars, `${id}${suffix}`);
     if (chart) charts.push(chart);
   }
-  return { title, artist, bpm, charts };
+  const jacket =
+    /src=(\/chunithm\/[0-9a-z]+\/jacket\/[0-9A-Za-z_]+\.png)/.exec(
+      vars.get(`JK${id}`) ?? "",
+    )?.[1] ?? null;
+  return { title, artist, bpm, jacket, charts };
 }
 
 function readChart(vars: Map<string, string>, key: string): SdvxChart | null {
@@ -270,4 +276,19 @@ export function parseSdvxImages(text: string, path: string): SdvxImages | null {
   const normal = layers("PNG");
   if (!normal) return null;
   return { ...normal, mirror: layers("MRR")?.obj ?? null };
+}
+
+/**
+ * A song's jacket on sdvx.in: what its script said, or, for an entry read before
+ * jackets were kept, where sdvx.in keeps a song's jacket (its folder's jacket/).
+ */
+export function sdvxJacket(
+  details: { jacket?: string | null } | null,
+  script: string,
+): string | null {
+  if (details?.jacket) return details.jacket;
+  const match = /^(\d{2})\/(\d{5})sort$/.exec(script);
+  return match
+    ? `/chunithm/${match[1] ?? ""}/jacket/${match[2] ?? ""}.png`
+    : null;
 }

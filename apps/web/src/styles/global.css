@@ -8,6 +8,7 @@
 @import "./study.css";
 
 /* Tools' own components use Tailwind classes too (workspace packages aren't scanned). */
+@source "../../../chunithm/src";
 @source "../../../color/src";
 @source "../../../convert/src";
 @source "../../../hotfix/src";

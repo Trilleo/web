@@ -116,8 +116,9 @@ sends players' guesses for the site to check and score. Apps can also be sent ev
 as they happen (webhooks: the day's cryptic at midnight, new posts), signed with a
 secret shown in the same panel.
 
-The CHUNITHM catalog (for a chart viewer, still being built) is kept up to date by the
-server: SEGA's song list, otoge-db's constants and links, and sdvx.in's chart pages,
+The CHUNITHM chart viewer (`/tools/chunithm/`) searches every chart (titles in English,
+Japanese, romaji or Chinese) and shows each as one picture, read from the bottom up. Its
+catalog is kept up to date by the server: SEGA's song list, otoge-db's constants and links, and sdvx.in's chart pages,
 merged by SEGA's IDs (`packages/chunithm`, `apps/web/src/lib/chunithm/`). A chart's
 picture is joined from sdvx.in's layers the first time someone asks for it
 (`/api/chunithm/charts/<id>/<difficulty>`) and kept as WebP tiles in storage. The admin

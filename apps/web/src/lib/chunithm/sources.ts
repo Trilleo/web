@@ -4,7 +4,8 @@
  *
  * Settings (all optional): CHUNITHM_SYNC=off never fetches (e2e); CHUNITHM_SEGA_URL,
  * CHUNITHM_OTOGE_URL (the folder holding music-ex.json) and CHUNITHM_SDVX_URL (the
- * origin) point elsewhere, for tests.
+ * origin) point elsewhere, and CHUNITHM_SDVX_DELAY_MS changes the wait between
+ * sdvx.in requests: for e2e, which fetches from e2e/fake-chunithm.ts.
  */
 import { SITE_URL } from "../site";
 
@@ -40,6 +41,8 @@ export interface ChunithmSources {
   segaUrl: string;
   otogeUrl: string;
   sdvxOrigin: string;
+  /** The wait between requests to sdvx.in (CHUNITHM_SDVX_DELAY_MS; e2e sets 0). */
+  delayMs?: number;
 }
 
 export function chunithmSources(
@@ -52,6 +55,9 @@ export function chunithmSources(
     segaUrl: setting(env.CHUNITHM_SEGA_URL, SEGA_MUSIC_URL),
     otogeUrl: setting(env.CHUNITHM_OTOGE_URL, OTOGE_DATA_URL),
     sdvxOrigin: setting(env.CHUNITHM_SDVX_URL, SDVX_ORIGIN),
+    ...(env.CHUNITHM_SDVX_DELAY_MS
+      ? { delayMs: Math.max(0, Number(env.CHUNITHM_SDVX_DELAY_MS) || 0) }
+      : {}),
   };
 }
 

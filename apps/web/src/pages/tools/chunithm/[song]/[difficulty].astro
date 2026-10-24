@@ -1,0 +1,252 @@
+---
+/**
+ * One CHUNITHM chart: /tools/chunithm/<SEGA song ID>/<difficulty>/. The song's facts
+ * beside it, links to its other difficulties, and the picture (ChartViewer), which
+ * asks for a build the first time anyone views it. Rendered per visit; kept out of
+ * search engines (the pictures are sdvx.in's work, credited and linked here).
+ */
+import {
+  DIFFICULTIES,
+  DIFFICULTY_LABELS,
+  formatConstant,
+  isDifficulty,
+} from "@trilleo/chunithm";
+import { signInHref } from "@trilleo/tool-kit";
+import { ChartViewer, meta, type SavedChart } from "@trilleo/tool-chunithm";
+import { ArrowLeftIcon } from "@trilleo/ui";
+import Breadcrumb from "../../../../components/Breadcrumb.astro";
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import { SDVX_ORIGIN } from "../../../../lib/chunithm/sources";
+import { chartPage, peekBuild } from "../../../../lib/chunithm/viewer";
+import { parseId } from "../../../../lib/comments/form";
+import { getDb } from "../../../../lib/db";
+import { breadcrumbJsonLd, ogImagePath, toolCard } from "../../../../lib/seo";
+import { getStorage } from "../../../../lib/storage/config";
+import { toolPath } from "../../../../lib/tools/registry";
+import { listToolData } from "../../../../lib/tools/store";
+
+export const prerender = false;
+
+const songId = parseId(Astro.params.song ?? "");
+const difficulty = Astro.params.difficulty ?? "";
+if (songId === null || !isDifficulty(difficulty)) return Astro.rewrite("/404");
+
+const db = await getDb();
+const storage = getStorage();
+const page = await chartPage(db, storage, songId, difficulty);
+if (!page) return Astro.rewrite("/404");
+const { song, chart } = page;
+
+// Who's signed in decides the favourites shown, so no shared caching.
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const initial = storage ? await peekBuild(db, storage, chart, "normal") : null;
+const { user } = Astro.locals;
+const initialSaved = user
+  ? await listToolData<SavedChart>(db, user.id, meta.slug)
+  : undefined;
+const path = `${toolPath(meta.slug)}${String(song.id)}/${difficulty}/`;
+const levelText = `${chart.level}${chart.worldsEndStars ? ` ${"☆".repeat(chart.worldsEndStars)}` : ""}`;
+const label = `${song.title}, ${DIFFICULTY_LABELS[difficulty]} ${levelText}`;
+const current = page.constants[0];
+const image = ogImagePath(`tools/${meta.slug}`, toolCard(meta));
+const others = DIFFICULTIES.flatMap((d) => {
+  const other = page.charts.find((c) => c.difficulty === d);
+  return other ? [{ ...other, difficulty: d }] : [];
+});
+const facts: [string, string | null][] = [
+  ["Artist", song.artist],
+  ["Genre", song.genre],
+  ["BPM", song.bpm],
+  ["Notes designer", chart.designer],
+  ["Level", levelText],
+  [
+    "Constant",
+    chart.constant !== null
+      ? `${formatConstant(chart.constant)}${current ? ` (${current.name})` : ""}`
+      : null,
+  ],
+  ["Notes", chart.notes !== null ? chart.notes.toLocaleString("en") : null],
+  [
+    "Full combo",
+    chart.chain !== null ? chart.chain.toLocaleString("en") : null,
+  ],
+  ["Added in", page.versionName],
+  [
+    "Removed",
+    song.inGame
+      ? null
+      : `${page.removedInName ?? "Yes"}${song.removedOn ? ` (${song.removedOn})` : ""}`,
+  ],
+];
+const history = page.constants.slice(1);
+const sdvxPage = chart.sdvxPath
+  ? `${SDVX_ORIGIN}/chunithm/${chart.sdvxPath}.htm`
+  : null;
+const hasMirror = ["expert", "master", "ultima", "worldsend"].includes(
+  difficulty,
+);
+---
+
+<BaseLayout
+  title={`${song.title} · ${DIFFICULTY_LABELS[difficulty]} ${chart.level} · ${meta.name}`}
+  description={`${song.title} by ${song.artist}: the ${DIFFICULTY_LABELS[difficulty]} chart (${levelText}), read from the bottom up.`}
+  noindex
+  {image}
+  jsonLd={[
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Tools", path: "/tools/" },
+      { name: meta.name, path: toolPath(meta.slug) },
+      { name: `${song.title} (${DIFFICULTY_LABELS[difficulty]})`, path },
+    ]),
+  ]}
+>
+  <div class="grid-swiss px-page type-label border-b border-hair py-3 xl:py-4">
+    <Breadcrumb
+      class="col-span-4 md:col-span-6 xl:col-span-9"
+      items={[
+        { label: "(02) Tools", href: "/tools/" },
+        { label: meta.name, href: toolPath(meta.slug) },
+        { label: `${song.title} · ${DIFFICULTY_LABELS[difficulty]}` },
+      ]}
+    />
+    <a
+      href={toolPath(meta.slug)}
+      class="group col-span-4 inline-flex items-center gap-2 md:col-span-2 md:justify-self-end xl:col-span-3"
+    >
+      <ArrowLeftIcon
+        size={16}
+        className="transition-transform duration-(--tr-dur-base) ease-swiss group-hover:-translate-x-1"
+      />
+      <span class="link-wipe">All charts</span>
+    </a>
+  </div>
+
+  <section
+    aria-labelledby="chart-title"
+    class="px-page pt-8 pb-24 md:pt-10 xl:pt-14 xl:pb-32"
+  >
+    <div class="grid-swiss gap-y-6 pb-8">
+      <div class="col-span-4 flex gap-5 md:col-span-8 xl:col-span-9">
+        {page.jacket ? (
+          <img
+            src={page.jacket}
+            alt=""
+            width={120}
+            height={120}
+            class="size-24 shrink-0 border border-hair md:size-30"
+          />
+        ) : null}
+        <div class="flex min-w-0 flex-col gap-3">
+          <p class="type-label text-muted">
+            {DIFFICULTY_LABELS[difficulty]} {levelText}
+            {chart.constant !== null && ` · ${formatConstant(chart.constant)}`}
+          </p>
+          <h1
+            id="chart-title"
+            class="type-headline break-words [word-break:auto-phrase]"
+            lang="ja"
+          >
+            {song.title}
+          </h1>
+          <p class="type-dek text-muted" lang="ja">
+            {song.artist}
+          </p>
+        </div>
+      </div>
+      <dl
+        class="col-span-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 self-start text-sm md:col-span-8 xl:col-span-3"
+        data-testid="chart-facts"
+      >
+        {facts.flatMap(([name, value]) =>
+          value
+            ? [
+                <dt class="type-label text-muted">{name}</dt>,
+                <dd
+                  lang={
+                    name === "Artist" || name === "Notes designer"
+                      ? "ja"
+                      : undefined
+                  }
+                >
+                  {value}
+                </dd>,
+              ]
+            : [],
+        )}
+        {history.length > 0 && (
+          <>
+            <dt class="type-label text-muted">Before</dt>
+            <dd>
+              {history
+                .map((row) => `${formatConstant(row.constant)} (${row.name})`)
+                .join(", ")}
+            </dd>
+          </>
+        )}
+      </dl>
+      <nav
+        aria-label="Difficulties"
+        class="col-span-4 md:col-span-8 xl:col-span-12"
+      >
+        <ul class="flex flex-wrap gap-2">
+          {others.map((other) => {
+            const text = `${DIFFICULTY_LABELS[other.difficulty]} ${other.level}`;
+            const viewable =
+              other.sdvxPath !== null && other.withdrawnAt === null;
+            return (
+              <li>
+                {other.difficulty === difficulty ? (
+                  <span
+                    aria-current="page"
+                    class="inline-block border border-ink bg-ink px-3 py-2 type-label text-paper"
+                  >
+                    {text}
+                  </span>
+                ) : viewable ? (
+                  <a
+                    href={`${toolPath(meta.slug)}${String(song.id)}/${other.difficulty}/`}
+                    class="inline-block border border-ink px-3 py-2 type-label hover:bg-chip"
+                  >
+                    {text}
+                  </a>
+                ) : (
+                  <span class="inline-block border border-hair px-3 py-2 type-label text-muted">
+                    {text}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    </div>
+
+    <ChartViewer
+      client:load
+      songId={song.id}
+      difficulty={difficulty}
+      label={label}
+      initial={initial ? JSON.parse(JSON.stringify(initial)) : null}
+      hasMirror={hasMirror}
+      signedIn={user !== null}
+      signInHref={signInHref(path)}
+      initialSaved={initialSaved}
+    />
+
+    <p class="mt-8 text-sm text-muted">
+      {"Chart picture by "}
+      {sdvxPage ? (
+        <a href={sdvxPage} class="underline" rel="noreferrer">
+          sdvx.in (CHUNITHM譜面保管所)
+        </a>
+      ) : (
+        "sdvx.in (CHUNITHM譜面保管所)"
+      )}
+      {
+        ", whose columns are joined here into one. Song details from SEGA’s song list and otoge-db. CHUNITHM is SEGA’s; this tool isn’t made or endorsed by SEGA or sdvx.in."
+      }
+    </p>
+  </section>
+</BaseLayout>

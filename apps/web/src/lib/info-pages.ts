@@ -83,6 +83,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-24",
+        note: "CHUNITHM charts: favourites and recently viewed charts, kept as tool data.",
+      },
+      {
+        date: "2026-10-24",
         note: "CHUNITHM chart pictures: the hashed address that limits how many one visitor can have built.",
       },
       {
@@ -161,6 +165,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "The cookies and browser storage the site uses, what each is for, and how to choose what’s kept.",
     group: "legal",
     changes: [
+      {
+        date: "2026-10-24",
+        note: "Listed what the CHUNITHM tool remembers in your browser: favourites, recent charts and your layout (preferences).",
+      },
       {
         date: "2026-10-23",
         note: "Listed the links Preview remembers in your browser (a preference).",

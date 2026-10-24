@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
+import { FAKE_CHUNITHM } from "./e2e/fake-chunithm";
 import { FAKE_CLAMD_PORT } from "./e2e/fake-clamd";
 import { FAKE_DOCS, FAKE_DOCS_PORT } from "./e2e/fake-docs";
 import { FAKE_CLIENT, FAKE_GITHUB_PORT, FAKE_USERS } from "./e2e/fake-github";
@@ -35,7 +36,11 @@ const e2eEnv = {
   STUDY_DRAFTS: "1",
   // Minecraft versions: the list kept in the code, never Mojang's manifest.
   MINECRAFT_VERSION_MANIFEST: "off",
-  CHUNITHM_SYNC: "off",
+  // The CHUNITHM catalog and chart pictures come from e2e/fake-chunithm.ts.
+  CHUNITHM_SEGA_URL: `${FAKE_CHUNITHM}/sega/music.json`,
+  CHUNITHM_OTOGE_URL: `${FAKE_CHUNITHM}/otoge/`,
+  CHUNITHM_SDVX_URL: FAKE_CHUNITHM,
+  CHUNITHM_SDVX_DELAY_MS: "0",
   MIGRATIONS_DIR: fileURLToPath(
     new URL("../../packages/db/migrations", import.meta.url),
   ),
@@ -100,6 +105,11 @@ export default defineConfig({
       ...serverDefaults,
       command: "node e2e/fake-docs.ts",
       url: `${FAKE_DOCS}/health`,
+    },
+    {
+      ...serverDefaults,
+      command: "node e2e/fake-chunithm.ts",
+      url: `${FAKE_CHUNITHM}/health`,
     },
     {
       ...serverDefaults,

@@ -46,7 +46,7 @@ import { PUBLIC_CACHE } from "@trilleo/storage";
 import type { StorageDriver } from "@trilleo/storage/server";
 import { randomBytes, createHash } from "node:crypto";
 import { and, asc, count, eq, gt, inArray, lt, sql } from "drizzle-orm";
-import { decodePng, isPng, PngError } from "./png";
+import { decodePng, giveWay, isPng, PngError } from "./png";
 import { getDb } from "../db";
 import { getStorage } from "../storage/config";
 import {
@@ -276,7 +276,7 @@ export async function buildChart(
       images.bg,
       "lanes",
     );
-    const picture = decodeLayer(bgLayer.bytes, "lanes");
+    const picture = await decodeLayer(bgLayer.bytes, "lanes");
     const layout = findLayout(picture);
     const notesLayer = await fetchLayer(
       fetcher,
@@ -284,19 +284,23 @@ export async function buildChart(
       notes,
       "notes",
     );
-    const notesImage = decodeLayer(notesLayer.bytes, "notes");
+    const notesImage = await decodeLayer(notesLayer.bytes, "notes");
     sameSize(picture, notesImage, "notes");
+    await giveWay();
     drawOver(picture, notesImage);
+    await giveWay();
     const barLayer = await fetchLayer(
       fetcher,
       deps.sdvxOrigin,
       images.bar,
       "measure numbers",
     );
-    const barImage = decodeLayer(barLayer.bytes, "measure numbers");
+    const barImage = await decodeLayer(barLayer.bytes, "measure numbers");
     sameSize(picture, barImage, "measure numbers");
     const measures = findMeasures(barImage, layout);
+    await giveWay();
     drawOver(picture, barImage);
+    await giveWay();
     checkOverlaps(picture, layout);
 
     const height = stripHeight(layout);
@@ -304,6 +308,7 @@ export async function buildChart(
     const tiles: ChuniBuildManifest["tiles"] = [];
     let bytes = 0;
     for (const [index, [from, to]] of tileRanges(height).entries()) {
+      await giveWay();
       const webp = await encodeWebp(stripTile(picture, layout, from, to));
       const key = `${folder}/${String(index)}.webp`;
       await storage.put(key, webp, {
@@ -460,9 +465,9 @@ function layerTag(headers: Headers, size: number): string {
   return `${headers.get("etag") ?? headers.get("last-modified") ?? ""}|${String(size)}`;
 }
 
-function decodeLayer(bytes: Uint8Array, name: string) {
+async function decodeLayer(bytes: Uint8Array, name: string) {
   try {
-    return decodePng(bytes);
+    return await decodePng(bytes);
   } catch (error) {
     throw new BuildError(
       `The ${name} layer can't be read: ${error instanceof Error ? error.message : "broken"}`,

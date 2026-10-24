@@ -54,6 +54,14 @@ const ICONS: Readonly<Record<ToolIcon, readonly Part[]>> = {
     { d: "M60 6A54 54 0 0 0 60 114Z" },
     { d: "M60 6A54 54 0 0 1 60 114Z", accent: true },
   ],
+  // A chart's lane, read from the bottom up: an ink frame with notes on the grid, the
+  // middle one in accent.
+  chunithm: [
+    {
+      d: "M16 4H104V116H16Z M34 20V100H86V20Z M42 76H78V90H42Z M42 30H66V44H42Z",
+    },
+    { d: "M54 53H78V67H54Z", accent: true },
+  ],
   // The Hotfix robot: a block on two legs, with its visor cut out.
   robot: [
     {

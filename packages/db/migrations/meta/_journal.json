@@ -239,6 +239,13 @@
       "when": 1792840093976,
       "tag": "0033_chunithm-builds",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792843045457,
+      "tag": "0034_chunithm-jackets",
+      "breakpoints": true
     }
   ]
 }

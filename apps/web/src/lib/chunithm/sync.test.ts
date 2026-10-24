@@ -12,6 +12,8 @@ import {
 } from "@trilleo/db";
 import { and, asc, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { LocalDriver } from "@trilleo/storage/server";
+import { encodePng } from "./png";
 import { SDVX_LIST_PAGES, type ChunithmSources } from "./sources";
 import { newPagePaths, syncCatalog, type SyncDeps } from "./sync";
 
@@ -23,7 +25,7 @@ const SOURCES: ChunithmSources = {
 
 let handle: DatabaseHandle;
 let clock: Date;
-let files: Map<string, string>;
+let files: Map<string, string | Uint8Array>;
 let requests: string[];
 
 const SONGS = 600;
@@ -105,13 +107,17 @@ const fakeFetch: typeof fetch = (input) => {
   return Promise.resolve(
     body === undefined
       ? new Response("missing", { status: 404 })
-      : new Response(body, { status: 200 }),
+      : new Response(
+          typeof body === "string" ? body : new Blob([new Uint8Array(body)]),
+          { status: 200 },
+        ),
   );
 };
 
 const deps = (over: SyncDeps = {}): SyncDeps => ({
   fetch: fakeFetch,
   sources: SOURCES,
+  storage: null,
   now: () => clock,
   sleep: () => Promise.resolve(),
   ...over,
@@ -444,6 +450,35 @@ describe("syncCatalog", () => {
     expect(
       await newPagePaths(handle.db, ["01/00007mst", "01/00008mst"]),
     ).toEqual(new Set(["01/00008mst"]));
+  });
+
+  it("copies jackets into storage, and notes the ones it couldn't", async () => {
+    const storage = new LocalDriver({
+      root: null,
+      baseUrl: "/api/storage/local",
+    });
+    const jacket = encodePng({
+      width: 4,
+      height: 4,
+      data: new Uint8Array(64).fill(200),
+    });
+    files.set(`${SOURCES.sdvxOrigin}/chunithm/01/jacket/00001.png`, jacket);
+    const result = await syncCatalog(handle.db, deps({ storage }));
+    expect(result.jackets).toBe(1);
+    const [one] = await handle.db
+      .select()
+      .from(chuniSongs)
+      .where(eq(chuniSongs.id, 1));
+    expect(one?.jacketKey).toMatch(/^chunithm\/jackets\/1-[0-9a-f]{8}\.webp$/);
+    expect(await storage.head(one?.jacketKey ?? "")).toMatchObject({
+      contentType: "image/webp",
+    });
+    // Song 2's jacket isn't on sdvx.in: tried, and left for later.
+    const [two] = await handle.db
+      .select()
+      .from(chuniSongs)
+      .where(eq(chuniSongs.id, 2));
+    expect(two).toMatchObject({ jacketKey: null, jacketCheckedAt: clock });
   });
 
   it("does nothing with fetching switched off", async () => {

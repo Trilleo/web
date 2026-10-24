@@ -26,7 +26,7 @@
 - apps/<tool-name> (@trilleo/tool-<name>): each tool in its own source-only
   package, exporting its details (`./meta`) and a React app that apps/web mounts
   at /tools/<name>/. Tools: apps/notes, apps/convert, apps/inspect (File info),
-  apps/preview, apps/qr, apps/color.
+  apps/preview, apps/qr, apps/color, apps/chunithm (CHUNITHM charts).
 - apps/<game-name> (@trilleo/game-<name>): each game in its own source-only
   package, like tools (`.` the React app, `./meta` its `GameMeta`), mounted at
   /games/<name>/. Games: apps/skygrid, apps/hotfix.
@@ -1156,9 +1156,10 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
 
 ## CHUNITHM catalog
 
-- The song catalog and chart pictures behind the CHUNITHM chart viewer
-  (/tools/chunithm/, coming in a later phase). Pure rules in packages/chunithm, data and updates in
-  apps/web/src/lib/chunithm/ (sources.ts, sync.ts, admin.ts), tables chuni_*.
+- The CHUNITHM chart viewer (/tools/chunithm/): its song catalog, chart pictures and
+  pages. Pure rules in packages/chunithm; data, updates and builds in
+  apps/web/src/lib/chunithm/ (sources.ts, sync.ts, build.ts, jackets.ts, viewer.ts,
+  admin.ts), tables chuni_*; the React side in apps/chunithm (@trilleo/tool-chunithm).
 - Sources: SEGA's music.json (what's in the Japanese game, official IDs; the authority),
   otoge-db (otoge-db.net: constants, note counts, designers, versions and dates, links
   to sdvx.in pages, removed songs, and each ended version's frozen constants in
@@ -1185,17 +1186,22 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   BACKLOG_EVERY_MS while scripts are unread), or "Check now" on /admin/chunithm/. The
   song lists are all-or-nothing, and a SEGA list under MIN_SHARE_KEPT of the songs we
   have is refused. sdvx.in is read one request at a time (SDVX_PASS: 100 scripts a
-  pass, 500 ms apart, reread after 30 days), with our User-Agent; the first fill takes
-  a few hours. Each pass is logged in chuni_syncs (the last 50). Alerts
+  pass, 500 ms apart, reread after 30 days; songs' folders newest first, then Ultima
+  and World's End), with our User-Agent; the first fill takes a few hours. Each pass
+  then copies JACKETS_PER_PASS jackets (jackets.ts: sdvx.in's 300px PNGs as WebP under
+  `chunithm/jackets/`, newest songs first; SEGA's image server can't be reached from
+  the server). Each pass is logged in chuni_syncs (the last 50). Alerts
   ("chunithm-update"): new songs, new versions, pages sdvx.in added since the first
   fill that couldn't be placed (`newPagePaths`), and four failed passes in a row.
 - /admin/chunithm/: counts, recent passes, charts without a page (link one by its
   path), pages to place (link to a SEGA ID or ignore), placements by hand, withdrawn
   charts (hidden and never built; updates leave them), and versions with their
   constants.
-- Settings: CHUNITHM_SYNC=off never fetches (e2e); CHUNITHM_SEGA_URL,
-  CHUNITHM_OTOGE_URL and CHUNITHM_SDVX_URL point elsewhere. Tests pass fetch, sources
-  and a clock to `syncCatalog` instead.
+- Settings: CHUNITHM_SYNC=off never fetches; CHUNITHM_SEGA_URL, CHUNITHM_OTOGE_URL and
+  CHUNITHM_SDVX_URL point elsewhere, CHUNITHM_SDVX_DELAY_MS changes the wait between
+  sdvx.in requests. E2E points them at e2e/fake-chunithm.ts (a 512-song list and one
+  drawn chart, PNGs made with node:zlib) and waits for the catalog (`catalogReady`).
+  Unit tests pass fetch, sources, storage and a clock to `syncCatalog` instead.
 - Chart pictures (lib/chunithm/build.ts, chuni_builds; joining in packages/chunithm's
   charts.ts): sdvx.in draws a chart as three layers of the same size (bg lanes, obj
   notes or `mirror…` notes, bar measure numbers), each a row of columns COLUMN.pitch
@@ -1227,6 +1233,28 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
 - Withdrawing a chart makes its tiles private (browsers may keep a copy for a day,
   PUBLIC_CACHE); restoring makes them public. /admin/chunithm/ shows the builds, builds
   one by hand, lists failures with their reasons, and throws a build away ("Rebuild").
+
+- The tool (apps/chunithm): /tools/chunithm/ (`ChunithmApp`) loads the catalog index
+  (/api/chunithm/index.json, lib/chunithm/viewer.ts `songIndex`: every song with a
+  chart, viewable or not, its jacket's URL; cached until the next catalog update, ETag)
+  and searches it in the browser (packages/chunithm's search.ts: titles, aliases,
+  SEGA's readings and artists; `foldKana` writes anything typed the way SEGA writes
+  readings, `romajiToKana` reads romaji; then browse.ts's filters: difficulty, level,
+  constant, genre, version, in the game or removed). ?q= keeps the search.
+- A chart's page, /tools/chunithm/<SEGA id>/<difficulty>/ (server-rendered, noindex,
+  the tool's share card): facts (constant per version, notes, full combo, designer,
+  versions), other difficulties, a credit linking the sdvx.in page, and `ChartViewer`.
+  The page only reads the build (`peekBuild`, so crawlers start none); the viewer asks
+  the picture route (starting the build) and asks again every POLL_MS. Layouts: strip
+  (one column, scrolled) and sheet (layout.ts `sheetColumns`: screen-tall columns side
+  by side, SHEET_OVERLAP repeated). Sizes 1×–3×, drawn hard-edged (`crisp`) whenever a
+  picture pixel covers whole screen pixels, so tiles are never smoothed. Mirrored notes
+  from the mirror build. Measure 1 starts at the box's bottom; the page scrolls it on
+  screen once. The layout and size are a "preferences" key, trilleo:tool:chunithm:view.
+- Favourites and recent charts are tool data (`SavedChart`, keys f-/r-<id>-<difficulty>,
+  RECENT_MAX kept, `isSavedChart` checks saves): this browser signed out, the account
+  signed in. Japanese text carries lang="ja" (titles break by phrase:
+  word-break: auto-phrase).
 
 ## Mail
 

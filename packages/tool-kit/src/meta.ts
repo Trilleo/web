@@ -8,6 +8,7 @@ export type ToolIcon =
   | "preview"
   | "qr"
   | "color"
+  | "chunithm"
   | "island"
   | "robot";
 

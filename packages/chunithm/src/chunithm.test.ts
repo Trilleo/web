@@ -14,6 +14,7 @@ import {
   parseSdvxScript,
   parseSegaMusic,
   sdvxLogoSlug,
+  sdvxJacket,
   sdvxPathInfo,
   sdvxScriptOf,
   sdvxScriptUrl,
@@ -275,6 +276,7 @@ describe("sdvx.in", () => {
       title: "コンクエスト・チャレンジ",
       artist: "サツキ feat.ろん",
       bpm: "210",
+      jacket: null,
       charts: [
         {
           difficulty: "expert",
@@ -351,6 +353,21 @@ describe("sdvx.in", () => {
     expect(sdvxScriptOf("nope")).toBeNull();
   });
 
+  it("finds a song's jacket", () => {
+    const text =
+      'var TITLE11061="<div class=f1>X</div>";\nvar JK11061="<img src=/chunithm/11/jacket/11061.png width=100px height=100px>";';
+    expect(parseSdvxScript(text, "11/11061sort")?.jacket).toBe(
+      "/chunithm/11/jacket/11061.png",
+    );
+    expect(sdvxJacket(null, "11/11061sort")).toBe(
+      "/chunithm/11/jacket/11061.png",
+    );
+    expect(
+      sdvxJacket({ jacket: "/chunithm/01/jacket/01066.png" }, "end/01066end2"),
+    ).toBe("/chunithm/01/jacket/01066.png");
+    expect(sdvxJacket(null, "end/01066end2")).toBeNull();
+  });
+
   it("returns null for something that isn't a script", () => {
     expect(parseSdvxScript("<html>", "11/11061sort")).toBeNull();
     expect(parseSdvxScript(fixture("11061sort.txt"), "11/nope")).toBeNull();
@@ -378,6 +395,7 @@ describe("the catalog", () => {
       title,
       artist,
       bpm: "150",
+      jacket: null,
       charts: charts.map(({ path, level, stars }) => ({
         difficulty: sdvxPathInfo(path)?.difficulty ?? "master",
         path,

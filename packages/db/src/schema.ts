@@ -2711,6 +2711,10 @@ export const chuniSongs = pgTable("chuni_songs", {
   inGame: boolean("in_game").notNull().default(true),
   removedOn: date("removed_on", { mode: "string" }),
   removedIn: text("removed_in"),
+  /** The jacket, copied from sdvx.in into storage as WebP (lib/chunithm/jackets.ts). */
+  jacketKey: text("jacket_key"),
+  /** When copying it was last tried (it's tried again after a while if it failed). */
+  jacketCheckedAt: timestamp("jacket_checked_at", { withTimezone: true }),
   firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -2783,6 +2787,8 @@ export interface ChuniSdvxDetails {
   title: string;
   artist: string;
   bpm: string | null;
+  /** The jacket's site path on sdvx.in (absent in entries read before it was kept). */
+  jacket?: string | null;
   charts: {
     difficulty: string;
     path: string;
@@ -2917,6 +2923,8 @@ export interface ChuniSyncSummary {
   constants: number;
   scriptsRead: number;
   scriptsLeft: number;
+  /** Jackets copied into storage (absent before jackets were kept). */
+  jackets?: number;
   unmatched: {
     path: string;
     title: string;

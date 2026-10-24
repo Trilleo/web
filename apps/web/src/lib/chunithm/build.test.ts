@@ -412,15 +412,17 @@ describe("building a chart's picture", () => {
 });
 
 describe("the PNG decoder", () => {
-  it("reads back what the test encoder writes", () => {
-    const image = decodePng(encodePng(chart.obj));
+  it("reads back what the test encoder writes", async () => {
+    const image = await decodePng(encodePng(chart.obj));
     expect(image.width).toBe(chart.obj.width);
     expect(Buffer.from(image.data).equals(Buffer.from(chart.obj.data))).toBe(
       true,
     );
   });
 
-  it("refuses what it can't read", () => {
-    expect(() => decodePng(new Uint8Array([1, 2, 3]))).toThrow("Not a PNG.");
+  it("refuses what it can't read", async () => {
+    await expect(decodePng(new Uint8Array([1, 2, 3]))).rejects.toThrow(
+      "Not a PNG.",
+    );
   });
 });

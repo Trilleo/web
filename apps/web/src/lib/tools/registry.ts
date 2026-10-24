@@ -1,4 +1,5 @@
 import type { ToolMeta } from "@trilleo/tool-kit";
+import { meta as chunithm } from "@trilleo/tool-chunithm/meta";
 import { meta as color } from "@trilleo/tool-color/meta";
 import { meta as convert } from "@trilleo/tool-convert/meta";
 import { meta as inspect } from "@trilleo/tool-inspect/meta";
@@ -18,6 +19,7 @@ export const TOOLS: readonly ToolMeta[] = [
   preview,
   qr,
   color,
+  chunithm,
 ];
 
 export function toolPath(slug: string): string {

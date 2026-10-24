@@ -1,31 +1,38 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Page,
+} from "@playwright/test";
+import { DRAWN, DRAWN_MEASURES, UNDRAWN } from "./fake-chunithm";
 import { adminPage } from "./support";
 
-// E2E runs with CHUNITHM_SYNC=off, so the catalog stays empty: this checks the
-// control panel itself. Updates and placements are covered by Vitest (lib/chunithm/).
-test("the admin's CHUNITHM panel works without a catalog", async ({
-  browser,
-  baseURL,
-}) => {
-  const admin = await adminPage(browser, baseURL);
-  await admin.goto("/admin/chunithm/");
-  await expect(
-    admin.getByRole("heading", { level: 1, name: "CHUNITHM" }),
-  ).toBeVisible();
-  await expect(admin.getByText("Fetching is switched off here")).toBeVisible();
-  await expect(admin.getByRole("button", { name: "Check now" })).toBeDisabled();
+// The catalog comes from e2e/fake-chunithm.ts: an update starts with the server's
+// first requests and takes a few seconds. Specs wait for it.
+async function catalogReady(request: APIRequestContext): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const response = await request.get("/api/chunithm/index.json");
+        if (!response.ok()) return 0;
+        const index = (await response.json()) as {
+          songs: { id: number; charts: { viewable: boolean }[] }[];
+        };
+        return index.songs
+          .find((song) => song.id === DRAWN.id)
+          ?.charts.some((chart) => chart.viewable)
+          ? 1
+          : 0;
+      },
+      { timeout: 90_000, intervals: [1000] },
+    )
+    .toBe(1);
+}
 
-  // Withdrawing a chart that isn't there says so.
-  await admin.getByLabel("Song ID").fill("99999");
-  await admin.getByLabel("Reason").fill("Asked to");
-  await admin.getByRole("button", { name: "Withdraw" }).click();
-  await expect(admin.getByRole("alert")).toHaveText(
-    "There's no such chart in the catalog.",
-  );
-
-  await admin.evaluate(() => document.fonts.ready);
-  const { violations } = await new AxeBuilder({ page: admin })
+async function axe(page: Page): Promise<string[]> {
+  await page.evaluate(() => document.fonts.ready);
+  const { violations } = await new AxeBuilder({ page })
     .withTags([
       "wcag2a",
       "wcag2aa",
@@ -35,19 +42,102 @@ test("the admin's CHUNITHM panel works without a catalog", async ({
       "best-practice",
     ])
     .analyze();
-  expect(violations.map((violation) => violation.id)).toEqual([]);
-});
+  return violations.map((violation) => violation.id);
+}
 
-// With fetching off (e2e), the picture route says so rather than building.
-test("the chart picture route answers without building when fetching is off", async ({
+test("someone finds a chart by romaji, opens its picture and keeps it", async ({
+  page,
   request,
 }) => {
-  const off = await request.get("/api/chunithm/charts/3062/master");
-  expect(off.status()).toBe(503);
-  expect(await off.json()).toEqual({
-    status: "unavailable",
-    reason: "storage",
+  await catalogReady(request);
+  await page.goto("/tools/chunithm/");
+  await page.getByLabel("Title, artist or alias").fill("konkuesuto");
+  const results = page.getByTestId("chunithm-results").last();
+  await expect(results.getByText(DRAWN.title)).toBeVisible();
+  await expect(page).toHaveURL(/\?q=konkuesuto/);
+
+  await results
+    .getByRole("link", { name: `${DRAWN.title}, Master 14+ (14.7)` })
+    .click();
+  await expect(page).toHaveURL(`/tools/chunithm/${String(DRAWN.id)}/master/`);
+  await expect(
+    page.getByRole("heading", { level: 1, name: DRAWN.title }),
+  ).toBeVisible();
+  // The first view builds the picture; the page asks until it's there.
+  await expect(page.getByTestId("chart-picture")).toBeVisible({
+    timeout: 60_000,
   });
-  const wrong = await request.get("/api/chunithm/charts/abc/hardest");
-  expect(wrong.status()).toBe(404);
+  await expect(page.getByTestId("chart-measure")).toHaveText(
+    `Measure 1 of ${String(DRAWN_MEASURES)}`,
+  );
+  await expect(page.getByTestId("chart-facts")).toContainText("14.7 (Mate)");
+  expect(await axe(page)).toEqual([]);
+
+  // Both layouts draw it.
+  await page.getByText("Strip", { exact: true }).click();
+  await expect(page.getByTestId("chart-picture")).toHaveAttribute(
+    "data-mode",
+    "strip",
+  );
+  await page.getByText("Sheet", { exact: true }).click();
+  await expect(page.getByTestId("chart-picture")).toHaveAttribute(
+    "data-mode",
+    "sheet",
+  );
+
+  // A favourite, kept in this browser, shows on the tool's page.
+  await page.getByRole("button", { name: "☆ Save" }).click();
+  await expect(page.getByRole("button", { name: "★ Saved" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await page.goto("/tools/chunithm/");
+  const favourites = page.getByRole("region", { name: "(02) Favourites" });
+  await expect(
+    favourites.getByRole("link", { name: `MAS ${DRAWN.title}` }),
+  ).toBeVisible();
+});
+
+test("a chart sdvx.in hasn't drawn says so", async ({ page, request }) => {
+  await catalogReady(request);
+  await page.goto(`/tools/chunithm/${String(UNDRAWN.id)}/master/`);
+  await expect(
+    page.getByRole("heading", { level: 1, name: UNDRAWN.title }),
+  ).toBeVisible();
+  await expect(page.getByTestId("chart-status")).toHaveText(
+    "sdvx.in hasn't drawn this chart yet.",
+  );
+  // A chart that doesn't exist is a 404, as is a difficulty that doesn't.
+  expect((await page.goto("/tools/chunithm/1/master/"))?.status()).toBe(404);
+  expect(
+    (
+      await request.get(`/api/chunithm/charts/${String(DRAWN.id)}/hardest`)
+    ).status(),
+  ).toBe(404);
+});
+
+test("the admin's CHUNITHM panel shows the catalog", async ({
+  browser,
+  baseURL,
+  request,
+}) => {
+  await catalogReady(request);
+  const admin = await adminPage(browser, baseURL);
+  await admin.goto("/admin/chunithm/");
+  await expect(
+    admin.getByRole("heading", { level: 1, name: "CHUNITHM" }),
+  ).toBeVisible();
+  await expect(admin.getByTestId("chunithm-counts")).toContainText("Mate");
+
+  // Withdrawing a chart that isn't there says so.
+  const withdraw = admin.locator("form", {
+    has: admin.getByRole("button", { name: "Withdraw" }),
+  });
+  await withdraw.getByLabel("Song ID").fill("99999");
+  await withdraw.getByLabel("Reason").fill("Asked to");
+  await withdraw.getByRole("button", { name: "Withdraw" }).click();
+  await expect(admin.getByRole("alert")).toHaveText(
+    "There's no such chart in the catalog.",
+  );
+  expect(await axe(admin)).toEqual([]);
 });

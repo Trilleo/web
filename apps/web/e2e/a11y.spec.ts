@@ -18,6 +18,7 @@ const PAGES = [
   "/tools/inspect/",
   "/tools/preview/",
   "/tools/qr/",
+  "/tools/chunithm/",
   "/games/",
   "/games/skygrid/",
   "/games/skygrid/leaderboard/",

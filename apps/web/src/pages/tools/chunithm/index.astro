@@ -1,0 +1,50 @@
+---
+import { signInHref } from "@trilleo/tool-kit";
+import { ChunithmApp, meta, type SavedChart } from "@trilleo/tool-chunithm";
+import ToolLayout from "../../../components/tools/ToolLayout.astro";
+import { getDb } from "../../../lib/db";
+import { toolPath } from "../../../lib/tools/registry";
+import { listToolData } from "../../../lib/tools/store";
+
+// Rendered per visit: signed-in people get their favourites in the page itself.
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const { user } = Astro.locals;
+const initialSaved = user
+  ? await listToolData<SavedChart>(await getDb(), user.id, meta.slug)
+  : undefined;
+const initialQuery = Astro.url.searchParams.get("q") ?? "";
+---
+
+<ToolLayout meta={meta}>
+  <ChunithmApp
+    client:load
+    signedIn={user !== null}
+    signInHref={signInHref(toolPath(meta.slug))}
+    initialSaved={initialSaved}
+    initialQuery={initialQuery}
+  />
+  <noscript>
+    <p class="mt-6 border-l-2 border-accent pl-4">
+      Searching the charts needs JavaScript. A chart’s own page works without it
+      once its picture has been drawn.
+    </p>
+  </noscript>
+  <p class="mt-12 text-sm text-muted">
+    {"Chart pictures are from "}
+    <a href="https://sdvx.in/chunithm.html" class="underline" rel="noreferrer">
+      sdvx.in (CHUNITHM譜面保管所)
+    </a>
+    {
+      ", joined here into one picture per chart. Song details come from SEGA’s song list and the community’s "
+    }
+    <a href="https://otoge-db.net/chunithm/" class="underline" rel="noreferrer">
+      otoge-db
+    </a>
+    {
+      ". CHUNITHM is SEGA’s; this tool isn’t made or endorsed by SEGA or sdvx.in."
+    }
+  </p>
+</ToolLayout>

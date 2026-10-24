@@ -7,6 +7,7 @@
 export * from "./catalog";
 export * from "./charts";
 export * from "./difficulties";
+export * from "./search";
 export * from "./sources/common";
 export * from "./sources/otoge";
 export * from "./sources/sdvx";
