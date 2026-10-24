@@ -38,6 +38,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { setBuildsHidden } from "./build";
+import { forgetIndex } from "./viewer";
 
 export const WITHDRAW_REASON_MAX = 300;
 
@@ -280,6 +281,7 @@ export async function placePage(
         },
       });
   });
+  forgetIndex();
   return { ok: true };
 }
 
@@ -296,6 +298,7 @@ export async function forgetPage(db: Database, path: string): Promise<void> {
         and(eq(chuniCharts.sdvxPath, path), eq(chuniCharts.linkedBy, "admin")),
       );
   });
+  forgetIndex();
 }
 
 export async function withdrawChart(
@@ -321,6 +324,7 @@ export async function withdrawChart(
     .where(and(eq(chuniCharts.id, chart.id), isNull(chuniCharts.withdrawnAt)));
   // Its tiles stop being served (browsers may keep a copy for a day: PUBLIC_CACHE).
   await setBuildsHidden(db, storage, chart.id, true);
+  forgetIndex();
   return { ok: true };
 }
 
@@ -334,6 +338,7 @@ export async function restoreChart(
     .set({ withdrawnAt: null, withdrawnReason: null })
     .where(eq(chuniCharts.id, chartId));
   await setBuildsHidden(db, storage, chartId, false);
+  forgetIndex();
 }
 
 /** Builds that failed (or whose last rebuild failed), newest first. */

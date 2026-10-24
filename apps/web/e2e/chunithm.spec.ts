@@ -6,7 +6,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { DRAWN, DRAWN_MEASURES, UNDRAWN } from "./fake-chunithm";
-import { adminPage } from "./support";
+import { adminPage, continueAs, freshLogin } from "./support";
 
 // The catalog comes from e2e/fake-chunithm.ts: an update starts with the server's
 // first requests and takes a few seconds. Specs wait for it.
@@ -140,4 +140,64 @@ test("the admin's CHUNITHM panel shows the catalog", async ({
     "There's no such chart in the catalog.",
   );
   expect(await axe(admin)).toEqual([]);
+});
+
+test("a suggested name, once approved, finds the song", async ({
+  browser,
+  baseURL,
+  page,
+  request,
+}) => {
+  await catalogReady(request);
+  const chart = `/tools/chunithm/${String(DRAWN.id)}/master/`;
+  const name = `征服${freshLogin("e2e").slice(4)}`;
+
+  // Signed out, the page says how to suggest one.
+  await page.goto(chart);
+  await expect(
+    page.getByText("to suggest a name for this song."),
+  ).toBeVisible();
+
+  await page.goto(`/sign-in?next=${encodeURIComponent(chart)}`);
+  await page.getByRole("link", { name: "Sign in with GitHub" }).click();
+  await continueAs(page, freshLogin("namer"));
+  await expect(page).toHaveURL(chart);
+  await page.getByLabel("Suggest a name").fill(name);
+  await page.getByRole("button", { name: "Suggest", exact: true }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Thanks" }),
+  ).toBeVisible();
+  await expect(page.getByTestId("my-suggestions")).toContainText(
+    `${name} · waiting`,
+  );
+  // The same name again waits with the first.
+  await page.getByLabel("Suggest a name").fill(name);
+  await page.getByRole("button", { name: "Suggest", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "That name has been suggested already and is waiting for a look.",
+  );
+
+  const admin = await adminPage(browser, baseURL);
+  await admin.goto("/admin/chunithm/aliases/");
+  const item = admin
+    .getByTestId("alias-queue")
+    .getByRole("listitem")
+    .filter({ hasText: name });
+  await item.getByLabel("Note (they see it)").fill("Nice one");
+  await item.getByRole("button", { name: "Approve" }).click();
+  await expect(admin.getByRole("status")).toHaveText(
+    "Approved: the name is searchable now.",
+  );
+  expect(await axe(admin)).toEqual([]);
+
+  await page.goto(chart);
+  await expect(page.getByTestId("my-suggestions")).toContainText(
+    `${name} · added · Nice one`,
+  );
+  await expect(page.getByTestId("chart-facts")).toContainText(name);
+
+  await page.goto(`/tools/chunithm/?q=${encodeURIComponent(name)}`);
+  await expect(
+    page.getByTestId("chunithm-results").last().getByText(DRAWN.title),
+  ).toBeVisible();
 });

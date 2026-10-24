@@ -17,6 +17,13 @@ import { ArrowLeftIcon } from "@trilleo/ui";
 import Breadcrumb from "../../../../components/Breadcrumb.astro";
 import BaseLayout from "../../../../layouts/BaseLayout.astro";
 import { SDVX_ORIGIN } from "../../../../lib/chunithm/sources";
+import { ALIAS_LIMITS } from "@trilleo/chunithm";
+import {
+  ALIAS_ERRORS,
+  songAliases,
+  suggestionsFor,
+  type AliasError,
+} from "../../../../lib/chunithm/aliases";
 import { chartPage, peekBuild } from "../../../../lib/chunithm/viewer";
 import { parseId } from "../../../../lib/comments/form";
 import { getDb } from "../../../../lib/db";
@@ -54,8 +61,10 @@ const others = DIFFICULTIES.flatMap((d) => {
   const other = page.charts.find((c) => c.difficulty === d);
   return other ? [{ ...other, difficulty: d }] : [];
 });
+const aliases = await songAliases(db, song.id);
 const facts: [string, string | null][] = [
   ["Artist", song.artist],
+  ["Also known as", aliases.map((alias) => alias.alias).join(" · ") || null],
   ["Genre", song.genre],
   ["BPM", song.bpm],
   ["Notes designer", chart.designer],
@@ -80,6 +89,19 @@ const facts: [string, string | null][] = [
   ],
 ];
 const history = page.constants.slice(1);
+const mine = user ? await suggestionsFor(db, user.id, song.id) : [];
+const aliasAnswer = Astro.url.searchParams.get("alias");
+const aliasMessage =
+  aliasAnswer === "sent"
+    ? "Thanks: your suggestion waits for a look before it’s searchable."
+    : aliasAnswer && aliasAnswer in ALIAS_ERRORS
+      ? ALIAS_ERRORS[aliasAnswer as AliasError]
+      : null;
+const STATUS = {
+  pending: "waiting",
+  approved: "added",
+  declined: "not added",
+} as const;
 const sdvxPage = chart.sdvxPath
   ? `${SDVX_ORIGIN}/chunithm/${chart.sdvxPath}.htm`
   : null;
@@ -165,7 +187,9 @@ const hasMirror = ["expert", "master", "ultima", "worldsend"].includes(
                 <dt class="type-label text-muted">{name}</dt>,
                 <dd
                   lang={
-                    name === "Artist" || name === "Notes designer"
+                    name === "Artist" ||
+                    name === "Notes designer" ||
+                    name === "Also known as"
                       ? "ja"
                       : undefined
                   }
@@ -234,6 +258,77 @@ const hasMirror = ["expert", "master", "ultima", "worldsend"].includes(
       signInHref={signInHref(path)}
       initialSaved={initialSaved}
     />
+
+    <section
+      id="names"
+      aria-labelledby="names-title"
+      class="grid-swiss mt-10 gap-y-4 border-t border-ink pt-4 md:pt-5"
+    >
+      <h2 id="names-title" class="col-span-4 type-label md:col-span-2">
+        Other names
+      </h2>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-7">
+        <p class="text-muted">
+          Search finds songs by the names players use too: nicknames,
+          translations, short forms.
+          {aliases.length === 0 && " This song has none yet."}
+        </p>
+        {aliasMessage && (
+          <p
+            role={aliasAnswer === "sent" ? "status" : "alert"}
+            class="border-l-2 border-accent pl-4"
+          >
+            {aliasMessage}
+          </p>
+        )}
+        {user ? (
+          <form
+            method="post"
+            action="/tools/chunithm/alias"
+            class="flex flex-wrap items-end gap-3"
+          >
+            <input type="hidden" name="song" value={String(song.id)} />
+            <input type="hidden" name="difficulty" value={difficulty} />
+            <label class="flex min-w-60 flex-1 flex-col gap-1.5">
+              <span class="type-label">Suggest a name</span>
+              <input
+                name="alias"
+                required
+                maxlength={ALIAS_LIMITS.maxLength}
+                class="h-11 border border-ink bg-paper px-3 text-ink focus:outline-2 focus:outline-offset-2 focus:outline-accent"
+              />
+            </label>
+            <button
+              type="submit"
+              class="press h-11 border border-ink px-4 type-nav hover:bg-ink hover:text-paper"
+            >
+              Suggest
+            </button>
+          </form>
+        ) : (
+          <p>
+            <a href={signInHref(path)} class="underline">
+              Sign in
+            </a>{" "}
+            to suggest a name for this song.
+          </p>
+        )}
+        {mine.length > 0 && (
+          <ul class="flex flex-col text-sm" data-testid="my-suggestions">
+            {mine.map((suggestion) => (
+              <li class="border-b border-hair py-2">
+                <span lang="ja">{suggestion.alias}</span>
+                <span class="text-muted">
+                  {" "}
+                  · {STATUS[suggestion.status]}
+                  {suggestion.note && ` · ${suggestion.note}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
 
     <p class="mt-8 text-sm text-muted">
       {"Chart picture by "}

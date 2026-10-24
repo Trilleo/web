@@ -1,0 +1,367 @@
+---
+/**
+ * CHUNITHM song names: suggestions waiting for a decision (approve or decline, with
+ * a note the person sees), one song's names (?song=<SEGA ID>, or a title to look
+ * up), and bulk imports of community lists. Every button is a POST to this page.
+ */
+import { ALIAS_LIMITS } from "@trilleo/chunithm";
+import { chuniSongs } from "@trilleo/db";
+import { asc, eq, ilike } from "drizzle-orm";
+import AdminNav from "../../../components/admin/AdminNav.astro";
+import {
+  primaryButton,
+  secondaryButton,
+} from "../../../components/admin/files/styles";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireAdmin } from "../../../lib/auth/guard";
+import { noStoreRedirect } from "../../../lib/auth/redirect";
+import {
+  ALIAS_ERRORS,
+  SUGGESTION_LIMITS,
+  addAlias,
+  decideSuggestion,
+  importAliases,
+  removeAlias,
+  songAliases,
+  waitingSuggestions,
+  type ImportReport,
+} from "../../../lib/chunithm/aliases";
+import { field, parseId } from "../../../lib/comments/form";
+import { getDb } from "../../../lib/db";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+let error: string | null = null;
+let report: ImportReport | null = null;
+const lookup = (Astro.url.searchParams.get("song") ?? "").trim();
+let songId = parseId(lookup);
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const intent = field(form, "intent");
+  const formSong = parseId(field(form, "song"));
+  const back = (done: string, song: number | null) =>
+    noStoreRedirect(
+      `/admin/chunithm/aliases/?done=${done}${song === null ? "" : `&song=${String(song)}`}`,
+      303,
+    );
+  if (intent === "approve" || intent === "decline") {
+    const id = parseId(field(form, "suggestion"));
+    const result =
+      id === null
+        ? { ok: false as const, error: "decided" as const }
+        : await decideSuggestion(
+            db,
+            id,
+            intent === "approve",
+            field(form, "note"),
+          );
+    if (result.ok)
+      return back(intent === "approve" ? "approved" : "declined", null);
+    error = ALIAS_ERRORS[result.error];
+  } else if (intent === "add" && formSong !== null) {
+    const result = await addAlias(db, formSong, field(form, "alias"));
+    if (result.ok) return back("added", formSong);
+    error = ALIAS_ERRORS[result.error];
+    songId = formSong;
+  } else if (intent === "remove") {
+    const id = parseId(field(form, "alias"));
+    if (id !== null) await removeAlias(db, id);
+    return back("removed", formSong);
+  } else if (intent === "import") {
+    report = await importAliases(db, field(form, "list"));
+  } else {
+    error = "Unknown action.";
+  }
+}
+
+const DONE: Record<string, string> = {
+  approved: "Approved: the name is searchable now.",
+  declined: "Declined.",
+  added: "Name added.",
+  removed: "Name removed.",
+};
+const done = Astro.url.searchParams.get("done");
+const queue = await waitingSuggestions(db);
+const [song] =
+  songId === null
+    ? []
+    : await db
+        .select({ id: chuniSongs.id, title: chuniSongs.title })
+        .from(chuniSongs)
+        .where(eq(chuniSongs.id, songId));
+const names = song ? await songAliases(db, song.id) : [];
+const matches =
+  !song && lookup
+    ? await db
+        .select({
+          id: chuniSongs.id,
+          title: chuniSongs.title,
+          artist: chuniSongs.artist,
+        })
+        .from(chuniSongs)
+        .where(
+          ilike(chuniSongs.title, `%${lookup.replace(/[%_\\]/g, "\\$&")}%`),
+        )
+        .orderBy(asc(chuniSongs.title))
+        .limit(30)
+    : [];
+
+const row =
+  "grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6";
+const label = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body =
+  "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
+const input =
+  "type-row h-9 border-b border-ink bg-transparent focus:outline-none focus-visible:border-accent";
+---
+
+<BaseLayout title="CHUNITHM names · Admin" noindex>
+  <section
+    aria-labelledby="admin-aliases-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="chunithm" />
+    <p class="type-label mt-6">
+      <a href="/admin/chunithm/" class="group">
+        <span class="link-wipe">CHUNITHM</span>
+      </a>
+      <span class="text-muted"> / Names</span>
+    </p>
+
+    <DisplayTitle id="admin-aliases-title">Names</DisplayTitle>
+
+    <div class={row}>
+      <p class={label}>Suggested</p>
+      <div class={body}>
+        {done && DONE[done] && (
+          <p role="status" class="type-lead border-l-2 border-accent pl-4">
+            {DONE[done]}
+          </p>
+        )}
+        {error && (
+          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+            {error}
+          </p>
+        )}
+        {queue.length === 0 ? (
+          <p class="text-muted">Nothing waiting.</p>
+        ) : (
+          <ul class="flex flex-col" data-testid="alias-queue">
+            {queue.map((suggestion) => (
+              <li class="flex flex-col gap-2 border-b border-hair py-3">
+                <p>
+                  <span class="font-medium" lang="ja">
+                    {suggestion.alias}
+                  </span>
+                  <span class="text-muted">
+                    {" "}
+                    for{" "}
+                    <a
+                      href={`/admin/chunithm/aliases/?song=${String(suggestion.songId)}`}
+                      class="underline"
+                      lang="ja"
+                    >
+                      {suggestion.title}
+                    </a>{" "}
+                    (#{suggestion.songId}) · by @{suggestion.username}
+                  </span>
+                </p>
+                {suggestion.aliases.length > 0 && (
+                  <p class="text-sm text-muted" lang="ja">
+                    Already: {suggestion.aliases.join(" · ")}
+                  </p>
+                )}
+                <form method="post" class="flex flex-wrap items-end gap-3">
+                  <input
+                    type="hidden"
+                    name="suggestion"
+                    value={String(suggestion.id)}
+                  />
+                  <label class="flex min-w-48 flex-1 flex-col gap-1">
+                    <span class="type-label text-muted">
+                      Note (they see it)
+                    </span>
+                    <input
+                      name="note"
+                      maxlength={SUGGESTION_LIMITS.noteMax}
+                      class={`${input} w-full`}
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    name="intent"
+                    value="approve"
+                    class={primaryButton}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="submit"
+                    name="intent"
+                    value="decline"
+                    class={secondaryButton}
+                  >
+                    Decline
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <p class={label}>A song’s names</p>
+      <div class={body}>
+        <form method="get" class="flex flex-wrap items-end gap-3">
+          <label class="flex min-w-48 flex-1 flex-col gap-1">
+            <span class="type-label text-muted">SEGA ID or title</span>
+            <input name="song" value={lookup} class={`${input} w-full`} />
+          </label>
+          <button type="submit" class={secondaryButton}>
+            Open
+          </button>
+        </form>
+        {matches.length > 0 && (
+          <ul class="flex flex-col">
+            {matches.map((match) => (
+              <li class="border-b border-hair py-2">
+                <a
+                  href={`/admin/chunithm/aliases/?song=${String(match.id)}`}
+                  class="underline"
+                  lang="ja"
+                >
+                  {match.title}
+                </a>
+                <span class="text-muted" lang="ja">
+                  {" "}
+                  / {match.artist} (#{match.id})
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {lookup && !song && matches.length === 0 && (
+          <p class="text-muted">No song fits that.</p>
+        )}
+        {song && (
+          <div class="flex flex-col gap-3" data-testid="song-names">
+            <p class="type-lead" lang="ja">
+              {song.title} <span class="text-muted">#{song.id}</span>
+            </p>
+            {names.length === 0 ? (
+              <p class="text-muted">No other names yet.</p>
+            ) : (
+              <ul class="flex flex-col">
+                {names.map((name) => (
+                  <li class="flex flex-wrap items-center justify-between gap-3 border-b border-hair py-2">
+                    <span>
+                      <span lang="ja">{name.alias}</span>
+                      <span class="text-sm text-muted"> · {name.source}</span>
+                    </span>
+                    <form method="post">
+                      <input type="hidden" name="intent" value="remove" />
+                      <input
+                        type="hidden"
+                        name="song"
+                        value={String(song.id)}
+                      />
+                      <input
+                        type="hidden"
+                        name="alias"
+                        value={String(name.id)}
+                      />
+                      <button type="submit" class={secondaryButton}>
+                        Remove
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <form method="post" class="flex flex-wrap items-end gap-3">
+              <input type="hidden" name="intent" value="add" />
+              <input type="hidden" name="song" value={String(song.id)} />
+              <label class="flex min-w-48 flex-1 flex-col gap-1">
+                <span class="type-label text-muted">New name</span>
+                <input
+                  name="alias"
+                  required
+                  maxlength={ALIAS_LIMITS.maxLength}
+                  class={`${input} w-full`}
+                />
+              </label>
+              <button type="submit" class={primaryButton}>
+                Add
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <p class={label}>Import</p>
+      <div class={body}>
+        <p class="text-muted">
+          Paste a community list, by SEGA ID: JSON (
+          <code>{'{"2710": ["神谕", "oracle"]}'}</code> or{" "}
+          <code>{'[{"id": 2710, "aliases": [...]}]'}</code>) or lines of
+          tab-separated values (ID, then names). Names a song already has are
+          skipped.
+        </p>
+        {report && (
+          <div
+            role="status"
+            class="border-l-2 border-accent pl-4"
+            data-testid="import-report"
+          >
+            <p class="type-lead">
+              {report.added} added, {report.skipped} skipped.
+            </p>
+            {report.unknownSongs.length > 0 && (
+              <p class="text-muted">
+                Unknown songs: {report.unknownSongs.slice(0, 50).join(", ")}
+                {report.unknownSongs.length > 50 && " …"}
+              </p>
+            )}
+            {report.problems.length > 0 && (
+              <ul class="text-sm text-muted">
+                {report.problems.slice(0, 20).map((problem) => (
+                  <li>{problem}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+        <form method="post" class="flex flex-col gap-3">
+          <input type="hidden" name="intent" value="import" />
+          <label class="flex flex-col gap-1">
+            <span class="type-label text-muted">List</span>
+            <textarea
+              name="list"
+              required
+              rows="8"
+              class="w-full border border-ink bg-transparent p-3 font-mono text-sm focus:outline-none focus-visible:border-accent"
+            ></textarea>
+          </label>
+          <div>
+            <button type="submit" class={primaryButton}>
+              Import
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

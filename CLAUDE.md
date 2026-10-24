@@ -1193,7 +1193,8 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   the server). Each pass is logged in chuni_syncs (the last 50). Alerts
   ("chunithm-update"): new songs, new versions, pages sdvx.in added since the first
   fill that couldn't be placed (`newPagePaths`), and four failed passes in a row.
-- /admin/chunithm/: counts, recent passes, charts without a page (link one by its
+- /admin/chunithm/: counts, recent passes, suggested names waiting (a link to
+  /admin/chunithm/aliases/), charts without a page (link one by its
   path), pages to place (link to a SEGA ID or ignore), placements by hand, withdrawn
   charts (hidden and never built; updates leave them), and versions with their
   constants.
@@ -1236,7 +1237,10 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
 
 - The tool (apps/chunithm): /tools/chunithm/ (`ChunithmApp`) loads the catalog index
   (/api/chunithm/index.json, lib/chunithm/viewer.ts `songIndex`: every song with a
-  chart, viewable or not, its jacket's URL; cached until the next catalog update, ETag)
+  chart, viewable or not, its jacket's URL and aliases; rebuilt after each catalog
+  update and each admin change to names, links or withdrawals (`forgetIndex`), at
+  most every few minutes otherwise; its ETag is a hash of the content, and the tool
+  fetches it with `cache: "no-cache"`, so changes show at once)
   and searches it in the browser (packages/chunithm's search.ts: titles, aliases,
   SEGA's readings and artists; `foldKana` writes anything typed the way SEGA writes
   readings, `romajiToKana` reads romaji; then browse.ts's filters: difficulty, level,
@@ -1255,6 +1259,19 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   RECENT_MAX kept, `isSavedChart` checks saves): this browser signed out, the account
   signed in. Japanese text carries lang="ja" (titles break by phrase:
   word-break: auto-phrase).
+
+- Aliases (packages/chunithm's aliases.ts the rules, lib/chunithm/aliases.ts the
+  rest; chuni_aliases, chuni_alias_suggestions): other names a song goes by, searched
+  like its title, shown on its chart pages ("Also known as"). Keyed by matchKey,
+  unique per song, never the song's own title, at most ALIAS_LIMITS.perSong. The admin
+  adds and removes them and imports community lists (JSON `{"<id>": [names]}`, a JSON
+  array of {id, aliases}, or tab-separated lines) at /admin/chunithm/aliases/.
+  Signed-in people suggest names from a chart page's form (POST
+  /tools/chunithm/alias, no JavaScript needed; SUGGESTION_LIMITS: per day, waiting);
+  each alerts the admin ("chunithm-alias"), and the queue approves (adding the name,
+  `suggestedBy` kept) or declines, with a note the person sees on the song's chart
+  pages. Suggestions are in the account export (`chunithm.aliasSuggestions`) and go
+  with the account; approved names stay, `suggestedBy` set null.
 
 ## Mail
 

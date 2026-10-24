@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { eventsOf } from "../../lib/auth/activity";
+import { aliasExport } from "../../lib/chunithm/aliases";
 import { requireUser } from "../../lib/auth/guard";
 import { listPasskeys } from "../../lib/auth/passkeys";
 import { getDb } from "../../lib/db";
@@ -55,6 +56,8 @@ export const GET: APIRoute = async (context) => {
       // message you (others' messages are theirs).
       messages: await messagesExport(db, user.id),
     },
+    // Names you suggested for CHUNITHM songs, and what became of them.
+    chunithm: { aliasSuggestions: await aliasExport(db, user.id) },
     // Study progress: every review, answer and lesson finished, and the settings.
     study: await studyExport(db, user.id),
     // Wikis you belong to, the text of every edit you saved or proposed, and what

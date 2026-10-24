@@ -4,6 +4,7 @@
  * makes one catalog from them by SEGA's IDs, and joining a chart's picture from
  * sdvx.in's layers (charts.ts). The site fetches and keeps it (apps/web/src/lib/chunithm/).
  */
+export * from "./aliases";
 export * from "./catalog";
 export * from "./charts";
 export * from "./difficulties";

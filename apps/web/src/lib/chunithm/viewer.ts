@@ -16,12 +16,21 @@ import {
   type Database,
 } from "@trilleo/db";
 import type { StorageDriver } from "@trilleo/storage/server";
+import { createHash } from "node:crypto";
 import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
+import { aliasesBySong } from "./aliases";
 import { publicManifest, type BuildState, type Variant } from "./build";
 
 /** How long a built index is reused before it's read again. */
 const INDEX_TTL_MS = 5 * 60 * 1000;
-let cached: { at: number; key: string; index: SongIndex } | null = null;
+let cached: {
+  at: number;
+  /** The catalog update it was built after. */
+  sync: string;
+  /** A hash of its content: the ETag browsers check it by. */
+  key: string;
+  index: SongIndex;
+} | null = null;
 
 /** The catalog for the browser: every song with a chart, and the versions. */
 export async function songIndex(
@@ -36,9 +45,9 @@ export async function songIndex(
     .where(isNotNull(chuniSyncs.finishedAt))
     .orderBy(desc(chuniSyncs.id))
     .limit(1);
-  const key = String(last?.id ?? 0);
-  if (cached?.key === key && now - cached.at < INDEX_TTL_MS)
-    return { index: cached.index, key };
+  const sync = String(last?.id ?? 0);
+  if (cached?.sync === sync && now - cached.at < INDEX_TTL_MS)
+    return { index: cached.index, key: cached.key };
 
   const versions = await db
     .select({ slug: chuniVersions.slug, name: chuniVersions.name })
@@ -57,6 +66,7 @@ export async function songIndex(
     })
     .from(chuniCharts)
     .orderBy(asc(chuniCharts.songId), asc(chuniCharts.difficulty));
+  const aliases = await aliasesBySong(db);
   const bySong = new Map<number, typeof charts>();
   for (const chart of charts)
     bySong.set(chart.songId, [...(bySong.get(chart.songId) ?? []), chart]);
@@ -81,8 +91,7 @@ export async function songIndex(
               : null,
           bpm: song.bpm,
           addedOn: song.addedOn,
-          // Aliases come in a later phase.
-          aliases: [],
+          aliases: aliases.get(song.id) ?? [],
           charts: list.map((chart) => ({
             difficulty: chart.difficulty,
             level: chart.level,
@@ -94,11 +103,15 @@ export async function songIndex(
       ];
     }),
   };
-  cached = { at: now, key, index };
+  const key = createHash("sha256")
+    .update(JSON.stringify(index))
+    .digest("base64url")
+    .slice(0, 16);
+  cached = { at: now, sync, key, index };
   return { index, key };
 }
 
-/** For tests: forget the cached index. */
+/** Builds the index afresh on its next read (after names, links or withdrawals change). */
 export function forgetIndex(): void {
   cached = null;
 }

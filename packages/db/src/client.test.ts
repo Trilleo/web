@@ -79,6 +79,8 @@ describe("openDatabase", () => {
       "api_webhooks",
       "avatars",
       "blocked_hashes",
+      "chuni_alias_suggestions",
+      "chuni_aliases",
       "chuni_builds",
       "chuni_charts",
       "chuni_constants",

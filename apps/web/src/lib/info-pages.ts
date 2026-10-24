@@ -83,6 +83,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-24",
+        note: "CHUNITHM charts: names you suggest for songs, how long they're kept, and what stays when you delete your account.",
+      },
+      {
+        date: "2026-10-24",
         note: "CHUNITHM charts: favourites and recently viewed charts, kept as tool data.",
       },
       {

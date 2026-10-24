@@ -41,6 +41,7 @@ import {
   siteBuildDeps,
 } from "../../../lib/chunithm/build";
 import { chunithmSources, SDVX_ORIGIN } from "../../../lib/chunithm/sources";
+import { waitingSuggestions } from "../../../lib/chunithm/aliases";
 import { getStorage } from "../../../lib/storage/config";
 import {
   newPagePaths,
@@ -164,6 +165,7 @@ const titles = await songTitles(db, [
 ]);
 const missing = await chartsWithoutPage(db);
 const builds = await buildOverview(db);
+const waitingNames = (await waitingSuggestions(db)).length;
 const failed = await failedBuilds(db);
 const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 const fetching = chunithmSources() !== null;
@@ -331,6 +333,20 @@ const td = "border-b border-hair py-2 pr-4 align-top";
             </tbody>
           </table>
         )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <p class={label}>Names</p>
+      <div class={body}>
+        <p>
+          {waitingNames === 0
+            ? "No suggested names waiting."
+            : `${String(waitingNames)} suggested ${waitingNames === 1 ? "name" : "names"} waiting.`}{" "}
+          <a href="/admin/chunithm/aliases/" class="underline">
+            Suggestions, songs’ names and imports
+          </a>
+        </p>
       </div>
     </div>
 

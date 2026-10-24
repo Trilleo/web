@@ -2911,6 +2911,66 @@ export const chuniBuilds = pgTable(
   ],
 );
 
+/**
+ * Other names a song goes by (community nicknames, translations), searched like its
+ * title. Added by the admin, from a suggestion, or by a bulk import. `key` is the
+ * name as matched (@trilleo/chunithm's matchKey), unique per song.
+ */
+export const chuniAliases = pgTable(
+  "chuni_aliases",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    songId: integer("song_id")
+      .notNull()
+      .references(() => chuniSongs.id, { onDelete: "cascade" }),
+    alias: text("alias").notNull(),
+    key: text("key").notNull(),
+    source: text("source").notNull(),
+    /** Who suggested it (gone with their account; the alias stays). */
+    suggestedBy: uuid("suggested_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("chuni_aliases_song_key_idx").on(table.songId, table.key),
+  ],
+);
+
+export const chuniSuggestionStatus = pgEnum("chuni_suggestion_status", [
+  "pending",
+  "approved",
+  "declined",
+]);
+
+/** A name someone suggested for a song, waiting for the admin (or decided). */
+export const chuniAliasSuggestions = pgTable(
+  "chuni_alias_suggestions",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    songId: integer("song_id")
+      .notNull()
+      .references(() => chuniSongs.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    alias: text("alias").notNull(),
+    key: text("key").notNull(),
+    status: chuniSuggestionStatus("status").notNull().default("pending"),
+    /** The admin's word on a decision, shown to the person who suggested it. */
+    note: text("note"),
+    createdAt: createdAt(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("chuni_alias_suggestions_status_idx").on(
+      table.status,
+      table.createdAt,
+    ),
+    index("chuni_alias_suggestions_user_idx").on(table.userId),
+  ],
+);
+
 /** What one catalog update found (the admin page shows the latest few). */
 export interface ChuniSyncSummary {
   songs: number;
@@ -3040,3 +3100,5 @@ export type ChuniDifficulty = (typeof chuniDifficulty.enumValues)[number];
 export type ChuniSdvxEntry = typeof chuniSdvxEntries.$inferSelect;
 export type ChuniSync = typeof chuniSyncs.$inferSelect;
 export type ChuniBuild = typeof chuniBuilds.$inferSelect;
+export type ChuniAlias = typeof chuniAliases.$inferSelect;
+export type ChuniAliasSuggestion = typeof chuniAliasSuggestions.$inferSelect;

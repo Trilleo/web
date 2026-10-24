@@ -44,6 +44,7 @@ export const ALERT_KINDS = {
   "cryptic-queue": "Daily cryptic running out",
   "webhook-disabled": "Webhook switched off",
   "chunithm-update": "CHUNITHM catalog",
+  "chunithm-alias": "CHUNITHM name suggested",
 } as const;
 export type AlertKind = keyof typeof ALERT_KINDS;
 

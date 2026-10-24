@@ -53,7 +53,12 @@ export async function fetchPicture(
 }
 
 export async function fetchIndex(signal?: AbortSignal): Promise<SongIndex> {
-  const response = await fetch("/api/chunithm/index.json", { signal });
+  // Always checked with the server (by its ETag: unchanged costs a 304), so a name
+  // or chart added a moment ago is found at once.
+  const response = await fetch("/api/chunithm/index.json", {
+    signal,
+    cache: "no-cache",
+  });
   if (!response.ok)
     throw new Error(`The catalog didn't load (${String(response.status)}).`);
   return (await response.json()) as SongIndex;
