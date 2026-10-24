@@ -232,6 +232,13 @@
       "when": 1792838273528,
       "tag": "0032_chunithm",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792840093976,
+      "tag": "0033_chunithm-builds",
+      "breakpoints": true
     }
   ]
 }

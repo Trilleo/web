@@ -2834,6 +2834,77 @@ export const chuniSdvxOverrides = pgTable("chuni_sdvx_overrides", {
   createdAt: createdAt(),
 });
 
+export const chuniBuildStatus = pgEnum("chuni_build_status", [
+  "queued",
+  "building",
+  "ready",
+  "failed",
+]);
+
+/** Where a built chart came from: sdvx.in's three layers and what they were. */
+export interface ChuniBuildSource {
+  path: string;
+  bg: string;
+  obj: string;
+  bar: string;
+  /** Each layer's ETag or Last-Modified and size, to notice sdvx.in redrawing it. */
+  tags: Record<"bg" | "obj" | "bar", string>;
+}
+
+/** A built chart's strip, as kept (tile keys in storage, not URLs). */
+export interface ChuniBuildManifest {
+  width: number;
+  height: number;
+  gutter: number;
+  lane: number;
+  tiles: { key: string; height: number }[];
+  measures: number[];
+  columns: number;
+}
+
+/**
+ * A chart's picture, joined from sdvx.in's layers and kept in storage as WebP tiles
+ * (apps/web/src/lib/chunithm/build.ts). One per chart and variant ("normal", or
+ * "mirror" from sdvx.in's mirrored notes). Built when someone first asks for it.
+ */
+export const chuniBuilds = pgTable(
+  "chuni_builds",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    chartId: integer("chart_id")
+      .notNull()
+      .references(() => chuniCharts.id, { onDelete: "cascade" }),
+    variant: text("variant").notNull(),
+    status: chuniBuildStatus("status").notNull().default("queued"),
+    /** The build code's version (BUILD_VERSION) the picture was made with. */
+    version: integer("version").notNull().default(0),
+    /** Failed attempts in a row; sets the wait before the next. */
+    attempts: integer("attempts").notNull().default(0),
+    error: text("error"),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
+    source: jsonb("source").$type<ChuniBuildSource>(),
+    /** The tiles being served (kept while a rebuild runs). */
+    manifest: jsonb("manifest").$type<ChuniBuildManifest>(),
+    bytes: integer("bytes"),
+    /** Tiles are private while the chart is withdrawn. */
+    hidden: boolean("hidden").notNull().default(false),
+    requestedAt: timestamp("requested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    builtAt: timestamp("built_at", { withTimezone: true }),
+    /** When the layers were last compared with sdvx.in's. */
+    checkedAt: timestamp("checked_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("chuni_builds_chart_variant_idx").on(
+      table.chartId,
+      table.variant,
+    ),
+    index("chuni_builds_status_idx").on(table.status, table.requestedAt),
+  ],
+);
+
 /** What one catalog update found (the admin page shows the latest few). */
 export interface ChuniSyncSummary {
   songs: number;
@@ -2960,3 +3031,4 @@ export type ChuniChart = typeof chuniCharts.$inferSelect;
 export type ChuniDifficulty = (typeof chuniDifficulty.enumValues)[number];
 export type ChuniSdvxEntry = typeof chuniSdvxEntries.$inferSelect;
 export type ChuniSync = typeof chuniSyncs.$inferSelect;
+export type ChuniBuild = typeof chuniBuilds.$inferSelect;

@@ -214,3 +214,60 @@ function readChart(vars: Map<string, string>, key: string): SdvxChart | null {
     chain: Number.isInteger(chain) && chain > 0 ? chain : null,
   };
 }
+
+/** A chart picture's three layers on sdvx.in (site paths), and the mirrored notes. */
+export interface SdvxImages {
+  bg: string;
+  obj: string;
+  bar: string;
+  /** The notes drawn mirrored, where sdvx.in has them. */
+  mirror: string | null;
+}
+
+const DIFFICULTY_SUFFIX: Record<Difficulty, string> = {
+  basic: "B",
+  advanced: "A",
+  expert: "E",
+  master: "M",
+  ultima: "U",
+  worldsend: "W",
+};
+
+/**
+ * The script that draws a chart page: `<dir>/js/<id>data.js` for a song's charts,
+ * the entry's own script for Ultima and World's End.
+ */
+export function sdvxImageScript(path: string): string | null {
+  const info = sdvxPathInfo(path);
+  if (!info) return null;
+  if (info.dir === "end" || info.dir === "ult") return sdvxScriptUrl(path);
+  return `/chunithm/${info.dir}/js/${info.entryId}data.js`;
+}
+
+const IMAGE = /src=(\/chunithm\/[A-Za-z0-9_/]+\.png)/g;
+
+/** The layers a chart page draws (its PNG… and MRR… functions), read as text. */
+export function parseSdvxImages(text: string, path: string): SdvxImages | null {
+  const info = sdvxPathInfo(path);
+  if (!info) return null;
+  const endIndex = /end(\d*)$/.exec(path)?.[1] ?? "";
+  const name = `${info.entryId}${DIFFICULTY_SUFFIX[info.difficulty]}${info.difficulty === "worldsend" ? endIndex : ""}`;
+  const body = (fn: string) => {
+    const start = text.indexOf(`function ${fn}${name}(){`);
+    if (start === -1) return null;
+    const end = text.indexOf("\n", start);
+    return text.slice(start, end === -1 ? undefined : end);
+  };
+  const layers = (fn: string) => {
+    const code = body(fn);
+    if (!code) return null;
+    const found = [...code.matchAll(IMAGE)].map((match) => match[1] ?? "");
+    const bar = found.find((src) => /\/bg\/[^/]*bar\.png$/.test(src));
+    const bg = found.find((src) => src.includes("/bg/") && src !== bar);
+    const obj = found.find((src) => src.includes("/obj/"));
+    return bg && obj && bar ? { bg, obj, bar } : null;
+  };
+  const normal = layers("PNG");
+  if (!normal) return null;
+  return { ...normal, mirror: layers("MRR")?.obj ?? null };
+}

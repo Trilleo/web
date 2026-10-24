@@ -69,7 +69,9 @@
 - packages/chunithm (@trilleo/chunithm): the CHUNITHM catalog's pure rules:
   difficulties and constants (tenths), versions (`versionSlug` for every source's
   names), readers for SEGA's song list, otoge-db and sdvx.in (scripts read as text,
-  never run), and `buildCatalog`, which merges them by SEGA's IDs. Source-only.
+  never run), `buildCatalog`, which merges them by SEGA's IDs, and charts.ts, which
+  joins sdvx.in's chart layers into one strip. `./testing` draws test charts.
+  Source-only.
 - study/: study subjects as Markdown files (see Study below and study/README.md).
 - Blog content: Markdown posts in Postgres, written in the admin editor (/admin/posts).
 - The wiki (wiki.trilleo.net) is apps/web on a second host, not its own app: pages in
@@ -1154,8 +1156,8 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
 
 ## CHUNITHM catalog
 
-- The song catalog behind the CHUNITHM chart viewer (/tools/chunithm/, coming in a
-  later phase). Pure rules in packages/chunithm, data and updates in
+- The song catalog and chart pictures behind the CHUNITHM chart viewer
+  (/tools/chunithm/, coming in a later phase). Pure rules in packages/chunithm, data and updates in
   apps/web/src/lib/chunithm/ (sources.ts, sync.ts, admin.ts), tables chuni_*.
 - Sources: SEGA's music.json (what's in the Japanese game, official IDs; the authority),
   otoge-db (otoge-db.net: constants, note counts, designers, versions and dates, links
@@ -1194,9 +1196,37 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
 - Settings: CHUNITHM_SYNC=off never fetches (e2e); CHUNITHM_SEGA_URL,
   CHUNITHM_OTOGE_URL and CHUNITHM_SDVX_URL point elsewhere. Tests pass fetch, sources
   and a clock to `syncCatalog` instead.
-- sdvx.in's chart pictures (later phases) are three layers per chart (bg, obj, bar),
-  each a row of columns 200px apart read bottom to top; the column count follows the
-  image's width. A chart is built only when all three layers load at the same size.
+- Chart pictures (lib/chunithm/build.ts, chuni_builds; joining in packages/chunithm's
+  charts.ts): sdvx.in draws a chart as three layers of the same size (bg lanes, obj
+  notes or `mirror…` notes, bar measure numbers), each a row of columns COLUMN.pitch
+  (200px) apart: a 50px gutter with the numbers, a 150px lane. A column reads bottom
+  to top, its content runs down to the image's bottom from its own top (heights
+  differ), and its top COLUMN.overlap (48) rows are the next column's bottom rows;
+  the column count follows the width. A build reads the layers' URLs from the chart
+  page's script (`parseSdvxImages`; never guessed: some layers are gone, and sdvx.in
+  302s missing files to an HTML page, so layers are fetched with `redirect: "manual"`
+  and must be PNGs of one size), checks every overlap (`checkOverlaps`: a chart that
+  doesn't line up fails with a reason), finds the measures (each gutter label's
+  bottom row), flattens onto black, and cuts the strip (positions counted from the
+  bottom) into TILE_HEIGHT WebP tiles under `chunithm/<chart>/<variant>-<random>/` in
+  storage, public unless the chart is withdrawn. No `files` rows: chuni_builds holds
+  the manifest (tile keys, measures) and where the layers came from (with ETags).
+- Decoding is png.ts (hand-written, on node:zlib: 8-bit, not interlaced); encoding
+  webp.ts (@jsquash/webp's SIMD build, the wasm inlined with `?inline`, quality 90).
+  A Master chart is about 1.5 s and 2 MB.
+- Builds happen on demand: GET /api/chunithm/charts/<SEGA id>/<difficulty>
+  [?variant=mirror] answers ready (the manifest, tile URLs), queued/building (202,
+  ask again), failed (why, and when it's tried again) or unavailable (no-chart,
+  no-page, withdrawn, storage, busy, too-many), and queues a build. One build at a
+  time per server (`runBuilds`; the middleware picks up waiting ones), BUILD_LIMITS:
+  perHour all together, perVisitorHourly per visitor (an in-memory hash of the IP),
+  maxQueued; failures wait retryDelaysMs; a rebuild that fails keeps the old tiles.
+  A ready picture is rebuilt when BUILD_VERSION changes or the chart's page changes,
+  and compared with sdvx.in (HEAD, ETags) when viewed after checkAfterDays. Bump
+  BUILD_VERSION when tiles or the manifest would come out differently.
+- Withdrawing a chart makes its tiles private (browsers may keep a copy for a day,
+  PUBLIC_CACHE); restoring makes them public. /admin/chunithm/ shows the builds, builds
+  one by hand, lists failures with their reasons, and throws a build away ("Rebuild").
 
 ## Mail
 

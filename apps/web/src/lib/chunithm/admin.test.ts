@@ -109,18 +109,20 @@ describe("charts without a page", () => {
 
 describe("withdrawing charts", () => {
   it("withdraws with a reason and restores", async () => {
-    expect(await withdrawChart(handle.db, 1, "master", "  ")).toMatchObject({
+    expect(
+      await withdrawChart(handle.db, null, 1, "master", "  "),
+    ).toMatchObject({
       ok: false,
     });
     expect(
-      await withdrawChart(handle.db, 1, "master", "Asked by sdvx.in"),
+      await withdrawChart(handle.db, null, 1, "master", "Asked by sdvx.in"),
     ).toEqual({ ok: true });
     const [chart] = await withdrawnCharts(handle.db);
     expect(chart).toMatchObject({
       songId: 1,
       withdrawnReason: "Asked by sdvx.in",
     });
-    await restoreChart(handle.db, chart?.id ?? 0);
+    await restoreChart(handle.db, null, chart?.id ?? 0);
     expect(await withdrawnCharts(handle.db)).toEqual([]);
   });
 });

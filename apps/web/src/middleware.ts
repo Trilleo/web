@@ -9,6 +9,7 @@ import {
 import { noStoreRedirect } from "./lib/auth/redirect";
 import { validateSession } from "./lib/auth/sessions";
 import { emailSetupRedirect } from "./lib/auth/setup";
+import { chunithmBuildsInBackground } from "./lib/chunithm/build";
 import { chunithmSyncInBackground } from "./lib/chunithm/sync";
 import { crypticQueueInBackground } from "./lib/cryptic/queue";
 import { getDb } from "./lib/db";
@@ -45,6 +46,8 @@ function backgroundWork(): void {
   crypticQueueInBackground(getDb);
   // The CHUNITHM catalog: SEGA's list, otoge-db and sdvx.in (every few hours).
   chunithmSyncInBackground(getDb);
+  // CHUNITHM chart pictures waiting to be built (a few minutes apart at most).
+  chunithmBuildsInBackground();
 }
 
 /**

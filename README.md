@@ -118,8 +118,10 @@ secret shown in the same panel.
 
 The CHUNITHM catalog (for a chart viewer, still being built) is kept up to date by the
 server: SEGA's song list, otoge-db's constants and links, and sdvx.in's chart pages,
-merged by SEGA's IDs (`packages/chunithm`, `apps/web/src/lib/chunithm/`). The admin
-watches it at `/admin/chunithm/`. `pnpm dev` starts filling it on the first requests
+merged by SEGA's IDs (`packages/chunithm`, `apps/web/src/lib/chunithm/`). A chart's
+picture is joined from sdvx.in's layers the first time someone asks for it
+(`/api/chunithm/charts/<id>/<difficulty>`) and kept as WebP tiles in storage. The admin
+watches both at `/admin/chunithm/`. `pnpm dev` starts filling it on the first requests
 (a few hours of slow passes over sdvx.in); set `CHUNITHM_SYNC=off` in `apps/web/.env`
 to keep it from fetching.
 

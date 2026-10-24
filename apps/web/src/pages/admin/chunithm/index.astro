@@ -21,6 +21,8 @@ import {
   WITHDRAW_REASON_MAX,
   catalogOverview,
   chartsWithoutPage,
+  failedBuilds,
+  findChart,
   difficultyFrom,
   forgetPage,
   listOverrides,
@@ -30,7 +32,16 @@ import {
   withdrawChart,
   withdrawnCharts,
 } from "../../../lib/chunithm/admin";
+import {
+  BUILD_LIMITS,
+  buildOverview,
+  kickBuilds,
+  requestBuild,
+  resetBuilds,
+  siteBuildDeps,
+} from "../../../lib/chunithm/build";
 import { chunithmSources, SDVX_ORIGIN } from "../../../lib/chunithm/sources";
+import { getStorage } from "../../../lib/storage/config";
 import {
   newPagePaths,
   startSync,
@@ -49,6 +60,12 @@ Astro.response.headers.set("X-Robots-Tag", "noindex");
 
 const db = await getDb();
 let error: string | null = null;
+const BUILD_REASONS: Record<string, string> = {
+  "no-page": "That chart has no sdvx.in page yet.",
+  withdrawn: "That chart is withdrawn.",
+  busy: "Too many builds are waiting; try again soon.",
+  "too-many": "Too many builds started from here this hour.",
+};
 
 if (Astro.request.method === "POST") {
   const form = await Astro.request.formData();
@@ -77,13 +94,39 @@ if (Astro.request.method === "POST") {
     const result =
       songId === null || difficulty === null
         ? { ok: false as const, error: "Give a song ID and a difficulty." }
-        : await withdrawChart(db, songId, difficulty, field(form, "reason"));
+        : await withdrawChart(
+            db,
+            getStorage(),
+            songId,
+            difficulty,
+            field(form, "reason"),
+          );
     if (result.ok) done = "withdrawn";
     else error = result.error;
   } else if (intent === "restore") {
     const chart = parseId(field(form, "chart"));
-    if (chart !== null) await restoreChart(db, chart);
+    if (chart !== null) await restoreChart(db, getStorage(), chart);
     done = "restored";
+  } else if (intent === "build") {
+    const deps = await siteBuildDeps();
+    const chart =
+      songId === null || difficulty === null
+        ? null
+        : await findChart(db, songId, difficulty);
+    const variant = field(form, "variant") === "mirror" ? "mirror" : "normal";
+    if (!deps) error = "Storage or fetching is off here.";
+    else if (!chart) error = "There's no such chart in the catalog.";
+    else {
+      const state = await requestBuild(deps, chart.id, variant, "admin");
+      kickBuilds();
+      if (state.status === "unavailable")
+        error = BUILD_REASONS[state.reason] ?? state.reason;
+      else done = state.status === "ready" ? "built" : "building";
+    }
+  } else if (intent === "rebuild") {
+    const chart = parseId(field(form, "chart"));
+    if (chart !== null) await resetBuilds(db, getStorage(), chart);
+    done = "reset";
   } else {
     error = "Unknown action.";
   }
@@ -98,6 +141,9 @@ const DONE: Record<string, string> = {
   forgotten: "Placement removed. The next update links that page as usual.",
   withdrawn: "Chart withdrawn.",
   restored: "Chart restored.",
+  built: "That chart is built already.",
+  building: "Building it now. Reload in a moment.",
+  reset: "Its picture was thrown away; the next view builds it again.",
 };
 const done = Astro.url.searchParams.get("done");
 const overview = await catalogOverview(db);
@@ -117,6 +163,9 @@ const titles = await songTitles(db, [
   ),
 ]);
 const missing = await chartsWithoutPage(db);
+const builds = await buildOverview(db);
+const failed = await failedBuilds(db);
+const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 const fetching = chunithmSources() !== null;
 const running = syncRunning();
 
@@ -428,11 +477,101 @@ const td = "border-b border-hair py-2 pr-4 align-top";
     </div>
 
     <div class={row}>
+      <p class={label}>Chart pictures</p>
+      <div class={body}>
+        <p class="text-muted">
+          Charts are joined from sdvx.in’s layers the first time someone views
+          them, one at a time (at most {BUILD_LIMITS.perHour} an hour), and kept
+          as WebP tiles in storage.
+        </p>
+        <dl
+          class="grid grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-4"
+          data-testid="chunithm-builds"
+        >
+          <div>
+            <dt class="type-label text-muted">Built</dt>
+            <dd class="type-lead">
+              {builds.ready}
+              <span class="text-muted"> · {megabytes(builds.bytes)}</span>
+            </dd>
+          </div>
+          <div>
+            <dt class="type-label text-muted">Waiting</dt>
+            <dd class="type-lead">{builds.queued + builds.building}</dd>
+          </div>
+          <div>
+            <dt class="type-label text-muted">Failed</dt>
+            <dd class="type-lead">{builds.failed}</dd>
+          </div>
+          <div>
+            <dt class="type-label text-muted">Started this hour</dt>
+            <dd class="type-lead">{builds.lastHour}</dd>
+          </div>
+        </dl>
+        <form method="post" class="flex flex-wrap items-end gap-3">
+          <input type="hidden" name="intent" value="build" />
+          <label class="flex flex-col gap-1">
+            <span class="type-label text-muted">Song ID</span>
+            <input
+              name="song"
+              inputmode="numeric"
+              required
+              class={`${input} w-24`}
+            />
+          </label>
+          <label class="flex flex-col gap-1">
+            <span class="type-label text-muted">Difficulty</span>
+            <select name="difficulty" class={input}>
+              {DIFFICULTIES.map((difficulty) => (
+                <option value={difficulty} selected={difficulty === "master"}>
+                  {DIFFICULTY_LABELS[difficulty]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label class="flex items-center gap-2 pb-2">
+            <input type="checkbox" name="variant" value="mirror" />
+            <span class="type-label">Mirror</span>
+          </label>
+          <button type="submit" class={secondaryButton}>
+            Build
+          </button>
+        </form>
+        {failed.length > 0 && (
+          <ul class="flex flex-col" data-testid="chunithm-failed">
+            {failed.map((build) => (
+              <li class="flex flex-wrap items-center justify-between gap-3 border-b border-hair py-3">
+                <span>
+                  #{build.songId} {build.title} ·{" "}
+                  {DIFFICULTY_LABELS[build.difficulty]}
+                  {build.variant === "mirror" && " (mirror)"}
+                  <span class="block text-muted">
+                    {build.error} · {build.attempts}{" "}
+                    {build.attempts === 1 ? "try" : "tries"} · next{" "}
+                    {when(build.nextAttemptAt)}
+                  </span>
+                </span>
+                <form method="post">
+                  <input type="hidden" name="intent" value="rebuild" />
+                  <input type="hidden" name="chart" value={String(build.id)} />
+                  <button type="submit" class={secondaryButton}>
+                    Rebuild
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
       <p class={label}>Withdrawn</p>
       <div class={body}>
         <p class="text-muted">
-          A withdrawn chart isn’t shown or built (if sdvx.in asks us to take one
-          down, say). Updates leave it withdrawn.
+          A withdrawn chart isn’t shown or built, and its tiles stop being
+          served (if sdvx.in asks us to take one down, say). Updates leave it
+          withdrawn.
         </p>
         <form method="post" class="flex flex-wrap items-end gap-3">
           <input type="hidden" name="intent" value="withdraw" />

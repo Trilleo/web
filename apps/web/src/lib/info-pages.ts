@@ -82,6 +82,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "legal",
     changes: [
       {
+        date: "2026-10-24",
+        note: "CHUNITHM chart pictures: the hashed address that limits how many one visitor can have built.",
+      },
+      {
         date: "2026-10-23",
         note: "Preview: links the server fetches for you (passed on, not kept), the hashed address that limits it, and Microsoft's viewer if you choose it.",
       },

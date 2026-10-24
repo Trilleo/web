@@ -51,6 +51,11 @@ GitHub and the server.
    after **1** day. Without this rule, an upload someone abandons would leave its parts
    in the bucket (and on the bill).
 
+   Besides `f/` (files) and `t/` (thumbnails), the app writes CHUNITHM chart pictures
+   under `chunithm/`: WebP tiles it builds itself (about 2 MB a chart), tracked in the
+   `chuni_builds` table, not `files`. Deleting them is harmless: the next view builds
+   the chart again.
+
 ### 2. An IAM user for the app
 
 The app gets keys that can only touch objects in this bucket.

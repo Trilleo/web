@@ -37,3 +37,17 @@ test("the admin's CHUNITHM panel works without a catalog", async ({
     .analyze();
   expect(violations.map((violation) => violation.id)).toEqual([]);
 });
+
+// With fetching off (e2e), the picture route says so rather than building.
+test("the chart picture route answers without building when fetching is off", async ({
+  request,
+}) => {
+  const off = await request.get("/api/chunithm/charts/3062/master");
+  expect(off.status()).toBe(503);
+  expect(await off.json()).toEqual({
+    status: "unavailable",
+    reason: "storage",
+  });
+  const wrong = await request.get("/api/chunithm/charts/abc/hardest");
+  expect(wrong.status()).toBe(404);
+});

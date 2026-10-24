@@ -13,7 +13,9 @@ import {
   sdvxPathInfo,
   type Difficulty,
 } from "@trilleo/chunithm";
+import type { StorageDriver } from "@trilleo/storage/server";
 import {
+  chuniBuilds,
   chuniCharts,
   chuniConstants,
   chuniSdvxEntries,
@@ -35,6 +37,7 @@ import {
   isNull,
   sql,
 } from "drizzle-orm";
+import { setBuildsHidden } from "./build";
 
 export const WITHDRAW_REASON_MAX = 300;
 
@@ -297,6 +300,7 @@ export async function forgetPage(db: Database, path: string): Promise<void> {
 
 export async function withdrawChart(
   db: Database,
+  storage: StorageDriver | null,
   songId: number,
   difficulty: Difficulty,
   reason: string,
@@ -315,17 +319,46 @@ export async function withdrawChart(
     .update(chuniCharts)
     .set({ withdrawnAt: new Date(), withdrawnReason: text })
     .where(and(eq(chuniCharts.id, chart.id), isNull(chuniCharts.withdrawnAt)));
+  // Its tiles stop being served (browsers may keep a copy for a day: PUBLIC_CACHE).
+  await setBuildsHidden(db, storage, chart.id, true);
   return { ok: true };
 }
 
 export async function restoreChart(
   db: Database,
+  storage: StorageDriver | null,
   chartId: number,
 ): Promise<void> {
   await db
     .update(chuniCharts)
     .set({ withdrawnAt: null, withdrawnReason: null })
     .where(eq(chuniCharts.id, chartId));
+  await setBuildsHidden(db, storage, chartId, false);
+}
+
+/** Builds that failed (or whose last rebuild failed), newest first. */
+export async function failedBuilds(db: Database): Promise<
+  (ChartRef & {
+    variant: string;
+    error: string;
+    attempts: number;
+    nextAttemptAt: Date | null;
+  })[]
+> {
+  return db
+    .select({
+      ...chartColumns,
+      variant: chuniBuilds.variant,
+      error: sql<string>`${chuniBuilds.error}`,
+      attempts: chuniBuilds.attempts,
+      nextAttemptAt: chuniBuilds.nextAttemptAt,
+    })
+    .from(chuniBuilds)
+    .innerJoin(chuniCharts, eq(chuniCharts.id, chuniBuilds.chartId))
+    .innerJoin(chuniSongs, eq(chuniSongs.id, chuniCharts.songId))
+    .where(isNotNull(chuniBuilds.error))
+    .orderBy(desc(chuniBuilds.nextAttemptAt))
+    .limit(100);
 }
 
 /** "master" → "master"; anything else null. */

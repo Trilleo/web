@@ -1,4 +1,5 @@
 ---
+import { BUILD_LIMITS } from "../../lib/chunithm/limits";
 import { AVATAR_MAX_BYTES } from "../../lib/profile/avatar";
 import { NOTIFICATION_RETENTION_DAYS } from "../../lib/forum/notifications";
 import { RETENTION_DAYS } from "@trilleo/storage";
@@ -421,6 +422,13 @@ const ticketHours = TICKET_LIMITS.maxAgeMs / 3_600_000;
       times an hour), a hash of your IP address is held in memory for an hour.
       The site you linked to sees this server asking, not you. Links you preview
       are remembered in your browser (see the cookie policy).
+    </li>
+    <li>
+      Viewing a CHUNITHM chart this site hasn’t drawn yet asks the server to
+      build its picture from sdvx.in. To limit how many one visitor can start
+      {`(${String(BUILD_LIMITS.perVisitorHourly)} an hour)`}, a hash of your IP
+      address is held in memory for an hour. sdvx.in sees this server asking,
+      not you.
     </li>
   </ul>
 
