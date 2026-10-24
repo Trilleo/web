@@ -1230,7 +1230,9 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   the column count follows the width. A build reads the layers' URLs from the chart
   page's script (`parseSdvxImages`; never guessed: some layers are gone, and sdvx.in
   302s missing files to an HTML page, so layers are fetched with `redirect: "manual"`
-  and must be PNGs of one size), checks every overlap (`checkOverlaps`: a chart that
+  and must be PNGs of one size; notes layers run to 15 MB, slow from the mainland, so
+  sources.ts `download` has no limit on the whole body, only on silence, and resumes
+  a body that breaks off with Range + If-Range: LAYER_DOWNLOAD, JACKET_DOWNLOAD), checks every overlap (`checkOverlaps`: a chart that
   doesn't line up fails with a reason), finds the measures (each gutter label's
   bottom row), flattens onto black, and cuts the strip (positions counted from the
   bottom) into TILE_HEIGHT WebP tiles under `chunithm/<chart>/<variant>-<random>/` in

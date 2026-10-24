@@ -141,3 +141,169 @@ export async function fetchJson(
     throw new FetchError(url, "not JSON");
   }
 }
+
+/** How long a download may take (`download`). */
+export interface DownloadLimits {
+  maxBytes: number;
+  /** Give up on a connection that sends nothing for this long, and resume. */
+  stallMs: number;
+  /** Give up altogether after this long. */
+  totalMs: number;
+  /** Connections at most (the first, then resumes). */
+  tries: number;
+}
+
+/** Big files from sdvx.in: the notes layers, up to about 15 MB. */
+export const LAYER_DOWNLOAD: Omit<DownloadLimits, "maxBytes"> = {
+  stallMs: 30_000,
+  totalMs: 6 * 60_000,
+  tries: 6,
+};
+
+/** Jackets: a few hundred KB. */
+export const JACKET_DOWNLOAD: Omit<DownloadLimits, "maxBytes"> = {
+  stallMs: 15_000,
+  totalMs: 2 * 60_000,
+  tries: 4,
+};
+
+export interface Downloaded {
+  status: number;
+  headers: Headers;
+  /** Empty unless the status is 200. */
+  bytes: Uint8Array;
+}
+
+/**
+ * Downloads a file that may be big for the link from the server (mainland China to
+ * Japan): no time limit on the whole body, only on silence (`stallMs`), and a body
+ * that breaks off is resumed where it stopped with a Range request (If-Range keeps
+ * the pieces from two versions of the file apart). Any answer but 200 comes back as
+ * it is, without a body; redirects aren't followed (sdvx.in sends missing files to
+ * an HTML page). Throws FetchError when it can't get the whole file.
+ */
+export async function download(
+  fetcher: typeof fetch,
+  url: string,
+  accept: string,
+  limits: DownloadLimits,
+): Promise<Downloaded> {
+  const started = Date.now();
+  const chunks: Uint8Array[] = [];
+  let got = 0;
+  let total: number | null = null;
+  let tag: string | null = null;
+  let first: Response | null = null;
+  let lastError = "failed";
+  for (let attempt = 0; attempt < limits.tries; attempt++) {
+    const left = limits.totalMs - (Date.now() - started);
+    if (left <= 0) {
+      lastError = "took too long";
+      break;
+    }
+    const stall = new AbortController();
+    let timer = setTimeout(() => {
+      stall.abort(new Error(`nothing for ${String(limits.stallMs / 1000)} s`));
+    }, limits.stallMs);
+    const awake = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        stall.abort(
+          new Error(`nothing for ${String(limits.stallMs / 1000)} s`),
+        );
+      }, limits.stallMs);
+    };
+    const resuming: boolean = got > 0 && tag !== null;
+    try {
+      const response: Response = await fetcher(url, {
+        headers: {
+          "User-Agent": USER_AGENT,
+          Accept: accept,
+          ...(resuming
+            ? { Range: `bytes=${String(got)}-`, "If-Range": tag ?? "" }
+            : {}),
+        },
+        redirect: "manual",
+        signal: AbortSignal.any([stall.signal, AbortSignal.timeout(left)]),
+      });
+      awake();
+      if (!first) {
+        if (response.status !== 200) {
+          await response.body?.cancel();
+          return {
+            status: response.status,
+            headers: response.headers,
+            bytes: new Uint8Array(0),
+          };
+        }
+        first = response;
+        tag =
+          response.headers.get("etag") ?? response.headers.get("last-modified");
+        const length = response.headers.get("content-length");
+        total = length === null ? null : Number(length);
+        if (total !== null && total > limits.maxBytes) {
+          await response.body?.cancel();
+          throw new FetchError(url, "too large");
+        }
+      } else if (response.status === 200) {
+        // The whole file again: starting over, or it changed (If-Range), or the
+        // server ignored the range.
+        chunks.length = 0;
+        got = 0;
+        const length = response.headers.get("content-length");
+        total = length === null ? null : Number(length);
+      } else if (!(resuming && response.status === 206)) {
+        await response.body?.cancel();
+        lastError = `HTTP ${String(response.status)} when resuming`;
+        continue;
+      }
+      if (!response.body) throw new Error("no body");
+      const reader = response.body.getReader();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        awake();
+        chunks.push(value);
+        got += value.byteLength;
+        if (got > limits.maxBytes) {
+          await reader.cancel();
+          throw new FetchError(url, "too large");
+        }
+      }
+      if (total === null || got >= total) {
+        const bytes = new Uint8Array(got);
+        let at = 0;
+        for (const chunk of chunks) {
+          bytes.set(chunk, at);
+          at += chunk.byteLength;
+        }
+        return {
+          status: 200,
+          headers: first.headers,
+          bytes,
+        };
+      }
+      lastError = "the connection closed early";
+    } catch (error) {
+      if (error instanceof FetchError) throw error;
+      lastError = error instanceof Error ? error.message : "failed";
+      // Without a tag a resume could join two versions of the file: start over.
+      if (tag === null) {
+        chunks.length = 0;
+        got = 0;
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw new FetchError(
+    url,
+    `the download broke off at ${formatSize(got)}${total === null ? "" : ` of ${formatSize(total)}`} (${lastError})`,
+  );
+}
+
+function formatSize(bytes: number): string {
+  return bytes >= 1024 * 1024
+    ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
+    : `${String(Math.round(bytes / 1024))} KB`;
+}

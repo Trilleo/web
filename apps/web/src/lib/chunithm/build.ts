@@ -55,8 +55,10 @@ import {
   FetchError,
   USER_AGENT,
   chunithmSources,
+  LAYER_DOWNLOAD,
+  download,
   fetchText,
-  readBody,
+  type Downloaded,
 } from "./sources";
 import { BUILD_LIMITS } from "./limits";
 import { encodeWebp } from "./webp";
@@ -437,44 +439,35 @@ async function fetchLayer(
   name: string,
 ): Promise<{ bytes: Uint8Array; tag: string }> {
   const url = new URL(src, origin).href;
-  let response: Response;
+  let file: Downloaded;
   try {
-    response = await fetcher(url, {
-      headers: { "User-Agent": USER_AGENT, Accept: "image/png" },
-      redirect: "manual",
-      signal: AbortSignal.timeout(FETCH_LIMITS.timeoutMs * 2),
+    file = await download(fetcher, url, "image/png", {
+      ...LAYER_DOWNLOAD,
+      maxBytes: BUILD_LIMITS.maxLayerBytes,
     });
   } catch (error) {
+    const reason =
+      error instanceof FetchError
+        ? error.message.slice(url.length + 2)
+        : error instanceof Error
+          ? error.message
+          : "failed";
     throw new BuildError(
-      `The ${name} layer couldn't be downloaded (${error instanceof Error ? error.message : "failed"}).`,
+      reason === "too large"
+        ? `The ${name} layer is too large.`
+        : `The ${name} layer couldn't be downloaded: ${reason}. It's tried again later.`,
     );
   }
-  if (response.status !== 200) {
-    await response.body?.cancel();
+  if (file.status !== 200)
     throw new BuildError(
-      `sdvx.in has no ${name} layer for this chart (HTTP ${String(response.status)}).`,
+      `sdvx.in has no ${name} layer for this chart (HTTP ${String(file.status)}).`,
     );
-  }
-  const length = Number(response.headers.get("content-length") ?? "0");
-  if (length > BUILD_LIMITS.maxLayerBytes) {
-    await response.body?.cancel();
-    throw new BuildError(`The ${name} layer is too large.`);
-  }
-  let bytes: Uint8Array;
-  try {
-    bytes = await readBody(response, url);
-  } catch {
-    throw new BuildError(
-      `The ${name} layer's download broke off partway; it's tried again later.`,
-    );
-  }
-  if (bytes.byteLength > BUILD_LIMITS.maxLayerBytes)
-    throw new BuildError(`The ${name} layer is too large.`);
+  const { bytes } = file;
   if (!isPng(bytes))
     throw new BuildError(
       `sdvx.in's ${name} layer for this chart isn't a picture.`,
     );
-  return { bytes, tag: layerTag(response.headers, bytes.byteLength) };
+  return { bytes, tag: layerTag(file.headers, bytes.byteLength) };
 }
 
 function layerTag(headers: Headers, size: number): string {

@@ -32,7 +32,7 @@ import {
 } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { decodePng, isPng } from "./png";
-import { FETCH_LIMITS, USER_AGENT } from "./sources";
+import { JACKET_DOWNLOAD, download } from "./sources";
 import { forgetIndex } from "./viewer";
 import { encodeWebp } from "./webp";
 
@@ -179,17 +179,17 @@ async function copyOne(
   src: string,
 ): Promise<string | null> {
   try {
-    const response = await fetcher(new URL(src, origin).href, {
-      headers: { "User-Agent": USER_AGENT, Accept: "image/png" },
-      redirect: "manual",
-      signal: AbortSignal.timeout(FETCH_LIMITS.sdvxTimeoutMs),
-    });
-    if (response.status !== 200) {
-      await response.body?.cancel();
-      return null;
-    }
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength > JACKET_MAX_BYTES || !isPng(bytes)) return null;
+    const file = await download(
+      fetcher,
+      new URL(src, origin).href,
+      "image/png",
+      {
+        ...JACKET_DOWNLOAD,
+        maxBytes: JACKET_MAX_BYTES,
+      },
+    );
+    if (file.status !== 200 || !isPng(file.bytes)) return null;
+    const bytes = file.bytes;
     const webp = await encodeWebp(await decodePng(bytes));
     const key = `${JACKET_PREFIX}${String(songId)}-${randomBytes(4).toString("hex")}.webp`;
     await storage.put(key, webp, {

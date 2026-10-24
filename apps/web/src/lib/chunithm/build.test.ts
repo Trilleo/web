@@ -247,7 +247,9 @@ describe("building a chart's picture", () => {
     expect(row?.manifest).toBeNull();
   });
 
-  it("says so when a layer's download breaks off partway", async () => {
+  it("picks up a layer whose download broke off, and says so when it never ends", async () => {
+    let cuts = 0;
+    let always = false;
     const cutting: typeof fetch = (input, init) => {
       const url =
         typeof input === "string"
@@ -255,28 +257,39 @@ describe("building a chart's picture", () => {
           : input instanceof URL
             ? input.href
             : input.url;
-      if (url.endsWith("00001bar.png"))
+      if (url.endsWith("00001bar.png") && (always || cuts === 0)) {
+        cuts++;
+        let sent = false;
         return Promise.resolve(
           new Response(
             new ReadableStream({
-              start(controller) {
-                controller.enqueue(new Uint8Array([137, 80, 78, 71]));
-                controller.error(new TypeError("terminated"));
+              pull(controller) {
+                if (sent) controller.error(new TypeError("terminated"));
+                else {
+                  sent = true;
+                  controller.enqueue(new Uint8Array([137, 80, 78, 71]));
+                }
               },
             }),
-            { status: 200 },
+            { status: 200, headers: { etag: '"1"' } },
           ),
         );
+      }
       return fakeFetch(input, init);
     };
     await requestBuild(deps(), chartId, "normal");
+    expect(await runBuilds(deps({ fetch: cutting }))).toBe(1);
+    expect(cuts).toBe(1);
+
+    always = true;
+    await resetBuilds(handle.db, storage, chartId);
+    await requestBuild(deps(), chartId, "normal");
     expect(await runBuilds(deps({ fetch: cutting }))).toBe(0);
     const state = await requestBuild(deps(), chartId, "normal");
-    expect(state).toMatchObject({
-      status: "failed",
-      error:
-        "The measure numbers layer's download broke off partway; it's tried again later.",
-    });
+    expect(state).toMatchObject({ status: "failed" });
+    expect(state.status === "failed" ? state.error : "").toMatch(
+      /^The measure numbers layer couldn't be downloaded: the download broke off at 0 KB \(terminated\)\. It's tried again later\.$/,
+    );
   });
 
   it("says so when storage refuses the picture", async () => {

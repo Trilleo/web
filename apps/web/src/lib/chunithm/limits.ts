@@ -13,8 +13,11 @@ export const BUILD_LIMITS = {
   maxQueued: 30,
   /** New builds one visitor may start in an hour. */
   perVisitorHourly: 20,
-  /** A build "building" this long was cut off (a restart): it's tried again. */
-  staleMs: 10 * MINUTE_MS,
+  /**
+   * A build "building" this long was cut off (a restart): it's tried again. Longer
+   * than three slow layer downloads (sources.ts LAYER_DOWNLOAD).
+   */
+  staleMs: 30 * MINUTE_MS,
   /** Waits before trying a failed build again, by failures in a row (the last repeats). */
   retryDelaysMs: [HOUR_MS, 6 * HOUR_MS, DAY_MS],
   /** sdvx.in's notes layers run to about 15 MB. */
