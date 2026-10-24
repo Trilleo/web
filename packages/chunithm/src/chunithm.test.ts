@@ -242,6 +242,25 @@ describe("sdvx.in", () => {
     expect(sdvxScriptUrl("11/11061sort")).toBe("/chunithm/11/js/11061sort.js");
   });
 
+  it("reads a World's End script with only its chart's own title", () => {
+    expect(parseSdvxScript(fixture("02045end2.txt"), "end/02045end2")).toEqual({
+      title: "Oshama Scramble! (Cranky Remix) JAEPO 2017",
+      artist: "Cranky",
+      bpm: "190",
+      jacket: "/chunithm/02/jacket/02045.png",
+      charts: [
+        {
+          difficulty: "worldsend",
+          path: "end/02045end2",
+          level: "？",
+          worldsEndStars: 3,
+          designer: "JAEPO 2017",
+          chain: 2852,
+        },
+      ],
+    });
+  });
+
   it("reads a genre page's entries and their versions", () => {
     const entries = parseSdvxList(fixture("pops.htm"));
     expect(entries.map((entry) => entry.script)).toEqual([
@@ -329,7 +348,7 @@ describe("sdvx.in", () => {
     const text = [
       'var TITLE01045="<div class=f1>Aragami</div>";',
       'var LV01045W="<a href=/chunithm/end/01045end.htm><img src=/chunithm/chfiles/chlv/hika3.png></a>";',
-      'var LV01045W2="<a href=/chunithm/end/01045end2.htm><img src=/chunithm/chfiles/chlv/star_q2.png></a>";',
+      'var LV01045W2="<a href=/chunithm/end/01045end2.htm><img src=/chunithm/chfiles/chlv/star_zzz2.png></a>";',
     ].join("\n");
     expect(
       parseSdvxScript(text, "end/01045end")?.charts.map((c) => [

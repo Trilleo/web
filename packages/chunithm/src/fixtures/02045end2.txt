@@ -1,0 +1,16 @@
+var TITLE02045W2="<div class=f1>Oshama Scramble! <div class=b2>(Cranky Remix) JAEPO 2017</div></div>";
+var ARTIST02045="<div class=b2>　/ Cranky</div>";
+var BPM02045="<table><tr><td class=b2>BPM<td width=2><td class=f1>190</table>";
+var CR02045W2="<table><tr><td class=ef>NOTES DESIGNER / JAEPO 2017</table>";
+var LV02045W2="<table><tr><td><a href=/chunithm/end/02045end2.htm><img src=/chunithm/chfiles/chlv/air_q3.png></a></table>";
+var CH02045W2="<table><tr><td class=b2>CHAIN<td width=2><td class=end1>2852</table>";
+var A802045W2="<table><tr><td class=c><div class=f2>8.0</div><br><href= target=_blank><img src=https://img.youtube.com/vi/	/maxresdefault.jpg height=40></a></table>";
+function TBR02045W2(){document.title="Oshama Scramble! (Cranky Remix) JAEPO 2017 [WORLD'S END] ？☆☆☆";}
+function SORT02045W2(){document.write(LV02045W2+TD+TITLE02045W2+TD+TR);return eval(D+=1,T+=1);}
+
+function DAT02045W2(){document.write("<table class=t_><tr><td class=tbg1><td class=tbgt><td class=tbg2><tr><td class=tbgl><td class=tbg><table class=l><tr><td><table><tr><td>"+JK02045+"<tr><td height=30></table><td width=30><td><table><tr><td>"+TITLE02045W2+"<tr><td>"+ARTIST02045+"<table><tr><td>"+CH02045W2+"<td>"+BPM02045+"</table><tr><td><table><tr><td>"+CR02045W2+"<tr><td><table><td>"+CHUNITHMAIRPLUS+"<td>"+A802045W2+"</table></table></table></table><td class=tbgr><tr><td class=tbg3><td class=tbgb><td class=tbg4></table><table class=endlv><tr><td>"+LV02045W2+"</table>");}
+function PNG02045W2(){document.write("<table class=h><tr><td></table><table class=l><tr><td class=tbgt><td class=tbg2><tr><td class=tbg><table class=l><tr><td><img src=/chunithm/end/bg/02045bg.png height=792 width=*><p class=data><img src=/chunithm/end/obj/data02045end.png height=792 width=*></p><p class=data><img src=/chunithm/end/bg/02045bar.png height=792 width=*></p></table><td class=tbgr><tr><td class=tbgb><td class=tbg4></table></table><table><tr><td height=20><tr><td>"+ADDUNDER+ADD0+"</table>");}
+function MRR02045W2(){document.write("<table class=h><tr><td></table><table class=l><tr><td class=tbgt><td class=tbg2><tr><td class=tbg><table class=l><tr><td><img src=/chunithm/end/bg/02045bg.png height=792 width=*><p class=data><img src=/chunithm/end/obj/mirror02045end.png height=792 width=*></p><p class=data><img src=/chunithm/end/bg/02045bar.png height=792 width=*></p></table><td class=tbgr><tr><td class=tbgb><td class=tbg4></table></table><table><tr><td height=20><tr><td>"+ADDUNDER+ADD0+"</table>");}
+function MRROFF02045W2(){document.write("<p class=mrr><a href=/chunithm/end/mrr02045end.htm><img src=/chunithm/chfiles/mrr0.png></a></p>");}
+function MRRON02045W2(){document.write("<p class=mrr><a href=/chunithm/end/02045end.htm><img src=/chunithm/chfiles/mrr1.png></a></p>");}
+var JK02045="<img src=/chunithm/02/jacket/02045.png width=100px height=100px>";

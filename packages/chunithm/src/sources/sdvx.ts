@@ -148,6 +148,8 @@ const WORLDS_END_ROMAJI: Record<string, string> = {
   sake: "避",
   ryou: "両",
   hika: "光",
+  // "air_q3": the "？" kind.
+  q: "？",
 };
 
 /** The script an sdvx.in chart page's details come from ("11/11061mst" → "11/11061sort"). */
@@ -175,12 +177,16 @@ export function parseSdvxScript(
     .matchAll(VARIABLE))
     vars.set(name, value.replace(/\\(.)/g, "$1"));
 
-  const title = htmlText(vars.get(`TITLE${id}`) ?? "");
-  if (!title) return null;
-  const artist = htmlText(vars.get(`ARTIST${id}`) ?? "").replace(
-    /^\s*\/\s*/,
-    "",
+  // A song's title and artist; a second World's End chart of one entry may only
+  // have its own ("TITLE02045W2").
+  const own = kind === "sort" || kind === "ult" ? "" : `W${endIndex}`;
+  const title = htmlText(
+    vars.get(`TITLE${id}`) ?? vars.get(`TITLE${id}${own}`) ?? "",
   );
+  if (!title) return null;
+  const artist = htmlText(
+    vars.get(`ARTIST${id}`) ?? vars.get(`ARTIST${id}${own}`) ?? "",
+  ).replace(/^\s*\/\s*/, "");
   const bpm =
     htmlText(vars.get(`BPM${id}`) ?? "").replace(/^BPM\s*/, "") || null;
 
