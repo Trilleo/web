@@ -30,6 +30,8 @@ export const SDVX_LIST_PAGES = [
 
 export const FETCH_LIMITS = {
   timeoutMs: 30_000,
+  /** sdvx.in's pages and scripts are small: a request taking longer is stuck. */
+  sdvxTimeoutMs: 15_000,
   /** otoge-db's music-ex.json is about 3 MB. */
   maxJsonBytes: 16 * 1024 * 1024,
   maxPageBytes: 2 * 1024 * 1024,
@@ -77,13 +79,14 @@ export async function fetchText(
   fetcher: typeof fetch,
   url: string,
   maxBytes: number,
+  timeoutMs: number = FETCH_LIMITS.timeoutMs,
 ): Promise<string> {
   let response: Response;
   try {
     response = await fetcher(url, {
       headers: { "User-Agent": USER_AGENT, Accept: "*/*" },
       redirect: "follow",
-      signal: AbortSignal.timeout(FETCH_LIMITS.timeoutMs),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
     throw new FetchError(

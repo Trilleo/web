@@ -1182,16 +1182,22 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   Versions (chuni_versions) are ordered by KNOWN_VERSIONS, then unknown ones by start
   (the first day with LAUNCH_SONGS songs); the last is the game now. A new version
   works without a code change; add it to KNOWN_VERSIONS for its proper name.
-- Updates (sync.ts `syncCatalog`): from any request every SYNC_EVERY_MS (every
-  BACKLOG_EVERY_MS while scripts are unread), or "Check now" on /admin/chunithm/. The
-  song lists are all-or-nothing, and a SEGA list under MIN_SHARE_KEPT of the songs we
-  have is refused. sdvx.in is read one request at a time (SDVX_PASS: 100 scripts a
-  pass, 500 ms apart, reread after 30 days; songs' folders newest first, then Ultima
-  and World's End), with our User-Agent; the first fill takes a few hours. Each pass
-  then copies JACKETS_PER_PASS jackets (jackets.ts: sdvx.in's 300px PNGs as WebP under
+- Updates (sync.ts `syncCatalog`): a timer (`startChunithmSync`, from the middleware's
+  module like the webhooks; every TICK_MS it checks `passDue`) or any request starts a
+  pass every SYNC_EVERY_MS, and BACKLOG_GAP_MS after the last one ended while scripts
+  or jackets are waiting; "Check now" on /admin/chunithm/ starts one at once. One pass
+  at a time per server. The song lists are all-or-nothing, and a SEGA list under
+  MIN_SHARE_KEPT of the songs we have is refused. sdvx.in is read one request at a time
+  (SDVX_PASS: 400 scripts a pass, 300 ms apart, FETCH_LIMITS.sdvxTimeoutMs each, reread
+  after 30 days; songs' folders newest first, then Ultima and World's End), with our
+  User-Agent; the first fill takes about half an hour. A pass stops reading at
+  PASS_TIME_LIMIT_MS, or after SDVX_PASS.failuresToStop requests in a row without an
+  answer; a script that got none stays unread for the next pass (a 404 counts as read).
+  Unfinished rows show as "Interrupted" once no pass is running. Each pass then copies
+  JACKETS_PER_PASS jackets (JACKETS_WHILE_READING while scripts are unread) (jackets.ts: sdvx.in's 300px PNGs as WebP under
   `chunithm/jackets/` in storage, newest songs first, a song's own chart pages tried
   before its Ultima and World's End ones; failures are tried again after
-  JACKET_RETRY_DAYS), and passes keep the BACKLOG_EVERY_MS pace while any song is due
+  JACKET_RETRY_DAYS), and passes keep the BACKLOG_GAP_MS pace while any song is due
   one (`jacketsDue`, the summary's `jacketsLeft`). Opening a chart copies its song's
   missing jacket in the background (`copyJacketSoon`, from the picture route). SEGA's
   image server can't be reached from the server, so pages only ever show our copies. Each pass is logged in chuni_syncs (the last 50). Alerts

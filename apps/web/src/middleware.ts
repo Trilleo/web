@@ -10,7 +10,10 @@ import { noStoreRedirect } from "./lib/auth/redirect";
 import { validateSession } from "./lib/auth/sessions";
 import { emailSetupRedirect } from "./lib/auth/setup";
 import { chunithmBuildsInBackground } from "./lib/chunithm/build";
-import { chunithmSyncInBackground } from "./lib/chunithm/sync";
+import {
+  chunithmSyncInBackground,
+  startChunithmSync,
+} from "./lib/chunithm/sync";
 import { crypticQueueInBackground } from "./lib/cryptic/queue";
 import { getDb } from "./lib/db";
 import { announceInBackground } from "./lib/indexnow";
@@ -32,6 +35,8 @@ import {
 startMailDelivery();
 // Webhooks: a pass every minute, and one just after each UTC midnight (the cryptic).
 startWebhooks(getDb);
+// The CHUNITHM catalog: a pass whenever one is due, visitors or not.
+startChunithmSync(getDb);
 
 /** Work any request may start (each at most every few minutes, in the background). */
 function backgroundWork(): void {
@@ -44,7 +49,7 @@ function backgroundWork(): void {
   deliverInBackground();
   // The daily cryptic running short of puzzles (an admin alert, hourly at most).
   crypticQueueInBackground(getDb);
-  // The CHUNITHM catalog: SEGA's list, otoge-db and sdvx.in (every few hours).
+  // The CHUNITHM catalog: SEGA's list, otoge-db and sdvx.in (also on its own timer).
   chunithmSyncInBackground(getDb);
   // CHUNITHM chart pictures waiting to be built (a few minutes apart at most).
   chunithmBuildsInBackground();

@@ -84,6 +84,8 @@ export async function copyJackets(
     now: Date;
     limit?: number;
     songIds?: number[];
+    /** Stop starting new copies after this time (epoch ms): the pass's limit. */
+    deadline?: number;
     sleep?: (ms: number) => Promise<void>;
   },
 ): Promise<number> {
@@ -135,6 +137,7 @@ export async function copyJackets(
 
   let copied = 0;
   for (const [id, song] of wanted) {
+    if (options.deadline !== undefined && Date.now() > options.deadline) break;
     // Every place sdvx.in may keep this song's jacket, its own pages first.
     const sources = [
       ...new Set(
@@ -178,7 +181,7 @@ async function copyOne(
     const response = await fetcher(new URL(src, origin).href, {
       headers: { "User-Agent": USER_AGENT, Accept: "image/png" },
       redirect: "manual",
-      signal: AbortSignal.timeout(FETCH_LIMITS.timeoutMs),
+      signal: AbortSignal.timeout(FETCH_LIMITS.sdvxTimeoutMs),
     });
     if (response.status !== 200) {
       await response.body?.cancel();

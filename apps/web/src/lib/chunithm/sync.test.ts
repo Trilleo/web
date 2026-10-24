@@ -15,7 +15,16 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { LocalDriver } from "@trilleo/storage/server";
 import { encodePng } from "./png";
 import { SDVX_LIST_PAGES, type ChunithmSources } from "./sources";
-import { newPagePaths, syncCatalog, type SyncDeps } from "./sync";
+import {
+  BACKLOG_GAP_MS,
+  JACKETS_WHILE_READING,
+  SDVX_PASS,
+  SYNC_EVERY_MS,
+  newPagePaths,
+  passDue,
+  syncCatalog,
+  type SyncDeps,
+} from "./sync";
 
 const SOURCES: ChunithmSources = {
   segaUrl: "https://sega.test/music.json",
@@ -26,6 +35,7 @@ const SOURCES: ChunithmSources = {
 let handle: DatabaseHandle;
 let clock: Date;
 let files: Map<string, string | Uint8Array>;
+let silent: Set<string>;
 let requests: string[];
 
 const SONGS = 600;
@@ -103,6 +113,9 @@ const fakeFetch: typeof fetch = (input) => {
         ? input.href
         : input.url;
   requests.push(url);
+  // A request that never answers (it times out).
+  if (silent.has(url))
+    return Promise.reject(new Error("The operation timed out."));
   const body = files.get(url);
   return Promise.resolve(
     body === undefined
@@ -128,6 +141,7 @@ beforeEach(async () => {
   clock = new Date("2026-10-24T08:00:00.000Z");
   requests = [];
   files = new Map();
+  silent = new Set();
   setSources();
   for (const page of SDVX_LIST_PAGES)
     files.set(`${SOURCES.sdvxOrigin}${page}`, "<html></html>");
@@ -486,5 +500,100 @@ describe("syncCatalog", () => {
     expect(result.ok).toBe(false);
     expect(requests).toEqual([]);
     expect(await handle.db.select().from(chuniSongs)).toEqual([]);
+  });
+
+  it("leaves a script that got no answer for the next pass", async () => {
+    silent.add(`${SOURCES.sdvxOrigin}/chunithm/01/js/00002sort.js`);
+    const first = await syncCatalog(handle.db, deps());
+    expect(first.scriptsRead).toBe(1);
+    expect(first.scriptsLeft).toBe(1);
+    silent.clear();
+    const second = await syncCatalog(handle.db, deps());
+    expect(second.scriptsRead).toBe(1);
+    expect(second.scriptsLeft).toBe(0);
+  });
+
+  it("stops reading when sdvx.in stops answering", async () => {
+    const many = Array.from(
+      { length: SDVX_PASS.failuresToStop + 3 },
+      (_, i): [string, string] => [
+        `${String(10 + i).padStart(5, "0")}sort`,
+        `S${String(i)}`,
+      ],
+    );
+    files.set(
+      `${SOURCES.sdvxOrigin}/chunithm/sort/original.htm`,
+      listPage(many),
+    );
+    for (const [file] of many)
+      silent.add(`${SOURCES.sdvxOrigin}/chunithm/01/js/${file}.js`);
+    const result = await syncCatalog(handle.db, deps());
+    expect(result.ok).toBe(true);
+    expect(result.scriptsRead).toBe(0);
+    expect(requests.filter((url) => url.endsWith("sort.js"))).toHaveLength(
+      SDVX_PASS.failuresToStop,
+    );
+    expect(result.errors.at(-1)).toContain(
+      `didn't answer ${String(SDVX_PASS.failuresToStop)} times in a row`,
+    );
+    expect(result.scriptsLeft).toBe(many.length);
+  });
+
+  it("stops at the pass's time limit, leaving the rest", async () => {
+    const result = await syncCatalog(handle.db, deps({ timeLimitMs: -1 }));
+    expect(result.scriptsRead).toBe(0);
+    expect(result.scriptsLeft).toBe(2);
+    expect(result.errors).toContain(
+      "Stopped reading scripts at the pass's time limit.",
+    );
+  });
+
+  it("copies only a few jackets while scripts are unread", async () => {
+    const storage = new LocalDriver({
+      root: null,
+      baseUrl: "/api/storage/local",
+    });
+    const jacket = encodePng({
+      width: 4,
+      height: 4,
+      data: new Uint8Array(64).fill(1),
+    });
+    // Many songs with a page and a jacket, and a script left unread.
+    for (let id = 1; id <= JACKETS_WHILE_READING + 5; id++)
+      files.set(
+        `${SOURCES.sdvxOrigin}/chunithm/01/jacket/${String(id).padStart(5, "0")}.png`,
+        jacket,
+      );
+    setSources(
+      undefined,
+      Array.from({ length: SONGS }, (_, i) =>
+        otogeRow(i + 1, {
+          lev_mas_chart_link:
+            i < JACKETS_WHILE_READING + 5
+              ? `01/${String(i + 1).padStart(5, "0")}mst`
+              : "",
+        }),
+      ),
+    );
+    const result = await syncCatalog(
+      handle.db,
+      deps({ storage, scriptsPerPass: 1 }),
+    );
+    expect(result.scriptsLeft).toBe(1);
+    expect(result.jackets).toBe(JACKETS_WHILE_READING);
+  });
+});
+
+describe("when a pass is due", () => {
+  const T = 1_800_000_000_000;
+  it("chains passes while there's a backlog, every few hours otherwise", () => {
+    const backlog = { lastStart: T, lastEnd: T + 60_000, backlog: true };
+    expect(passDue(backlog, T + 60_000 + BACKLOG_GAP_MS - 1)).toBe(false);
+    expect(passDue(backlog, T + 60_000 + BACKLOG_GAP_MS)).toBe(true);
+    const settled = { lastStart: T, lastEnd: T + 60_000, backlog: false };
+    expect(passDue(settled, T + BACKLOG_GAP_MS * 10)).toBe(false);
+    expect(passDue(settled, T + SYNC_EVERY_MS)).toBe(true);
+    // Never run before (after a restart with no rows): due at once.
+    expect(passDue({ lastStart: 0, lastEnd: 0, backlog: true }, T)).toBe(true);
   });
 });

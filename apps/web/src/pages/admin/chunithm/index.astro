@@ -289,9 +289,10 @@ const td = "border-b border-hair py-2 pr-4 align-top";
           </div>
         </dl>
         <p class="text-muted">
-          Updates run every few hours by themselves (every few minutes while
-          sdvx.in scripts are still to be read or jackets to be copied).
-          Sources: SEGA’s song list, otoge-db and sdvx.in.
+          Updates run every few hours by themselves, on a timer (one after
+          another, a minute and a half apart, while sdvx.in scripts are still to
+          be read or jackets to be copied). Sources: SEGA’s song list, otoge-db
+          and sdvx.in.
         </p>
         <form method="post">
           <input type="hidden" name="intent" value="sync" />
@@ -350,7 +351,9 @@ const td = "border-b border-hair py-2 pr-4 align-top";
                   <td class={td}>{when(sync.startedAt)}</td>
                   <td class={td}>
                     {!sync.finishedAt
-                      ? "Running"
+                      ? running && sync.id === overview.syncs[0]?.id
+                        ? "Running"
+                        : "Interrupted"
                       : sync.ok
                         ? "Updated"
                         : "Not applied"}

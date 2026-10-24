@@ -12,8 +12,11 @@
  * 5. Look for otoge-db's frozen constants of versions that have ended.
  * 6. Copy a batch of songs' jackets into storage (jackets.ts).
  *
- * A pass runs every SYNC_EVERY_MS from any request (more often while scripts or jackets are
- * still waiting to be read), or from /admin/chunithm/'s "Check now". New songs, new
+ * A pass runs every SYNC_EVERY_MS, started by a timer (`startChunithmSync`) or any
+ * request; while scripts or jackets are still waiting, the next starts BACKLOG_GAP_MS
+ * after the last one ended. The admin can start one with /admin/chunithm/'s "Check
+ * now". A pass stops reading after PASS_TIME_LIMIT_MS, or once sdvx.in fails to answer
+ * SDVX_PASS.failuresToStop times in a row; the rest waits for the next. New songs, new
  * versions, sdvx.in pages it couldn't place and repeated failures alert the admin.
  */
 import {
@@ -76,16 +79,26 @@ const DAY_MS = 24 * 60 * MINUTE_MS;
 
 /** How often a pass runs (from any request), and while scripts are still unread. */
 export const SYNC_EVERY_MS = 6 * 60 * MINUTE_MS;
-export const BACKLOG_EVERY_MS = 10 * MINUTE_MS;
+/** While scripts or jackets are waiting, the next pass starts this long after one ends. */
+export const BACKLOG_GAP_MS = 90 * 1000;
+/** How often the timer checks whether a pass is due. */
+export const TICK_MS = 30 * 1000;
 
 export const SDVX_PASS = {
   /** Scripts read per pass, one at a time. */
-  scripts: 100,
+  scripts: 400,
   /** The wait between two requests to sdvx.in. */
-  delayMs: 500,
+  delayMs: 300,
   /** A script read this long ago is read again, for designers or levels that changed. */
   rereadDays: 30,
+  /** Requests in a row that get no answer (timeouts, 5xx) before a pass stops asking. */
+  failuresToStop: 5,
 };
+
+/** A pass stops reading scripts and copying jackets after this long (the rest waits). */
+export const PASS_TIME_LIMIT_MS = 10 * MINUTE_MS;
+/** Jackets a pass copies while scripts are still unread (the scripts come first). */
+export const JACKETS_WHILE_READING = 10;
 
 /** SEGA's list shrinking below this share of the songs we have in the game is refused. */
 export const MIN_SHARE_KEPT = 0.9;
@@ -109,6 +122,8 @@ export interface SyncDeps {
   now?: () => Date;
   /** Where jackets are copied to; null: none. Read from the environment if left out. */
   storage?: StorageDriver | null;
+  /** The pass's time limit (PASS_TIME_LIMIT_MS; tests shorten it). */
+  timeLimitMs?: number;
   /** Waits between sdvx.in requests (tests pass a no-op). */
   sleep?: (ms: number) => Promise<void>;
   scriptsPerPass?: number;
@@ -214,6 +229,7 @@ export async function syncCatalog(
         fetcher,
         new URL(page, sources.sdvxOrigin).href,
         FETCH_LIMITS.maxPageBytes,
+        FETCH_LIMITS.sdvxTimeoutMs,
       );
       for (const entry of parseSdvxList(html)) {
         const before = listed.get(entry.script);
@@ -232,24 +248,52 @@ export async function syncCatalog(
   }
   await recordEntries(db, [...listed.values()], now());
 
-  // 3. A few scripts.
+  // 3. A batch of scripts, within the pass's time and while sdvx.in answers.
+  const timeLimit = deps.timeLimitMs ?? PASS_TIME_LIMIT_MS;
+  const started = Date.now();
+  const overTime = () => Date.now() - started > timeLimit;
   const due = await dueScripts(
     db,
     deps.scriptsPerPass ?? SDVX_PASS.scripts,
     now(),
   );
+  let failures = 0;
   for (const script of due) {
+    if (overTime()) {
+      summary.errors.push("Stopped reading scripts at the pass's time limit.");
+      break;
+    }
     const url = new URL(sdvxScriptUrl(script), sources.sdvxOrigin).href;
     let details: ChuniSdvxDetails | null = null;
     let readError: string | null = null;
     try {
       details = parseSdvxScript(
-        await fetchText(fetcher, url, FETCH_LIMITS.maxPageBytes),
+        await fetchText(
+          fetcher,
+          url,
+          FETCH_LIMITS.maxPageBytes,
+          FETCH_LIMITS.sdvxTimeoutMs,
+        ),
         script,
       );
       if (!details) readError = "Not a chart script.";
+      failures = 0;
     } catch (error) {
+      // An answer (404: the script is gone) counts as read; no answer (a timeout,
+      // a server error) leaves it for the next pass.
+      if (error instanceof FetchError && !error.missing) {
+        failures++;
+        await sleep(sources.delayMs ?? SDVX_PASS.delayMs);
+        if (failures >= SDVX_PASS.failuresToStop) {
+          summary.errors.push(
+            `sdvx.in didn't answer ${String(failures)} times in a row (${errorText(error)}): stopped reading for this pass.`,
+          );
+          break;
+        }
+        continue;
+      }
       readError = errorText(error);
+      failures = 0;
     }
     await db
       .update(chuniSdvxEntries)
@@ -300,6 +344,9 @@ export async function syncCatalog(
         fetch: fetcher,
         sdvxOrigin: sources.sdvxOrigin,
         now: now(),
+        // The scripts come first: only a few jackets while any are unread.
+        ...(summary.scriptsLeft > 0 ? { limit: JACKETS_WHILE_READING } : {}),
+        deadline: started + timeLimit,
         sleep: (ms) => sleep(sources.delayMs ?? ms),
       });
       summary.jacketsLeft = await jacketsDue(db, now());
@@ -789,10 +836,12 @@ export async function newPagePaths(
 }
 
 let running: Promise<unknown> | null = null;
-/** When the last pass started; read from chuni_syncs after a restart. */
+/** When the last pass started and ended; read from chuni_syncs after a restart. */
 let lastStart: number | null = null;
+let lastEnd = 0;
 let loading = false;
 let backlog = true;
+let ticking = false;
 
 /** Whether a pass is running in this server. */
 export function syncRunning(): boolean {
@@ -816,11 +865,28 @@ export function startSync(
     })
     .finally(() => {
       running = null;
+      lastEnd = Date.now();
     });
   return true;
 }
 
-/** From any request: a pass when one is due (never with CHUNITHM_SYNC=off). */
+/**
+ * Whether a pass is due: BACKLOG_GAP_MS after the last one ended while scripts or
+ * jackets are waiting (the first fill), SYNC_EVERY_MS after it started otherwise.
+ */
+export function passDue(
+  state: { lastStart: number; lastEnd: number; backlog: boolean },
+  now: number,
+): boolean {
+  return state.backlog
+    ? now - Math.max(state.lastEnd, state.lastStart) >= BACKLOG_GAP_MS
+    : now - state.lastStart >= SYNC_EVERY_MS;
+}
+
+/**
+ * A pass if one is due (never with CHUNITHM_SYNC=off). Called by the timer
+ * (`startChunithmSync`) and, as a fallback, from any request.
+ */
 export function chunithmSyncInBackground(
   getDb: () => Promise<Database>,
   now = Date.now(),
@@ -834,6 +900,7 @@ export function chunithmSyncInBackground(
         db
           .select({
             startedAt: chuniSyncs.startedAt,
+            finishedAt: chuniSyncs.finishedAt,
             summary: chuniSyncs.summary,
           })
           .from(chuniSyncs)
@@ -842,6 +909,7 @@ export function chunithmSyncInBackground(
       )
       .then(([last]) => {
         lastStart = last?.startedAt.getTime() ?? 0;
+        lastEnd = last?.finishedAt?.getTime() ?? lastStart;
         backlog = last?.summary
           ? last.summary.scriptsLeft > 0 || (last.summary.jacketsLeft ?? 0) > 0
           : true;
@@ -854,7 +922,20 @@ export function chunithmSyncInBackground(
       });
     return;
   }
-  const every = backlog ? BACKLOG_EVERY_MS : SYNC_EVERY_MS;
-  if (now - lastStart < every) return;
-  startSync(getDb);
+  if (passDue({ lastStart, lastEnd, backlog }, now)) startSync(getDb);
+}
+
+/**
+ * Checks every TICK_MS whether a pass is due, so the catalog keeps up with no visitors
+ * (the site has few). Started once per server, from the middleware's module, like
+ * the webhooks; the timer doesn't keep the process alive.
+ */
+export function startChunithmSync(getDb: () => Promise<Database>): void {
+  if (ticking || !chunithmSources()) return;
+  ticking = true;
+  const tick = () => {
+    chunithmSyncInBackground(getDb);
+  };
+  setTimeout(tick, 5000).unref();
+  setInterval(tick, TICK_MS).unref();
 }
