@@ -13,8 +13,10 @@ const next = pathname.startsWith("/sign-in")
   : pathname + search;
 ---
 
-<!-- Named so it holds still while pages transition (styles in @trilleo/ui's theme.css). -->
-<header class="border-b border-ink [view-transition-name:site-header]">
+<!-- Named so it holds still while pages transition (styles in @trilleo/ui's theme.css).
+     Stacked above the page, so the account menu isn't covered by what follows it:
+     animated entrances, raised rows like AdminNav (z-10). Below the cookie card (z-40). -->
+<header class="relative z-30 border-b border-ink [view-transition-name:site-header]">
   <div class="grid-swiss px-page items-center py-3 md:py-4">
     <a
       href="/"

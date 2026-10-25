@@ -123,6 +123,8 @@
   (posts, rendered notes), .comment-body, and `type-dek`; mono for labels and code.
 - Inner pages start with a breadcrumb (components/Breadcrumb.astro, `(02) Tools / Notes`):
   ancestors are links, the current page is plain text with aria-current.
+- The site header is stacked at z-30 (above anything raised in the page, below the
+  cookie card's z-40), so its account menu covers the page. Keep page z-indexes under 30.
 - Astro scoped styles don't reach child components: wrap a child in an element
   you own if the parent's CSS must place it.
 - Use the width. Content starts at column 3 only when something hangs in columns
