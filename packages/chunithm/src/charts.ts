@@ -24,6 +24,9 @@ export const COLUMN = {
   overlap: 48,
 } as const;
 
+/** How opaque a lanes-layer pixel must be to count as lane (out of 255). */
+export const LANE_ALPHA = 128;
+
 /** Sizes we accept: anything else isn't one of sdvx.in's chart pictures. */
 export const CHART_LIMITS = {
   minHeight: 200,
@@ -77,8 +80,10 @@ export function findLayout(bg: RgbaImage): ChartLayout {
   const { width, height, data } = bg;
   if (height < CHART_LIMITS.minHeight || height > CHART_LIMITS.maxHeight)
     throw new ChartLayoutError(`Height ${String(height)} isn't a chart's.`);
+  // Lanes are solid; sdvx.in leaves stray, nearly clear pixels beside some (alpha 3
+  // at the edge of 《本能》 ～ ReCoda's Master), which mustn't widen a column.
   const opaqueAt = (x: number, y: number) =>
-    (data[(y * width + x) * 4 + 3] ?? 0) > 0;
+    (data[(y * width + x) * 4 + 3] ?? 0) >= LANE_ALPHA;
   const used = (x: number) => {
     for (let y = 0; y < height; y += 4) if (opaqueAt(x, y)) return true;
     return false;

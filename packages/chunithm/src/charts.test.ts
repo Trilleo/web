@@ -90,6 +90,15 @@ describe("joining a chart", () => {
     }).toThrow("Columns 1 and 2 don't line up.");
   });
 
+  it("isn't thrown by nearly clear stray pixels beside a lane", () => {
+    const { bg } = makeChart(height, tops, labels);
+    const clean = findLayout(bg);
+    // As in 《本能》 ～ ReCoda's Master: a few pixels at alpha 3 just past a lane.
+    const x = COLUMN.gutter + COLUMN.lane;
+    for (let y = 200; y < 208; y++) bg.data[(y * bg.width + x) * 4 + 3] = 3;
+    expect(findLayout(bg)).toEqual(clean);
+  });
+
   it("refuses pictures that aren't laid out like sdvx.in's", () => {
     const wrong = blank(650, 400);
     expect(() => findLayout(wrong)).toThrow(ChartLayoutError);
