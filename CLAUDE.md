@@ -1300,7 +1300,10 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
 chunithm:bundle <list>` (scripts/chunithm-bundle.ts around lib/chunithm/bundler.ts:
   one chart at a time over that computer's network, store-only ZIPs from
   zip-writer.ts of about BUNDLE_LIMITS.targetBytes, `progress.json` so a rerun carries
-  on, failures kept for `--retry-failed`, Ctrl-C finishes the open bundle) → upload
+  on, failures kept for `--retry-failed`, Ctrl-C finishes the open bundle; a live
+  progress line from progress.ts `ProgressLine`, fed by `download`'s `onProgress`
+  through picture.ts's `progress` steps: the layer's size, speed and resumes, redrawn
+  in place on a terminal, a plain line every 10 s otherwise) → upload
   (storage purpose `chunithm-import`: admin-only, private, zip, BUNDLE_MAX_BYTES) →
   "Import" (chuni_imports; `runImports`, one at a time per server, in the background).
   Bundles (bundle.ts) hold `bundle.json` (format, BUILD_VERSION, each chart's page,

@@ -83,6 +83,25 @@ describe("download", () => {
     expect(sent[1]?.ifRange).toBe('"v1"');
   });
 
+  it("reports how far it has got, resumes included", async () => {
+    const { fetcher } = server({ cutAt: 3000 });
+    const heard: [number, number | null, number][] = [];
+    await download(fetcher, URL_, "image/png", LIMITS, (progress) => {
+      heard.push([progress.received, progress.total, progress.resumes]);
+    });
+    // Each connection, then each piece; the size is the whole file's throughout.
+    expect(heard).toEqual([
+      [0, 10_000, 0],
+      [3000, 10_000, 0],
+      [3000, 10_000, 1],
+      [6000, 10_000, 1],
+      [6000, 10_000, 2],
+      [9000, 10_000, 2],
+      [9000, 10_000, 3],
+      [10_000, 10_000, 3],
+    ]);
+  });
+
   it("starts over when the file changed between pieces", async () => {
     let version = 0;
     const { fetcher } = server({

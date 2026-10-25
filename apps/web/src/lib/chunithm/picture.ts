@@ -31,6 +31,7 @@ import {
   LAYER_DOWNLOAD,
   download,
   fetchText,
+  type DownloadProgress,
 } from "./sources";
 
 /**
@@ -67,7 +68,15 @@ export interface PictureDeps {
   layer?: (url: string, name: LayerName) => Promise<Layer>;
   /** Told about a layer that wouldn't decode (so a kept copy can go). */
   broken?: (layer: Layer, name: LayerName) => Promise<void>;
+  /** Hears how far it has got (the bundling script's progress line). */
+  progress?: (step: PictureStep) => void;
 }
+
+/** Where making a picture has got. */
+export type PictureStep =
+  | { stage: "script" }
+  | ({ stage: "layer"; name: LayerName } & DownloadProgress)
+  | { stage: "tiles"; done: number; total: number };
 
 export interface Tile {
   index: number;
@@ -114,13 +123,17 @@ export async function downloadLayer(
   fetcher: typeof fetch,
   url: string,
   name: LayerName,
+  onProgress?: (progress: DownloadProgress) => void,
 ): Promise<Layer> {
   let file;
   try {
-    file = await download(fetcher, url, "image/png", {
-      ...LAYER_DOWNLOAD,
-      maxBytes: BUILD_LIMITS.maxLayerBytes,
-    });
+    file = await download(
+      fetcher,
+      url,
+      "image/png",
+      { ...LAYER_DOWNLOAD, maxBytes: BUILD_LIMITS.maxLayerBytes },
+      onProgress,
+    );
   } catch (error) {
     const reason =
       error instanceof FetchError
@@ -156,15 +169,25 @@ export async function makePicture(
   variant: Variant,
   onTile: (tile: Tile) => Promise<void>,
 ): Promise<Picture> {
+  deps.progress?.({ stage: "script" });
   const images = await readImages(deps.fetch, deps.sdvxOrigin, path);
   const notes = variant === "mirror" ? images.mirror : images.obj;
   if (!notes)
     throw new BuildError("sdvx.in has no mirrored notes for this chart.");
   const get = (src: string, name: LayerName) => {
     const url = new URL(src, deps.sdvxOrigin).href;
+    const progress = deps.progress;
     return deps.layer
       ? deps.layer(url, name)
-      : downloadLayer(deps.fetch, url, name);
+      : downloadLayer(
+          deps.fetch,
+          url,
+          name,
+          progress &&
+            ((step) => {
+              progress({ stage: "layer", name, ...step });
+            }),
+        );
   };
   const decode = async (layer: Layer, name: LayerName) => {
     try {
@@ -196,7 +219,9 @@ export async function makePicture(
   checkOverlaps(picture, layout);
 
   const height = stripHeight(layout);
-  for (const [index, [from, to]] of tileRanges(height).entries()) {
+  const ranges = tileRanges(height);
+  for (const [index, [from, to]] of ranges.entries()) {
+    deps.progress?.({ stage: "tiles", done: index, total: ranges.length });
     await giveWay();
     const bytes = await deps.encode(stripTile(picture, layout, from, to));
     await onTile({ index, height: to - from, bytes });

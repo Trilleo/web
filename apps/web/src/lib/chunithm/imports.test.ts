@@ -211,6 +211,7 @@ describe("the to-do list", () => {
 describe("building on the admin's computer and importing", () => {
   it("bundles the list, and the import makes the charts ready", async () => {
     const todo = await chartTodo(handle.db, clock);
+    const steps: string[] = [];
     const result = await bundleCharts({
       todo,
       outDir: out,
@@ -218,8 +219,27 @@ describe("building on the admin's computer and importing", () => {
       fetch: fakeFetch,
       delayMs: 0,
       now: () => clock,
+      progress: (event) => {
+        const step =
+          event.step.stage === "layer" ? event.step.name : event.step.stage;
+        const line = `${String(event.index)}/${String(event.total)} ${step}`;
+        if (steps.at(-1) !== line) steps.push(line);
+      },
     });
     expect(result).toMatchObject({ built: 2, failed: [], left: 0 });
+    // Each chart's steps, for the script's progress line.
+    expect(steps).toEqual([
+      "1/2 script",
+      "1/2 lanes",
+      "1/2 notes",
+      "1/2 measure numbers",
+      "1/2 tiles",
+      "2/2 script",
+      "2/2 lanes",
+      "2/2 notes",
+      "2/2 measure numbers",
+      "2/2 tiles",
+    ]);
     const [bundle] = bundlesIn(out);
     expect(bundlesIn(out)).toHaveLength(1);
 

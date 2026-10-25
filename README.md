@@ -135,8 +135,9 @@ pnpm --filter @trilleo/web chunithm:bundle ~/Downloads/chunithm-todo-2026-10-25.
 
 It writes `chunithm-bundle-<day>-<n>.zip` files (about 200 MB each) into
 `chunithm-bundles/` beside the list; upload them on the same page and import them.
-Running it again carries on where it stopped (`--limit`, `--delay`, `--out` and
-`--retry-failed` change what it does).
+A line at the bottom shows the chart it's on and the layer coming in (how much, how
+fast, and whether it had to resume). Running it again carries on where it stopped
+(`--limit`, `--delay`, `--out` and `--retry-failed` change what it does).
 
 The study section (`/study/`) is built from the Markdown in `study/`: each subject is a
 folder of numbered units and lessons, with maths, numbered definitions and formulas,

@@ -12,6 +12,8 @@
  *   --limit <n>       build at most n charts this run
  *   --retry-failed    try charts that failed last time again
  *
+ * A live line shows the chart being built and the layer coming in (size, speed,
+ * resumes); without a terminal (output to a file) it's a plain line every 10 s.
  * Running again carries on (progress.json in the output folder). Ctrl-C finishes
  * the bundle being written, then stops. CHUNITHM_SDVX_URL points it elsewhere
  * (tests); otherwise it reads sdvx.in.
@@ -20,7 +22,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { parseTodo } from "../src/lib/chunithm/bundle";
-import { bundleCharts } from "../src/lib/chunithm/bundler";
+import { bundleCharts, type BundleProgress } from "../src/lib/chunithm/bundler";
+import { ProgressLine, fitColumns } from "../src/lib/chunithm/progress";
 import { SDVX_ORIGIN } from "../src/lib/chunithm/sources";
 
 const { values, positionals } = parseArgs({
@@ -43,7 +46,16 @@ if (!listArg) {
   process.exit(2);
 }
 const listPath = resolve(here, listArg);
-const todo = parseTodo(JSON.parse(readFileSync(listPath, "utf8")));
+let read: unknown;
+try {
+  read = JSON.parse(readFileSync(listPath, "utf8"));
+} catch (error) {
+  console.error(
+    `Couldn't read the to-do list at ${listPath}: ${error instanceof Error ? error.message : String(error)}`,
+  );
+  process.exit(1);
+}
+const todo = parseTodo(read);
 if (typeof todo === "string") {
   console.error(todo);
   process.exit(1);
@@ -59,9 +71,39 @@ const whole = (text: string | undefined, name: string) => {
   return value;
 };
 
+// The live line: redrawn in place on a terminal (at most every 100 ms), or written
+// out now and then otherwise.
+const live = process.stdout.isTTY;
+const line = new ProgressLine();
+let shown = "";
+let drawnAt = 0;
+let lastStage = "";
+const clear = () => {
+  if (live && shown) process.stdout.write("\r\x1b[2K");
+};
+// A finished chart's line goes above; the live line comes back with the next step.
+const say = (text: string) => {
+  clear();
+  shown = "";
+  console.log(text);
+};
+const progress = (event: BundleProgress) => {
+  const now = Date.now();
+  const stage = `${String(event.index)}:${event.step.stage}`;
+  const due = now - drawnAt >= (live ? 100 : 10_000);
+  if (!due && stage === lastStage) return;
+  const text = line.text(event, now);
+  drawnAt = now;
+  lastStage = stage;
+  if (live) {
+    shown = fitColumns(text, (process.stdout.columns || 80) - 1);
+    process.stdout.write(`\r\x1b[2K${shown}`);
+  } else if (due) console.log(text);
+};
+
 const stop = new AbortController();
 process.once("SIGINT", () => {
-  console.log("Stopping after this chart; the bundle being written is kept.");
+  say("Stopping after this chart; the bundle being written is kept.");
   stop.abort();
 });
 
@@ -80,10 +122,11 @@ try {
     limit: whole(values.limit, "limit"),
     retryFailed: values["retry-failed"] ?? false,
     signal: stop.signal,
-    log: (line) => {
-      console.log(line);
-    },
+    log: say,
+    progress,
   });
+  clear();
+  shown = "";
   console.log(
     `Built ${String(result.built)}, failed ${String(result.failed.length)}, ${String(result.left)} left for another run.`,
   );
@@ -91,6 +134,7 @@ try {
   if (result.bundles.length > 0)
     console.log("Upload them at /admin/chunithm/import/.");
 } catch (error) {
+  clear();
   console.error(error instanceof Error ? error.message : error);
   process.exit(1);
 }

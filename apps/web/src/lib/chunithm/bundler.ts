@@ -33,7 +33,12 @@ import {
   type Todo,
   type TodoChart,
 } from "./bundle";
-import { BUILD_VERSION, makePicture, type Tile } from "./picture";
+import {
+  BUILD_VERSION,
+  makePicture,
+  type PictureStep,
+  type Tile,
+} from "./picture";
 import { encodeWebp } from "./webp";
 import { ZipWriter } from "./zip-writer";
 
@@ -44,6 +49,14 @@ export interface Progress {
   bundled: Record<string, string>;
   /** "<chart>-<variant>" → why it failed. */
   failed: Record<string, string>;
+}
+
+/** Where the run has got: which chart (1-based of `total`), and its step. */
+export interface BundleProgress {
+  index: number;
+  total: number;
+  chart: TodoChart;
+  step: PictureStep | { stage: "waiting"; ms: number };
 }
 
 export interface BundlerOptions {
@@ -60,6 +73,8 @@ export interface BundlerOptions {
   retryFailed?: boolean;
   signal?: AbortSignal;
   log?: (line: string) => void;
+  /** Hears each step (the script's live progress line). */
+  progress?: (event: BundleProgress) => void;
   now?: () => Date;
 }
 
@@ -205,7 +220,15 @@ export async function bundleCharts(
     for (const chart of todoCharts) {
       if (signal?.aborted) break;
       if (options.limit !== undefined && index >= options.limit) break;
-      if (index > 0) await sleep(delayMs, signal);
+      if (index > 0 && delayMs > 0) {
+        options.progress?.({
+          index: index + 1,
+          total: todoCharts.length,
+          chart,
+          step: { stage: "waiting", ms: delayMs },
+        });
+        await sleep(delayMs, signal);
+      }
       if (signal?.aborted) break;
       index++;
       const key = keyOf(chart);
@@ -217,6 +240,15 @@ export async function bundleCharts(
             fetch: options.fetch ?? fetch,
             sdvxOrigin,
             encode: encodeWebp,
+            progress:
+              options.progress &&
+              ((step) =>
+                options.progress?.({
+                  index,
+                  total: todoCharts.length,
+                  chart,
+                  step,
+                })),
           },
           chart.sdvxPath,
           chart.variant,

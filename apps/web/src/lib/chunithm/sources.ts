@@ -167,6 +167,15 @@ export const JACKET_DOWNLOAD: Omit<DownloadLimits, "maxBytes"> = {
   tries: 5,
 };
 
+/** How far a download has got, for a progress line (the bundling script's). */
+export interface DownloadProgress {
+  received: number;
+  /** The whole file's size, when the server said. */
+  total: number | null;
+  /** Times it has had to resume (or start over) so far. */
+  resumes: number;
+}
+
 export interface Downloaded {
   status: number;
   headers: Headers;
@@ -180,13 +189,15 @@ export interface Downloaded {
  * that breaks off is resumed where it stopped with a Range request (If-Range keeps
  * the pieces from two versions of the file apart). Any answer but 200 comes back as
  * it is, without a body; redirects aren't followed (sdvx.in sends missing files to
- * an HTML page). Throws FetchError when it can't get the whole file.
+ * an HTML page). Throws FetchError when it can't get the whole file. `onProgress`
+ * hears of each connection and each piece received.
  */
 export async function download(
   fetcher: typeof fetch,
   url: string,
   accept: string,
   limits: DownloadLimits,
+  onProgress?: (progress: DownloadProgress) => void,
 ): Promise<Downloaded> {
   const started = Date.now();
   const chunks: Uint8Array[] = [];
@@ -258,6 +269,7 @@ export async function download(
         continue;
       }
       if (!response.body) throw new Error("no body");
+      onProgress?.({ received: got, total, resumes: attempt });
       const reader = response.body.getReader();
       for (;;) {
         const { done, value } = await reader.read();
@@ -265,6 +277,7 @@ export async function download(
         awake();
         chunks.push(value);
         got += value.byteLength;
+        onProgress?.({ received: got, total, resumes: attempt });
         if (got > limits.maxBytes) {
           await reader.cancel();
           throw new FetchError(url, "too large");
