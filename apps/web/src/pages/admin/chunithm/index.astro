@@ -2,7 +2,8 @@
 /**
  * The CHUNITHM catalog's control panel: what the catalog holds, recent updates (with
  * "Check now"), sdvx.in pages the last update couldn't place (link each to a chart,
- * or ignore it), the admin's own placements, withdrawn charts, and each version's
+ * or ignore it), the admin's own placements, chart pictures (building ahead: pause,
+ * resume, build the next now, retry failed), withdrawn charts, and each version's
  * constants. Every button is a POST to this page with an `intent`.
  */
 import { DIFFICULTY_LABELS } from "@trilleo/chunithm";
@@ -51,9 +52,15 @@ import {
 } from "../../../lib/chunithm/jackets";
 import {
   PREBUILD,
+  failedPrebuilds,
   lastPrebuild,
+  pausePrebuild,
   prebuildEnabled,
+  prebuildNow,
+  prebuildPause,
   prebuildProgress,
+  resumePrebuild,
+  retryFailedPrebuilds,
   type PrebuildResult,
 } from "../../../lib/chunithm/prebuild";
 import { getStorage } from "../../../lib/storage/config";
@@ -89,7 +96,26 @@ if (Astro.request.method === "POST") {
   const songId = parseId(field(form, "song"));
   const difficulty = difficultyFrom(field(form, "difficulty"));
   let done: string | null = null;
-  if (intent === "jackets") {
+  let retried = 0;
+  if (intent === "pause") {
+    const hours = field(form, "hours");
+    const chosen = PREBUILD.pauseHours.find(
+      (option) => (option === null ? "" : String(option)) === hours,
+    );
+    if (chosen === undefined) error = "Choose how long to pause for.";
+    else {
+      await pausePrebuild(db, new Date(), chosen);
+      done = "paused";
+    }
+  } else if (intent === "resume") {
+    await resumePrebuild(db);
+    done = "resumed";
+  } else if (intent === "ahead-now") {
+    done = prebuildNow() ? "ahead-now" : "ahead-busy";
+  } else if (intent === "ahead-retry") {
+    retried = await retryFailedPrebuilds(db);
+    done = "ahead-retry";
+  } else if (intent === "jackets") {
     const deps = await siteBuildDeps();
     if (!deps) error = "Storage or fetching is off here.";
     else done = startJacketBatch(deps) ? "jackets" : "jackets-busy";
@@ -152,7 +178,11 @@ if (Astro.request.method === "POST") {
   } else {
     error = "Unknown action.";
   }
-  if (done) return noStoreRedirect(`/admin/chunithm/?done=${done}`, 303);
+  if (done)
+    return noStoreRedirect(
+      `/admin/chunithm/?done=${done}${retried ? `&n=${String(retried)}` : ""}`,
+      303,
+    );
 }
 
 const DONE: Record<string, string> = {
@@ -169,7 +199,17 @@ const DONE: Record<string, string> = {
   building: "Building it now. Reload in a moment.",
   reset: "Its picture was thrown away; the next view builds it again.",
   reread: "The next update reads that script first.",
+  paused: "Building ahead is paused.",
+  resumed: "Building ahead goes on from its next tick.",
+  "ahead-now":
+    "Building the next chart now (unless a visitor’s build is waiting or the hour is full). Reload in a minute.",
+  "ahead-busy": "A chart is being built ahead already.",
 };
+const retriedCount = Number(Astro.url.searchParams.get("n") ?? "0");
+DONE["ahead-retry"] =
+  retriedCount > 0
+    ? `${String(retriedCount)} failed ${retriedCount === 1 ? "chart goes" : "charts go"} back in line to be built ahead.`
+    : "No failed charts to retry.";
 const done = Astro.url.searchParams.get("done");
 const overview = await catalogOverview(db);
 const overrides = await listOverrides(db);
@@ -193,12 +233,15 @@ const waitingNames = (await waitingSuggestions(db)).length;
 const failed = await failedBuilds(db);
 const ahead = await prebuildProgress(db);
 const aheadLast = lastPrebuild();
+const aheadPause = await prebuildPause(db, new Date());
+const aheadFailed = await failedPrebuilds(db);
 const AHEAD_WORDS: Record<PrebuildResult, string> = {
   built: "built one",
   failed: "one failed",
   visitors: "waited for visitors",
   "hour-full": "the hour was full",
   done: "nothing left",
+  paused: "paused",
 };
 const failedReads = await failedScripts(db);
 const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -596,13 +639,63 @@ const td = "border-b border-hair py-2 pr-4 align-top";
           Building ahead: {ahead.ready} of {ahead.total} in-game Master and
           Ultima charts ready.{" "}
           <span class="text-muted">
-            {!prebuildEnabled()
-              ? "Switched off here (CHUNITHM_PREBUILD or CHUNITHM_SYNC is off)."
-              : ahead.ready >= ahead.total
-                ? "All done; new songs are built as they come."
-                : `One every ${String(PREBUILD.everyMs / 60_000)} minutes while no one has opened a chart for ${String(PREBUILD.quietMs / 60_000)} minutes${aheadLast ? ` (last: ${AHEAD_WORDS[aheadLast.result]}, ${when(aheadLast.at)})` : ""}.`}
+            {aheadPause
+              ? `Paused ${aheadPause.until ? `until ${when(aheadPause.until)}` : "until resumed"} (since ${when(aheadPause.pausedAt)}).`
+              : !prebuildEnabled()
+                ? "Switched off here (CHUNITHM_PREBUILD or CHUNITHM_SYNC is off)."
+                : ahead.ready >= ahead.total
+                  ? "All done; new songs are built as they come."
+                  : `One every ${String(PREBUILD.everyMs / 60_000)} minutes while no one has opened a chart for ${String(PREBUILD.quietMs / 60_000)} minutes${aheadLast ? ` (last: ${AHEAD_WORDS[aheadLast.result]}, ${when(aheadLast.at)})` : ""}.`}
           </span>
         </p>
+        <div
+          class="flex flex-wrap items-end gap-3"
+          data-testid="chunithm-prebuild-controls"
+        >
+          {aheadPause ? (
+            <form method="post">
+              <input type="hidden" name="intent" value="resume" />
+              <button type="submit" class={secondaryButton}>
+                Resume
+              </button>
+            </form>
+          ) : (
+            <form method="post" class="flex flex-wrap items-end gap-3">
+              <input type="hidden" name="intent" value="pause" />
+              <label class="flex flex-col gap-1">
+                <span class="type-label text-muted">Pause for</span>
+                <select name="hours" class={input}>
+                  {PREBUILD.pauseHours.map((hours) => (
+                    <option value={hours === null ? "" : String(hours)}>
+                      {hours === null
+                        ? "Until resumed"
+                        : `${String(hours)} ${hours === 1 ? "hour" : "hours"}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="submit" class={secondaryButton}>
+                Pause
+              </button>
+            </form>
+          )}
+          {prebuildEnabled() && ahead.ready < ahead.total && (
+            <form method="post">
+              <input type="hidden" name="intent" value="ahead-now" />
+              <button type="submit" class={secondaryButton}>
+                Build next now
+              </button>
+            </form>
+          )}
+          {aheadFailed > 0 && (
+            <form method="post">
+              <input type="hidden" name="intent" value="ahead-retry" />
+              <button type="submit" class={secondaryButton}>
+                Retry failed ({aheadFailed})
+              </button>
+            </form>
+          )}
+        </div>
         <dl
           class="grid grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-4"
           data-testid="chunithm-builds"

@@ -10,6 +10,7 @@ import { LocalDriver } from "@trilleo/storage/server";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  BUILD_LIMITS,
   requestBuild,
   resetLastAsked,
   resetVisitorLimits,
@@ -18,10 +19,15 @@ import {
 import { encodePng } from "./png";
 import {
   PREBUILD,
+  failedPrebuilds,
   nextPrebuild,
+  pausePrebuild,
   prebuildEnabled,
   prebuildOnce,
+  prebuildPause,
   prebuildProgress,
+  resumePrebuild,
+  retryFailedPrebuilds,
 } from "./prebuild";
 
 const ORIGIN = "https://sdvx.test";
@@ -167,6 +173,114 @@ describe("building ahead", () => {
       .where(eq(chuniSongs.inGame, true));
     expect(await prebuildOnce(deps, clock)).toBe("done");
     expect(await prebuildProgress(handle.db)).toEqual({ ready: 0, total: 0 });
+  });
+
+  it("stays paused until resumed, or for as long as the admin chose", async () => {
+    await pausePrebuild(handle.db, clock, null);
+    const muchLater = new Date(clock.getTime() + 30 * 24 * 60 * MINUTE_MS);
+    expect(await prebuildPause(handle.db, muchLater)).toEqual({
+      pausedAt: clock,
+      until: null,
+    });
+    expect(await prebuildOnce(deps, muchLater)).toBe("paused");
+    await resumePrebuild(handle.db);
+    expect(await prebuildPause(handle.db, clock)).toBeNull();
+
+    // A new pause replaces the old one; a timed one runs out by itself.
+    await pausePrebuild(handle.db, clock, 1);
+    const inAnHour = new Date(clock.getTime() + 60 * MINUTE_MS);
+    expect(await prebuildOnce(deps, new Date(inAnHour.getTime() - 1))).toBe(
+      "paused",
+    );
+    expect(await prebuildPause(handle.db, inAnHour)).toBeNull();
+    expect(await prebuildOnce(deps, inAnHour)).toBe("built");
+  });
+
+  it("builds the next one at once when forced, within the hour's limit", async () => {
+    await pausePrebuild(handle.db, clock, null);
+    await requestBuild(deps, ids["1master"] ?? 0, "normal", "203.0.113.9");
+    // A visitor's waiting build still goes first.
+    expect(await prebuildOnce(deps, clock, { force: true })).toBe("visitors");
+    await handle.db.delete(chuniBuilds);
+    // Paused, and someone asked a moment ago: forcing skips both.
+    expect(await prebuildOnce(deps, clock, { force: true })).toBe("built");
+    expect(await prebuildOnce(deps, clock)).toBe("paused");
+    // A full hour stops it even then.
+    const extra = Array.from(
+      { length: BUILD_LIMITS.perHour },
+      (_, i) => 100 + i,
+    );
+    await handle.db
+      .insert(chuniSongs)
+      .values(
+        extra.map((id) => ({ id, title: `Old ${String(id)}`, inGame: false })),
+      );
+    const charts = await handle.db
+      .insert(chuniCharts)
+      .values(
+        extra.map((songId) => ({
+          songId,
+          difficulty: "master" as const,
+          level: "13",
+        })),
+      )
+      .returning({ id: chuniCharts.id });
+    await handle.db.insert(chuniBuilds).values(
+      charts.map((row) => ({
+        chartId: row.id,
+        variant: "normal",
+        status: "ready" as const,
+        startedAt: clock,
+      })),
+    );
+    expect(await prebuildOnce(deps, clock, { force: true })).toBe("hour-full");
+  });
+
+  it("puts failed charts without a picture back in line", async () => {
+    await handle.db.insert(chuniBuilds).values([
+      // Failed with nothing to show: retried.
+      {
+        chartId: ids["2ultima"] ?? 0,
+        variant: "normal",
+        status: "failed",
+        error: "x",
+      },
+      // A failed rebuild keeps its tiles (status ready, error set): left alone.
+      {
+        chartId: ids["2master"] ?? 0,
+        variant: "normal",
+        status: "ready",
+        error: "x",
+        manifest: {
+          width: 200,
+          height: 792,
+          gutter: 50,
+          lane: 150,
+          tiles: [],
+          measures: [],
+          columns: 1,
+        },
+      },
+      // Not one it builds ahead (Expert), and a mirror: left alone.
+      {
+        chartId: ids["2expert"] ?? 0,
+        variant: "normal",
+        status: "failed",
+        error: "x",
+      },
+      {
+        chartId: ids["1master"] ?? 0,
+        variant: "mirror",
+        status: "failed",
+        error: "x",
+      },
+    ]);
+    expect(await nextPrebuild(handle.db)).toBe(ids["1master"]);
+    expect(await failedPrebuilds(handle.db)).toBe(1);
+    expect(await retryFailedPrebuilds(handle.db)).toBe(1);
+    expect(await failedPrebuilds(handle.db)).toBe(0);
+    expect(await nextPrebuild(handle.db)).toBe(ids["2ultima"]);
+    expect(await handle.db.select().from(chuniBuilds)).toHaveLength(3);
   });
 
   it("is off with either switch", () => {

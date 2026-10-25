@@ -1255,7 +1255,13 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   (`chartsLastAsked`, set by `requestBuild`). Its builds skip the visitors' queue but
   take turns with theirs (`buildInTurn`: one build at a time per server) and count
   toward BUILD_LIMITS.perHour; a failed one keeps its row and isn't picked again.
-  /admin/chunithm/ shows its progress (`prebuildProgress`) and last tick.
+  /admin/chunithm/ shows its progress (`prebuildProgress`) and last tick, and controls
+  it: Pause (PREBUILD.pauseHours, or until Resume; the one-row chuni_prebuild table, so
+  restarts keep it; a timed pause runs out by itself), "Build next now" (`prebuildNow`:
+  one tick with `force`, skipping the wait, the pause and the quiet rule, not the
+  hourly limit or visitors' waiting builds), and "Retry failed"
+  (`retryFailedPrebuilds`: deletes its charts' failed normal rows that have no tiles,
+  so they're picked again; failed rebuilds keep their tiles and rows).
   CHUNITHM_PREBUILD=off (and CHUNITHM_SYNC=off) stops it; e2e sets it.
 - Builds happen on demand: GET /api/chunithm/charts/<SEGA id>/<difficulty>
   [?variant=mirror] answers ready (the manifest, tile URLs), queued/building (202,

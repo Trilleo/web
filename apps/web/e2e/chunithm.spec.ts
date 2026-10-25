@@ -159,7 +159,20 @@ test("the admin's CHUNITHM panel shows the catalog", async ({
   await expect(admin.getByRole("alert")).toHaveText(
     "There's no such chart in the catalog.",
   );
+
+  // Building ahead can be paused for a while, and resumed.
+  const prebuild = admin.getByTestId("chunithm-prebuild-controls");
+  await prebuild.getByLabel("Pause for").selectOption({ label: "6 hours" });
+  await prebuild.getByRole("button", { name: "Pause" }).click();
+  await expect(admin.getByTestId("chunithm-prebuild")).toContainText(
+    "Paused until",
+  );
   expect(await axe(admin)).toEqual([]);
+  await prebuild.getByRole("button", { name: "Resume" }).click();
+  await expect(admin.getByTestId("chunithm-prebuild")).not.toContainText(
+    "Paused",
+  );
+  await expect(prebuild.getByRole("button", { name: "Pause" })).toBeVisible();
 });
 
 test("a suggested name, once approved, finds the song", async ({

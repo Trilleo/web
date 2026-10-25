@@ -3008,6 +3008,16 @@ export const chuniSyncs = pgTable("chuni_syncs", {
   summary: jsonb("summary").$type<ChuniSyncSummary>(),
 });
 
+/**
+ * The admin's pause on building charts ahead (one row, id 1; none: running). A null
+ * `pausedUntil` means until resumed; a past one has run out.
+ */
+export const chuniPrebuild = pgTable("chuni_prebuild", {
+  id: integer("id").primaryKey(),
+  pausedAt: timestamp("paused_at", { withTimezone: true }).notNull(),
+  pausedUntil: timestamp("paused_until", { withTimezone: true }),
+});
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type UserIdentity = typeof userIdentities.$inferSelect;
