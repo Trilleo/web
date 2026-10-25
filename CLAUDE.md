@@ -132,6 +132,9 @@
   an aside takes 10–12; a label for it ("About", "Index") goes on its own line
   above it, not beside it. Reading text keeps a measure (7 columns, or a
   max-width), so it may leave the right side open.
+- Dropdowns (`select`, single choice) draw their own chevron, 12px in, in the text
+  colour (theme.css, unlayered, so it beats padding utilities; the browser's arrow
+  comes back in forced colours). Don't give a select its own arrow or right padding.
 - Tailwind v4's `col-span-*` sets the whole `grid-column`, so a wider breakpoint's
   `xl:col-span-*` drops an inherited `md:col-start-*`: repeat the start
   (`xl:col-start-3`).

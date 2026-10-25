@@ -185,6 +185,43 @@
   }
 }
 
+/* Dropdowns: the browser's own arrow sits a few pixels from the edge whatever the
+   padding, so it's replaced by a thin chevron in the text colour (two crossed
+   gradients, so it follows the theme), 12px in, with room kept for it. Unlayered so
+   it wins over each select's padding utilities. Forced colours drop gradients: the
+   browser's arrow comes back there. */
+select:not([multiple], [size]) {
+  appearance: none;
+  padding-inline-end: 2.25rem;
+  background-image:
+    linear-gradient(
+      45deg,
+      transparent calc(50% - 0.75px),
+      currentColor calc(50% - 0.75px),
+      currentColor calc(50% + 0.75px),
+      transparent calc(50% + 0.75px)
+    ),
+    linear-gradient(
+      -45deg,
+      transparent calc(50% - 0.75px),
+      currentColor calc(50% - 0.75px),
+      currentColor calc(50% + 0.75px),
+      transparent calc(50% + 0.75px)
+    );
+  background-size: 6px 6px;
+  background-position:
+    right calc(0.75rem + 5px) center,
+    right 0.75rem center;
+  background-repeat: no-repeat;
+}
+
+@media (forced-colors: active) {
+  select:not([multiple], [size]) {
+    appearance: auto;
+    background-image: none;
+  }
+}
+
 @keyframes tr-focus {
   from {
     outline-offset: 6px;
