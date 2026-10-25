@@ -6,11 +6,16 @@
  * about BUNDLE_LIMITS.targetBytes each into `outDir`, ready to upload at
  * /admin/chunithm/import/.
  *
- * A chart goes into a bundle only once its whole picture is made, so a failure
- * leaves nothing half-written. `progress.json` in `outDir` records charts bundled
+ * Up to `parallel` charts download at once (`fetchLayers`: the script and three
+ * compressed layers), starting at most one every `delayMs`; joining and encoding
+ * (`makePicture` with what was fetched) run one chart at a time, so memory and CPU
+ * stay as for one. A chart goes into a bundle only once its whole picture is made,
+ * so a failure leaves nothing half-written. `progress.json` in `outDir` records charts bundled
  * (once their bundle is finished) and charts that failed, with why, so running again
  * carries on; failed ones are tried again only with `retryFailed`. Stopping
- * (`signal`) finishes the bundle being written first.
+ * (`signal`) starts nothing new and lets the charts in progress finish; `drop` also
+ * abandons those (they're left for the next run). Either way the open bundle is
+ * finished first.
  */
 import {
   closeSync,
@@ -35,7 +40,9 @@ import {
 } from "./bundle";
 import {
   BUILD_VERSION,
+  fetchLayers,
   makePicture,
+  type Fetched,
   type PictureStep,
   type Tile,
 } from "./picture";
@@ -43,6 +50,8 @@ import { encodeWebp } from "./webp";
 import { ZipWriter } from "./zip-writer";
 
 export const PROGRESS_FILE = "progress.json";
+/** Downloads at once: the default, and the most allowed. */
+export const PARALLEL = { default: 3, max: 8 };
 
 export interface Progress {
   /** "<chart>-<variant>" → the bundle it went into. */
@@ -56,7 +65,13 @@ export interface BundleProgress {
   index: number;
   total: number;
   chart: TodoChart;
-  step: PictureStep | { stage: "waiting"; ms: number };
+  step:
+    | PictureStep
+    | { stage: "waiting"; ms: number }
+    /** Downloaded; waiting for its turn to be joined. */
+    | { stage: "queued" }
+    /** Finished: in the bundle, failed, or dropped (left for the next run). */
+    | { stage: "done"; result: "bundled" | "failed" | "dropped" };
 }
 
 export interface BundlerOptions {
@@ -71,7 +86,12 @@ export interface BundlerOptions {
   /** Charts built at most this run. */
   limit?: number;
   retryFailed?: boolean;
+  /** Downloads at once (1 to PARALLEL.max). */
+  parallel?: number;
+  /** Start no more charts; let those in progress finish. */
   signal?: AbortSignal;
+  /** Also abandon the charts in progress. */
+  drop?: AbortSignal;
   log?: (line: string) => void;
   /** Hears each step (the script's live progress line). */
   progress?: (event: BundleProgress) => void;
@@ -215,83 +235,154 @@ export async function bundleCharts(
     if (progress.bundled[key]) return false;
     return options.retryFailed === true || !progress.failed[key];
   });
-  let index = 0;
-  try {
-    for (const chart of todoCharts) {
-      if (signal?.aborted) break;
-      if (options.limit !== undefined && index >= options.limit) break;
-      if (index > 0 && delayMs > 0) {
+  const wanted = Math.min(todoCharts.length, options.limit ?? Infinity);
+  const parallel = Math.max(
+    1,
+    Math.min(PARALLEL.max, Math.floor(options.parallel ?? PARALLEL.default)),
+  );
+  const drop = options.drop;
+  const baseFetch = options.fetch ?? fetch;
+  // Downloads are cut off when the run is dropped.
+  const fetcher: typeof fetch = drop
+    ? (input, init) =>
+        baseFetch(input, {
+          ...init,
+          signal: init?.signal ? AbortSignal.any([init.signal, drop]) : drop,
+        })
+    : baseFetch;
+  const stopped = () => signal?.aborted === true || drop?.aborted === true;
+
+  let next = 0;
+  let finished = 0;
+  // Starts are spaced `delayMs` apart across every download.
+  let pace: Promise<void> = Promise.resolve();
+  let lastStart = 0;
+  const startTurn = (index: number, chart: TodoChart) => {
+    const run = pace.then(async () => {
+      const wait = lastStart + delayMs - Date.now();
+      if (lastStart > 0 && wait > 0 && !stopped()) {
         options.progress?.({
-          index: index + 1,
+          index,
           total: todoCharts.length,
           chart,
-          step: { stage: "waiting", ms: delayMs },
+          step: { stage: "waiting", ms: wait },
         });
-        await sleep(delayMs, signal);
+        await sleep(wait, signal);
       }
-      if (signal?.aborted) break;
-      index++;
+      lastStart = Date.now();
+    });
+    pace = run;
+    return run;
+  };
+  // Joining and encoding: one chart at a time.
+  let joining: Promise<unknown> = Promise.resolve();
+  const inTurn = (work: () => Promise<void>) => {
+    const run = joining.then(work);
+    joining = run.catch(() => undefined);
+    return run;
+  };
+
+  const worker = async () => {
+    for (;;) {
+      if (stopped() || next >= wanted) return;
+      const chart = todoCharts[next];
+      if (!chart) return;
+      const index = ++next;
+      const tell = (step: BundleProgress["step"]) => {
+        options.progress?.({ index, total: todoCharts.length, chart, step });
+      };
+      await startTurn(index, chart);
+      if (stopped()) {
+        tell({ stage: "done", result: "dropped" });
+        return;
+      }
       const key = keyOf(chart);
-      const label = `#${String(chart.songId)} ${chart.title} (${chart.difficulty})`;
-      const tiles: Tile[] = [];
-      try {
-        const picture = await makePicture(
-          {
-            fetch: options.fetch ?? fetch,
-            sdvxOrigin,
-            encode: encodeWebp,
-            progress:
-              options.progress &&
-              ((step) =>
-                options.progress?.({
-                  index,
-                  total: todoCharts.length,
-                  chart,
-                  step,
-                })),
-          },
-          chart.sdvxPath,
-          chart.variant,
-          (tile) => {
-            tiles.push(tile);
-            return Promise.resolve();
-          },
-        );
-        const entry: BundleChart = {
-          chartId: chart.chartId,
-          variant: chart.variant,
-          sdvxPath: chart.sdvxPath,
-          source: picture.source,
-          manifest: picture.manifest,
-          tiles: tiles.map((tile) => ({
-            file: tileFile(chart.chartId, chart.variant, tile.index),
-            height: tile.height,
-          })),
-        };
-        bundle ??= new OpenBundle(outDir, nextName(outDir, day));
-        bundle.add(entry, tiles);
-        pending.push(key);
-        progress.failed = Object.fromEntries(
-          Object.entries(progress.failed).filter(([failed]) => failed !== key),
-        );
-        result.built++;
-        log(
-          `[${String(index)}/${String(todoCharts.length)}] ${label}: ${String(tiles.length)} tiles.`,
-        );
-        if (bundle.bytes >= targetBytes) close();
-      } catch (error) {
+      const label = `[${String(index)}/${String(todoCharts.length)}] #${String(chart.songId)} ${chart.title} (${chart.difficulty})`;
+      const fail = (error: unknown) => {
+        // Dropped mid-way: not a failure; the next run does it.
+        if (drop?.aborted) {
+          tell({ stage: "done", result: "dropped" });
+          return;
+        }
+        tell({ stage: "done", result: "failed" });
+        finished++;
         const reason = error instanceof Error ? error.message : String(error);
         progress.failed[key] = reason;
         writeProgress(outDir, progress);
         result.failed.push({ chart, reason });
-        log(
-          `[${String(index)}/${String(todoCharts.length)}] ${label}: ${reason}`,
-        );
+        log(`${label}: ${reason}`);
+      };
+      const deps = {
+        fetch: fetcher,
+        sdvxOrigin,
+        encode: encodeWebp,
+        progress:
+          options.progress &&
+          ((step: PictureStep) => {
+            tell(step);
+          }),
+      };
+      let fetched: Fetched;
+      try {
+        fetched = await fetchLayers(deps, chart.sdvxPath, chart.variant);
+      } catch (error) {
+        fail(error);
+        continue;
       }
+      tell({ stage: "queued" });
+      await inTurn(async () => {
+        if (drop?.aborted) {
+          tell({ stage: "done", result: "dropped" });
+          return;
+        }
+        const tiles: Tile[] = [];
+        try {
+          const picture = await makePicture(
+            deps,
+            chart.sdvxPath,
+            chart.variant,
+            (tile) => {
+              tiles.push(tile);
+              return Promise.resolve();
+            },
+            fetched,
+          );
+          const entry: BundleChart = {
+            chartId: chart.chartId,
+            variant: chart.variant,
+            sdvxPath: chart.sdvxPath,
+            source: picture.source,
+            manifest: picture.manifest,
+            tiles: tiles.map((tile) => ({
+              file: tileFile(chart.chartId, chart.variant, tile.index),
+              height: tile.height,
+            })),
+          };
+          bundle ??= new OpenBundle(outDir, nextName(outDir, day));
+          bundle.add(entry, tiles);
+          pending.push(key);
+          progress.failed = Object.fromEntries(
+            Object.entries(progress.failed).filter(
+              ([failed]) => failed !== key,
+            ),
+          );
+          finished++;
+          result.built++;
+          tell({ stage: "done", result: "bundled" });
+          log(`${label}: ${String(tiles.length)} tiles.`);
+          if (bundle.bytes >= targetBytes) close();
+        } catch (error) {
+          fail(error);
+        }
+      });
     }
+  };
+
+  try {
+    await Promise.all(Array.from({ length: parallel }, worker));
   } finally {
     close();
   }
-  result.left = todoCharts.length - index;
+  result.left = todoCharts.length - finished;
   return result;
 }

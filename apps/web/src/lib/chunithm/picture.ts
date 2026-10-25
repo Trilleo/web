@@ -75,6 +75,7 @@ export interface PictureDeps {
 /** Where making a picture has got. */
 export type PictureStep =
   | { stage: "script" }
+  | { stage: "joining" }
   | ({ stage: "layer"; name: LayerName } & DownloadProgress)
   | { stage: "tiles"; done: number; total: number };
 
@@ -159,23 +160,83 @@ export async function downloadLayer(
   return { url, bytes, tag: layerTag(file.headers, bytes.byteLength) };
 }
 
+/** A chart's script and three layers, downloaded ahead of joining (`fetchLayers`). */
+export interface Fetched {
+  images: SdvxImages;
+  /** By full URL. */
+  layers: Map<string, Layer>;
+}
+
+/** The notes layer the variant uses. */
+function notesOf(images: SdvxImages, variant: Variant): string {
+  const notes = variant === "mirror" ? images.mirror : images.obj;
+  if (!notes)
+    throw new BuildError("sdvx.in has no mirrored notes for this chart.");
+  return notes;
+}
+
+/**
+ * Downloads a chart's script and its three layers (compressed, a few MB each), for
+ * `makePicture` to join later: the bundling script downloads several charts at once
+ * this way while joining them one at a time.
+ */
+export async function fetchLayers(
+  deps: Pick<PictureDeps, "fetch" | "sdvxOrigin" | "progress">,
+  path: string,
+  variant: Variant,
+): Promise<Fetched> {
+  deps.progress?.({ stage: "script" });
+  const images = await readImages(deps.fetch, deps.sdvxOrigin, path);
+  const layers = new Map<string, Layer>();
+  const named: [string, LayerName][] = [
+    [images.bg, "lanes"],
+    [notesOf(images, variant), "notes"],
+    [images.bar, "measure numbers"],
+  ];
+  for (const [src, name] of named) {
+    const url = new URL(src, deps.sdvxOrigin).href;
+    const progress = deps.progress;
+    layers.set(
+      url,
+      await downloadLayer(
+        deps.fetch,
+        url,
+        name,
+        progress &&
+          ((step) => {
+            progress({ stage: "layer", name, ...step });
+          }),
+      ),
+    );
+  }
+  return { images, layers };
+}
+
 /**
  * Makes the chart's picture: one layer at a time, to keep memory down (lanes, notes
- * over them, numbers on top), then each tile, bottom first, to `onTile`.
+ * over them, numbers on top), then each tile, bottom first, to `onTile`. With
+ * `fetched` (from `fetchLayers`) nothing is downloaded.
  */
 export async function makePicture(
   deps: PictureDeps,
   path: string,
   variant: Variant,
   onTile: (tile: Tile) => Promise<void>,
+  fetched?: Fetched,
 ): Promise<Picture> {
-  deps.progress?.({ stage: "script" });
-  const images = await readImages(deps.fetch, deps.sdvxOrigin, path);
-  const notes = variant === "mirror" ? images.mirror : images.obj;
-  if (!notes)
-    throw new BuildError("sdvx.in has no mirrored notes for this chart.");
+  let images: SdvxImages;
+  if (fetched) {
+    deps.progress?.({ stage: "joining" });
+    images = fetched.images;
+  } else {
+    deps.progress?.({ stage: "script" });
+    images = await readImages(deps.fetch, deps.sdvxOrigin, path);
+  }
+  const notes = notesOf(images, variant);
   const get = (src: string, name: LayerName) => {
     const url = new URL(src, deps.sdvxOrigin).href;
+    const ready = fetched?.layers.get(url);
+    if (ready) return Promise.resolve(ready);
     const progress = deps.progress;
     return deps.layer
       ? deps.layer(url, name)

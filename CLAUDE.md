@@ -1298,12 +1298,19 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   list" (/admin/chunithm/todo.json, imports.ts `chartTodo`: in-game Master charts
   with a page and no picture; failed builds count) → `pnpm --filter @trilleo/web
 chunithm:bundle <list>` (scripts/chunithm-bundle.ts around lib/chunithm/bundler.ts:
-  one chart at a time over that computer's network, store-only ZIPs from
-  zip-writer.ts of about BUNDLE_LIMITS.targetBytes, `progress.json` so a rerun carries
-  on, failures kept for `--retry-failed`, Ctrl-C finishes the open bundle; a live
-  progress line from progress.ts `ProgressLine`, fed by `download`'s `onProgress`
-  through picture.ts's `progress` steps: the layer's size, speed and resumes, redrawn
-  in place on a terminal, a plain line every 10 s otherwise) → upload
+  over that computer's network: up to `--parallel` charts (PARALLEL, default 3, at
+  most 8) download at once with `fetchLayers` (script + three compressed layers),
+  starts spaced `--delay` apart across all of them, then join and encode one at a
+  time (`makePicture` with the `Fetched` layers), so memory and CPU stay as for one;
+  store-only ZIPs from zip-writer.ts of about BUNDLE_LIMITS.targetBytes, filled in
+  the order charts finish; `progress.json` so a rerun carries on, failures kept for
+  `--retry-failed`; the first Ctrl-C starts nothing new and lets running charts
+  finish, the second (`drop`) abandons them for the next run, and the open bundle is
+  finished either way; a live block from progress.ts `ProgressBoard` (a line per
+  running chart from `ProgressLine`, fed by `download`'s `onProgress` through
+  picture.ts's `progress` steps: the layer's size, speed and resumes; and a total
+  line with done, failed, left and the speed over the last few seconds), redrawn in
+  place on a terminal, printed every 10 s otherwise) → upload
   (storage purpose `chunithm-import`: admin-only, private, zip, BUNDLE_MAX_BYTES) →
   "Import" (chuni_imports; `runImports`, one at a time per server, in the background).
   Bundles (bundle.ts) hold `bundle.json` (format, BUILD_VERSION, each chart's page,

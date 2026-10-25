@@ -1,8 +1,9 @@
 /**
- * The bundling script's live progress line (scripts/chunithm-bundle.ts draws it):
- * the chart, then what it's doing, e.g.
- * "[12/1100] #3062 コンクエスト・チャレンジ (master) · notes 6.2 / 14.8 MB · 310 KB/s".
- * Pure, so it's tested; the speed is worked out from the events' times.
+ * The bundling script's live progress block (scripts/chunithm-bundle.ts draws it):
+ * one line per chart in progress, the chart then what it's doing, e.g.
+ * "[12/1100] #3062 コンクエスト・チャレンジ (master) · notes 6.2 / 14.8 MB · 310 KB/s",
+ * and a total line ("12 done · 1 failed · 1085 left · 0.9 MB/s"). Pure, so it's
+ * tested; speeds are worked out from the events' times.
  */
 import type { BundleProgress } from "./bundler";
 
@@ -70,6 +71,12 @@ export class ProgressLine {
         return `${head} · next in ${(step.ms / 1000).toFixed(step.ms < 10_000 ? 1 : 0)} s`;
       case "script":
         return `${head} · reading its page`;
+      case "queued":
+        return `${head} · downloaded, waiting to be joined`;
+      case "joining":
+        return `${head} · joining`;
+      case "done":
+        return `${head} · ${step.result}`;
       case "tiles":
         return `${head} · tiles ${String(step.done + 1)}/${String(step.total)}`;
       case "layer": {
@@ -92,5 +99,80 @@ export class ProgressLine {
         ].join(" · ");
       }
     }
+  }
+}
+
+/** How far back the total speed looks. */
+const SPEED_WINDOW_MS = 5000;
+
+/** Every chart in progress, a line each, and a total line under them. */
+export class ProgressBoard {
+  private readonly slots = new Map<
+    number,
+    { line: ProgressLine; text: string }
+  >();
+  private readonly received = new Map<number, number>();
+  private samples: { at: number; bytes: number }[] = [];
+  private firstAt: number | null = null;
+  private done = 0;
+  private failed = 0;
+  private total = 0;
+
+  update(event: BundleProgress, now: number): void {
+    this.total = event.total;
+    const { step } = event;
+    if (step.stage === "done") {
+      this.slots.delete(event.index);
+      this.received.delete(event.index);
+      // A dropped chart is still left, for the next run.
+      if (step.result === "bundled") this.done++;
+      else if (step.result === "failed") this.failed++;
+      return;
+    }
+    if (step.stage === "layer") {
+      const last = this.received.get(event.index) ?? 0;
+      // Bytes since the last event; a download that started over counts afresh.
+      const bytes =
+        step.received >= last ? step.received - last : step.received;
+      this.received.set(event.index, step.received);
+      this.firstAt ??= now;
+      this.samples.push({ at: now, bytes });
+    } else if (step.stage !== "waiting") this.received.delete(event.index);
+    const slot = this.slots.get(event.index) ?? {
+      line: new ProgressLine(),
+      text: "",
+    };
+    slot.text = slot.line.text(event, now);
+    this.slots.set(event.index, slot);
+  }
+
+  /** Bytes a second over the last few seconds, all downloads together. */
+  speed(now: number): number | null {
+    this.samples = this.samples.filter(
+      (sample) => now - sample.at <= SPEED_WINDOW_MS,
+    );
+    if (this.firstAt === null || now - this.firstAt < 1000) return null;
+    const span = Math.min(SPEED_WINDOW_MS, now - this.firstAt) / 1000;
+    return this.samples.reduce((sum, sample) => sum + sample.bytes, 0) / span;
+  }
+
+  totalLine(now: number): string {
+    const speed = this.speed(now);
+    return [
+      `${String(this.done)} done`,
+      ...(this.failed > 0 ? [`${String(this.failed)} failed`] : []),
+      `${String(Math.max(0, this.total - this.done - this.failed))} left`,
+      ...(speed === null ? [] : [rate(speed)]),
+    ].join(" · ");
+  }
+
+  /** The block: the charts in progress (in the order they started), then the total. */
+  lines(now: number): string[] {
+    return [
+      ...[...this.slots.entries()]
+        .sort(([a], [b]) => a - b)
+        .map(([, slot]) => slot.text),
+      this.totalLine(now),
+    ];
   }
 }

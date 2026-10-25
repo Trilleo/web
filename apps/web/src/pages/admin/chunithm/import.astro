@@ -145,8 +145,8 @@ const body =
             <code class="font-mono text-sm">
               pnpm --filter @trilleo/web chunithm:bundle chunithm-todo-….json
             </code>
-            . It builds them one at a time and writes bundles of about{" "}
-            {BUNDLE_LIMITS.targetBytes / 1024 / 1024} MB; running it again
+            . It downloads a few at once, builds them, and writes bundles of
+            about {BUNDLE_LIMITS.targetBytes / 1024 / 1024} MB; running it again
             carries on.
           </li>
           <li>Upload the bundles below and import them.</li>
