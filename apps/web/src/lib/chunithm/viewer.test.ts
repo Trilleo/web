@@ -2,6 +2,7 @@ import {
   chuniBuilds,
   chuniCharts,
   chuniConstants,
+  chuniSdvxEntries,
   chuniSongs,
   chuniSyncs,
   chuniVersions,
@@ -133,6 +134,29 @@ describe("a chart's page", () => {
     expect(page?.versionName).toBe("Mate");
     expect(await chartPage(handle.db, storage, 3062, "ultima")).toBeNull();
     expect(await chartPage(handle.db, storage, 1, "master")).toBeNull();
+  });
+
+  it("links the original jacket on sdvx.in itself", async () => {
+    // Its script names no jacket: the song folder's jacket/ is where sdvx.in keeps it.
+    expect(
+      (await chartPage(handle.db, storage, 3062, "master"))?.jacketOriginal,
+    ).toBe("https://sdvx.in/chunithm/11/jacket/11061.png");
+    // One the script names is used as it is.
+    await handle.db.insert(chuniSdvxEntries).values({
+      script: "11/11061sort",
+      entryId: "11061",
+      kind: "song",
+      details: {
+        title: "コンクエスト・チャレンジ",
+        artist: "",
+        bpm: null,
+        jacket: "/chunithm/11/jacket/11061_b.png",
+        charts: [],
+      },
+    });
+    expect(
+      (await chartPage(handle.db, storage, 3062, "basic"))?.jacketOriginal,
+    ).toBe("https://sdvx.in/chunithm/11/jacket/11061_b.png");
   });
 
   it("shows what's built without starting a build", async () => {

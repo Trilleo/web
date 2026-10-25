@@ -12,6 +12,7 @@ import {
   parseOtogeMusic,
   parseSdvxList,
   parseSdvxScript,
+  sdvxJacketSources,
   parseSegaMusic,
   sdvxLogoSlug,
   sdvxJacket,
@@ -363,6 +364,21 @@ describe("sdvx.in", () => {
         c.worldsEndStars,
       ]),
     ).toEqual([[null, 2]]);
+  });
+
+  it("lists where a song's jacket may be, its own pages first", () => {
+    expect(
+      sdvxJacketSources(
+        ["ult/00001ult", "01/00001mst", "01/00001exp", "end/00001end"],
+        new Map([
+          ["ult/00001ult", { jacket: "/chunithm/01/jacket/00001-alt.png" }],
+        ]),
+      ),
+    ).toEqual([
+      "/chunithm/01/jacket/00001.png",
+      "/chunithm/01/jacket/00001-alt.png",
+    ]);
+    expect(sdvxJacketSources([], new Map())).toEqual([]);
   });
 
   it("finds the script behind a chart page", () => {

@@ -82,6 +82,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "legal",
     changes: [
       {
+        date: "2026-10-25",
+        note: "CHUNITHM charts: the “Original jacket” link takes your browser to sdvx.in itself.",
+      },
+      {
         date: "2026-10-24",
         note: "CHUNITHM charts: names you suggest for songs, how long they're kept, and what stays when you delete your account.",
       },

@@ -83,6 +83,13 @@ test("someone finds a chart by romaji, opens its picture and keeps it", async ({
     "src",
     /\/chunithm\/jackets\/3062-/,
   );
+  // The original goes straight to sdvx.in, never through this site.
+  const original = page.getByTestId("chart-jacket-original");
+  await expect(original).toHaveAttribute(
+    "href",
+    "https://sdvx.in/chunithm/11/jacket/11061.png",
+  );
+  await expect(original).toHaveAttribute("target", "_blank");
   await expect(page.getByTestId("chart-picture")).toBeVisible();
   expect(await axe(page)).toEqual([]);
 

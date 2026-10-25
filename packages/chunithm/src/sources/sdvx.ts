@@ -313,3 +313,32 @@ export function sdvxJacket(
     ? `/chunithm/${match[1] ?? ""}/jacket/${match[2] ?? ""}.png`
     : null;
 }
+
+/**
+ * Every place sdvx.in may keep a song's jacket (site paths), from its chart pages
+ * and their scripts' details: its own pages first, then Ultima and World's End.
+ */
+export function sdvxJacketSources(
+  paths: string[],
+  detailsOf: ReadonlyMap<string, { jacket?: string | null } | null>,
+): string[] {
+  return [
+    ...new Set(
+      [...paths]
+        .sort((a, b) => pageOrder(a) - pageOrder(b))
+        .flatMap((path) => {
+          const script = sdvxScriptOf(path);
+          const src = script
+            ? sdvxJacket(detailsOf.get(script) ?? null, script)
+            : null;
+          return src ? [src] : [];
+        }),
+    ),
+  ];
+}
+
+/** Songs' own chart pages ("11/…") before their Ultima and World's End ones. */
+function pageOrder(path: string): number {
+  const dir = sdvxPathInfo(path)?.dir ?? "";
+  return /^\d{2}$/.test(dir) ? 0 : 1;
+}

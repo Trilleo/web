@@ -10,8 +10,7 @@
  * the songs they show (`wantJackets`, from POST /api/chunithm/jackets).
  */
 import {
-  sdvxJacket,
-  sdvxPathInfo,
+  sdvxJacketSources,
   sdvxScriptOf,
   type RgbaImage,
 } from "@trilleo/chunithm";
@@ -77,12 +76,6 @@ export async function jacketsDue(db: Database, now: Date): Promise<number> {
     .innerJoin(chuniCharts, eq(chuniCharts.songId, chuniSongs.id))
     .where(due(now));
   return row?.n ?? 0;
-}
-
-/** Songs' own chart pages ("11/…") before their Ultima and World's End ones. */
-function pageOrder(path: string): number {
-  const dir = sdvxPathInfo(path)?.dir ?? "";
-  return /^\d{2}$/.test(dir) ? 0 : 1;
 }
 
 /**
@@ -154,20 +147,7 @@ export async function copyJackets(
   let copied = 0;
   for (const [id, song] of wanted) {
     if (options.deadline !== undefined && Date.now() > options.deadline) break;
-    // Every place sdvx.in may keep this song's jacket, its own pages first.
-    const sources = [
-      ...new Set(
-        [...song.paths]
-          .sort((a, b) => pageOrder(a) - pageOrder(b))
-          .flatMap((path) => {
-            const script = sdvxScriptOf(path);
-            const src = script
-              ? sdvxJacket(detailsOf.get(script) ?? null, script)
-              : null;
-            return src ? [src] : [];
-          }),
-      ),
-    ];
+    const sources = sdvxJacketSources(song.paths, detailsOf);
     let key: string | null = null;
     for (const src of sources) {
       key = await copyOne(storage, fetcher, options.sdvxOrigin, id, src);

@@ -1272,7 +1272,8 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   constant, genre, version, in the game or removed). ?q= keeps the search.
 - A chart's page, /tools/chunithm/<SEGA id>/<difficulty>/ (server-rendered, noindex,
   the tool's share card): an info box (the jacket at its own 300px, never enlarged,
-  or "No jacket yet"; facts: constant per version, notes, full combo, designer,
+  or "No jacket yet", and an "Original jacket" link straight to sdvx.in's full-size
+  file, `sdvxJacketSources`, which visitors' browsers fetch themselves; facts: constant per version, notes, full combo, designer,
   versions), other difficulties, a credit linking the sdvx.in page, and `ChartViewer`.
   The page only reads the build (`peekBuild`, so crawlers start none); the viewer asks
   the picture route (starting the build) and asks again every POLL_MS. Layouts: strip

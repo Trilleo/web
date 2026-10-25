@@ -3,11 +3,17 @@
  * (/api/chunithm/index.json), and one chart's page. Withdrawn charts are listed but
  * not viewable; songs without charts aren't listed.
  */
-import type { Difficulty, SongIndex } from "@trilleo/chunithm";
+import {
+  sdvxJacketSources,
+  sdvxScriptOf,
+  type Difficulty,
+  type SongIndex,
+} from "@trilleo/chunithm";
 import {
   chuniBuilds,
   chuniCharts,
   chuniConstants,
+  chuniSdvxEntries,
   chuniSongs,
   chuniSyncs,
   chuniVersions,
@@ -17,9 +23,10 @@ import {
 } from "@trilleo/db";
 import type { StorageDriver } from "@trilleo/storage/server";
 import { createHash } from "node:crypto";
-import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { aliasesBySong } from "./aliases";
 import { publicManifest, type BuildState, type Variant } from "./build";
+import { SDVX_ORIGIN } from "./sources";
 
 /** How long a built index is reused before it's read again. */
 const INDEX_TTL_MS = 5 * 60 * 1000;
@@ -129,6 +136,11 @@ export interface ChartPage {
   versionName: string | null;
   removedInName: string | null;
   jacket: string | null;
+  /**
+   * The original jacket on sdvx.in (its full size, often bigger than our copy), for
+   * the page's "Original" link: visitors fetch it from sdvx.in, not from us.
+   */
+  jacketOriginal: string | null;
 }
 
 export async function chartPage(
@@ -165,6 +177,24 @@ export async function chartPage(
   )
     .map((row) => ({ ...row, name: nameOf(row.version) ?? row.version }))
     .sort((a, b) => order(b.version) - order(a.version));
+  const paths = charts.flatMap((row) => (row.sdvxPath ? [row.sdvxPath] : []));
+  const scripts = [
+    ...new Set(paths.flatMap((path) => sdvxScriptOf(path) ?? [])),
+  ];
+  const entries =
+    scripts.length > 0
+      ? await db
+          .select({
+            script: chuniSdvxEntries.script,
+            details: chuniSdvxEntries.details,
+          })
+          .from(chuniSdvxEntries)
+          .where(inArray(chuniSdvxEntries.script, scripts))
+      : [];
+  const [original] = sdvxJacketSources(
+    paths,
+    new Map(entries.map((row) => [row.script, row.details])),
+  );
   return {
     song,
     chart,
@@ -174,6 +204,8 @@ export async function chartPage(
     removedInName: nameOf(song.removedIn),
     jacket:
       song.jacketKey && storage ? storage.publicUrl(song.jacketKey) : null,
+    // The real sdvx.in, whatever CHUNITHM_SDVX_URL fetches through.
+    jacketOriginal: original ? new URL(original, SDVX_ORIGIN).href : null,
   };
 }
 

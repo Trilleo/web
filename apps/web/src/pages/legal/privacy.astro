@@ -441,7 +441,9 @@ const ticketHours = TICKET_LIMITS.maxAgeMs / 3_600_000;
       build its picture from sdvx.in. To limit how many one visitor can start
       {`(${String(BUILD_LIMITS.perVisitorHourly)} an hour)`}, a hash of your IP
       address is held in memory for an hour. sdvx.in sees this server asking,
-      not you.
+      not you, except when you follow a chart page’s “Original jacket” link:
+      that opens the full-size picture on sdvx.in itself, so your browser asks
+      sdvx.in for it directly.
     </li>
   </ul>
 
