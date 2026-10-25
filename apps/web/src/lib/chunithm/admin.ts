@@ -53,6 +53,8 @@ export interface CatalogOverview {
   /** Songs whose jacket is in storage, and songs with a page on sdvx.in still without one. */
   jackets: number;
   jacketsMissing: number;
+  /** Of those, songs whose last try failed (they wait a day, or "Copy jackets now"). */
+  jacketsFailed: number;
   versions: {
     slug: string;
     name: string;
@@ -95,6 +97,17 @@ export async function catalogOverview(db: Database): Promise<CatalogOverview> {
     .from(chuniSongs)
     .innerJoin(chuniCharts, eq(chuniCharts.songId, chuniSongs.id))
     .where(and(isNull(chuniSongs.jacketKey), isNotNull(chuniCharts.sdvxPath)));
+  const [jacketsFailed] = await db
+    .select({ n: sql<number>`count(distinct ${chuniSongs.id})::int` })
+    .from(chuniSongs)
+    .innerJoin(chuniCharts, eq(chuniCharts.songId, chuniSongs.id))
+    .where(
+      and(
+        isNull(chuniSongs.jacketKey),
+        isNotNull(chuniCharts.sdvxPath),
+        isNotNull(chuniSongs.jacketCheckedAt),
+      ),
+    );
   const versions = await db
     .select({
       slug: chuniVersions.slug,
@@ -126,6 +139,7 @@ export async function catalogOverview(db: Database): Promise<CatalogOverview> {
     scriptErrors: scripts?.errors ?? 0,
     jackets: jackets?.n ?? 0,
     jacketsMissing: jacketsMissing?.n ?? 0,
+    jacketsFailed: jacketsFailed?.n ?? 0,
     versions,
     currentVersion: versions[0]?.slug ?? null,
     syncs,

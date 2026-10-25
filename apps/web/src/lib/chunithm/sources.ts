@@ -160,11 +160,11 @@ export const LAYER_DOWNLOAD: Omit<DownloadLimits, "maxBytes"> = {
   tries: 6,
 };
 
-/** Jackets: a few hundred KB. */
+/** Jackets: 200 KB to 2.5 MB. */
 export const JACKET_DOWNLOAD: Omit<DownloadLimits, "maxBytes"> = {
-  stallMs: 15_000,
-  totalMs: 2 * 60_000,
-  tries: 4,
+  stallMs: 20_000,
+  totalMs: 4 * 60_000,
+  tries: 5,
 };
 
 export interface Downloaded {

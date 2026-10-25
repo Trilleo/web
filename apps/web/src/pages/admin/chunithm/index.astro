@@ -150,7 +150,7 @@ if (Astro.request.method === "POST") {
 
 const DONE: Record<string, string> = {
   syncing: "Checking for updates now. Reload in a minute to see what it found.",
-  jackets: `Copying up to ${String(JACKETS_PER_PASS)} jackets now (half a second apart). Reload in a minute.`,
+  jackets: `Copying up to ${String(JACKETS_PER_PASS)} jackets now, the ones that failed included (half a second apart; big ones take a while from here). Reload in a few minutes.`,
   "jackets-busy": "Jackets are being copied already.",
   busy: "An update is already running.",
   linked: "Page linked. Later updates keep it.",
@@ -279,6 +279,8 @@ const td = "border-b border-hair py-2 pr-4 align-top";
               <span class="text-muted">
                 {" "}
                 · {overview.jacketsMissing} missing
+                {overview.jacketsFailed > 0 &&
+                  ` (${String(overview.jacketsFailed)} failed: tried again a day later, or now with “Copy jackets now”)`}
               </span>
             </dd>
           </div>

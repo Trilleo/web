@@ -10,7 +10,11 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   JACKET_RETRY_DAYS,
+  JACKET_SIDE,
   copyJackets,
+  shrinkTo,
+  startJacketBatch,
+  jacketBatchRunning,
   jacketsDue,
   listJacketsIdle,
   wantJackets,
@@ -157,5 +161,63 @@ describe("copying jackets", () => {
     // Song 1 wasn't asked for, and song 3 has no page.
     expect(await jacketOf(1)).toBeNull();
     expect(await jacketOf(3)).toBeNull();
+  });
+
+  it("keeps a big jacket at 300px", async () => {
+    // Newer jackets on sdvx.in are up to 1000px (and 2.5 MB).
+    served.set(
+      `${ORIGIN}/chunithm/02/jacket/00002.png`,
+      encodePng({
+        width: 1000,
+        height: 1000,
+        data: new Uint8Array(1000 * 1000 * 4).fill(200),
+      }),
+    );
+    expect(await copy()).toBe(1);
+    const key = (await jacketOf(2)) ?? "";
+    expect(await storage.head(key)).toMatchObject({
+      contentType: "image/webp",
+    });
+  });
+
+  it("retries the ones that failed lately when the admin asks", async () => {
+    expect(await copy()).toBe(0);
+    served.set(`${ORIGIN}/chunithm/02/jacket/00002.png`, png());
+    // A pass the same day skips it; the admin's batch doesn't.
+    expect(await copy()).toBe(0);
+    expect(
+      startJacketBatch({
+        db: handle.db,
+        storage,
+        sdvxOrigin: ORIGIN,
+        fetch: fakeFetch,
+      }),
+    ).toBe(true);
+    while (jacketBatchRunning()) await new Promise((r) => setTimeout(r, 20));
+    expect(await jacketOf(2)).not.toBeNull();
+  });
+});
+
+describe("shrinking a jacket", () => {
+  it("averages blocks down to the side, and never enlarges", () => {
+    const half = new Uint8Array(4 * 2 * 4);
+    // Left column black, right column white, all opaque.
+    for (let i = 0; i < 8; i++) {
+      const white = i % 2 === 1 ? 255 : 0;
+      half.set([white, white, white, 255], i * 4);
+    }
+    const image = { width: 2, height: 4, data: half };
+    expect(shrinkTo(image, 4)).toBe(image);
+    const small = shrinkTo(
+      { width: 600, height: 600, data: new Uint8Array(600 * 600 * 4).fill(90) },
+      JACKET_SIDE,
+    );
+    expect([small.width, small.height]).toEqual([300, 300]);
+    expect([...small.data.subarray(0, 4)]).toEqual([90, 90, 90, 90]);
+    const grey = shrinkTo(
+      { width: 2, height: 2, data: half.subarray(0, 16) },
+      1,
+    );
+    expect([...grey.data]).toEqual([128, 128, 128, 255]);
   });
 });

@@ -1198,7 +1198,8 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   stays unread for the next pass (a 404 counts as read), and one that failed is read
   again after SDVX_PASS.retryFailedDays (the admin page lists them, with "Read again").
   Unfinished rows show as "Interrupted" once no pass is running. Each pass then copies
-  JACKETS_PER_PASS jackets (JACKETS_WHILE_READING while scripts are unread) (jackets.ts: sdvx.in's 300px PNGs as WebP under
+  JACKETS_PER_PASS jackets (JACKETS_WHILE_READING while scripts are unread) (jackets.ts: sdvx.in's PNGs, 300px or, for newer songs, up to
+  1000px and 2.5 MB, shrunk to JACKET_SIDE and kept as WebP under
   `chunithm/jackets/` in storage, newest songs first, a song's own chart pages tried
   before its Ultima and World's End ones; failures are tried again after
   JACKET_RETRY_DAYS), and passes keep the BACKLOG_GAP_MS pace while any song is due
@@ -1210,8 +1211,9 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   image server can't be reached from the server, so pages only ever show our copies. Each pass is logged in chuni_syncs (the last 50). Alerts
   ("chunithm-update"): new songs, new versions, pages sdvx.in added since the first
   fill that couldn't be placed (`newPagePaths`), and four failed passes in a row.
-- /admin/chunithm/: counts (jackets copied and missing, with "Copy jackets now": one
-  batch in the background), recent passes, suggested names waiting (a link to
+- /admin/chunithm/: counts (jackets copied, missing and failed lately, with "Copy
+  jackets now": one batch in the background, retrying recent failures too; each failed
+  copy is logged with its reason), recent passes, suggested names waiting (a link to
   /admin/chunithm/aliases/), charts without a page (link one by its
   path), pages to place (link to a SEGA ID or ignore), placements by hand, withdrawn
   charts (hidden and never built; updates leave them), and versions with their

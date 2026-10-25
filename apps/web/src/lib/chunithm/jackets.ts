@@ -9,7 +9,12 @@
  * tried again after JACKET_RETRY_DAYS. The tool's lists ask for the missing jackets of
  * the songs they show (`wantJackets`, from POST /api/chunithm/jackets).
  */
-import { sdvxJacket, sdvxPathInfo, sdvxScriptOf } from "@trilleo/chunithm";
+import {
+  sdvxJacket,
+  sdvxPathInfo,
+  sdvxScriptOf,
+  type RgbaImage,
+} from "@trilleo/chunithm";
 import {
   chuniCharts,
   chuniSdvxEntries,
@@ -38,21 +43,29 @@ import { encodeWebp } from "./webp";
 
 export const JACKETS_PER_PASS = 100;
 export const JACKET_RETRY_DAYS = 1;
-const JACKET_MAX_BYTES = 2 * 1024 * 1024;
+/** Newer jackets on sdvx.in are up to 1000px and 2.5 MB. */
+const JACKET_MAX_BYTES = 8 * 1024 * 1024;
+/** Jackets are kept at most this wide: pages show them at 300px. */
+export const JACKET_SIDE = 300;
 export const JACKET_PREFIX = "chunithm/jackets/";
 
-/** Songs that lack a jacket, have a page on sdvx.in, and are due a try. */
-function due(now: Date): SQL | undefined {
+/**
+ * Songs that lack a jacket, have a page on sdvx.in, and are due a try (one that
+ * failed waits JACKET_RETRY_DAYS, unless `retryFailed`: the admin asked).
+ */
+function due(now: Date, retryFailed = false): SQL | undefined {
   const retryBefore = new Date(
     now.getTime() - JACKET_RETRY_DAYS * 24 * 3600 * 1000,
   );
   return and(
     isNull(chuniSongs.jacketKey),
     isNotNull(chuniCharts.sdvxPath),
-    or(
-      isNull(chuniSongs.jacketCheckedAt),
-      lt(chuniSongs.jacketCheckedAt, retryBefore),
-    ),
+    retryFailed
+      ? undefined
+      : or(
+          isNull(chuniSongs.jacketCheckedAt),
+          lt(chuniSongs.jacketCheckedAt, retryBefore),
+        ),
   );
 }
 
@@ -85,6 +98,8 @@ export async function copyJackets(
     now: Date;
     limit?: number;
     songIds?: number[];
+    /** Try songs that failed lately too, without waiting JACKET_RETRY_DAYS. */
+    retryFailed?: boolean;
     /** Stop starting new copies after this time (epoch ms): the pass's limit. */
     deadline?: number;
     sleep?: (ms: number) => Promise<void>;
@@ -103,7 +118,7 @@ export async function copyJackets(
     .innerJoin(chuniCharts, eq(chuniCharts.songId, chuniSongs.id))
     .where(
       and(
-        due(options.now),
+        due(options.now, options.retryFailed),
         options.songIds ? inArray(chuniSongs.id, options.songIds) : undefined,
       ),
     )
@@ -188,9 +203,15 @@ async function copyOne(
         maxBytes: JACKET_MAX_BYTES,
       },
     );
-    if (file.status !== 200 || !isPng(file.bytes)) return null;
-    const bytes = file.bytes;
-    const webp = await encodeWebp(await decodePng(bytes));
+    if (file.status !== 200 || !isPng(file.bytes)) {
+      console.warn(
+        `CHUNITHM jacket ${src} for song ${String(songId)}: HTTP ${String(file.status)}${file.status === 200 ? ", not a PNG" : ""}`,
+      );
+      return null;
+    }
+    const webp = await encodeWebp(
+      shrinkTo(await decodePng(file.bytes), JACKET_SIDE),
+    );
     const key = `${JACKET_PREFIX}${String(songId)}-${randomBytes(4).toString("hex")}.webp`;
     await storage.put(key, webp, {
       contentType: "image/webp",
@@ -199,10 +220,58 @@ async function copyOne(
     });
     await storage.setPublic(key, true);
     return key;
-  } catch {
-    // Not there, or not a PNG we can read: tried again later.
+  } catch (error) {
+    // Not there, too slow, or not a PNG we can read: tried again later.
+    console.warn(
+      `CHUNITHM jacket ${src} for song ${String(songId)}:`,
+      error instanceof Error ? error.message : error,
+    );
     return null;
   }
+}
+
+/**
+ * An image at most `side` pixels wide and high: each new pixel the average of the
+ * block of old ones it covers. Smaller ones are left alone (never enlarged).
+ */
+export function shrinkTo(image: RgbaImage, side: number): RgbaImage {
+  const { width, height, data } = image;
+  if (width <= side && height <= side) return image;
+  const scale = Math.max(width, height) / side;
+  const w = Math.max(1, Math.round(width / scale));
+  const h = Math.max(1, Math.round(height / scale));
+  const out = new Uint8Array(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    const y0 = Math.floor((y * height) / h);
+    const y1 = Math.max(y0 + 1, Math.floor(((y + 1) * height) / h));
+    for (let x = 0; x < w; x++) {
+      const x0 = Math.floor((x * width) / w);
+      const x1 = Math.max(x0 + 1, Math.floor(((x + 1) * width) / w));
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let a = 0;
+      for (let sy = y0; sy < y1; sy++)
+        for (let sx = x0; sx < x1; sx++) {
+          const i = (sy * width + sx) * 4;
+          // Weighted by alpha, so clear pixels don't darken the edges.
+          const alpha = data[i + 3] ?? 0;
+          r += (data[i] ?? 0) * alpha;
+          g += (data[i + 1] ?? 0) * alpha;
+          b += (data[i + 2] ?? 0) * alpha;
+          a += alpha;
+        }
+      const o = (y * w + x) * 4;
+      const n = (y1 - y0) * (x1 - x0);
+      if (a > 0) {
+        out[o] = Math.round(r / a);
+        out[o + 1] = Math.round(g / a);
+        out[o + 2] = Math.round(b / a);
+      }
+      out[o + 3] = Math.round(a / n);
+    }
+  }
+  return { width: w, height: h, data: out };
 }
 
 const copying = new Set<number>();
@@ -251,11 +320,15 @@ export function startJacketBatch(deps: {
   db: Database;
   storage: StorageDriver;
   sdvxOrigin: string;
+  fetch?: typeof fetch;
 }): boolean {
   if (batch) return false;
   batch = copyJackets(deps.db, deps.storage, {
+    ...(deps.fetch ? { fetch: deps.fetch } : {}),
     sdvxOrigin: deps.sdvxOrigin,
     now: new Date(),
+    // Asked for by hand: the ones that failed lately too.
+    retryFailed: true,
   })
     .catch((error: unknown) => {
       console.warn("CHUNITHM jackets failed:", error);
