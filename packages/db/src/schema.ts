@@ -2739,11 +2739,18 @@ export const chuniCharts = pgTable(
     constant: integer("constant"),
     notes: integer("notes"),
     designer: text("designer"),
-    /** sdvx.in's CHAIN (full combo count). */
-    chain: integer("chain"),
-    /** The chart's sdvx.in page, "11/11061mst" (@trilleo/chunithm's sdvx.ts). */
-    sdvxPath: text("sdvx_path"),
+    /** sdvx.in's notes by kind (tap, hold, slide, air, flick). */
+    noteTypes: jsonb("note_types").$type<ChuniNoteTypes>(),
+    /** The chart in sdvx.in's viewer, "11061/mst" or "008/we" (@trilleo/chunithm's sdvx.ts). */
+    sdvxRef: text("sdvx_ref"),
     linkedBy: chuniLinkSource("linked_by"),
+    /**
+     * Only for the previous release: sdvx.in's old CHAIN count and the chart's page on
+     * its older site ("11/11061mst"), neither written any more. Drop both in a later
+     * release.
+     */
+    chain: integer("chain"),
+    sdvxPath: text("sdvx_path"),
     /** Taken down by the admin (sdvx.in asked, say): not shown, not built. */
     withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }),
     withdrawnReason: text("withdrawn_reason"),
@@ -2760,6 +2767,7 @@ export const chuniCharts = pgTable(
       table.difficulty,
     ),
     uniqueIndex("chuni_charts_sdvx_path_idx").on(table.sdvxPath),
+    uniqueIndex("chuni_charts_sdvx_ref_idx").on(table.sdvxRef),
     index("chuni_charts_constant_idx").on(table.constant),
   ],
 );
@@ -2782,7 +2790,95 @@ export const chuniConstants = pgTable(
   (table) => [primaryKey({ columns: [table.chartId, table.version] })],
 );
 
-/** What an sdvx.in entry's script says (@trilleo/chunithm's SdvxEntryDetails). */
+/** A chart's notes by kind, as sdvx.in counts them (@trilleo/chunithm's SdvxNoteTypes). */
+export interface ChuniNoteTypes {
+  tap: number | null;
+  hold: number | null;
+  slide: number | null;
+  air: number | null;
+  flick: number | null;
+}
+
+/** One of sdvx.in's charts, as its list gives it (@trilleo/chunithm's SdvxChart). */
+export interface ChuniSdvxChart {
+  difficulty: string;
+  ref: string;
+  level: string | null;
+  worldsEndStars: number | null;
+  designer: string | null;
+  noteTypes: ChuniNoteTypes | null;
+}
+
+/**
+ * A song on sdvx.in's lists (/chunithm/_/json/songs<NN>.json and the others), keyed
+ * "11061", or "we/008" for World's End. Rows that drop off a list stay, for their
+ * charts.
+ */
+export const chuniSdvxSongs = pgTable("chuni_sdvx_songs", {
+  key: text("key").primaryKey(),
+  list: text("list").notNull(),
+  title: text("title").notNull(),
+  artist: text("artist").notNull().default(""),
+  genre: text("genre").notNull().default(""),
+  bpm: text("bpm"),
+  /** The charts sdvx.in has drawn. */
+  charts: jsonb("charts").$type<ChuniSdvxChart[]>().notNull(),
+  /** On a removed list. */
+  removed: boolean("removed").notNull().default(false),
+  removedOn: date("removed_on", { mode: "string" }),
+  removedIn: text("removed_in"),
+  firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  /** Last seen on its list. */
+  listedAt: timestamp("listed_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
+ * The admin's word on one of sdvx.in's charts (by ref): it's this chart of ours (song
+ * + difficulty), or nothing of ours (both null). Beats every other way of linking.
+ * `fromPath` is the older page it was moved from (chuni_sdvx_overrides), if any.
+ */
+export const chuniSdvxPlacements = pgTable("chuni_sdvx_placements", {
+  ref: text("ref").primaryKey(),
+  songId: integer("song_id").references(() => chuniSongs.id, {
+    onDelete: "cascade",
+  }),
+  difficulty: chuniDifficulty("difficulty"),
+  fromPath: text("from_path"),
+  createdAt: createdAt(),
+});
+
+/** What moving to sdvx.in's new viewer did (once; lib/chunithm/move.ts). */
+export interface ChuniMoveSummary {
+  /** Ready pictures kept, now pointing at the new layers. */
+  kept: number;
+  /** Pictures queued to be built again (made from layers that may not match). */
+  rebuilt: number;
+  /** Failed builds cleared, so they're tried with the new layers. */
+  retried: number;
+  /** Ready pictures whose chart has no ref yet (moved on a later pass). */
+  waiting: number;
+  placements: number;
+  /** The admin's placements that couldn't be moved, and why. */
+  unmoved: { path: string; reason: string }[];
+  jackets: number;
+  layers: number;
+}
+
+/** The one-time move to sdvx.in's new viewer (one row, id 1, once done). */
+export const chuniSdvxMove = pgTable("chuni_sdvx_move", {
+  id: integer("id").primaryKey(),
+  movedAt: timestamp("moved_at", { withTimezone: true }).notNull(),
+  summary: jsonb("summary").$type<ChuniMoveSummary>().notNull(),
+});
+
+/**
+ * What an sdvx.in entry's script said on its older site. Only for the previous
+ * release and the move: drop with chuni_sdvx_entries in a later release.
+ */
 export interface ChuniSdvxDetails {
   title: string;
   artist: string;
@@ -2800,8 +2896,9 @@ export interface ChuniSdvxDetails {
 }
 
 /**
- * An entry on sdvx.in's lists: one script ("11/11061sort", "end/01066end2"), read
- * a few at a time (`readAt`), new ones first, then the longest unread.
+ * An entry on sdvx.in's older lists: one script ("11/11061sort", "end/01066end2").
+ * No longer written; kept for the previous release and read once by the move. Drop in
+ * a later release.
  */
 export const chuniSdvxEntries = pgTable(
   "chuni_sdvx_entries",
@@ -2828,8 +2925,8 @@ export const chuniSdvxEntries = pgTable(
 );
 
 /**
- * The admin's word on an sdvx.in page: it's this chart (song + difficulty), or it's
- * nothing of ours (both null). Beats every other way of linking.
+ * The admin's word on a page of sdvx.in's older site. Moved to chuni_sdvx_placements;
+ * kept for the previous release. Drop in a later release.
  */
 export const chuniSdvxOverrides = pgTable("chuni_sdvx_overrides", {
   path: text("path").primaryKey(),
@@ -2849,11 +2946,17 @@ export const chuniBuildStatus = pgEnum("chuni_build_status", [
 
 /** Where a built chart came from: sdvx.in's three layers and what they were. */
 export interface ChuniBuildSource {
+  /** The chart's ref ("11061/mst"); absent in pictures built from the older site. */
+  ref?: string;
+  /** The older site's page; "" in pictures built since (the previous release reads it). */
   path: string;
   bg: string;
   obj: string;
   bar: string;
-  /** Each layer's ETag or Last-Modified and size, to notice sdvx.in redrawing it. */
+  /**
+   * Each layer's ETag or Last-Modified and size, to notice sdvx.in redrawing it; ""
+   * until first compared (pictures moved from the older site's layers).
+   */
   tags: Record<"bg" | "obj" | "bar", string>;
 }
 
@@ -3050,14 +3153,19 @@ export interface ChuniSyncSummary {
   removedSongs: number[];
   newVersions: string[];
   constants: number;
-  scriptsRead: number;
-  scriptsLeft: number;
+  /** sdvx.in's lists read (absent before the new viewer). */
+  sdvxLists?: number;
+  /** Only in passes from before the new viewer. */
+  scriptsRead?: number;
+  scriptsLeft?: number;
   /** Jackets copied into storage (absent before jackets were kept). */
   jackets?: number;
   /** Songs still due a jacket after the pass (absent before it was counted). */
   jacketsLeft?: number;
   unmatched: {
-    path: string;
+    /** The chart's ref; passes from before the new viewer had `path` instead. */
+    ref?: string;
+    path?: string;
     title: string;
     artist: string;
     difficulty: string;
@@ -3179,6 +3287,8 @@ export type ChuniSong = typeof chuniSongs.$inferSelect;
 export type ChuniChart = typeof chuniCharts.$inferSelect;
 export type ChuniDifficulty = (typeof chuniDifficulty.enumValues)[number];
 export type ChuniSdvxEntry = typeof chuniSdvxEntries.$inferSelect;
+export type ChuniSdvxSong = typeof chuniSdvxSongs.$inferSelect;
+export type ChuniSdvxPlacement = typeof chuniSdvxPlacements.$inferSelect;
 export type ChuniSync = typeof chuniSyncs.$inferSelect;
 export type ChuniBuild = typeof chuniBuilds.$inferSelect;
 export type ChuniImport = typeof chuniImports.$inferSelect;

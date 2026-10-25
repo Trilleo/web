@@ -7,8 +7,8 @@
  * An import (`runImports`, one bundle at a time per server, in the background) reads
  * the archive with ranged reads (@trilleo/storage's `listZip` / `readZipEntry`), so
  * a 200 MB bundle never sits in memory. Each chart is skipped when it no longer needs
- * a picture (already built, being built, withdrawn, moved to another page, gone) and
- * refused when its manifest or a tile doesn't check out; otherwise its tiles go to a
+ * a picture (already built, being built, withdrawn, linked to another of sdvx.in's
+ * charts, gone) and refused when its manifest or a tile doesn't check out; otherwise its tiles go to a
  * fresh folder, as a build's do, and it gets a ready chuni_builds row with the
  * layers' tags, so the usual check against sdvx.in notices a redraw later. The upload
  * is deleted when the import ends; chuni_imports keeps what it came to.
@@ -72,7 +72,7 @@ export async function siteImportDeps(): Promise<ImportDeps | null> {
 }
 
 /**
- * In-game Master charts with a sdvx.in page and no picture yet, newest songs first:
+ * In-game Master charts with a chart on sdvx.in and no picture yet, newest songs first:
  * what the admin's computer builds. Failed builds count as no picture.
  */
 export async function chartTodo(db: Database, now: Date): Promise<Todo> {
@@ -82,7 +82,7 @@ export async function chartTodo(db: Database, now: Date): Promise<Todo> {
       songId: chuniCharts.songId,
       title: chuniSongs.title,
       difficulty: chuniCharts.difficulty,
-      sdvxPath: chuniCharts.sdvxPath,
+      sdvxRef: chuniCharts.sdvxRef,
     })
     .from(chuniCharts)
     .innerJoin(chuniSongs, eq(chuniSongs.id, chuniCharts.songId))
@@ -96,7 +96,7 @@ export async function chartTodo(db: Database, now: Date): Promise<Todo> {
     .where(
       and(
         eq(chuniCharts.difficulty, "master"),
-        isNotNull(chuniCharts.sdvxPath),
+        isNotNull(chuniCharts.sdvxRef),
         isNull(chuniCharts.withdrawnAt),
         eq(chuniSongs.inGame, true),
         isNull(chuniBuilds.manifest),
@@ -109,14 +109,14 @@ export async function chartTodo(db: Database, now: Date): Promise<Todo> {
     buildVersion: BUILD_VERSION,
     createdAt: now.toISOString(),
     charts: rows.flatMap((row) =>
-      row.sdvxPath
+      row.sdvxRef
         ? [
             {
               chartId: row.chartId,
               songId: row.songId,
               title: row.title,
               difficulty: row.difficulty,
-              sdvxPath: row.sdvxPath,
+              sdvxRef: row.sdvxRef,
               variant: "normal" as const,
             },
           ]
@@ -433,8 +433,8 @@ async function whySkip(
     .where(eq(chuniCharts.id, chart.chartId));
   if (!found) return "it isn't in the catalog";
   if (found.withdrawnAt) return "it's withdrawn";
-  if (found.sdvxPath !== chart.sdvxPath)
-    return "its sdvx.in page has changed since the to-do list";
+  if (found.sdvxRef !== chart.sdvxRef)
+    return "its chart on sdvx.in has changed since the to-do list";
   const [build] = await db
     .select()
     .from(chuniBuilds)

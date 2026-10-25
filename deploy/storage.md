@@ -55,12 +55,13 @@ GitHub and the server.
    under `chunithm/`: WebP tiles it builds itself (about 2 MB a chart), tracked in the
    `chuni_builds` table, not `files`. Deleting them is harmless: the next view builds
    the chart again. The app also builds every in-game Master and Ultima chart ahead of
-   visitors (about 1,800 charts, so about 3.7 GB, and about 11 GB downloaded from
-   sdvx.in over two to three days after the first deploy); `CHUNITHM_PREBUILD=off` in
+   visitors (about 1,800 charts, so about 3.7 GB, and about 9 GB of sdvx.in's WebP
+   layers downloaded over two to three days after the first deploy);
+   `CHUNITHM_PREBUILD=off` in
    `app.env` stops that, and then only charts people open are kept, plus jackets
    (`chunithm/jackets/`, about 20 KB each). A build that fails keeps the layers it had
    downloaded whole under `chunithm/layers/` (private, tracked in `chuni_layers`, up to
-   about 20 MB a chart) so its next try doesn't download them again; they go once the
+   about 10 MB a chart) so its next try doesn't download them again; they go once the
    chart builds, or after 14 days. Deleting them is harmless too. Bundles of chart
    pictures the admin builds on their own computer are uploaded as private files
    (`f/`, purpose `chunithm-import`, up to 512 MB each) and their bytes are deleted

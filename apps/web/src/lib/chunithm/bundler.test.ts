@@ -6,18 +6,19 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TODO_FORMAT, type Todo } from "./bundle";
 import { bundleCharts, readProgress, type BundleProgress } from "./bundler";
 import { BUILD_VERSION } from "./picture";
-import { encodePng } from "./png";
+import { encodeWebp } from "./webp";
 
 const ORIGIN = "https://sdvx.test";
 const CHARTS = 6;
 const chart = makeChart(400, [100, 60, 150], [10, 250, 300, 600, 790]);
+const lossless = { lossless: true };
 const layers = {
-  bg: encodePng(chart.bg),
-  obj: encodePng(chart.obj),
-  bar: encodePng(chart.bar),
+  bg: await encodeWebp(chart.bg, lossless),
+  obj: await encodeWebp(chart.obj, lossless),
+  bar: await encodeWebp(chart.bar, lossless),
 };
-const id = (n: number) => String(n).padStart(5, "0");
-const folder = (n: number) => String(n).padStart(2, "0");
+/** Chart n's song on sdvx.in: folder n, song 1 ("01001", "02001", …). */
+const id = (n: number) => `${String(n).padStart(2, "0")}001`;
 
 const todo: Todo = {
   kind: "chunithm-todo",
@@ -29,7 +30,7 @@ const todo: Todo = {
     songId: i + 1,
     title: `Song ${String(i + 1)}`,
     difficulty: "master",
-    sdvxPath: `${folder(i + 1)}/${id(i + 1)}mst`,
+    sdvxRef: `${id(i + 1)}/mst`,
     variant: "normal" as const,
   })),
 };
@@ -50,22 +51,18 @@ const fakeFetch: typeof fetch = async (input, init) => {
         ? input.href
         : input.url;
   const path = new URL(url).pathname;
-  const script = /^\/chunithm\/(\d+)\/js\/(\d+)data\.js$/.exec(path);
-  if (script) {
-    const n = Number(script[2]);
-    if (failing.has(n)) return new Response("missing", { status: 404 });
-    const [f, i] = [script[1] ?? "", script[2] ?? ""];
-    return new Response(
-      `function PNG${i}M(){document.write("<img src=/chunithm/${f}/bg/${i}bg.png height=792><p class=data><img src=/chunithm/${f}/obj/data${i}mst.png height=792></p><p class=data><img src=/chunithm/${f}/bg/${i}bar.png height=792></p>");}`,
-    );
-  }
-  const body = path.endsWith("bg.png")
-    ? layers.bg
-    : path.endsWith("mst.png")
-      ? layers.obj
-      : path.endsWith("bar.png")
-        ? layers.bar
-        : null;
+  const layer =
+    /^\/chunithm\/(\d{2})\/(?:bg|obj)\/\D*\d{5}(bg|mst|bar)\.webp$/.exec(path);
+  if (layer && failing.has(Number(layer[1])))
+    return new Response(null, { status: 302 });
+  const body =
+    layer?.[2] === "bg"
+      ? layers.bg
+      : layer?.[2] === "mst"
+        ? layers.obj
+        : layer?.[2] === "bar"
+          ? layers.bar
+          : null;
   if (!body) return new Response("missing", { status: 404 });
   inFlight++;
   mostInFlight = Math.max(mostInFlight, inFlight);
@@ -145,7 +142,7 @@ describe("downloading in parallel", () => {
       parallel: 3,
       delayMs: 40,
       progress: (event) => {
-        if (event.step.stage === "script") starts.push(Date.now());
+        if (event.step.stage === "downloading") starts.push(Date.now());
       },
     });
     expect(starts).toHaveLength(CHARTS);
@@ -175,7 +172,8 @@ describe("downloading in parallel", () => {
       parallel: 3,
       signal: stop.signal,
       progress: (event) => {
-        if (event.index === 3 && event.step.stage === "script") stop.abort();
+        if (event.index === 3 && event.step.stage === "downloading")
+          stop.abort();
       },
     });
     expect(result.built).toBe(3);

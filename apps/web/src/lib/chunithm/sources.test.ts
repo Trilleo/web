@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { FetchError, download, type DownloadLimits } from "./sources";
+import {
+  FetchError,
+  download,
+  fetchSdvxList,
+  type DownloadLimits,
+} from "./sources";
 
-const URL_ = "https://sdvx.test/chunithm/01/obj/data00001mst.png";
+const URL_ = "https://sdvx.test/chunithm/01/obj/data01001mst.webp";
 const FILE = Uint8Array.from({ length: 10_000 }, (_, i) => i % 251);
 const LIMITS: DownloadLimits = {
   maxBytes: 1_000_000,
@@ -182,5 +187,61 @@ describe("download", () => {
     });
     expect(file.bytes).toEqual(FILE);
     expect(calls).toBe(2);
+  });
+});
+
+describe("sdvx.in's lists", () => {
+  const answering =
+    (response: () => Response): typeof fetch =>
+    (_input, init) => {
+      // Redirects are seen, not followed: sdvx.in sends missing files home.
+      expect(init?.redirect).toBe("manual");
+      return Promise.resolve(response());
+    };
+  const LIST = "https://sdvx.test/chunithm/_/json/songs01.json";
+
+  it("reads a list, with or without a byte order mark", async () => {
+    expect(
+      await fetchSdvxList(
+        answering(() => new Response('\uFEFF[{"id":"01001"}]')),
+        LIST,
+      ),
+    ).toEqual([{ id: "01001" }]);
+  });
+
+  it("takes a redirect or a 404 as a list that isn't there", async () => {
+    expect(
+      await fetchSdvxList(
+        answering(
+          () =>
+            new Response(null, {
+              status: 302,
+              headers: { Location: "https://sdvx.test/chunithm.php" },
+            }),
+        ),
+        LIST,
+      ),
+    ).toBeNull();
+    expect(
+      await fetchSdvxList(
+        answering(() => new Response("missing", { status: 404 })),
+        LIST,
+      ),
+    ).toBeNull();
+  });
+
+  it("fails on errors and on what isn't JSON", async () => {
+    await expect(
+      fetchSdvxList(
+        answering(() => new Response("busy", { status: 503 })),
+        LIST,
+      ),
+    ).rejects.toThrow(FetchError);
+    await expect(
+      fetchSdvxList(
+        answering(() => new Response("<html>")),
+        LIST,
+      ),
+    ).rejects.toThrow("not JSON");
   });
 });

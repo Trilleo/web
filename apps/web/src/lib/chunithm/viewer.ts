@@ -5,7 +5,6 @@
  */
 import {
   sdvxJacketSources,
-  sdvxScriptOf,
   type Difficulty,
   type SongIndex,
 } from "@trilleo/chunithm";
@@ -13,7 +12,6 @@ import {
   chuniBuilds,
   chuniCharts,
   chuniConstants,
-  chuniSdvxEntries,
   chuniSongs,
   chuniSyncs,
   chuniVersions,
@@ -23,7 +21,7 @@ import {
 } from "@trilleo/db";
 import type { StorageDriver } from "@trilleo/storage/server";
 import { createHash } from "node:crypto";
-import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import { aliasesBySong } from "./aliases";
 import { publicManifest, type BuildState, type Variant } from "./build";
 import { SDVX_ORIGIN } from "./sources";
@@ -68,7 +66,7 @@ export async function songIndex(
       level: chuniCharts.level,
       constant: chuniCharts.constant,
       worldsEndStars: chuniCharts.worldsEndStars,
-      sdvxPath: chuniCharts.sdvxPath,
+      sdvxRef: chuniCharts.sdvxRef,
       withdrawnAt: chuniCharts.withdrawnAt,
     })
     .from(chuniCharts)
@@ -104,7 +102,7 @@ export async function songIndex(
             level: chart.level,
             constant: chart.constant,
             worldsEndStars: chart.worldsEndStars,
-            viewable: chart.sdvxPath !== null && chart.withdrawnAt === null,
+            viewable: chart.sdvxRef !== null && chart.withdrawnAt === null,
           })),
         },
       ];
@@ -129,7 +127,7 @@ export interface ChartPage {
   /** The song's charts, for links between difficulties. */
   charts: Pick<
     ChuniChart,
-    "difficulty" | "level" | "worldsEndStars" | "sdvxPath" | "withdrawnAt"
+    "difficulty" | "level" | "worldsEndStars" | "sdvxRef" | "withdrawnAt"
   >[];
   /** The chart's constant in each version it was known in, newest first. */
   constants: { version: string; name: string; constant: number }[];
@@ -177,23 +175,8 @@ export async function chartPage(
   )
     .map((row) => ({ ...row, name: nameOf(row.version) ?? row.version }))
     .sort((a, b) => order(b.version) - order(a.version));
-  const paths = charts.flatMap((row) => (row.sdvxPath ? [row.sdvxPath] : []));
-  const scripts = [
-    ...new Set(paths.flatMap((path) => sdvxScriptOf(path) ?? [])),
-  ];
-  const entries =
-    scripts.length > 0
-      ? await db
-          .select({
-            script: chuniSdvxEntries.script,
-            details: chuniSdvxEntries.details,
-          })
-          .from(chuniSdvxEntries)
-          .where(inArray(chuniSdvxEntries.script, scripts))
-      : [];
   const [original] = sdvxJacketSources(
-    paths,
-    new Map(entries.map((row) => [row.script, row.details])),
+    charts.flatMap((row) => (row.sdvxRef ? [row.sdvxRef] : [])),
   );
   return {
     song,
@@ -216,11 +199,11 @@ export async function chartPage(
 export async function peekBuild(
   db: Database,
   storage: StorageDriver,
-  chart: Pick<ChuniChart, "id" | "sdvxPath" | "withdrawnAt">,
+  chart: Pick<ChuniChart, "id" | "sdvxRef" | "withdrawnAt">,
   variant: Variant,
 ): Promise<BuildState | null> {
   if (chart.withdrawnAt) return { status: "unavailable", reason: "withdrawn" };
-  if (!chart.sdvxPath) return { status: "unavailable", reason: "no-page" };
+  if (!chart.sdvxRef) return { status: "unavailable", reason: "no-page" };
   const [row] = await db
     .select()
     .from(chuniBuilds)

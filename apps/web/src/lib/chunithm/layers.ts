@@ -3,11 +3,11 @@
  * saved as a private object (LAYER_PREFIX) and recorded in chuni_layers, so when the
  * build fails later (the next layer cut off, a chart that doesn't line up, storage
  * refusing a tile) its next attempt only downloads what's missing. Notes layers run
- * to 15 MB and come slowly from the mainland; storage is next door.
+ * to about 7 MB and come slowly from the mainland; storage is next door.
  *
  * Before a kept copy is used, sdvx.in is asked for the layer's tag (a HEAD request,
  * no body, the same tag `checkBuild` compares): a different tag, no answer, or a copy
- * that isn't the PNG it was means downloading again. Half-finished downloads aren't
+ * that isn't the WebP it was means downloading again. Half-finished downloads aren't
  * kept: each attempt resumes those itself (sources.ts `download`).
  *
  * A chart's layers go once it builds (`forgetLayers`; lanes and measure numbers stay
@@ -20,8 +20,8 @@ import type { StorageDriver } from "@trilleo/storage/server";
 import { createHash } from "node:crypto";
 import { and, count, eq, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import { layerTag } from "./picture";
-import { isPng } from "./png";
 import { FETCH_LIMITS, USER_AGENT } from "./sources";
+import { isWebp } from "./webp";
 
 /** Where kept layers go in storage (private, never served). */
 export const LAYER_PREFIX = "chunithm/layers/";
@@ -59,7 +59,7 @@ export async function currentTag(
 }
 
 function storageKey(url: string): string {
-  return `${LAYER_PREFIX}${createHash("sha256").update(url).digest("hex")}.png`;
+  return `${LAYER_PREFIX}${createHash("sha256").update(url).digest("hex")}.webp`;
 }
 
 /**
@@ -96,7 +96,7 @@ export async function keptLayer(
     await removeLayer(deps, row);
     return null;
   }
-  if (bytes.byteLength !== row.bytes || !isPng(bytes)) {
+  if (bytes.byteLength !== row.bytes || !isWebp(bytes)) {
     await removeLayer(deps, row);
     return null;
   }

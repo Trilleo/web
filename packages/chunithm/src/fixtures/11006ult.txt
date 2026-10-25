@@ -1,6 +1,0 @@
-var TITLE11006="<div class=f1>お返事まだカナ？おじさん構文！</div>";
-var ARTIST11006="<div class=b2>　/ 吉本おじさん</div>";
-var BPM11006="<table><tr><td class=b2>BPM<td width=2><td class=f1>225</table>";
-var CR11006U="<table><tr><td class=ef>NOTES DESIGNER / ミニミライト</table>";
-var LV11006U="<table><tr><td><a href=/chunithm/ult/11006ult.htm><img src=/chunithm/chfiles/chlv/ult14.png width=18 height=16></a></table>";
-var CH11006U="<table><tr><td class=b2>CHAIN<td width=2><td class=ult1>1875</table>";

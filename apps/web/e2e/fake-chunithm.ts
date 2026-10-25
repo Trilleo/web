@@ -1,11 +1,19 @@
 /**
  * A small CHUNITHM world for the e2e specs: SEGA's song list, otoge-db's files and an
- * sdvx.in with one drawn chart, so the catalog update, the picture builds and the tool
- * can be tried end to end (playwright.config.ts points CHUNITHM_*_URL here). The
- * chart's layers are drawn here as sdvx.in draws them (columns 200px apart, a 48px
- * shared band, measure numbers in the gutter) and written as PNGs with node:zlib.
+ * sdvx.in with one drawn chart, laid out as its new viewer reads it (JSON song lists
+ * under /chunithm/_/json/, WebP layers, a redirect for anything it hasn't got), so the
+ * catalog update, the picture builds and the tool can be tried end to end
+ * (playwright.config.ts points CHUNITHM_*_URL here). The chart's layers are drawn here
+ * as sdvx.in draws them (columns 200px apart, a 48px shared band, measure numbers in
+ * the gutter) and written as lossless WebP with @jsquash/webp's encoder, the jacket
+ * as a PNG with node:zlib.
  */
+import factory from "@jsquash/webp/codec/enc/webp_enc_simd.js";
+import { defaultOptions } from "@jsquash/webp/meta.js";
+import { initEmscriptenModule } from "@jsquash/webp/utils.js";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
+import { createRequire } from "node:module";
 import { deflateSync } from "node:zlib";
 
 export const FAKE_CHUNITHM_PORT = 4334;
@@ -18,8 +26,10 @@ export const DRAWN = {
   reading: "コンクエストチヤレンシ",
   artist: "サツキ feat.ろん",
 };
-/** A song sdvx.in hasn't drawn. */
+/** A song sdvx.in lists but hasn't drawn ("_14+"). */
 export const UNDRAWN = { id: 2710, title: "Oracle", artist: "DJ Noriken" };
+/** The drawn chart on sdvx.in. */
+export const DRAWN_REF = "11061/mst";
 /** Measures in the drawn chart (its strip is 1704px: five lines 384px apart fit). */
 export const DRAWN_MEASURES = 5;
 
@@ -144,20 +154,72 @@ function png(width: number, height: number, rgba: Uint8Array): Buffer {
 const chart = drawChart();
 const jacket = png(8, 8, new Uint8Array(8 * 8 * 4).fill(180));
 
-const sortScript = [
-  `var TITLE11061="<div class=f1>${DRAWN.title}</div>";`,
-  `var ARTIST11061="<div class=b2>\u3000/ ${DRAWN.artist}</div>";`,
-  `var BPM11061="<table><tr><td class=b2>BPM<td width=2><td class=f1>180</table>";`,
-  `var CR11061M="<table><tr><td class=ef>NOTES DESIGNER / ミニミライト</table>";`,
-  `var LV11061M="<table><tr><td><a href=/chunithm/11/11061mst.htm><img src=/chunithm/chfiles/chlv/mst14+.png width=18 height=16></a></table>";`,
-  `var CH11061M="<table><tr><td class=b2>CHAIN<td width=2><td class=mst1>777</table>";`,
-  `var JK11061="<img src=/chunithm/11/jacket/11061.png width=100px height=100px>";`,
-].join("\n");
+/** A row of sdvx.in's song lists. */
+const sdvxRow = (
+  id: string,
+  title: string,
+  artist: string,
+  master: string,
+) => ({
+  id,
+  title,
+  artist,
+  genre: "ORIGINAL",
+  levels: { bsc: "_4", adv: "_8", exp: "_11", mst: master, ult: "" },
+  bpm: "180",
+  mst: { tap: "700", hold: "90", slide: "120", air: "200", flick: "40" },
+  designer: { exp: "", mst: "ミニミライト", ult: "" },
+});
 
-const dataScript = [
-  `function PNG11061M(){document.write("<img src=/chunithm/11/bg/11061bg.png height=792><p class=data><img src=/chunithm/11/obj/data11061mst.png height=792></p><p class=data><img src=/chunithm/11/bg/11061bar.png height=792></p>");}`,
-  `function MRR11061M(){document.write("<img src=/chunithm/11/bg/11061bg.png height=792><p class=data><img src=/chunithm/11/obj/mirror11061mst.png height=792></p><p class=data><img src=/chunithm/11/bg/11061bar.png height=792></p>");}`,
-].join("\n");
+/** The WebP encoder, started on first use (the config imports this file too). */
+interface Encoder {
+  encode(
+    data: Uint8Array,
+    width: number,
+    height: number,
+    options: typeof defaultOptions,
+  ): Uint8Array | null;
+}
+let encoder: Promise<Encoder> | null = null;
+async function webp(width: number, height: number, rgba: Uint8Array) {
+  encoder ??= WebAssembly.compile(
+    readFileSync(
+      createRequire(import.meta.url).resolve(
+        "@jsquash/webp/codec/enc/webp_enc_simd.wasm",
+      ),
+    ),
+  ).then(
+    (module) =>
+      initEmscriptenModule(
+        factory as unknown as Parameters<typeof initEmscriptenModule>[0],
+        module,
+      ) as unknown as Promise<Encoder>,
+  );
+  const out = (await encoder).encode(rgba, width, height, {
+    ...defaultOptions,
+    lossless: 1,
+    exact: 1,
+  });
+  if (!out) throw new Error("WebP encoding failed.");
+  return Buffer.from(out);
+}
+
+/** The drawn chart's layers, encoded once. */
+let layers: Promise<Map<string, Buffer>> | null = null;
+const chartLayers = () =>
+  (layers ??= (async () => {
+    const [bg, obj, bar] = await Promise.all([
+      webp(chart.width, HEIGHT, chart.bg),
+      webp(chart.width, HEIGHT, chart.obj),
+      webp(chart.width, HEIGHT, chart.bar),
+    ]);
+    return new Map([
+      ["/chunithm/11/bg/11061bg.webp", bg],
+      ["/chunithm/11/obj/data11061mst.webp", obj],
+      ["/chunithm/11/obj/mrr11061mst.webp", obj],
+      ["/chunithm/11/bg/11061bar.webp", bar],
+    ]);
+  })());
 
 const files = new Map<string, { type: string; body: string | Buffer }>([
   [
@@ -170,35 +232,23 @@ const files = new Map<string, { type: string; body: string | Buffer }>([
   ],
   ["/otoge/music-ex-deleted.json", { type: "application/json", body: "[]" }],
   [
-    "/chunithm/sort/original.htm",
+    "/chunithm/_/json/songs10.json",
     {
-      type: "text/html",
-      body: `<script>CHUNITHMMATELG();</script>\n<script src="/chunithm/11/js/11061sort.js"></script><script>SORT11061();</script><!--${DRAWN.title}-->\n`,
+      type: "application/json",
+      body: JSON.stringify([
+        sdvxRow("10027", UNDRAWN.title, UNDRAWN.artist, "_14+"),
+      ]),
     },
   ],
   [
-    "/chunithm/11/js/11061sort.js",
-    { type: "text/javascript", body: sortScript },
-  ],
-  [
-    "/chunithm/11/js/11061data.js",
-    { type: "text/javascript", body: dataScript },
-  ],
-  [
-    "/chunithm/11/bg/11061bg.png",
-    { type: "image/png", body: png(chart.width, HEIGHT, chart.bg) },
-  ],
-  [
-    "/chunithm/11/obj/data11061mst.png",
-    { type: "image/png", body: png(chart.width, HEIGHT, chart.obj) },
-  ],
-  [
-    "/chunithm/11/obj/mirror11061mst.png",
-    { type: "image/png", body: png(chart.width, HEIGHT, chart.obj) },
-  ],
-  [
-    "/chunithm/11/bg/11061bar.png",
-    { type: "image/png", body: png(chart.width, HEIGHT, chart.bar) },
+    "/chunithm/_/json/songs11.json",
+    {
+      type: "application/json",
+      body: JSON.stringify([
+        sdvxRow("11000", "", "", ""),
+        sdvxRow("11061", DRAWN.title, DRAWN.artist, "14+"),
+      ]),
+    },
   ],
   ["/chunithm/11/jacket/11061.png", { type: "image/png", body: jacket }],
 ]);
@@ -209,18 +259,33 @@ const server = createServer((request, response) => {
     response.end("ok");
     return;
   }
-  // Every other sdvx.in list page exists, empty.
-  const file =
-    files.get(path) ??
-    (path.startsWith("/chunithm/") && path.endsWith(".htm")
-      ? { type: "text/html", body: "<html></html>" }
-      : undefined);
-  if (!file) {
-    response.writeHead(404).end("missing");
-    return;
-  }
-  response.writeHead(200, { "content-type": file.type, etag: '"1"' });
-  response.end(request.method === "HEAD" ? undefined : file.body);
+  void chartLayers().then((webps) => {
+    const layer = webps.get(path);
+    // Folders 01–09 are there, empty, as are the removed and World's End lists.
+    const empty =
+      /^\/chunithm\/_\/json\/songs(0\d|_del|_we|_wedel|_wecourse|_weuso)\.json$/.test(
+        path,
+      );
+    const file = layer
+      ? { type: "image/webp", body: layer }
+      : (files.get(path) ??
+        (empty ? { type: "application/json", body: "[]" } : undefined));
+    if (!file) {
+      // sdvx.in sends what it hasn't got to its front page.
+      if (path.startsWith("/chunithm/"))
+        response.writeHead(302, { location: "/chunithm.php" }).end();
+      else response.writeHead(404).end("missing");
+      return;
+    }
+    const body =
+      typeof file.body === "string" ? Buffer.from(file.body) : file.body;
+    response.writeHead(200, {
+      "content-type": file.type,
+      "content-length": String(body.length),
+      etag: '"1"',
+    });
+    response.end(request.method === "HEAD" ? undefined : body);
+  });
 });
 
 if (import.meta.main)

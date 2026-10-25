@@ -141,7 +141,7 @@ export async function retryFailedPrebuilds(db: Database): Promise<number> {
 function wanted() {
   return and(
     inArray(chuniCharts.difficulty, [...PREBUILD.difficulties]),
-    isNotNull(chuniCharts.sdvxPath),
+    isNotNull(chuniCharts.sdvxRef),
     isNull(chuniCharts.withdrawnAt),
     eq(chuniSongs.inGame, true),
   );

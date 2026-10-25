@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   COLUMN,
@@ -8,16 +7,11 @@ import {
   drawOver,
   findLayout,
   findMeasures,
-  parseSdvxImages,
-  sdvxImageScript,
   stripHeight,
   stripTile,
   tileRanges,
 } from "./index";
 import { blank, colourAt, makeChart } from "./testing";
-
-const fixture = (name: string) =>
-  readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
 
 describe("joining a chart", () => {
   const tops = [100, 60, 150];
@@ -131,34 +125,46 @@ describe("joining a chart", () => {
   });
 });
 
-describe("sdvx.in's chart layers", () => {
-  it("finds the script that draws a chart page", () => {
-    expect(sdvxImageScript("11/11061mst")).toBe("/chunithm/11/js/11061data.js");
-    expect(sdvxImageScript("end/01066end2")).toBe(
-      "/chunithm/end/js/01066end2.js",
-    );
-    expect(sdvxImageScript("ult/11006ult")).toBe(
-      "/chunithm/ult/js/11006ult.js",
-    );
-    expect(sdvxImageScript("x")).toBeNull();
+describe("lossy layers", () => {
+  const tops = [100, 60];
+  const height = 400;
+
+  /**
+   * Draws the same notes (a bright line every 6 rows) into the band column 1 and
+   * column 2 share, with column 2's copy `shift` rows lower and `noise` added to it
+   * the way lossy WebP wobbles pixels (alternating up and down).
+   */
+  const shared = (shift: number, noise: number) => {
+    const { bg, obj } = makeChart(height, tops, []);
+    const layout = findLayout(bg);
+    drawOver(bg, obj);
+    const [lower, upper] = layout.columns;
+    if (!lower || !upper) throw new Error("two columns expected");
+    for (let i = 0; i < layout.overlap / 2; i++)
+      for (let x = -COLUMN.gutter; x < COLUMN.lane; x++) {
+        const value = i % 6 === 0 ? 240 : 30;
+        const a = ((lower.top + i) * bg.width + lower.lane + x) * 4;
+        bg.data.set([value, value, value, 255], a);
+        const row = height - layout.overlap + i + shift;
+        const wobble = (x + i) % 2 === 0 ? noise : -noise;
+        const near = (i - shift) % 6 === 0 ? 240 : 30;
+        const v = Math.max(0, Math.min(255, near + wobble));
+        bg.data.set([v, v, v, 255], (row * bg.width + upper.lane + x) * 4);
+      }
+    return { bg, layout };
+  };
+
+  it("lets pixels wobble as lossy WebP makes them", () => {
+    const { bg, layout } = shared(0, 30);
+    expect(() => {
+      checkOverlaps(bg, layout);
+    }).not.toThrow();
   });
 
-  it("reads the three layers and the mirrored notes", () => {
-    expect(parseSdvxImages(fixture("11061data.txt"), "11/11061mst")).toEqual({
-      bg: "/chunithm/11/bg/11061bg.png",
-      obj: "/chunithm/11/obj/data11061mst.png",
-      bar: "/chunithm/11/bg/11061bar.png",
-      mirror: "/chunithm/11/obj/mirror11061mst.png",
-    });
-    expect(
-      parseSdvxImages(fixture("01066end2-images.txt"), "end/01066end2"),
-    ).toEqual({
-      bg: "/chunithm/end/bg/01066bg.png",
-      obj: "/chunithm/end/obj/data01066end2.png",
-      bar: "/chunithm/end/bg/01066bar.png",
-      mirror: "/chunithm/end/obj/mirror01066end2.png",
-    });
-    // Basic has no picture in this script.
-    expect(parseSdvxImages(fixture("11061data.txt"), "11/11061bsc")).toBeNull();
+  it("still refuses columns a row out", () => {
+    const { bg, layout } = shared(1, 0);
+    expect(() => {
+      checkOverlaps(bg, layout);
+    }).toThrow("Columns 1 and 2 don't line up.");
   });
 });

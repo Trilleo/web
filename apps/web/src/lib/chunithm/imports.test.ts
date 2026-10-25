@@ -29,15 +29,18 @@ import {
 } from "./bundle";
 import { bundleCharts, readProgress } from "./bundler";
 import { chartTodo, queueImport, runImports, waitingBundles } from "./imports";
-import { encodePng } from "./png";
 import { BUILD_VERSION } from "./picture";
 import { encodeWebp } from "./webp";
 import { ZipWriter } from "./zip-writer";
 
 const ORIGIN = "https://sdvx.test";
 const chart = makeChart(400, [100, 60, 150], [10, 250, 300, 600, 790]);
-const script = (id: string) =>
-  `function PNG${id}M(){document.write("<img src=/chunithm/${id.slice(3)}/bg/${id}bg.png height=792><p class=data><img src=/chunithm/${id.slice(3)}/obj/data${id}mst.png height=792></p><p class=data><img src=/chunithm/${id.slice(3)}/bg/${id}bar.png height=792></p>");}`;
+const lossless = { lossless: true };
+const layers = {
+  bg: await encodeWebp(chart.bg, lossless),
+  obj: await encodeWebp(chart.obj, lossless),
+  bar: await encodeWebp(chart.bar, lossless),
+};
 
 let served: Map<string, Uint8Array | string>;
 let fetched: string[];
@@ -60,21 +63,12 @@ const fakeFetch: typeof fetch = (input) => {
   );
 };
 
+/** A song's layers on sdvx.in ("01001": folder 01). */
 function serve(id: string): void {
-  const folder = id.slice(3);
-  served.set(`${ORIGIN}/chunithm/${folder}/js/${id}data.js`, script(id));
-  served.set(
-    `${ORIGIN}/chunithm/${folder}/bg/${id}bg.png`,
-    encodePng(chart.bg),
-  );
-  served.set(
-    `${ORIGIN}/chunithm/${folder}/obj/data${id}mst.png`,
-    encodePng(chart.obj),
-  );
-  served.set(
-    `${ORIGIN}/chunithm/${folder}/bg/${id}bar.png`,
-    encodePng(chart.bar),
-  );
+  const folder = id.slice(0, 2);
+  served.set(`${ORIGIN}/chunithm/${folder}/bg/${id}bg.webp`, layers.bg);
+  served.set(`${ORIGIN}/chunithm/${folder}/obj/data${id}mst.webp`, layers.obj);
+  served.set(`${ORIGIN}/chunithm/${folder}/bg/${id}bar.webp`, layers.bar);
 }
 
 let handle: DatabaseHandle;
@@ -90,8 +84,8 @@ beforeEach(async () => {
   out = mkdtempSync(join(tmpdir(), "chunithm-bundles-"));
   fetched = [];
   served = new Map();
-  serve("00001");
-  serve("00002");
+  serve("01001");
+  serve("02002");
   await handle.db.insert(chuniSongs).values([
     { id: 1, title: "Older", addedOn: "2025-01-10" },
     { id: 2, title: "Newer", addedOn: "2026-07-02" },
@@ -100,10 +94,10 @@ beforeEach(async () => {
   const rows = await handle.db
     .insert(chuniCharts)
     .values([
-      { songId: 1, difficulty: "master", level: "13", sdvxPath: "01/00001mst" },
-      { songId: 2, difficulty: "master", level: "14", sdvxPath: "02/00002mst" },
-      { songId: 2, difficulty: "expert", level: "12", sdvxPath: "02/00002exp" },
-      { songId: 3, difficulty: "master", level: "13", sdvxPath: "03/00003mst" },
+      { songId: 1, difficulty: "master", level: "13", sdvxRef: "01001/mst" },
+      { songId: 2, difficulty: "master", level: "14", sdvxRef: "02002/mst" },
+      { songId: 2, difficulty: "expert", level: "12", sdvxRef: "02002/exp" },
+      { songId: 3, difficulty: "master", level: "13", sdvxRef: "03003/mst" },
     ])
     .returning({
       id: chuniCharts.id,
@@ -235,7 +229,7 @@ describe("building on the admin's computer and importing", () => {
     // Each chart's steps, for the script's progress block.
     for (const index of [1, 2])
       expect(steps.get(index)).toEqual([
-        "script",
+        "downloading",
         "lanes",
         "notes",
         "measure numbers",
@@ -267,9 +261,7 @@ describe("building on the admin's computer and importing", () => {
         version: BUILD_VERSION,
         variant: "normal",
       });
-      expect(build?.source?.tags.obj).toBe(
-        `"1"|${String(encodePng(chart.obj).length)}`,
-      );
+      expect(build?.source?.tags.obj).toBe(`"1"|${String(layers.obj.length)}`);
       for (const tile of build?.manifest?.tiles ?? []) {
         const bytes = await readBytes(await storage.read(tile.key));
         expect(webpSize(bytes)).toEqual({ width: 200, height: tile.height });
@@ -289,7 +281,7 @@ describe("building on the admin's computer and importing", () => {
   });
 
   it("carries on where it stopped, and leaves failed charts for a retry", async () => {
-    served.delete(`${ORIGIN}/chunithm/01/bg/00001bar.png`);
+    served.delete(`${ORIGIN}/chunithm/01/bg/01001bar.webp`);
     const todo = await chartTodo(handle.db, clock);
     const options = {
       todo,
@@ -310,7 +302,7 @@ describe("building on the admin's computer and importing", () => {
     fetched = [];
     expect(await bundleCharts(options)).toMatchObject({ built: 0, left: 0 });
     expect(fetched).toEqual([]);
-    serve("00001");
+    serve("01001");
     const third = await bundleCharts({ ...options, retryFailed: true });
     expect(third.built).toBe(1);
     expect(bundlesIn(out)).toHaveLength(2);
@@ -333,7 +325,7 @@ describe("building on the admin's computer and importing", () => {
       fetch: fakeFetch,
       delayMs: 0,
     });
-    // Song 2's Master got a picture meanwhile; song 1's moved to another page.
+    // Song 2's Master got a picture meanwhile; song 1's is linked to another of sdvx.in's charts.
     await handle.db.insert(chuniBuilds).values({
       chartId: ids["2master"] ?? 0,
       variant: "normal",
@@ -341,7 +333,7 @@ describe("building on the admin's computer and importing", () => {
     });
     await handle.db
       .update(chuniCharts)
-      .set({ sdvxPath: "01/00001mst2" })
+      .set({ sdvxRef: "01009/mst" })
       .where(eq(chuniCharts.id, ids["1master"] ?? 0));
     const fileId = await upload(bundlesIn(out)[0] ?? "");
     await queueImport(handle.db, fileId, clock);
@@ -350,7 +342,7 @@ describe("building on the admin's computer and importing", () => {
     expect(row?.summary?.imported).toBe(0);
     expect(row?.summary?.skipped.map((note) => note.reason).sort()).toEqual([
       "it's being built here right now",
-      "its sdvx.in page has changed since the to-do list",
+      "its chart on sdvx.in has changed since the to-do list",
     ]);
   });
 

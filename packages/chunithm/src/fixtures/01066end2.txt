@@ -1,6 +1,0 @@
-var TITLE01066="<div class=f1>Teriqma</div>";
-var ARTIST01066="<div class=b2>　/ owl＊tree</div>";
-var BPM01066="<table><tr><td class=b2>BPM<td width=2><td class=f1>128</table>";
-var CR01066W2="<table><tr><td class=ef>NOTES DESIGNER / 階段割qma</table>";
-var LV01066W2="<table><tr><td><a href=/chunithm/end/01066end2.htm><img src=/chunithm/chfiles/chlv/new割3.png width=32 height=16></a></table>";
-var CH01066W2="<table><tr><td class=b2>CHAIN<td width=2><td class=end1>2248</table>";

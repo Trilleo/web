@@ -9,7 +9,13 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DRAWN, DRAWN_MEASURES, FAKE_CHUNITHM, UNDRAWN } from "./fake-chunithm";
+import {
+  DRAWN,
+  DRAWN_MEASURES,
+  DRAWN_REF,
+  FAKE_CHUNITHM,
+  UNDRAWN,
+} from "./fake-chunithm";
 import { adminPage, continueAs, freshLogin, hydrated } from "./support";
 
 // The catalog comes from e2e/fake-chunithm.ts: an update starts with the server's
@@ -75,6 +81,16 @@ test("someone finds a chart by romaji, opens its picture and keeps it", async ({
     `Measure 1 of ${String(DRAWN_MEASURES)}`,
   );
   await expect(page.getByTestId("chart-facts")).toContainText("14.7 (Mate)");
+  // sdvx.in's notes by kind, and the credit linking its viewer.
+  await expect(page.getByTestId("chart-facts")).toContainText(
+    "Tap 700 · Hold 90 · Slide 120 · Air 200 · Flick 40",
+  );
+  await expect(
+    page.getByRole("link", { name: "sdvx.in (CHUNITHM譜面保管所)" }),
+  ).toHaveAttribute(
+    "href",
+    "https://sdvx.in/chunithm/_/viewer.php?id=11061&diff=mst",
+  );
   // Its jacket sits in the info box, from our own storage (copied by the update, or
   // when the chart was opened), at its own size.
   await expect(async () => {
@@ -152,6 +168,10 @@ test("the admin's CHUNITHM panel shows the catalog", async ({
     admin.getByRole("heading", { level: 1, name: "CHUNITHM" }),
   ).toBeVisible();
   await expect(admin.getByTestId("chunithm-counts")).toContainText("Mate");
+  // The first update moved what was kept from sdvx.in's older site (nothing, here).
+  await expect(admin.getByTestId("chunithm-move")).toContainText(
+    "Moved to sdvx.in’s new viewer",
+  );
 
   // Withdrawing a chart that isn't there says so.
   const withdraw = admin.locator("form", {
@@ -280,7 +300,7 @@ test("the admin bundles charts on their computer and imports them", async ({
   expect(todo.kind).toBe("chunithm-todo");
 
   // The real script, on plain Node, against the fake sdvx.in. The list names the
-  // drawn chart's page under a chart the catalog doesn't have, so whichever specs
+  // drawn chart under a chart the catalog doesn't have, so whichever specs
   // have built what, the import's answer is the same.
   const dir = mkdtempSync(join(tmpdir(), "chunithm-e2e-"));
   writeFileSync(
@@ -293,7 +313,7 @@ test("the admin bundles charts on their computer and imports them", async ({
           songId: DRAWN.id,
           title: DRAWN.title,
           difficulty: "master",
-          sdvxPath: "11/11061mst",
+          sdvxRef: DRAWN_REF,
           variant: "normal",
         },
       ],

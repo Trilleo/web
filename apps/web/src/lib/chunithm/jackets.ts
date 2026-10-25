@@ -4,22 +4,14 @@
  * from here. Each catalog update copies JACKETS_PER_PASS, one request at a time like
  * the rest of sdvx.in, and updates keep coming every few minutes while any are due
  * (sync.ts), so a new catalog has its jackets within hours. Opening a chart copies its
- * song's jacket at once if it's missing (build.ts). A song's own chart pages are tried
- * first, then its Ultima and World's End ones; a jacket that couldn't be copied is
+ * song's jacket at once if it's missing (build.ts). sdvx.in keeps a jacket per song in
+ * its list (/chunithm/<folder>/jacket/<id>.png, World's End under end/): the song's
+ * own is tried first, then its World's End entry's; a jacket that couldn't be copied is
  * tried again after JACKET_RETRY_DAYS. The tool's lists ask for the missing jackets of
  * the songs they show (`wantJackets`, from POST /api/chunithm/jackets).
  */
-import {
-  sdvxJacketSources,
-  sdvxScriptOf,
-  type RgbaImage,
-} from "@trilleo/chunithm";
-import {
-  chuniCharts,
-  chuniSdvxEntries,
-  chuniSongs,
-  type Database,
-} from "@trilleo/db";
+import { sdvxJacketSources, type RgbaImage } from "@trilleo/chunithm";
+import { chuniCharts, chuniSongs, type Database } from "@trilleo/db";
 import { PUBLIC_CACHE } from "@trilleo/storage";
 import type { StorageDriver } from "@trilleo/storage/server";
 import {
@@ -58,7 +50,7 @@ function due(now: Date, retryFailed = false): SQL | undefined {
   );
   return and(
     isNull(chuniSongs.jacketKey),
-    isNotNull(chuniCharts.sdvxPath),
+    isNotNull(chuniCharts.sdvxRef),
     retryFailed
       ? undefined
       : or(
@@ -104,7 +96,7 @@ export async function copyJackets(
   const rows = await db
     .selectDistinct({
       id: chuniSongs.id,
-      path: chuniCharts.sdvxPath,
+      ref: chuniCharts.sdvxRef,
       addedOn: chuniSongs.addedOn,
     })
     .from(chuniSongs)
@@ -116,11 +108,11 @@ export async function copyJackets(
       ),
     )
     .orderBy(asc(chuniSongs.id));
-  const songs = new Map<number, { paths: string[]; addedOn: string }>();
+  const songs = new Map<number, { refs: string[]; addedOn: string }>();
   for (const row of rows) {
-    if (!row.path) continue;
-    const song = songs.get(row.id) ?? { paths: [], addedOn: row.addedOn ?? "" };
-    song.paths.push(row.path);
+    if (!row.ref) continue;
+    const song = songs.get(row.id) ?? { refs: [], addedOn: row.addedOn ?? "" };
+    song.refs.push(row.ref);
     songs.set(row.id, song);
   }
   // Newest songs first (by the day they came; World's End IDs run higher than
@@ -130,24 +122,10 @@ export async function copyJackets(
     .slice(0, options.limit ?? JACKETS_PER_PASS);
   if (wanted.length === 0) return 0;
 
-  const scripts = new Set(
-    wanted.flatMap(([, song]) =>
-      song.paths.flatMap((path) => sdvxScriptOf(path) ?? []),
-    ),
-  );
-  const entries = await db
-    .select({
-      script: chuniSdvxEntries.script,
-      details: chuniSdvxEntries.details,
-    })
-    .from(chuniSdvxEntries)
-    .where(inArray(chuniSdvxEntries.script, [...scripts]));
-  const detailsOf = new Map(entries.map((row) => [row.script, row.details]));
-
   let copied = 0;
   for (const [id, song] of wanted) {
     if (options.deadline !== undefined && Date.now() > options.deadline) break;
-    const sources = sdvxJacketSources(song.paths, detailsOf);
+    const sources = sdvxJacketSources(song.refs);
     let key: string | null = null;
     for (const src of sources) {
       key = await copyOne(storage, fetcher, options.sdvxOrigin, id, src);

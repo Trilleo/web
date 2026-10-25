@@ -16,7 +16,7 @@ import {
   resetVisitorLimits,
   type BuildDeps,
 } from "./build";
-import { encodePng } from "./png";
+import { encodeWebp } from "./webp";
 import {
   PREBUILD,
   failedPrebuilds,
@@ -34,15 +34,21 @@ const ORIGIN = "https://sdvx.test";
 const MINUTE_MS = 60 * 1000;
 const chart = makeChart(400, [100, 60, 150], [10, 250, 300, 600, 790]);
 
-// Only song 2's Master (02/00002mst) is drawn on the fake sdvx.in.
+// Only song 2's Master (02002/mst) is drawn on the fake sdvx.in.
+const lossless = { lossless: true };
 const served = new Map<string, Uint8Array | string>([
   [
-    `${ORIGIN}/chunithm/02/js/00002data.js`,
-    `function PNG00002M(){document.write("<img src=/chunithm/02/bg/00002bg.png height=792><p class=data><img src=/chunithm/02/obj/data00002mst.png height=792></p><p class=data><img src=/chunithm/02/bg/00002bar.png height=792></p>");}`,
+    `${ORIGIN}/chunithm/02/bg/02002bg.webp`,
+    await encodeWebp(chart.bg, lossless),
   ],
-  [`${ORIGIN}/chunithm/02/bg/00002bg.png`, encodePng(chart.bg)],
-  [`${ORIGIN}/chunithm/02/obj/data00002mst.png`, encodePng(chart.obj)],
-  [`${ORIGIN}/chunithm/02/bg/00002bar.png`, encodePng(chart.bar)],
+  [
+    `${ORIGIN}/chunithm/02/obj/data02002mst.webp`,
+    await encodeWebp(chart.obj, lossless),
+  ],
+  [
+    `${ORIGIN}/chunithm/02/bg/02002bar.webp`,
+    await encodeWebp(chart.bar, lossless),
+  ],
 ]);
 const fakeFetch: typeof fetch = (input) => {
   const url =
@@ -86,16 +92,16 @@ beforeEach(async () => {
   const rows = await handle.db
     .insert(chuniCharts)
     .values([
-      { songId: 1, difficulty: "master", level: "13", sdvxPath: "01/00001mst" },
+      { songId: 1, difficulty: "master", level: "13", sdvxRef: "01001/mst" },
       {
         songId: 2,
         difficulty: "ultima",
         level: "15",
-        sdvxPath: "ult/00002ult",
+        sdvxRef: "02002/ult",
       },
-      { songId: 2, difficulty: "master", level: "14", sdvxPath: "02/00002mst" },
-      { songId: 2, difficulty: "expert", level: "12", sdvxPath: "02/00002exp" },
-      { songId: 3, difficulty: "master", level: "13", sdvxPath: "03/00003mst" },
+      { songId: 2, difficulty: "master", level: "14", sdvxRef: "02002/mst" },
+      { songId: 2, difficulty: "expert", level: "12", sdvxRef: "02002/exp" },
+      { songId: 3, difficulty: "master", level: "13", sdvxRef: "03003/mst" },
       // No page yet, and withdrawn: never picked.
       { songId: 1, difficulty: "ultima", level: "15" },
     ])

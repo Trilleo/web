@@ -2,8 +2,8 @@ import {
   adminAlerts,
   chuniCharts,
   chuniConstants,
-  chuniSdvxEntries,
-  chuniSdvxOverrides,
+  chuniSdvxPlacements,
+  chuniSdvxSongs,
   chuniSongs,
   chuniSyncs,
   chuniVersions,
@@ -14,13 +14,12 @@ import { and, asc, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { LocalDriver } from "@trilleo/storage/server";
 import { encodePng } from "./png";
-import { SDVX_LIST_PAGES, type ChunithmSources } from "./sources";
+import { type ChunithmSources } from "./sources";
 import {
   BACKLOG_GAP_MS,
-  JACKETS_WHILE_READING,
   SDVX_PASS,
   SYNC_EVERY_MS,
-  newPagePaths,
+  newRefs,
   passDue,
   syncCatalog,
   type SyncDeps,
@@ -31,16 +30,15 @@ const SOURCES: ChunithmSources = {
   otogeUrl: "https://otoge.test/data/",
   sdvxOrigin: "https://sdvx.test",
 };
+const LISTS = `${SOURCES.sdvxOrigin}/chunithm/_/json/`;
 
 let handle: DatabaseHandle;
 let clock: Date;
 let files: Map<string, string | Uint8Array>;
 let silent: Set<string>;
-let cutOff: Set<string>;
 let requests: string[];
 
 const SONGS = 600;
-const DAY_MS = 24 * 3600 * 1000;
 
 const segaRow = (id: number, over: Record<string, string> = {}) => ({
   id: String(id),
@@ -64,30 +62,24 @@ const otogeRow = (id: number, over: Record<string, string> = {}) => ({
   bpm: "180",
   lev_mas_i: "13.7",
   lev_mas_designer: "Someone",
-  lev_mas_chart_link: id === 1 ? "01/00001mst" : "",
+  // otoge-db links the older site's pages.
+  lev_mas_chart_link: id === 1 ? "01/01001mst" : "",
   version: id === SONGS ? "Mate" : "X-VERSE-X",
   date_added: id === SONGS ? "20260702" : "20251211",
   ...over,
 });
 
-const script = (id: string, title: string, artist: string) =>
-  [
-    `\uFEFFvar TITLE${id}="<div class=f1>${title}</div>";`,
-    `var ARTIST${id}="<div class=b2>\u3000/ ${artist}</div>";`,
-    `var BPM${id}="<table><tr><td class=b2>BPM<td width=2><td class=f1>180</table>";`,
-    `var CR${id}M="<table><tr><td class=ef>NOTES DESIGNER / From sdvx</table>";`,
-    `var LV${id}M="<table><tr><td><a href=/chunithm/01/${id}mst.htm><img src=/chunithm/chfiles/chlv/mst13+.png width=18 height=16></a></table>";`,
-    `var CH${id}M="<table><tr><td class=b2>CHAIN<td width=2><td class=mst1>1500</table>";`,
-  ].join("\n");
-
-const listPage = (scripts: [string, string][]) =>
-  [
-    "<script>CHUNITHMVERSEPLUSXLG();</script>",
-    ...scripts.map(
-      ([file, title]) =>
-        `<script src="/chunithm/01/js/${file}.js"></script><script>SORT();</script><!--${title}-->`,
-    ),
-  ].join("\n");
+/** A row of sdvx.in's song lists: Expert undrawn ("_10"), Master drawn. */
+const sdvxRow = (id: string, title: string, artist: string) => ({
+  id,
+  title,
+  artist,
+  genre: "ORIGINAL",
+  levels: { bsc: "_3", adv: "_6", exp: "_10", mst: "13+", ult: "" },
+  bpm: "180",
+  mst: { tap: "900", hold: "100", slide: "200", air: "300", flick: "50" },
+  designer: { exp: "", mst: "From sdvx", ult: "" },
+});
 
 function setSources(
   sega = Array.from({ length: SONGS }, (_, i) => segaRow(i + 1)),
@@ -107,6 +99,9 @@ function setSources(
   );
 }
 
+const setFolder = (rows: ReturnType<typeof sdvxRow>[]) =>
+  files.set(`${LISTS}songs01.json`, JSON.stringify(rows));
+
 const fakeFetch: typeof fetch = (input) => {
   const url =
     typeof input === "string"
@@ -118,20 +113,15 @@ const fakeFetch: typeof fetch = (input) => {
   // A request that never answers (it times out).
   if (silent.has(url))
     return Promise.reject(new Error("The operation timed out."));
-  // One that answers, then breaks off partway through the body.
-  if (cutOff.has(url))
-    return Promise.resolve(
-      new Response(
-        new ReadableStream({
-          start(controller) {
-            controller.enqueue(new TextEncoder().encode("function"));
-            controller.error(new TypeError("terminated"));
-          },
-        }),
-        { status: 200 },
-      ),
-    );
   const body = files.get(url);
+  // sdvx.in sends what it hasn't got to its front page.
+  if (body === undefined && url.startsWith(SOURCES.sdvxOrigin))
+    return Promise.resolve(
+      new Response(null, {
+        status: 302,
+        headers: { Location: `${SOURCES.sdvxOrigin}/chunithm.php` },
+      }),
+    );
   return Promise.resolve(
     body === undefined
       ? new Response("missing", { status: 404 })
@@ -157,25 +147,13 @@ beforeEach(async () => {
   requests = [];
   files = new Map();
   silent = new Set();
-  cutOff = new Set();
   setSources();
-  for (const page of SDVX_LIST_PAGES)
-    files.set(`${SOURCES.sdvxOrigin}${page}`, "<html></html>");
-  files.set(
-    `${SOURCES.sdvxOrigin}/chunithm/sort/original.htm`,
-    listPage([
-      ["00001sort", "Song 1"],
-      ["00002sort", "Song 2"],
-    ]),
-  );
-  files.set(
-    `${SOURCES.sdvxOrigin}/chunithm/01/js/00001sort.js`,
-    script("00001", "Song 1", "Artist 1"),
-  );
-  files.set(
-    `${SOURCES.sdvxOrigin}/chunithm/01/js/00002sort.js`,
-    script("00002", "Song 2", "Artist 2"),
-  );
+  setFolder([
+    sdvxRow("01001", "Song 1", "Artist 1"),
+    sdvxRow("01002", "Song 2", "Artist 2"),
+  ]);
+  files.set(`${LISTS}songs_del.json`, "[]");
+  files.set(`${LISTS}songs_we.json`, "[]");
 });
 afterEach(async () => {
   await handle.close();
@@ -200,8 +178,8 @@ describe("syncCatalog", () => {
     expect(result.ok).toBe(true);
     expect(result.errors).toEqual([]);
     expect(result.songs).toBe(SONGS + 1);
-    expect(result.scriptsRead).toBe(2);
-    expect(result.scriptsLeft).toBe(0);
+    // songs01, songs_del and songs_we; songs02 and the other lists aren't there.
+    expect(result.sdvxLists).toBe(3);
     // The first pass reports nothing as new.
     expect(result.newSongs).toEqual([]);
 
@@ -209,14 +187,18 @@ describe("syncCatalog", () => {
       level: "13+",
       constant: 137,
       designer: "Someone",
-      chain: 1500,
-      sdvxPath: "01/00001mst",
+      noteTypes: { tap: 900, hold: 100, slide: 200, air: 300, flick: 50 },
+      sdvxRef: "01001/mst",
       linkedBy: "otoge-db",
     });
     expect(await chart(2, "master")).toMatchObject({
-      sdvxPath: "01/00002mst",
+      sdvxRef: "01002/mst",
       linkedBy: "title",
+      // otoge-db's designer comes first; sdvx.in's only fills a gap.
+      designer: "Someone",
     });
+    // Not drawn on sdvx.in yet.
+    expect((await chart(2, "expert"))?.sdvxRef).toBeNull();
     const [gone] = await handle.db
       .select()
       .from(chuniSongs)
@@ -235,22 +217,69 @@ describe("syncCatalog", () => {
       .where(eq(chuniConstants.version, "mate"));
     expect(constants).toHaveLength(SONGS);
 
-    // Only polite requests: each script once, never a chart picture.
-    expect(requests.filter((url) => url.endsWith("sort.js"))).toHaveLength(2);
+    // Only polite requests: each list once, folders until one isn't there, never
+    // a chart picture.
+    expect(
+      requests
+        .filter((url) => url.startsWith(LISTS))
+        .map((url) => url.slice(LISTS.length)),
+    ).toEqual([
+      "songs01.json",
+      "songs02.json",
+      "songs_del.json",
+      "songs_we.json",
+      "songs_wedel.json",
+      "songs_wecourse.json",
+      "songs_weuso.json",
+    ]);
+    expect(requests.some((url) => url.endsWith(".webp"))).toBe(false);
     expect(await handle.db.select().from(adminAlerts)).toEqual([]);
   });
 
-  it("reads a few scripts per pass, new ones first, newest folders first", async () => {
-    const first = await syncCatalog(handle.db, deps({ scriptsPerPass: 1 }));
-    expect(first.scriptsRead).toBe(1);
-    expect(first.scriptsLeft).toBe(1);
-    expect(requests.filter((url) => url.endsWith("sort.js"))).toEqual([
-      `${SOURCES.sdvxOrigin}/chunithm/01/js/00002sort.js`,
+  it("records sdvx.in's songs, keeping them when they drop off a list", async () => {
+    await syncCatalog(handle.db, deps());
+    setFolder([sdvxRow("01002", "Song 2", "Artist 2")]);
+    clock = new Date("2026-10-25T08:00:00.000Z");
+    await syncCatalog(handle.db, deps());
+    const songs = await handle.db
+      .select()
+      .from(chuniSdvxSongs)
+      .orderBy(asc(chuniSdvxSongs.key));
+    expect(songs.map((song) => [song.key, song.title, song.listedAt])).toEqual([
+      ["01001", "Song 1", new Date("2026-10-24T08:00:00.000Z")],
+      ["01002", "Song 2", clock],
     ]);
-    expect((await chart(2, "master"))?.sdvxPath).toBe("01/00002mst");
-    const second = await syncCatalog(handle.db, deps({ scriptsPerPass: 1 }));
-    expect(second.scriptsLeft).toBe(0);
-    expect((await chart(1, "master"))?.chain).toBe(1500);
+    expect((await chart(1, "master"))?.sdvxRef).toBe("01001/mst");
+  });
+
+  it("keeps what it had from a list that doesn't answer", async () => {
+    await syncCatalog(handle.db, deps());
+    silent.add(`${LISTS}songs01.json`);
+    const result = await syncCatalog(handle.db, deps());
+    expect(result.ok).toBe(true);
+    expect(result.errors[0]).toContain("songs01.json");
+    expect((await chart(2, "master"))?.sdvxRef).toBe("01002/mst");
+  });
+
+  it("stops reading when sdvx.in stops answering", async () => {
+    for (let i = 1; i <= 40; i++)
+      silent.add(`${LISTS}songs${String(i).padStart(2, "0")}.json`);
+    for (const file of [
+      "songs_del.json",
+      "songs_we.json",
+      "songs_wedel.json",
+      "songs_wecourse.json",
+      "songs_weuso.json",
+    ])
+      silent.add(`${LISTS}${file}`);
+    const result = await syncCatalog(handle.db, deps());
+    expect(result.ok).toBe(true);
+    expect(requests.filter((url) => url.startsWith(LISTS))).toHaveLength(
+      SDVX_PASS.failuresToStop,
+    );
+    expect(result.errors.at(-1)).toContain(
+      `didn't answer ${String(SDVX_PASS.failuresToStop)} times in a row`,
+    );
   });
 
   it("reports new songs and new versions to the admin", async () => {
@@ -396,19 +425,19 @@ describe("syncCatalog", () => {
     expect(runs.filter((run) => run.ok)).toHaveLength(1);
   });
 
-  it("follows the admin's word on a page", async () => {
+  it("follows the admin's word on a chart", async () => {
     await syncCatalog(handle.db, deps());
-    await handle.db.insert(chuniSdvxOverrides).values([
-      { path: "01/00002mst", songId: 3, difficulty: "master" },
-      { path: "01/00001mst", songId: null, difficulty: null },
+    await handle.db.insert(chuniSdvxPlacements).values([
+      { ref: "01002/mst", songId: 3, difficulty: "master" },
+      { ref: "01001/mst", songId: null, difficulty: null },
     ]);
     await syncCatalog(handle.db, deps());
     expect(await chart(3, "master")).toMatchObject({
-      sdvxPath: "01/00002mst",
+      sdvxRef: "01002/mst",
       linkedBy: "admin",
     });
-    expect((await chart(2, "master"))?.sdvxPath).toBeNull();
-    expect((await chart(1, "master"))?.sdvxPath).toBeNull();
+    expect((await chart(2, "master"))?.sdvxRef).toBeNull();
+    expect((await chart(1, "master"))?.sdvxRef).toBeNull();
   });
 
   it("keeps a withdrawn chart withdrawn", async () => {
@@ -416,70 +445,45 @@ describe("syncCatalog", () => {
     await handle.db
       .update(chuniCharts)
       .set({ withdrawnAt: clock, withdrawnReason: "Asked" })
-      .where(eq(chuniCharts.sdvxPath, "01/00001mst"));
+      .where(eq(chuniCharts.sdvxRef, "01001/mst"));
     await syncCatalog(handle.db, deps());
     expect(await chart(1, "master")).toMatchObject({
       withdrawnReason: "Asked",
-      sdvxPath: "01/00001mst",
+      sdvxRef: "01001/mst",
     });
   });
 
-  it("records sdvx.in's entries with their versions", async () => {
-    await syncCatalog(handle.db, deps());
-    const entries = await handle.db
-      .select()
-      .from(chuniSdvxEntries)
-      .orderBy(asc(chuniSdvxEntries.script));
-    expect(entries.map((e) => [e.script, e.version, e.listTitle])).toEqual([
-      ["01/00001sort", "x-verse-x", "Song 1"],
-      ["01/00002sort", "x-verse-x", "Song 2"],
+  it("tells the admin about new sdvx.in charts it can't place, not the archive", async () => {
+    // The archive has a song long gone: it's no news.
+    setFolder([
+      sdvxRow("01001", "Song 1", "Artist 1"),
+      sdvxRow("01002", "Song 2", "Artist 2"),
+      sdvxRow("01007", "Old song", "Someone"),
     ]);
-  });
-
-  it("tells the admin about new sdvx.in pages it can't place, not the archive", async () => {
-    const page = (entries: [string, string][]) =>
-      files.set(
-        `${SOURCES.sdvxOrigin}/chunithm/sort/original.htm`,
-        listPage(entries),
-      );
-    // The archive has a page for a song long gone: it's no news.
-    page([
-      ["00001sort", "Song 1"],
-      ["00002sort", "Song 2"],
-      ["00007sort", "Old song"],
-    ]);
-    files.set(
-      `${SOURCES.sdvxOrigin}/chunithm/01/js/00007sort.js`,
-      script("00007", "Old song", "Someone"),
-    );
     const first = await syncCatalog(handle.db, deps());
-    expect(first.unmatched.map((row) => row.path)).toEqual(["01/00007mst"]);
+    expect(first.unmatched.map((row) => row.ref)).toEqual(["01007/mst"]);
     clock = new Date("2026-10-25T08:00:00.000Z");
     await syncCatalog(handle.db, deps());
     expect(await handle.db.select().from(adminAlerts)).toEqual([]);
 
-    // A day later sdvx.in adds a page we can't place: that's news, once.
-    page([
-      ["00001sort", "Song 1"],
-      ["00002sort", "Song 2"],
-      ["00007sort", "Old song"],
-      ["00008sort", "Mystery"],
+    // A day later sdvx.in adds a chart we can't place: that's news, once.
+    setFolder([
+      sdvxRow("01001", "Song 1", "Artist 1"),
+      sdvxRow("01002", "Song 2", "Artist 2"),
+      sdvxRow("01007", "Old song", "Someone"),
+      sdvxRow("01008", "Mystery", "Someone"),
     ]);
-    files.set(
-      `${SOURCES.sdvxOrigin}/chunithm/01/js/00008sort.js`,
-      script("00008", "Mystery", "Someone"),
-    );
     clock = new Date("2026-10-26T08:00:00.000Z");
     await syncCatalog(handle.db, deps());
     clock = new Date("2026-10-26T14:00:00.000Z");
     await syncCatalog(handle.db, deps());
     const alerts = await handle.db.select().from(adminAlerts);
     expect(alerts.map((alert) => alert.summary)).toEqual([
-      "CHUNITHM: 1 sdvx.in page to place.",
+      "CHUNITHM: 1 sdvx.in chart to place.",
     ]);
-    expect(
-      await newPagePaths(handle.db, ["01/00007mst", "01/00008mst"]),
-    ).toEqual(new Set(["01/00008mst"]));
+    expect(await newRefs(handle.db, ["01007/mst", "01008/mst"])).toEqual(
+      new Set(["01008/mst"]),
+    );
   });
 
   it("copies jackets into storage, and notes the ones it couldn't", async () => {
@@ -492,7 +496,7 @@ describe("syncCatalog", () => {
       height: 4,
       data: new Uint8Array(64).fill(200),
     });
-    files.set(`${SOURCES.sdvxOrigin}/chunithm/01/jacket/00001.png`, jacket);
+    files.set(`${SOURCES.sdvxOrigin}/chunithm/01/jacket/01001.png`, jacket);
     const result = await syncCatalog(handle.db, deps({ storage }));
     expect(result.jackets).toBe(1);
     const [one] = await handle.db
@@ -516,127 +520,6 @@ describe("syncCatalog", () => {
     expect(result.ok).toBe(false);
     expect(requests).toEqual([]);
     expect(await handle.db.select().from(chuniSongs)).toEqual([]);
-  });
-
-  it("leaves a script that got no answer for the next pass", async () => {
-    silent.add(`${SOURCES.sdvxOrigin}/chunithm/01/js/00002sort.js`);
-    const first = await syncCatalog(handle.db, deps());
-    expect(first.scriptsRead).toBe(1);
-    expect(first.scriptsLeft).toBe(1);
-    silent.clear();
-    const second = await syncCatalog(handle.db, deps());
-    expect(second.scriptsRead).toBe(1);
-    expect(second.scriptsLeft).toBe(0);
-  });
-
-  it("leaves a script whose download broke off for the next pass", async () => {
-    cutOff.add(`${SOURCES.sdvxOrigin}/chunithm/01/js/00002sort.js`);
-    const first = await syncCatalog(handle.db, deps());
-    expect(first.scriptsLeft).toBe(1);
-    cutOff.clear();
-    const second = await syncCatalog(handle.db, deps());
-    expect(second.scriptsLeft).toBe(0);
-    const [entry] = await handle.db
-      .select()
-      .from(chuniSdvxEntries)
-      .where(eq(chuniSdvxEntries.script, "01/00002sort"));
-    expect(entry?.readError).toBeNull();
-  });
-
-  it("reads a script that failed again a day later", async () => {
-    files.set(
-      `${SOURCES.sdvxOrigin}/chunithm/01/js/00002sort.js`,
-      "not a script",
-    );
-    await syncCatalog(handle.db, deps());
-    const failed = async () =>
-      (
-        await handle.db
-          .select({ error: chuniSdvxEntries.readError })
-          .from(chuniSdvxEntries)
-          .where(eq(chuniSdvxEntries.script, "01/00002sort"))
-      )[0]?.error ?? null;
-    expect(await failed()).not.toBeNull();
-    files.set(
-      `${SOURCES.sdvxOrigin}/chunithm/01/js/00002sort.js`,
-      script("00002", "Song 2", "Artist 2"),
-    );
-    requests = [];
-    await syncCatalog(handle.db, deps());
-    expect(requests.some((url) => url.endsWith("00002sort.js"))).toBe(false);
-    clock = new Date(clock.getTime() + SDVX_PASS.retryFailedDays * DAY_MS + 1);
-    await syncCatalog(handle.db, deps());
-    expect(await failed()).toBeNull();
-  });
-
-  it("stops reading when sdvx.in stops answering", async () => {
-    const many = Array.from(
-      { length: SDVX_PASS.failuresToStop + 3 },
-      (_, i): [string, string] => [
-        `${String(10 + i).padStart(5, "0")}sort`,
-        `S${String(i)}`,
-      ],
-    );
-    files.set(
-      `${SOURCES.sdvxOrigin}/chunithm/sort/original.htm`,
-      listPage(many),
-    );
-    for (const [file] of many)
-      silent.add(`${SOURCES.sdvxOrigin}/chunithm/01/js/${file}.js`);
-    const result = await syncCatalog(handle.db, deps());
-    expect(result.ok).toBe(true);
-    expect(result.scriptsRead).toBe(0);
-    expect(requests.filter((url) => url.endsWith("sort.js"))).toHaveLength(
-      SDVX_PASS.failuresToStop,
-    );
-    expect(result.errors.at(-1)).toContain(
-      `didn't answer ${String(SDVX_PASS.failuresToStop)} times in a row`,
-    );
-    expect(result.scriptsLeft).toBe(many.length);
-  });
-
-  it("stops at the pass's time limit, leaving the rest", async () => {
-    const result = await syncCatalog(handle.db, deps({ timeLimitMs: -1 }));
-    expect(result.scriptsRead).toBe(0);
-    expect(result.scriptsLeft).toBe(2);
-    expect(result.errors).toContain(
-      "Stopped reading scripts at the pass's time limit.",
-    );
-  });
-
-  it("copies only a few jackets while scripts are unread", async () => {
-    const storage = new LocalDriver({
-      root: null,
-      baseUrl: "/api/storage/local",
-    });
-    const jacket = encodePng({
-      width: 4,
-      height: 4,
-      data: new Uint8Array(64).fill(1),
-    });
-    // Many songs with a page and a jacket, and a script left unread.
-    for (let id = 1; id <= JACKETS_WHILE_READING + 5; id++)
-      files.set(
-        `${SOURCES.sdvxOrigin}/chunithm/01/jacket/${String(id).padStart(5, "0")}.png`,
-        jacket,
-      );
-    setSources(
-      undefined,
-      Array.from({ length: SONGS }, (_, i) =>
-        otogeRow(i + 1, {
-          lev_mas_chart_link:
-            i < JACKETS_WHILE_READING + 5
-              ? `01/${String(i + 1).padStart(5, "0")}mst`
-              : "",
-        }),
-      ),
-    );
-    const result = await syncCatalog(
-      handle.db,
-      deps({ storage, scriptsPerPass: 1 }),
-    );
-    expect(result.scriptsLeft).toBe(1);
-    expect(result.jackets).toBe(JACKETS_WHILE_READING);
   });
 });
 

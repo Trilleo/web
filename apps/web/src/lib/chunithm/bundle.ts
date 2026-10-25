@@ -4,7 +4,7 @@
  * (scripts/chunithm-bundle.ts) makes from it for /admin/chunithm/import/.
  *
  * A bundle is a ZIP (zip-writer.ts, entries stored): BUNDLE_INDEX lists the charts,
- * each with its sdvx.in page, the layers' tags (so the usual check against sdvx.in
+ * each with its sdvx.in ref, the layers' tags (so the usual check against sdvx.in
  * notices a redraw later), the manifest and its tiles' files. Tiles are made by
  * picture.ts, the server's own code, so they're what a server build would make; the
  * import checks the bundle all the same (`checkBundleChart`, and each tile's bytes).
@@ -16,8 +16,9 @@ import type { ChuniBuildManifest, ChuniBuildSource } from "@trilleo/db";
 import { BUNDLE_MAX_BYTES } from "./limits";
 import { VARIANTS, type Variant } from "./picture";
 
-export const TODO_FORMAT = 1;
-export const BUNDLE_FORMAT = 1;
+/** 2: charts by sdvx.in ref (its new viewer), not by its older site's page. */
+export const TODO_FORMAT = 2;
+export const BUNDLE_FORMAT = 2;
 /** The bundle's list of charts, at the archive's root. */
 export const BUNDLE_INDEX = "bundle.json";
 
@@ -39,7 +40,7 @@ export interface TodoChart {
   songId: number;
   title: string;
   difficulty: string;
-  sdvxPath: string;
+  sdvxRef: string;
   variant: Variant;
 }
 
@@ -61,7 +62,7 @@ export interface BundleTile {
 export interface BundleChart {
   chartId: number;
   variant: Variant;
-  sdvxPath: string;
+  sdvxRef: string;
   source: ChuniBuildSource;
   manifest: Omit<ChuniBuildManifest, "tiles">;
   tiles: BundleTile[];
@@ -111,7 +112,7 @@ export function parseTodo(value: unknown): Todo | string {
       !isId(chart.songId) ||
       !isText(chart.title) ||
       !isText(chart.difficulty) ||
-      !isText(chart.sdvxPath) ||
+      !isText(chart.sdvxRef) ||
       !isVariant(chart.variant)
     )
       return "The to-do list has a damaged chart.";
@@ -120,7 +121,7 @@ export function parseTodo(value: unknown): Todo | string {
       songId: chart.songId,
       title: chart.title,
       difficulty: chart.difficulty,
-      sdvxPath: chart.sdvxPath,
+      sdvxRef: chart.sdvxRef,
       variant: chart.variant,
     });
   }
@@ -135,12 +136,13 @@ export function parseTodo(value: unknown): Todo | string {
 
 function parseSource(value: unknown): ChuniBuildSource | null {
   if (!isShape(value) || !isShape(value.tags)) return null;
-  const { path, bg, obj, bar, tags } = value;
-  if (![path, bg, obj, bar].every(isText)) return null;
+  const { ref, bg, obj, bar, tags } = value;
+  if (![ref, bg, obj, bar].every(isText)) return null;
   if (![tags.bg, tags.obj, tags.bar].every((tag) => typeof tag === "string"))
     return null;
   return {
-    path: path as string,
+    ref: ref as string,
+    path: "",
     bg: bg as string,
     obj: obj as string,
     bar: bar as string,
@@ -188,7 +190,7 @@ export function parseBundleIndex(value: unknown): BundleIndex | string {
     if (
       !source ||
       !manifest ||
-      !isText(chart.sdvxPath) ||
+      !isText(chart.sdvxRef) ||
       !Array.isArray(chart.tiles)
     )
       return `Chart ${String(chart.chartId)} is damaged in the bundle.`;
@@ -201,7 +203,7 @@ export function parseBundleIndex(value: unknown): BundleIndex | string {
     charts.push({
       chartId: chart.chartId,
       variant: chart.variant,
-      sdvxPath: chart.sdvxPath,
+      sdvxRef: chart.sdvxRef,
       source,
       manifest,
       tiles,
@@ -219,7 +221,7 @@ export function parseBundleIndex(value: unknown): BundleIndex | string {
 /**
  * Whether a bundled chart is laid out as picture.ts lays charts out: the column
  * sizes, tiles cut from the bottom TILE_HEIGHT apart, measures on the strip, its
- * source from its own page, its tiles named where `tileFile` puts them. Null when it
+ * source from its own chart on sdvx.in, its tiles named where `tileFile` puts them. Null when it
  * is; otherwise why not.
  */
 export function checkBundleChart(chart: BundleChart): string | null {
@@ -251,8 +253,8 @@ export function checkBundleChart(chart: BundleChart): string | null {
     )
   )
     return "its measures don't fit the picture";
-  if (source.path !== chart.sdvxPath)
-    return "its layers come from another page";
+  if (source.ref !== chart.sdvxRef)
+    return "its layers come from another of sdvx.in's charts";
   return null;
 }
 

@@ -5,19 +5,24 @@
  *   otoge-db knows (removed ones, mostly) are kept too, marked as not in the game, so
  *   their charts can still be viewed.
  * - Chart details: constants, note counts, designers and the version a song came in
- *   from otoge-db; sdvx.in fills designers it lacks and adds CHAIN counts.
- * - Links to sdvx.in pages, strongest first: the admin's own (which can also say "this
- *   page is nothing of ours"), otoge-db's chart links, then the same title (and artist,
- *   when titles repeat; for World's End also the kanji and stars). Each page goes to
- *   one chart and each chart has one page. What can't be placed is `unmatched`, for
- *   the admin.
+ *   from otoge-db; sdvx.in fills designers it lacks and adds the notes by kind.
+ * - Links to sdvx.in's charts, strongest first: the admin's own (which can also say
+ *   "this is nothing of ours"), otoge-db's chart links (older pages' numbers, taken
+ *   when the chart there is the same song), then the same title (then artist, level,
+ *   and removed or not, when titles repeat; for World's End the kanji and stars). Each
+ *   of sdvx.in's charts goes to one of ours and each of ours has one. What can't be
+ *   placed is `unmatched`, for the admin.
  *
  * Pure: the site fetches the sources and writes the result (apps/web/src/lib/chunithm/).
  */
 import { DIFFICULTIES, type Difficulty } from "./difficulties";
 import type { OtogeSong } from "./sources/otoge";
-import type { SdvxEntryDetails, SdvxListEntry } from "./sources/sdvx";
-import { sdvxPathInfo } from "./sources/sdvx";
+import {
+  refFromLegacyPath,
+  type SdvxChart,
+  type SdvxNoteTypes,
+  type SdvxSong,
+} from "./sources/sdvx";
 import type { SegaSong } from "./sources/sega";
 import { matchKey } from "./text";
 import { knownVersionIndex, versionName, versionSlug } from "./versions";
@@ -50,8 +55,10 @@ export interface CatalogChart {
   constant: number | null;
   notes: number | null;
   designer: string | null;
-  chain: number | null;
-  sdvxPath: string | null;
+  /** sdvx.in's count of the notes by kind. */
+  noteTypes: SdvxNoteTypes | null;
+  /** The chart in sdvx.in's viewer, "11061/mst" (see sources/sdvx.ts). */
+  sdvxRef: string | null;
   linkedBy: LinkSource | null;
 }
 
@@ -64,7 +71,7 @@ export interface CatalogVersion {
 }
 
 export interface UnmatchedChart {
-  path: string;
+  ref: string;
   title: string;
   artist: string;
   difficulty: Difficulty;
@@ -77,25 +84,20 @@ export interface UnmatchedChart {
   candidates: number[];
 }
 
-export interface SdvxOverride {
-  path: string;
-  /** null: the page isn't any chart of ours (ignored). */
+/** The admin's word on one of sdvx.in's charts. */
+export interface SdvxPlacement {
+  ref: string;
+  /** null: it isn't any chart of ours (ignored). */
   songId: number | null;
   difficulty: Difficulty | null;
-}
-
-export interface SdvxEntry {
-  entry: SdvxListEntry;
-  /** Null until its script has been read. */
-  details: SdvxEntryDetails | null;
 }
 
 export interface CatalogInput {
   sega: SegaSong[];
   otoge: OtogeSong[];
   otogeDeleted: OtogeSong[];
-  sdvx: SdvxEntry[];
-  overrides: SdvxOverride[];
+  sdvx: SdvxSong[];
+  placements: SdvxPlacement[];
 }
 
 export interface Catalog {
@@ -138,12 +140,21 @@ export function buildCatalog(input: CatalogInput): Catalog {
   // Songs and their charts.
   const songs = new Map<number, CatalogSong>();
   const charts = new Map<string, CatalogChart>();
-  const addChart = (chart: Omit<CatalogChart, "linkedBy" | "chain">) => {
-    charts.set(chartKey(chart.songId, chart.difficulty), {
+  /** otoge-db's links to the older pages, by chart. */
+  const otogeLinks = new Map<string, string>();
+  const addChart = (
+    chart: Omit<CatalogChart, "linkedBy" | "noteTypes" | "sdvxRef">,
+    sdvxLink: string | null,
+  ) => {
+    const key = chartKey(chart.songId, chart.difficulty);
+    charts.set(key, {
       ...chart,
-      chain: null,
-      linkedBy: chart.sdvxPath ? "otoge-db" : null,
+      noteTypes: null,
+      sdvxRef: null,
+      linkedBy: null,
     });
+    if (sdvxLink) otogeLinks.set(key, sdvxLink);
+    else otogeLinks.delete(key);
   };
   for (const sega of input.sega) {
     const otoge = otogeById.get(sega.id);
@@ -171,17 +182,19 @@ export function buildCatalog(input: CatalogInput): Catalog {
           : sega.levels[difficulty];
       if (!level) continue;
       const extra = details.get(difficulty);
-      addChart({
-        songId: sega.id,
-        difficulty,
-        level,
-        worldsEndStars:
-          difficulty === "worldsend" ? (sega.worldsEnd?.stars ?? null) : null,
-        constant: extra?.constant ?? null,
-        notes: extra?.notes ?? null,
-        designer: extra?.designer ?? null,
-        sdvxPath: extra?.sdvxPath ?? null,
-      });
+      addChart(
+        {
+          songId: sega.id,
+          difficulty,
+          level,
+          worldsEndStars:
+            difficulty === "worldsend" ? (sega.worldsEnd?.stars ?? null) : null,
+          constant: extra?.constant ?? null,
+          notes: extra?.notes ?? null,
+          designer: extra?.designer ?? null,
+        },
+        extra?.sdvxLink ?? null,
+      );
     }
   }
   for (const otoge of otogeById.values()) {
@@ -201,79 +214,81 @@ export function buildCatalog(input: CatalogInput): Catalog {
       removedIn: null,
     });
     for (const chart of otoge.charts)
-      addChart({
-        songId: otoge.id,
-        difficulty: chart.difficulty,
-        level: chart.level,
-        worldsEndStars:
-          chart.difficulty === "worldsend"
-            ? (otoge.worldsEnd?.stars ?? null)
-            : null,
-        constant: chart.constant,
-        notes: chart.notes,
-        designer: chart.designer,
-        sdvxPath: chart.sdvxPath,
-      });
+      addChart(
+        {
+          songId: otoge.id,
+          difficulty: chart.difficulty,
+          level: chart.level,
+          worldsEndStars:
+            chart.difficulty === "worldsend"
+              ? (otoge.worldsEnd?.stars ?? null)
+              : null,
+          constant: chart.constant,
+          notes: chart.notes,
+          designer: chart.designer,
+        },
+        chart.sdvxLink,
+      );
   }
 
-  // sdvx.in pages: who links where.
-  const sdvxCharts = new Map<
-    string,
-    { entry: SdvxListEntry; details: SdvxEntryDetails; index: number }
-  >();
-  for (const { entry, details } of input.sdvx) {
-    if (!details) continue;
-    details.charts.forEach((chart, index) => {
-      sdvxCharts.set(chart.path, { entry, details, index });
-    });
-  }
-  const byPath = new Map<string, string>();
+  // sdvx.in's charts: who links where.
+  const sdvxCharts = new Map<string, { song: SdvxSong; chart: SdvxChart }>();
+  for (const song of input.sdvx)
+    for (const chart of song.charts) sdvxCharts.set(chart.ref, { song, chart });
+  const byRef = new Map<string, string>();
   const unlink = (key: string) => {
     const chart = charts.get(key);
-    if (!chart?.sdvxPath) return;
-    byPath.delete(chart.sdvxPath);
-    chart.sdvxPath = null;
+    if (!chart?.sdvxRef) return;
+    byRef.delete(chart.sdvxRef);
+    chart.sdvxRef = null;
     chart.linkedBy = null;
   };
-  /** Links a page to a chart if it outranks what either already has. */
-  const link = (path: string, key: string, source: LinkSource): boolean => {
+  /** Links a chart of sdvx.in's to ours if it outranks what either already has. */
+  const link = (ref: string, key: string, source: LinkSource): boolean => {
     const chart = charts.get(key);
     if (!chart) return false;
-    const holder = byPath.get(path);
+    const holder = byRef.get(ref);
     const holderSource = holder ? charts.get(holder)?.linkedBy : null;
     if (holder && holder !== key && holderSource) {
       if (LINK_RANK[holderSource] >= LINK_RANK[source]) return false;
       unlink(holder);
     }
-    if (chart.sdvxPath && chart.sdvxPath !== path) {
+    if (chart.sdvxRef && chart.sdvxRef !== ref) {
       if (chart.linkedBy && LINK_RANK[chart.linkedBy] >= LINK_RANK[source])
         return false;
       unlink(key);
     }
-    chart.sdvxPath = path;
+    chart.sdvxRef = ref;
     chart.linkedBy = source;
-    byPath.set(path, key);
+    byRef.set(ref, key);
     return true;
   };
-  // otoge-db's links, as given (checked: the page's difficulty must be the chart's).
-  for (const [key, chart] of charts) {
-    const path = chart.sdvxPath;
-    chart.sdvxPath = null;
-    chart.linkedBy = null;
-    if (path && sdvxPathInfo(path)?.difficulty === chart.difficulty)
-      link(path, key, "otoge-db");
+  // otoge-db's links name the older pages' numbers, which mostly carry over: taken
+  // when sdvx.in has that chart and it's the same song (title, or artist and level).
+  for (const [key, link_] of otogeLinks) {
+    const chart = charts.get(key);
+    const song = chart ? songs.get(chart.songId) : undefined;
+    const ref = refFromLegacyPath(link_);
+    const found = ref ? sdvxCharts.get(ref) : undefined;
+    if (!chart || !song || !ref || !found) continue;
+    if (found.chart.difficulty !== chart.difficulty) continue;
+    const sameTitle = matchKey(found.song.title) === matchKey(song.title);
+    const sameArtistAndLevel =
+      matchKey(found.song.artist) === matchKey(song.artist) &&
+      found.chart.level === chart.level;
+    if (sameTitle || sameArtistAndLevel) link(ref, key, "otoge-db");
   }
   const ignored = new Set<string>();
-  for (const override of input.overrides) {
-    if (override.songId === null || override.difficulty === null) {
-      ignored.add(override.path);
-      const holder = byPath.get(override.path);
+  for (const placement of input.placements) {
+    if (placement.songId === null || placement.difficulty === null) {
+      ignored.add(placement.ref);
+      const holder = byRef.get(placement.ref);
       if (holder) unlink(holder);
       continue;
     }
     link(
-      override.path,
-      chartKey(override.songId, override.difficulty),
+      placement.ref,
+      chartKey(placement.songId, placement.difficulty),
       "admin",
     );
   }
@@ -285,36 +300,41 @@ export function buildCatalog(input: CatalogInput): Catalog {
     byTitle.set(key, [...(byTitle.get(key) ?? []), song]);
   }
   const unmatched: UnmatchedChart[] = [];
-  for (const [path, { details, index }] of sdvxCharts) {
-    if (byPath.has(path) || ignored.has(path)) continue;
-    const chart = details.charts[index];
-    if (!chart) continue;
+  for (const [ref, { song: page, chart }] of sdvxCharts) {
+    if (byRef.has(ref) || ignored.has(ref)) continue;
     const isWorldsEnd = chart.difficulty === "worldsend";
-    let candidates = (byTitle.get(matchKey(details.title)) ?? []).filter(
+    let candidates = (byTitle.get(matchKey(page.title)) ?? []).filter(
       (song) => charts.has(chartKey(song.id, "worldsend")) === isWorldsEnd,
     );
-    if (isWorldsEnd && candidates.length > 1) {
-      const fitting = candidates.filter((song) => {
+    const narrow = (fits: (song: CatalogSong) => boolean) => {
+      if (candidates.length < 2) return;
+      const fitting = candidates.filter(fits);
+      if (fitting.length > 0) candidates = fitting;
+    };
+    if (isWorldsEnd)
+      narrow((song) => {
         const we = charts.get(chartKey(song.id, "worldsend"));
         return (
           (!chart.level || we?.level === chart.level) &&
           (!chart.worldsEndStars || we?.worldsEndStars === chart.worldsEndStars)
         );
       });
-      if (fitting.length > 0) candidates = fitting;
-    }
-    if (candidates.length > 1) {
-      const artist = matchKey(details.artist);
-      const sameArtist = candidates.filter(
-        (song) => matchKey(song.artist) === artist,
+    const artist = matchKey(page.artist);
+    narrow((song) => matchKey(song.artist) === artist);
+    // Songs whose title and artist repeat (remakes): the level tells them apart.
+    if (!isWorldsEnd)
+      narrow(
+        (song) =>
+          charts.get(chartKey(song.id, chart.difficulty))?.level ===
+          chart.level,
       );
-      if (sameArtist.length > 0) candidates = sameArtist;
-    }
+    // Removed songs on sdvx.in's removed list; songs in the game on the others.
+    narrow((song) => !song.inGame === (page.removed !== null));
     const miss = (reason: UnmatchedChart["reason"]) => {
       unmatched.push({
-        path,
-        title: details.title,
-        artist: details.artist,
+        ref,
+        title: page.title,
+        artist: page.artist,
         difficulty: chart.difficulty,
         level: chart.level,
         reason,
@@ -325,23 +345,22 @@ export function buildCatalog(input: CatalogInput): Catalog {
     if (!song) miss("no-song");
     else if (candidates.length > 1) miss("ambiguous");
     else if (!charts.has(chartKey(song.id, chart.difficulty))) miss("no-chart");
-    else if (!link(path, chartKey(song.id, chart.difficulty), "title"))
+    else if (!link(ref, chartKey(song.id, chart.difficulty), "title"))
       miss("taken");
   }
 
-  // What linked pages add: designers otoge-db lacks, CHAIN, versions and removals.
-  const removals = new Map<number, { version: string | null; on: string }>();
+  // What linked charts add: designers otoge-db lacks, the notes by kind, removals.
+  const removals = new Map<
+    number,
+    { version: string | null; on: string | null }
+  >();
   for (const chart of charts.values()) {
-    if (!chart.sdvxPath) continue;
-    const found = sdvxCharts.get(chart.sdvxPath);
-    const page = found?.details.charts[found.index];
-    if (!found || !page) continue;
-    chart.designer ??= page.designer;
-    chart.chain = page.chain;
-    const song = songs.get(chart.songId);
-    if (song && !song.version && found.entry.version)
-      song.version = found.entry.version;
-    if (found.entry.removed) removals.set(chart.songId, found.entry.removed);
+    if (!chart.sdvxRef) continue;
+    const found = sdvxCharts.get(chart.sdvxRef);
+    if (!found) continue;
+    chart.designer ??= found.chart.designer;
+    chart.noteTypes = found.chart.noteTypes;
+    if (found.song.removed) removals.set(chart.songId, found.song.removed);
   }
   for (const [id, removal] of removals) {
     const song = songs.get(id);
@@ -351,9 +370,6 @@ export function buildCatalog(input: CatalogInput): Catalog {
     if (removal.version && !versionNames.has(removal.version))
       versionNames.set(removal.version, removal.version);
   }
-  for (const { entry } of input.sdvx)
-    if (entry.version && !versionNames.has(entry.version))
-      versionNames.set(entry.version, entry.version);
 
   const versions = orderVersions(versionNames, [...songs.values()], input.sdvx);
   return {
@@ -365,7 +381,7 @@ export function buildCatalog(input: CatalogInput): Catalog {
     ),
     versions,
     currentVersion: versions.at(-1)?.slug ?? null,
-    unmatched: unmatched.sort((a, b) => a.path.localeCompare(b.path)),
+    unmatched: unmatched.sort((a, b) => a.ref.localeCompare(b.ref)),
   };
 }
 
@@ -376,7 +392,7 @@ export function buildCatalog(input: CatalogInput): Catalog {
 function orderVersions(
   names: Map<string, string>,
   songs: CatalogSong[],
-  sdvx: SdvxEntry[],
+  sdvx: SdvxSong[],
 ): CatalogVersion[] {
   // A version starts on the first day several of its songs came (one or two may come
   // early, as events); failing that, the day most of them came.
@@ -396,10 +412,10 @@ function orderVersions(
     if (launch) started.set(slug, launch[0]);
   }
   // sdvx.in's removals happen as a version starts: a date for versions without songs.
-  for (const { entry } of sdvx) {
-    const removal = entry.removed;
-    if (!removal?.version || started.has(removal.version)) continue;
-    started.set(removal.version, removal.on);
+  for (const { removed } of sdvx) {
+    if (!removed?.version || !removed.on || started.has(removed.version))
+      continue;
+    started.set(removed.version, removed.on);
   }
   const list = [...names].map(([slug, name]) => ({
     slug,

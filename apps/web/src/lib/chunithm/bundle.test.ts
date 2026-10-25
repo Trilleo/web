@@ -34,12 +34,13 @@ const chart = (over: Partial<BundleChart> = {}): BundleChart => {
   return {
     chartId: 7,
     variant: "normal",
-    sdvxPath: "01/00001mst",
+    sdvxRef: "01001/mst",
     source: {
-      path: "01/00001mst",
-      bg: "/chunithm/01/bg/00001bg.png",
-      obj: "/chunithm/01/obj/data00001mst.png",
-      bar: "/chunithm/01/bg/00001bar.png",
+      ref: "01001/mst",
+      path: "",
+      bg: "/chunithm/01/bg/01001bg.webp",
+      obj: "/chunithm/01/obj/data01001mst.webp",
+      bar: "/chunithm/01/bg/01001bar.webp",
       tags: { bg: '"1"|10', obj: '"1"|20', bar: '"1"|30' },
     },
     manifest: {
@@ -99,7 +100,7 @@ describe("to-do lists", () => {
         songId: 2,
         title: "Song",
         difficulty: "master",
-        sdvxPath: "02/00002mst",
+        sdvxRef: "02002/mst",
         variant: "normal",
       },
     ],
@@ -134,7 +135,10 @@ describe("bundles", () => {
   });
 
   it("refuses damaged indexes", () => {
-    expect(parseBundleIndex({ ...index, format: 2 })).toMatch(/format 1/);
+    // Bundles from before sdvx.in's new viewer (by its older pages) are refused.
+    expect(parseBundleIndex({ ...index, format: 1 })).toMatch(
+      /format 2, not 1/,
+    );
     expect(
       parseBundleIndex({
         ...index,
@@ -172,8 +176,8 @@ describe("bundles", () => {
         manifest: { ...base.manifest, measures: [0, 900, 400] },
       }),
     ).toMatch(/measures/);
-    expect(checkBundleChart({ ...base, sdvxPath: "02/00002mst" })).toMatch(
-      /another page/,
+    expect(checkBundleChart({ ...base, sdvxRef: "02002/mst" })).toMatch(
+      /another of sdvx.in's charts/,
     );
   });
 

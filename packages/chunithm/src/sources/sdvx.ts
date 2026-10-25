@@ -1,245 +1,130 @@
 /**
  * sdvx.in (CHUNITHM譜面保管所): chart pictures, made by hand for each chart, with its
- * own IDs. Its pages are written by scripts (document.write), so they're read here as
- * text and never run.
+ * own IDs. Its viewer (/chunithm/_/viewer.php?id=<id>&diff=<diff>) reads JSON lists
+ * and draws three WebP layers; this reads the same lists and names the same files.
  *
- * - The genre pages (/chunithm/sort/<genre>.htm), /chunithm/ultima.htm (sort/), the
- *   World's End page (/chunithm/end.htm) and the removed-songs page (/chunithm/del.htm)
- *   list "entries": one script each, in version sections (a logo function call,
- *   CHUNITHM<NAME>LG()), each followed by <!--title--> on genre pages.
- * - An entry's script (/chunithm/<dir>/js/<id>sort.js, …ult.js, …end.js, …end2.js)
- *   holds the song's title, artist and BPM and, per chart, its page, level, notes
- *   designer and CHAIN (combo) count.
- * - A chart's page is /chunithm/<dir>/<id><kind>.htm: its "path" here is
- *   "<dir>/<id><kind>" ("11/11061mst", "ult/11006ult", "end/01066end2").
+ * - Songs: /chunithm/_/json/songs<NN>.json, one per folder ("01" up; a folder that
+ *   isn't there yet redirects), and songs_del.json for songs SEGA removed. A song's
+ *   ID is five digits, its folder the first two; Ultima charts are in the song's row.
+ * - World's End: songs_we.json, songs_wedel.json (removed), songs_wecourse.json and
+ *   songs_weuso.json, with IDs of their own (three digits), one chart each.
+ * - A level written with an underscore ("_3", "_狂5") is a chart sdvx.in hasn't drawn.
  *
- * <dir> is a two-digit folder per few versions, or "ult" / "end".
+ * A chart's "ref" here is "<id>/<diff>": "11061/mst", "11061/ult", "008/we". Its layers
+ * are /chunithm/<folder>/bg/<id>bg.webp (lanes), obj/data<id><key>.webp (notes),
+ * bg/<id>bar.webp (measure numbers) and obj/mrr<id><key>.webp (mirrored notes), where
+ * World's End uses folder "end" and key "end". Missing files redirect to an HTML page.
+ *
+ * The site's older pages (/chunithm/<dir>/<id><kind>.htm, "11/11061mst") used another
+ * numbering; `legacySdvxPathInfo` and `refFromLegacyPath` read those for moving data
+ * kept from them (and otoge-db's links, which still use them).
  */
-import type { Difficulty } from "../difficulties";
+import { isLevel, type Difficulty } from "../difficulties";
 import { htmlText } from "../text";
-import { sdvxLogoSlug, versionSlug } from "../versions";
+import { versionSlug } from "../versions";
+import { SourceError, field, isRecord } from "./common";
 
-export type SdvxEntryKind = "song" | "ultima" | "worldsend";
+/** Which of sdvx.in's lists a song is in. */
+export type SdvxList =
+  | "songs"
+  | "removed"
+  | "worldsend"
+  | "worldsend-removed"
+  | "worldsend-course"
+  | "worldsend-uso";
 
-const PATH = /^(\d{2}|ult|end)\/(\d{5})(bsc|adv|exp|mst|ult|end\d*)$/;
-const KIND_DIFFICULTY: Record<string, Difficulty> = {
-  bsc: "basic",
-  adv: "advanced",
-  exp: "expert",
-  mst: "master",
-  ult: "ultima",
-};
+/** The lists' files (folders' song lists are songs<NN>.json, `sdvxFolderList`). */
+export const SDVX_LIST_FILES: readonly { list: SdvxList; file: string }[] = [
+  { list: "removed", file: "songs_del.json" },
+  { list: "worldsend", file: "songs_we.json" },
+  { list: "worldsend-removed", file: "songs_wedel.json" },
+  { list: "worldsend-course", file: "songs_wecourse.json" },
+  { list: "worldsend-uso", file: "songs_weuso.json" },
+];
 
-export function isSdvxPath(path: string): boolean {
-  return PATH.test(path);
+/** Where the lists live on sdvx.in. */
+export const SDVX_JSON_DIR = "/chunithm/_/json/";
+
+/** A folder's song list ("01" → "songs01.json"). */
+export function sdvxFolderList(folder: number): string {
+  return `songs${String(folder).padStart(2, "0")}.json`;
 }
 
-/** A chart page's difficulty and entry ID, or null for something else. */
-export function sdvxPathInfo(
-  path: string,
-): { dir: string; entryId: string; difficulty: Difficulty } | null {
-  const match = PATH.exec(path);
-  if (!match) return null;
-  const [, dir = "", entryId = "", kind = ""] = match;
-  const difficulty = kind.startsWith("end")
-    ? "worldsend"
-    : KIND_DIFFICULTY[kind];
-  return difficulty ? { dir, entryId, difficulty } : null;
+/** Folders tried at most (sdvx.in's own list page tries 01–20). */
+export const SDVX_MAX_FOLDERS = 40;
+
+/** sdvx.in's difficulty keys. */
+const KEYS: [Difficulty, string][] = [
+  ["basic", "bsc"],
+  ["advanced", "adv"],
+  ["expert", "exp"],
+  ["master", "mst"],
+  ["ultima", "ult"],
+];
+const DIFFICULTY_OF = new Map(
+  KEYS.map(([difficulty, key]) => [key, difficulty]),
+);
+const KEY_OF = new Map(KEYS);
+
+const REF = /^(?:(\d{5})\/(bsc|adv|exp|mst|ult)|(\d{3})\/we)$/;
+
+export function isSdvxRef(ref: string): boolean {
+  return REF.test(ref);
 }
 
-export interface SdvxListEntry {
-  /** "11/11061sort", "ult/11006ult", "end/01066end2": the key for an entry. */
-  script: string;
-  entryId: string;
-  kind: SdvxEntryKind;
-  /** The title in the page's comment, where there is one. */
-  listTitle: string | null;
-  /** The version section it's listed under, as a slug. */
-  version: string | null;
-  /** On the removed-songs page: the version and day it left the game. */
-  removed: { version: string | null; on: string } | null;
-}
-
-/** Where an entry's script lives on sdvx.in. */
-export function sdvxScriptUrl(script: string): string {
-  const [dir = "", file = ""] = script.split("/");
-  return `/chunithm/${dir}/js/${file}.js`;
-}
-
-const TOKENS =
-  /CHUNITHM([A-Z]*)LG\(\)|<div class=adv1>([^<]{0,200})<\/div>|src="\/chunithm\/(\d{2}|ult|end)\/js\/(\d{5})(sort|ult|end\d*)\.js"([^\n]*)/g;
-
-/** The text of the first <!--comment--> in a line (the entry's title), if any. */
-function commentIn(line: string): string | undefined {
-  const open = line.indexOf("<!--");
-  if (open === -1) return undefined;
-  const close = line.indexOf("-->", open + 4);
-  return close === -1 ? undefined : line.slice(open + 4, close).trim();
-}
-
-/** The entries a list page links, in order, with their version sections. */
-export function parseSdvxList(html: string): SdvxListEntry[] {
-  const entries: SdvxListEntry[] = [];
-  const seen = new Set<string>();
-  let version: string | null = null;
-  let removed: SdvxListEntry["removed"] = null;
-  for (const match of html.matchAll(TOKENS)) {
-    const [, logo, header, dir, id, kind, rest] = match;
-    if (logo !== undefined) {
-      version = sdvxLogoSlug(logo);
-      continue;
-    }
-    if (header !== undefined) {
-      // "X-VERSE-X 2025/12/11 配信停止": a removal section (other headers aren't).
-      const text = header.trim();
-      if (!text.endsWith("配信停止")) continue;
-      const before = text.slice(0, -"配信停止".length).trimEnd();
-      const date = /(\d{4})\/(\d{2})\/(\d{2})$/.exec(before);
-      if (!date) continue;
-      const [, year = "", month = "", day = ""] = date;
-      removed = {
-        version: versionSlug(before.slice(0, date.index)) || null,
-        on: `${year}-${month}-${day}`,
-      };
-      continue;
-    }
-    if (!dir || !id || !kind) continue;
-    const script = `${dir}/${id}${kind}`;
-    if (seen.has(script)) continue;
-    seen.add(script);
-    const comment = commentIn(rest ?? "");
-    entries.push({
-      script,
-      entryId: id,
-      kind: kind === "sort" ? "song" : kind === "ult" ? "ultima" : "worldsend",
-      listTitle: comment === undefined || comment === "" ? null : comment,
-      version,
-      removed,
-    });
-  }
-  return entries;
-}
-
-export interface SdvxChart {
+export interface SdvxRefInfo {
+  id: string;
+  /** "mst", or "we". */
+  diff: string;
   difficulty: Difficulty;
-  path: string;
-  /** "14+", or a World's End chart's kanji. */
-  level: string | null;
-  worldsEndStars: number | null;
-  designer: string | null;
-  /** sdvx.in's CHAIN: the chart's full combo count. */
-  chain: number | null;
+  /** The layers' folder: the ID's first two digits, or "end". */
+  folder: string;
+  /** The layers' file key: the diff, or "end". */
+  fileKey: string;
 }
 
-export interface SdvxEntryDetails {
-  title: string;
-  artist: string;
-  bpm: string | null;
-  /** The song's jacket (a 300px PNG), as a site path. */
-  jacket: string | null;
-  charts: SdvxChart[];
-}
-
-/** The World's End kanji older sdvx.in pages spell in romaji (only the sure ones). */
-const WORLDS_END_ROMAJI: Record<string, string> = {
-  kyou: "狂",
-  wari: "割",
-  kura: "蔵",
-  sake: "避",
-  ryou: "両",
-  hika: "光",
-  // "air_q3": the "？" kind.
-  q: "？",
-};
-
-/** The script an sdvx.in chart page's details come from ("11/11061mst" → "11/11061sort"). */
-export function sdvxScriptOf(path: string): string | null {
-  const info = sdvxPathInfo(path);
-  if (!info) return null;
-  if (info.dir === "end" || info.dir === "ult") return path;
-  return `${info.dir}/${info.entryId}sort`;
-}
-
-const VARIABLE = /^var ([A-Z0-9]+)="((?:[^"\\\n]|\\.)*)";?\s*$/gm;
-
-/** What an entry's script says, read as text. Null when it isn't one. */
-export function parseSdvxScript(
-  text: string,
-  script: string,
-): SdvxEntryDetails | null {
-  const [, file = ""] = script.split("/");
-  const match = /^(\d{5})(sort|ult|end(\d*))$/.exec(file);
+/** A ref's parts, or null for something else. */
+export function sdvxRefInfo(ref: string): SdvxRefInfo | null {
+  const match = REF.exec(ref);
   if (!match) return null;
-  const [, id = "", kind = "", endIndex = ""] = match;
-  const vars = new Map<string, string>();
-  for (const [, name = "", value = ""] of text
-    .replace(/^\uFEFF/, "")
-    .matchAll(VARIABLE))
-    vars.set(name, value.replace(/\\(.)/g, "$1"));
-
-  // A song's title and artist; a second World's End chart of one entry may only
-  // have its own ("TITLE02045W2").
-  const own = kind === "sort" || kind === "ult" ? "" : `W${endIndex}`;
-  const title = htmlText(
-    vars.get(`TITLE${id}`) ?? vars.get(`TITLE${id}${own}`) ?? "",
-  );
-  if (!title) return null;
-  const artist = htmlText(
-    vars.get(`ARTIST${id}`) ?? vars.get(`ARTIST${id}${own}`) ?? "",
-  ).replace(/^\s*\/\s*/, "");
-  const bpm =
-    htmlText(vars.get(`BPM${id}`) ?? "").replace(/^BPM\s*/, "") || null;
-
-  const suffixes =
-    kind === "sort"
-      ? ["B", "A", "E", "M"]
-      : kind === "ult"
-        ? ["U"]
-        : [`W${endIndex}`];
-  const charts: SdvxChart[] = [];
-  for (const suffix of suffixes) {
-    const chart = readChart(vars, `${id}${suffix}`);
-    if (chart) charts.push(chart);
-  }
-  const jacket =
-    /src=(\/chunithm\/[0-9a-z]+\/jacket\/[0-9A-Za-z_]+\.png)/.exec(
-      vars.get(`JK${id}`) ?? "",
-    )?.[1] ?? null;
-  return { title, artist, bpm, jacket, charts };
+  const [, songId, key, weId] = match;
+  if (weId)
+    return {
+      id: weId,
+      diff: "we",
+      difficulty: "worldsend",
+      folder: "end",
+      fileKey: "end",
+    };
+  const difficulty = key ? DIFFICULTY_OF.get(key) : undefined;
+  if (!songId || !key || !difficulty) return null;
+  return {
+    id: songId,
+    diff: key,
+    difficulty,
+    folder: songId.slice(0, 2),
+    fileKey: key,
+  };
 }
 
-function readChart(vars: Map<string, string>, key: string): SdvxChart | null {
-  const lv = vars.get(`LV${key}`) ?? "";
-  // Charts sdvx.in hasn't drawn have a broken "<href=…>" instead of a link.
-  const link = /<a href=\/chunithm\/([^ >]+)\.htm>/.exec(lv)?.[1] ?? "";
-  const info = sdvxPathInfo(link);
+/** The ref of a song's chart ("11061" + master → "11061/mst"). */
+export function sdvxRef(id: string, difficulty: Difficulty): string {
+  return difficulty === "worldsend"
+    ? `${id}/we`
+    : `${id}/${KEY_OF.get(difficulty) ?? ""}`;
+}
+
+/** The key of the song a ref belongs to ("11061/mst" → "11061", "008/we" → "we/008"). */
+export function sdvxSongKey(ref: string): string | null {
+  const info = sdvxRefInfo(ref);
   if (!info) return null;
-  const image = /chlv\/([^ >/]+)\.png/.exec(lv)?.[1] ?? "";
-  const numbered = /^(?:bsc|adv|exp|mst|ult)_?(\d{1,2}\+?)$/.exec(image);
-  // World's End: "new狂3" now; older pages "star_wari2", "hika3" (romaji).
-  const worldsEnd =
-    /^new(.+?)([1-5])$/u.exec(image) ??
-    /^(?:[a-z]+_)?([a-z]+)([1-5])$/.exec(image);
-  const kanji = worldsEnd?.[1]
-    ? (WORLDS_END_ROMAJI[worldsEnd[1]] ??
-      (/^[a-z]+$/.test(worldsEnd[1]) ? null : worldsEnd[1]))
-    : null;
-  const designer =
-    htmlText(vars.get(`CR${key}`) ?? "").replace(
-      /^NOTES DESIGNER\s*\/\s*/,
-      "",
-    ) || null;
-  const chain = Number(
-    htmlText(vars.get(`CH${key}`) ?? "").replace(/^CHAIN\s*/, ""),
-  );
-  return {
-    difficulty: info.difficulty,
-    path: link,
-    level: numbered?.[1] ?? kanji,
-    worldsEndStars: worldsEnd ? Number(worldsEnd[2]) : null,
-    designer,
-    chain: Number.isInteger(chain) && chain > 0 ? chain : null,
-  };
+  return info.difficulty === "worldsend" ? `we/${info.id}` : info.id;
+}
+
+/** The chart's page in sdvx.in's viewer (a site path). */
+export function sdvxViewerPath(ref: string): string | null {
+  const info = sdvxRefInfo(ref);
+  return info ? `/chunithm/_/viewer.php?id=${info.id}&diff=${info.diff}` : null;
 }
 
 /** A chart picture's three layers on sdvx.in (site paths), and the mirrored notes. */
@@ -247,98 +132,212 @@ export interface SdvxImages {
   bg: string;
   obj: string;
   bar: string;
-  /** The notes drawn mirrored, where sdvx.in has them. */
-  mirror: string | null;
+  mirror: string;
 }
 
-const DIFFICULTY_SUFFIX: Record<Difficulty, string> = {
-  basic: "B",
-  advanced: "A",
-  expert: "E",
-  master: "M",
-  ultima: "U",
-  worldsend: "W",
-};
-
-/**
- * The script that draws a chart page: `<dir>/js/<id>data.js` for a song's charts,
- * the entry's own script for Ultima and World's End.
- */
-export function sdvxImageScript(path: string): string | null {
-  const info = sdvxPathInfo(path);
+/** Where a chart's layers are, as sdvx.in's viewer names them. */
+export function sdvxImages(ref: string): SdvxImages | null {
+  const info = sdvxRefInfo(ref);
   if (!info) return null;
-  if (info.dir === "end" || info.dir === "ult") return sdvxScriptUrl(path);
-  return `/chunithm/${info.dir}/js/${info.entryId}data.js`;
+  const dir = `/chunithm/${info.folder}`;
+  return {
+    bg: `${dir}/bg/${info.id}bg.webp`,
+    obj: `${dir}/obj/data${info.id}${info.fileKey}.webp`,
+    bar: `${dir}/bg/${info.id}bar.webp`,
+    mirror: `${dir}/obj/mrr${info.id}${info.fileKey}.webp`,
+  };
 }
 
-const IMAGE = /src=(\/chunithm\/[A-Za-z0-9_/]+\.png)/g;
-
-/** The layers a chart page draws (its PNG… and MRR… functions), read as text. */
-export function parseSdvxImages(text: string, path: string): SdvxImages | null {
-  const info = sdvxPathInfo(path);
-  if (!info) return null;
-  const endIndex = /end(\d*)$/.exec(path)?.[1] ?? "";
-  const name = `${info.entryId}${DIFFICULTY_SUFFIX[info.difficulty]}${info.difficulty === "worldsend" ? endIndex : ""}`;
-  const body = (fn: string) => {
-    const start = text.indexOf(`function ${fn}${name}(){`);
-    if (start === -1) return null;
-    const end = text.indexOf("\n", start);
-    return text.slice(start, end === -1 ? undefined : end);
-  };
-  const layers = (fn: string) => {
-    const code = body(fn);
-    if (!code) return null;
-    const found = [...code.matchAll(IMAGE)].map((match) => match[1] ?? "");
-    const bar = found.find((src) => /\/bg\/[^/]*bar\.png$/.test(src));
-    const bg = found.find((src) => src.includes("/bg/") && src !== bar);
-    const obj = found.find((src) => src.includes("/obj/"));
-    return bg && obj && bar ? { bg, obj, bar } : null;
-  };
-  const normal = layers("PNG");
-  if (!normal) return null;
-  return { ...normal, mirror: layers("MRR")?.obj ?? null };
+/** A song's jacket on sdvx.in (a PNG, as a site path). */
+export function sdvxJacketPath(ref: string): string | null {
+  const info = sdvxRefInfo(ref);
+  return info ? `/chunithm/${info.folder}/jacket/${info.id}.png` : null;
 }
 
 /**
- * A song's jacket on sdvx.in: what its script said, or, for an entry read before
- * jackets were kept, where sdvx.in keeps a song's jacket (its folder's jacket/).
+ * Every place sdvx.in may keep a song's jacket, from its charts' refs: its own song's
+ * first, then World's End ones.
  */
-export function sdvxJacket(
-  details: { jacket?: string | null } | null,
-  script: string,
-): string | null {
-  if (details?.jacket) return details.jacket;
-  const match = /^(\d{2})\/(\d{5})sort$/.exec(script);
-  return match
-    ? `/chunithm/${match[1] ?? ""}/jacket/${match[2] ?? ""}.png`
-    : null;
-}
-
-/**
- * Every place sdvx.in may keep a song's jacket (site paths), from its chart pages
- * and their scripts' details: its own pages first, then Ultima and World's End.
- */
-export function sdvxJacketSources(
-  paths: string[],
-  detailsOf: ReadonlyMap<string, { jacket?: string | null } | null>,
-): string[] {
+export function sdvxJacketSources(refs: string[]): string[] {
+  const order = (ref: string) =>
+    sdvxRefInfo(ref)?.difficulty === "worldsend" ? 1 : 0;
   return [
     ...new Set(
-      [...paths]
-        .sort((a, b) => pageOrder(a) - pageOrder(b))
-        .flatMap((path) => {
-          const script = sdvxScriptOf(path);
-          const src = script
-            ? sdvxJacket(detailsOf.get(script) ?? null, script)
-            : null;
-          return src ? [src] : [];
+      [...refs]
+        .sort((a, b) => order(a) - order(b))
+        .flatMap((ref) => {
+          const path = sdvxJacketPath(ref);
+          return path ? [path] : [];
         }),
     ),
   ];
 }
 
-/** Songs' own chart pages ("11/…") before their Ultima and World's End ones. */
-function pageOrder(path: string): number {
-  const dir = sdvxPathInfo(path)?.dir ?? "";
-  return /^\d{2}$/.test(dir) ? 0 : 1;
+/** A chart's notes by kind, as sdvx.in counts them. */
+export interface SdvxNoteTypes {
+  tap: number | null;
+  hold: number | null;
+  slide: number | null;
+  air: number | null;
+  flick: number | null;
+}
+
+export interface SdvxChart {
+  difficulty: Difficulty;
+  ref: string;
+  /** "14+", or a World's End chart's kanji. */
+  level: string | null;
+  worldsEndStars: number | null;
+  designer: string | null;
+  noteTypes: SdvxNoteTypes | null;
+}
+
+export interface SdvxSong {
+  /** "11061", or "we/008" for a World's End entry: the key for a row. */
+  key: string;
+  id: string;
+  list: SdvxList;
+  title: string;
+  artist: string;
+  genre: string;
+  bpm: string | null;
+  /** Only charts sdvx.in has drawn. */
+  charts: SdvxChart[];
+  /** On a removed list: the version and day it left the game. */
+  removed: { version: string | null; on: string | null } | null;
+}
+
+const isWorldsEndList = (list: SdvxList) => list.startsWith("worldsend");
+
+const count = (value: string): number | null => {
+  const n = Number(value);
+  return value !== "" && Number.isInteger(n) && n >= 0 ? n : null;
+};
+
+function noteTypes(value: unknown): SdvxNoteTypes | null {
+  if (!isRecord(value)) return null;
+  const types: SdvxNoteTypes = {
+    tap: count(field(value, "tap")),
+    hold: count(field(value, "hold")),
+    slide: count(field(value, "slide")),
+    air: count(field(value, "air")),
+    flick: count(field(value, "flick")),
+  };
+  return Object.values(types).some((n) => n !== null) ? types : null;
+}
+
+/** "_" (none) and "" are blank; sdvx.in writes a missing artist as "_". */
+function text(row: Record<string, unknown>, key: string): string {
+  const value = htmlText(field(row, key));
+  return value === "_" ? "" : value;
+}
+
+/** "Mate 2026/07/02" → the version and day. */
+function removal(value: string): SdvxSong["removed"] {
+  const text = value.trim();
+  if (!text) return { version: null, on: null };
+  const date = /(\d{4})\/(\d{1,2})\/(\d{1,2})$/.exec(text);
+  const name = date ? text.slice(0, date.index).trim() : text;
+  return {
+    version: name ? versionSlug(name) || null : null,
+    on: date
+      ? `${date[1] ?? ""}-${(date[2] ?? "").padStart(2, "0")}-${(date[3] ?? "").padStart(2, "0")}`
+      : null,
+  };
+}
+
+/**
+ * One of sdvx.in's lists, read. Rows without a title (sdvx.in keeps a blank one per
+ * folder) are left out. Throws SourceError when it isn't a list at all.
+ */
+export function parseSdvxSongs(json: unknown, list: SdvxList): SdvxSong[] {
+  if (!Array.isArray(json)) throw new SourceError("sdvx.in", "not a list");
+  const worldsEnd = isWorldsEndList(list);
+  const songs: SdvxSong[] = [];
+  const seen = new Set<string>();
+  for (const row of json) {
+    if (!isRecord(row)) continue;
+    const id = field(row, "id");
+    const title = text(row, "title");
+    if (!title || !(worldsEnd ? /^\d{3}$/ : /^\d{5}$/).test(id)) continue;
+    const key = worldsEnd ? `we/${id}` : id;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const charts: SdvxChart[] = [];
+    const levels = row.levels;
+    if (worldsEnd) {
+      // "狂5": drawn; "_狂5": not yet.
+      const level = typeof levels === "string" ? levels.trim() : "";
+      const match = /^(\D+?)([1-5])$/u.exec(level);
+      if (match?.[1] && !level.includes("_"))
+        charts.push({
+          difficulty: "worldsend",
+          ref: sdvxRef(id, "worldsend"),
+          level: match[1],
+          worldsEndStars: Number(match[2]),
+          designer: text(row, "designer") || null,
+          noteTypes: noteTypes(row.notes),
+        });
+    } else if (isRecord(levels)) {
+      const designers = isRecord(row.designer) ? row.designer : {};
+      for (const [difficulty, key] of KEYS) {
+        const level = field(levels, key);
+        if (!isLevel(level)) continue;
+        charts.push({
+          difficulty,
+          ref: sdvxRef(id, difficulty),
+          level,
+          worldsEndStars: null,
+          designer: htmlText(field(designers, key)) || null,
+          noteTypes: noteTypes(row[key]),
+        });
+      }
+    }
+    const removedText =
+      list === "removed"
+        ? field(row, "removed")
+        : list === "worldsend-removed"
+          ? field(row, "del")
+          : null;
+    songs.push({
+      key,
+      id,
+      list,
+      title,
+      artist: text(row, "artist"),
+      genre: text(row, "genre"),
+      bpm: text(row, "bpm") || null,
+      charts,
+      removed: removedText === null ? null : removal(removedText),
+    });
+  }
+  return songs;
+}
+
+// The older pages, for moving what was kept from them.
+
+const LEGACY_PATH = /^(\d{2}|ult|end)\/(\d{5})(bsc|adv|exp|mst|ult|end\d*)$/;
+
+/** An older chart page's ("11/11061mst") difficulty and entry ID, or null. */
+export function legacySdvxPathInfo(
+  path: string,
+): { dir: string; entryId: string; difficulty: Difficulty } | null {
+  const match = LEGACY_PATH.exec(path);
+  if (!match) return null;
+  const [, dir = "", entryId = "", kind = ""] = match;
+  const difficulty = kind.startsWith("end")
+    ? "worldsend"
+    : DIFFICULTY_OF.get(kind);
+  return difficulty ? { dir, entryId, difficulty } : null;
+}
+
+/**
+ * The ref an older page's number would have now ("11/11061mst" → "11061/mst"). Only a
+ * guess: the numbering moved for some songs, so callers check the title. World's End
+ * numbers have nothing to do with the new ones: null.
+ */
+export function refFromLegacyPath(path: string): string | null {
+  const info = legacySdvxPathInfo(path);
+  if (!info || info.difficulty === "worldsend") return null;
+  return sdvxRef(info.entryId, info.difficulty);
 }

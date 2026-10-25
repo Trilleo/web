@@ -1,6 +1,6 @@
 /**
  * Joining an sdvx.in chart picture into one strip. Pure: works on RGBA pixels (the
- * site decodes the PNGs and encodes the tiles, apps/web/src/lib/chunithm/build.ts).
+ * site decodes the WebP layers and encodes the tiles, apps/web/src/lib/chunithm/).
  *
  * sdvx.in draws a chart as three layers of the same size, stacked: the lanes (bg),
  * the notes (obj; or the mirrored notes) and the measure numbers (bar). Each is a row
@@ -32,9 +32,15 @@ export const CHART_LIMITS = {
   minHeight: 200,
   maxHeight: 4096,
   maxColumns: 200,
-  /** Pixels that may differ (by more than `tolerance` in a channel) in a shared band. */
+  /**
+   * Blocks (`block` pixels square) that may differ in a shared band: their averages
+   * more than `tolerance` apart in a channel. Averages, because the notes layers are
+   * lossy WebP, whose pixels wander near edges, while a column out by a row moves
+   * whole blocks (measured: lined up 0%, one row out 38%).
+   */
   mismatch: 0.005,
-  tolerance: 8,
+  block: 4,
+  tolerance: 24,
 };
 
 /** The joined strip is cut into tiles this tall (the last one shorter). */
@@ -133,29 +139,40 @@ export function findLayout(bg: RgbaImage): ChartLayout {
 export function checkOverlaps(image: RgbaImage, layout: ChartLayout): void {
   const { width, data } = image;
   const { height, overlap } = layout;
+  const { block, tolerance } = CHART_LIMITS;
+  const area = block * block;
+  const sums = new Int32Array(8);
   for (let k = 0; k + 1 < layout.columns.length; k++) {
     const lower = layout.columns[k];
     const upper = layout.columns[k + 1];
     if (!lower || !upper) continue;
     let differing = 0;
     let total = 0;
-    for (let i = 0; i < overlap / 2; i++) {
-      const a = lower.top + i;
-      const b = height - overlap + i;
-      for (let x = -COLUMN.gutter; x < COLUMN.lane; x++) {
-        const ia = (a * width + lower.lane + x) * 4;
-        const ib = (b * width + upper.lane + x) * 4;
+    for (let by = 0; by + block <= overlap / 2; by += block)
+      for (let bx = -COLUMN.gutter; bx + block <= COLUMN.lane; bx += block) {
+        sums.fill(0);
+        for (let i = 0; i < block; i++) {
+          const a = lower.top + by + i;
+          const b = height - overlap + by + i;
+          for (let x = bx; x < bx + block; x++) {
+            const ia = (a * width + lower.lane + x) * 4;
+            const ib = (b * width + upper.lane + x) * 4;
+            for (let c = 0; c < 4; c++) {
+              sums[c] = (sums[c] ?? 0) + (data[ia + c] ?? 0);
+              sums[c + 4] = (sums[c + 4] ?? 0) + (data[ib + c] ?? 0);
+            }
+          }
+        }
         total++;
         for (let c = 0; c < 4; c++)
           if (
-            Math.abs((data[ia + c] ?? 0) - (data[ib + c] ?? 0)) >
-            CHART_LIMITS.tolerance
+            Math.abs((sums[c] ?? 0) - (sums[c + 4] ?? 0)) >
+            tolerance * area
           ) {
             differing++;
             break;
           }
       }
-    }
     if (differing > total * CHART_LIMITS.mismatch)
       throw new ChartLayoutError(
         `Columns ${String(k + 1)} and ${String(k + 2)} don't line up.`,

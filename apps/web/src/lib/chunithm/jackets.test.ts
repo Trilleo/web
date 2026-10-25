@@ -1,6 +1,5 @@
 import {
   chuniCharts,
-  chuniSdvxEntries,
   chuniSongs,
   openDatabase,
   type DatabaseHandle,
@@ -73,24 +72,12 @@ beforeEach(async () => {
     { id: 3, title: "No page" },
   ]);
   await handle.db.insert(chuniCharts).values([
-    // Song 1: its Ultima page sorts first by ID, but its own page is tried first.
-    { songId: 1, difficulty: "ultima", level: "15", sdvxPath: "ult/00001ult" },
-    { songId: 1, difficulty: "master", level: "14", sdvxPath: "01/00001mst" },
-    { songId: 2, difficulty: "master", level: "13", sdvxPath: "02/00002mst" },
+    // Song 1: its World's End entry sorts first by ref, but its own is tried first.
+    { songId: 1, difficulty: "worldsend", level: "狂", sdvxRef: "066/we" },
+    { songId: 1, difficulty: "master", level: "14", sdvxRef: "01001/mst" },
+    { songId: 2, difficulty: "master", level: "13", sdvxRef: "02002/mst" },
     { songId: 3, difficulty: "master", level: "12" },
   ]);
-  await handle.db.insert(chuniSdvxEntries).values({
-    script: "ult/00001ult",
-    entryId: "00001",
-    kind: "ultima",
-    details: {
-      title: "One",
-      artist: "",
-      bpm: null,
-      jacket: "/chunithm/01/jacket/00001-alt.png",
-      charts: [],
-    },
-  });
 });
 afterEach(async () => {
   await handle.close();
@@ -100,29 +87,29 @@ const png = () =>
   encodePng({ width: 4, height: 4, data: new Uint8Array(64).fill(120) });
 
 describe("copying jackets", () => {
-  it("tries a song's own page first, then its others, newest songs first", async () => {
-    // The usual place has nothing for song 1; its Ultima page's script names another.
-    served.set(`${ORIGIN}/chunithm/01/jacket/00001-alt.png`, png());
-    served.set(`${ORIGIN}/chunithm/02/jacket/00002.png`, png());
+  it("tries a song's own jacket first, then its World's End one, newest songs first", async () => {
+    // Song 1's own jacket isn't there; its World's End entry's is.
+    served.set(`${ORIGIN}/chunithm/end/jacket/066.png`, png());
+    served.set(`${ORIGIN}/chunithm/02/jacket/02002.png`, png());
     expect(await jacketsDue(handle.db, clock)).toBe(2);
     expect(await copy()).toBe(2);
     expect(requested).toEqual([
-      "/chunithm/02/jacket/00002.png",
-      "/chunithm/01/jacket/00001.png",
-      "/chunithm/01/jacket/00001-alt.png",
+      "/chunithm/02/jacket/02002.png",
+      "/chunithm/01/jacket/01001.png",
+      "/chunithm/end/jacket/066.png",
     ]);
     expect(await jacketOf(1)).toMatch(/^chunithm\/jackets\/1-/);
     expect(await storage.head((await jacketOf(2)) ?? "")).toMatchObject({
       contentType: "image/webp",
     });
-    // Song 3 has no sdvx.in page, so nothing is due.
+    // Song 3 has nothing on sdvx.in, so nothing is due.
     expect(await jacketsDue(handle.db, clock)).toBe(0);
   });
 
   it("tries again a day after one couldn't be copied", async () => {
     expect(await copy()).toBe(0);
     expect(await jacketsDue(handle.db, clock)).toBe(0);
-    served.set(`${ORIGIN}/chunithm/02/jacket/00002.png`, png());
+    served.set(`${ORIGIN}/chunithm/02/jacket/02002.png`, png());
     const later = new Date(clock.getTime() + JACKET_RETRY_DAYS * DAY_MS + 1000);
     expect(await jacketsDue(handle.db, later)).toBe(2);
     expect(await copy(later)).toBe(1);
@@ -130,8 +117,8 @@ describe("copying jackets", () => {
   });
 
   it("copies only the songs asked for", async () => {
-    served.set(`${ORIGIN}/chunithm/02/jacket/00002.png`, png());
-    served.set(`${ORIGIN}/chunithm/01/jacket/00001.png`, png());
+    served.set(`${ORIGIN}/chunithm/02/jacket/02002.png`, png());
+    served.set(`${ORIGIN}/chunithm/01/jacket/01001.png`, png());
     expect(
       await copyJackets(handle.db, storage, {
         fetch: fakeFetch,
@@ -145,8 +132,8 @@ describe("copying jackets", () => {
   });
 
   it("copies the jackets a list asks for, in the background", async () => {
-    served.set(`${ORIGIN}/chunithm/02/jacket/00002.png`, png());
-    served.set(`${ORIGIN}/chunithm/01/jacket/00001.png`, png());
+    served.set(`${ORIGIN}/chunithm/02/jacket/02002.png`, png());
+    served.set(`${ORIGIN}/chunithm/01/jacket/01001.png`, png());
     const deps = {
       db: handle.db,
       storage,
@@ -166,7 +153,7 @@ describe("copying jackets", () => {
   it("keeps a big jacket at 300px", async () => {
     // Newer jackets on sdvx.in are up to 1000px (and 2.5 MB).
     served.set(
-      `${ORIGIN}/chunithm/02/jacket/00002.png`,
+      `${ORIGIN}/chunithm/02/jacket/02002.png`,
       encodePng({
         width: 1000,
         height: 1000,
@@ -182,7 +169,7 @@ describe("copying jackets", () => {
 
   it("retries the ones that failed lately when the admin asks", async () => {
     expect(await copy()).toBe(0);
-    served.set(`${ORIGIN}/chunithm/02/jacket/00002.png`, png());
+    served.set(`${ORIGIN}/chunithm/02/jacket/02002.png`, png());
     // A pass the same day skips it; the admin's batch doesn't.
     expect(await copy()).toBe(0);
     expect(

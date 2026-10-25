@@ -25,6 +25,11 @@ import {
 } from "./build";
 import { LAYER_KEEP_DAYS, keptLayers, purgeOldLayers } from "./layers";
 import { decodePng, encodePng } from "./png";
+import { decodeWebp, encodeWebp, isWebp } from "./webp";
+
+/** A layer as sdvx.in serves them, but lossless, so tests can check pixels. */
+const webp = (image: Parameters<typeof encodeWebp>[0]) =>
+  encodeWebp(image, { lossless: true });
 
 const ORIGIN = "https://sdvx.test";
 const HOUR_MS = 3600 * 1000;
@@ -46,11 +51,6 @@ const HEIGHT = 400;
 const TOPS = [100, 60, 150];
 const LABELS = [10, 250, 300, 600, 790];
 const chart = makeChart(HEIGHT, TOPS, LABELS);
-
-const script = [
-  `function PNG00001M(){document.write("<img src=/chunithm/01/bg/00001bg.png height=792><p class=data><img src=/chunithm/01/obj/data00001mst.png height=792></p><p class=data><img src=/chunithm/01/bg/00001bar.png height=792></p>");}`,
-  `function MRR00001M(){document.write("<img src=/chunithm/01/bg/00001bg.png height=792><p class=data><img src=/chunithm/01/obj/mirror00001mst.png height=792></p><p class=data><img src=/chunithm/01/bg/00001bar.png height=792></p>");}`,
-].join("\n");
 
 const fakeFetch: typeof fetch = (input, init) => {
   const url =
@@ -105,14 +105,16 @@ beforeEach(async () => {
   clock = new Date("2026-10-24T08:00:00.000Z");
   requests = [];
   files = new Map<string, Served>([
-    [`${ORIGIN}/chunithm/01/js/00001data.js`, { body: script }],
-    [`${ORIGIN}/chunithm/01/bg/00001bg.png`, layer(encodePng(chart.bg))],
-    [`${ORIGIN}/chunithm/01/obj/data00001mst.png`, layer(encodePng(chart.obj))],
+    [`${ORIGIN}/chunithm/01/bg/01001bg.webp`, layer(await webp(chart.bg))],
     [
-      `${ORIGIN}/chunithm/01/obj/mirror00001mst.png`,
-      layer(encodePng(chart.obj)),
+      `${ORIGIN}/chunithm/01/obj/data01001mst.webp`,
+      layer(await webp(chart.obj)),
     ],
-    [`${ORIGIN}/chunithm/01/bg/00001bar.png`, layer(encodePng(chart.bar))],
+    [
+      `${ORIGIN}/chunithm/01/obj/mrr01001mst.webp`,
+      layer(await webp(chart.obj)),
+    ],
+    [`${ORIGIN}/chunithm/01/bg/01001bar.webp`, layer(await webp(chart.bar))],
   ]);
   await handle.db.insert(chuniSongs).values({ id: 1, title: "One" });
   const [row] = await handle.db
@@ -121,7 +123,7 @@ beforeEach(async () => {
       songId: 1,
       difficulty: "master",
       level: "14",
-      sdvxPath: "01/00001mst",
+      sdvxRef: "01001/mst",
     })
     .returning({ id: chuniCharts.id });
   chartId = row?.id ?? 0;
@@ -168,9 +170,7 @@ describe("building a chart's picture", () => {
     expect(await served(manifest.tiles[0]?.url ?? "")).toBe(true);
 
     // Every layer was fetched once, without following redirects.
-    const layers = requests.filter(
-      (r) => r.url.endsWith(".png") && !r.url.includes("/jacket/"),
-    );
+    const layers = requests.filter((r) => r.url.endsWith(".webp"));
     expect(layers.map((r) => r.redirect)).toEqual([
       "manual",
       "manual",
@@ -186,8 +186,8 @@ describe("building a chart's picture", () => {
       hidden: false,
     });
     expect(row?.source).toMatchObject({
-      path: "01/00001mst",
-      obj: "/chunithm/01/obj/data00001mst.png",
+      ref: "01001/mst",
+      obj: "/chunithm/01/obj/data01001mst.webp",
     });
   });
 
@@ -203,7 +203,7 @@ describe("building a chart's picture", () => {
   });
 
   it("copies the song's jacket when one of its charts is opened", async () => {
-    files.set(`${ORIGIN}/chunithm/01/jacket/00001.png`, {
+    files.set(`${ORIGIN}/chunithm/01/jacket/01001.png`, {
       body: encodePng({
         width: 4,
         height: 4,
@@ -227,12 +227,12 @@ describe("building a chart's picture", () => {
     await runBuilds(deps());
     const [row] = await handle.db.select().from(chuniBuilds);
     expect(row).toMatchObject({ variant: "mirror", status: "ready" });
-    expect(row?.source?.obj).toBe("/chunithm/01/obj/mirror00001mst.png");
+    expect(row?.source?.obj).toBe("/chunithm/01/obj/mrr01001mst.webp");
   });
 
   it("fails cleanly when a layer is missing, and says which", async () => {
     // sdvx.in sends missing files to an HTML page.
-    files.set(`${ORIGIN}/chunithm/01/obj/data00001mst.png`, {
+    files.set(`${ORIGIN}/chunithm/01/obj/data01001mst.webp`, {
       body: "<!DOCTYPE html>",
       status: 302,
     });
@@ -260,7 +260,7 @@ describe("building a chart's picture", () => {
           : input instanceof URL
             ? input.href
             : input.url;
-      if (url.endsWith("00001bar.png") && (always || cuts === 0)) {
+      if (url.endsWith("01001bar.webp") && (always || cuts === 0)) {
         cuts++;
         let sent = false;
         return Promise.resolve(
@@ -310,8 +310,8 @@ describe("building a chart's picture", () => {
     });
   });
 
-  it("refuses a layer that isn't a PNG, or one of another size", async () => {
-    files.set(`${ORIGIN}/chunithm/01/bg/00001bar.png`, {
+  it("refuses a layer that isn't a WebP, or one of another size", async () => {
+    files.set(`${ORIGIN}/chunithm/01/bg/01001bar.webp`, {
       body: "not a picture",
     });
     await requestBuild(deps(), chartId, "normal");
@@ -322,8 +322,8 @@ describe("building a chart's picture", () => {
     );
 
     files.set(
-      `${ORIGIN}/chunithm/01/bg/00001bar.png`,
-      layer(encodePng(makeChart(HEIGHT - 10, TOPS, LABELS).bar)),
+      `${ORIGIN}/chunithm/01/bg/01001bar.webp`,
+      layer(await webp(makeChart(HEIGHT - 10, TOPS, LABELS).bar)),
     );
     clock = new Date(clock.getTime() + 2 * HOUR_MS);
     await requestBuild(deps(), chartId, "normal");
@@ -345,8 +345,8 @@ describe("building a chart's picture", () => {
       for (let x = 250; x < 400; x++)
         broken.obj.data.set([255, 0, 0, 255], (y * 650 + x) * 4);
     files.set(
-      `${ORIGIN}/chunithm/01/obj/data00001mst.png`,
-      layer(encodePng(broken.obj)),
+      `${ORIGIN}/chunithm/01/obj/data01001mst.webp`,
+      layer(await webp(broken.obj)),
     );
     await requestBuild(deps(), chartId, "normal");
     await runBuilds(deps());
@@ -361,7 +361,7 @@ describe("building a chart's picture", () => {
       status: "unavailable",
       reason: "no-chart",
     });
-    await handle.db.update(chuniCharts).set({ sdvxPath: null });
+    await handle.db.update(chuniCharts).set({ sdvxRef: null });
     expect(await requestBuild(deps(), chartId, "normal")).toEqual({
       status: "unavailable",
       reason: "no-page",
@@ -395,8 +395,8 @@ describe("building a chart's picture", () => {
     expect(await checkBuild(deps(), first?.id ?? 0)).toBe("same");
 
     files.set(
-      `${ORIGIN}/chunithm/01/obj/data00001mst.png`,
-      layer(encodePng(chart.obj), '"2"'),
+      `${ORIGIN}/chunithm/01/obj/data01001mst.webp`,
+      layer(await webp(chart.obj), '"2"'),
     );
     expect(await checkBuild(deps(), first?.id ?? 0)).toBe("changed");
     // Still served while the rebuild waits.
@@ -406,7 +406,7 @@ describe("building a chart's picture", () => {
     await runBuilds(deps());
     const [second] = await handle.db.select().from(chuniBuilds);
     expect(second?.source?.tags.obj).toBe(
-      '"2"|' + String(encodePng(chart.obj).length),
+      '"2"|' + String((await webp(chart.obj)).length),
     );
     // The old tiles are gone.
     const oldKey = first?.manifest?.tiles[0]?.key ?? "";
@@ -419,7 +419,7 @@ describe("building a chart's picture", () => {
     await runBuilds(deps());
     await handle.db
       .update(chuniCharts)
-      .set({ sdvxPath: "01/00002mst" })
+      .set({ sdvxRef: "01002/mst" })
       .where(eq(chuniCharts.id, chartId));
     await requestBuild(deps(), chartId, "normal");
     const [row] = await handle.db.select().from(chuniBuilds);
@@ -442,7 +442,7 @@ describe("building a chart's picture", () => {
             songId: 100 + i,
             difficulty: "master" as const,
             level: "13",
-            sdvxPath: `02/${String(10000 + i)}mst`,
+            sdvxRef: `${String(10000 + i)}/mst`,
           })),
         )
         .returning({ id: chuniCharts.id })
@@ -499,13 +499,13 @@ describe("building a chart's picture", () => {
 });
 
 describe("keeping layers between attempts", () => {
-  const bg = `${ORIGIN}/chunithm/01/bg/00001bg.png`;
-  const notes = `${ORIGIN}/chunithm/01/obj/data00001mst.png`;
-  const mirror = `${ORIGIN}/chunithm/01/obj/mirror00001mst.png`;
-  const bar = `${ORIGIN}/chunithm/01/bg/00001bar.png`;
+  const bg = `${ORIGIN}/chunithm/01/bg/01001bg.webp`;
+  const notes = `${ORIGIN}/chunithm/01/obj/data01001mst.webp`;
+  const mirror = `${ORIGIN}/chunithm/01/obj/mrr01001mst.webp`;
+  const bar = `${ORIGIN}/chunithm/01/bg/01001bar.webp`;
   const layerRequests = () =>
     requests
-      .filter((request) => request.url.endsWith(".png"))
+      .filter((request) => request.url.endsWith(".webp"))
       .map(
         (request) => `${request.method} ${request.url.slice(ORIGIN.length)}`,
       );
@@ -534,9 +534,9 @@ describe("keeping layers between attempts", () => {
     await requestBuild(deps(), chartId, "normal");
     expect(await runBuilds(deps())).toBe(1);
     expect(layerRequests()).toEqual([
-      "HEAD /chunithm/01/bg/00001bg.png",
-      "HEAD /chunithm/01/obj/data00001mst.png",
-      "GET /chunithm/01/bg/00001bar.png",
+      "HEAD /chunithm/01/bg/01001bg.webp",
+      "HEAD /chunithm/01/obj/data01001mst.webp",
+      "GET /chunithm/01/bg/01001bar.webp",
     ]);
     expect(await kept()).toEqual([]);
     for (const key of keys) expect(await storage.head(key)).toBeNull();
@@ -544,14 +544,14 @@ describe("keeping layers between attempts", () => {
 
   it("downloads a layer again when sdvx.in has changed it", async () => {
     await failOnBar();
-    files.set(bg, layer(encodePng(chart.bg), '"2"'));
+    files.set(bg, layer(await webp(chart.bg), '"2"'));
     await requestBuild(deps(), chartId, "normal");
     expect(await runBuilds(deps())).toBe(1);
     expect(layerRequests()).toEqual([
-      "HEAD /chunithm/01/bg/00001bg.png",
-      "GET /chunithm/01/bg/00001bg.png",
-      "HEAD /chunithm/01/obj/data00001mst.png",
-      "GET /chunithm/01/bg/00001bar.png",
+      "HEAD /chunithm/01/bg/01001bg.webp",
+      "GET /chunithm/01/bg/01001bg.webp",
+      "HEAD /chunithm/01/obj/data01001mst.webp",
+      "GET /chunithm/01/bg/01001bar.webp",
     ]);
   });
 
@@ -564,9 +564,9 @@ describe("keeping layers between attempts", () => {
     await requestBuild(deps(), chartId, "normal");
     expect(await runBuilds(deps({ fetch: silentHead }))).toBe(1);
     expect(layerRequests().filter((line) => line.startsWith("GET"))).toEqual([
-      "GET /chunithm/01/bg/00001bg.png",
-      "GET /chunithm/01/obj/data00001mst.png",
-      "GET /chunithm/01/bg/00001bar.png",
+      "GET /chunithm/01/bg/01001bg.webp",
+      "GET /chunithm/01/obj/data01001mst.webp",
+      "GET /chunithm/01/bg/01001bar.webp",
     ]);
   });
 
@@ -583,7 +583,7 @@ describe("keeping layers between attempts", () => {
     });
     await requestBuild(deps(), chartId, "normal");
     expect(await runBuilds(deps())).toBe(1);
-    expect(layerRequests()).toContain("GET /chunithm/01/bg/00001bg.png");
+    expect(layerRequests()).toContain("GET /chunithm/01/bg/01001bg.webp");
   });
 
   it("keeps the shared layers while the other variant still needs them", async () => {
@@ -591,7 +591,7 @@ describe("keeping layers between attempts", () => {
     files.delete(bar);
     await requestBuild(deps(), chartId, "mirror");
     expect(await runBuilds(deps())).toBe(0);
-    files.set(bar, layer(encodePng(chart.bar)));
+    files.set(bar, layer(await webp(chart.bar)));
     expect(await kept()).toEqual([bg, mirror, notes].sort());
 
     // The normal build goes first and leaves lanes for the mirror (bar too, once read).
@@ -629,7 +629,27 @@ describe("keeping layers between attempts", () => {
   });
 });
 
-describe("the PNG decoder", () => {
+describe("the WebP decoder", () => {
+  it("reads sdvx.in's layers back exactly when they're lossless", async () => {
+    const image = await decodeWebp(await webp(chart.obj));
+    expect([image.width, image.height]).toEqual([
+      chart.obj.width,
+      chart.obj.height,
+    ]);
+    expect(Buffer.from(image.data).equals(Buffer.from(chart.obj.data))).toBe(
+      true,
+    );
+  });
+
+  it("refuses what isn't a WebP", async () => {
+    expect(isWebp(encodePng(chart.obj))).toBe(false);
+    await expect(decodeWebp(encodePng(chart.obj))).rejects.toThrow(
+      "Not a WebP file.",
+    );
+  });
+});
+
+describe("the PNG decoder (jackets)", () => {
   it("reads back what the test encoder writes", async () => {
     const image = await decodePng(encodePng(chart.obj));
     expect(image.width).toBe(chart.obj.width);

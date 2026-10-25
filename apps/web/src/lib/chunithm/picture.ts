@@ -1,7 +1,8 @@
 /**
- * Making a chart's picture from sdvx.in: the chart page's script for its three
- * layers, the layers themselves (each a PNG of the same size), joined into one strip
- * (@trilleo/chunithm's charts.ts) and cut into TILE_HEIGHT WebP tiles.
+ * Making a chart's picture from sdvx.in: its three layers, named from its ref as
+ * sdvx.in's viewer names them (each a WebP of the same size: lossy colour, lossless
+ * alpha), joined into one strip (@trilleo/chunithm's charts.ts) and cut into
+ * TILE_HEIGHT WebP tiles.
  *
  * No database or storage here, so the same code runs on the server (build.ts, which
  * keeps layers between attempts and uploads the tiles) and on the admin's computer
@@ -14,8 +15,7 @@ import {
   drawOver,
   findLayout,
   findMeasures,
-  parseSdvxImages,
-  sdvxImageScript,
+  sdvxImages,
   stripHeight,
   stripTile,
   tileRanges,
@@ -24,15 +24,14 @@ import {
 } from "@trilleo/chunithm";
 import type { ChuniBuildManifest, ChuniBuildSource } from "@trilleo/db";
 import { BUILD_LIMITS } from "./limits";
-import { decodePng, giveWay, isPng } from "./png";
+import { giveWay } from "./png";
 import {
-  FETCH_LIMITS,
   FetchError,
   LAYER_DOWNLOAD,
   download,
-  fetchText,
   type DownloadProgress,
 } from "./sources";
+import { decodeWebp, isWebp } from "./webp";
 
 /**
  * Bump when the tiles or manifest would come out differently: charts rebuild when
@@ -51,7 +50,8 @@ export class BuildError extends Error {
   }
 }
 
-export type LayerName = "lanes" | "notes" | "measure numbers";
+export type LayerName =
+  "lanes" | "notes" | "mirrored notes" | "measure numbers";
 
 /** A layer's URL, bytes, and a tag that changes when sdvx.in redraws it. */
 export interface Layer {
@@ -74,7 +74,7 @@ export interface PictureDeps {
 
 /** Where making a picture has got. */
 export type PictureStep =
-  | { stage: "script" }
+  | { stage: "downloading" }
   | { stage: "joining" }
   | ({ stage: "layer"; name: LayerName } & DownloadProgress)
   | { stage: "tiles"; done: number; total: number };
@@ -98,24 +98,10 @@ export function layerTag(headers: Headers, size: number): string {
   return `${headers.get("etag") ?? headers.get("last-modified") ?? ""}|${String(size)}`;
 }
 
-/** The chart page's three layers, read from its script (never guessed). */
-export async function readImages(
-  fetcher: typeof fetch,
-  origin: string,
-  path: string,
-): Promise<SdvxImages> {
-  const script = sdvxImageScript(path);
-  if (!script) throw new BuildError(`"${path}" isn't an sdvx.in chart page.`);
-  const text = await fetchText(
-    fetcher,
-    new URL(script, origin).href,
-    FETCH_LIMITS.maxPageBytes,
-  );
-  const images = parseSdvxImages(text, path);
-  if (!images)
-    throw new BuildError(
-      `sdvx.in's script for ${path} names no picture for it.`,
-    );
+/** The chart's three layers on sdvx.in (site paths), from its ref. */
+export function imagesOf(ref: string): SdvxImages {
+  const images = sdvxImages(ref);
+  if (!images) throw new BuildError(`"${ref}" isn't one of sdvx.in's charts.`);
   return images;
 }
 
@@ -131,7 +117,7 @@ export async function downloadLayer(
     file = await download(
       fetcher,
       url,
-      "image/png",
+      "image/webp",
       { ...LAYER_DOWNLOAD, maxBytes: BUILD_LIMITS.maxLayerBytes },
       onProgress,
     );
@@ -153,44 +139,43 @@ export async function downloadLayer(
       `sdvx.in has no ${name} layer for this chart (HTTP ${String(file.status)}).`,
     );
   const { bytes } = file;
-  if (!isPng(bytes))
+  if (!isWebp(bytes))
     throw new BuildError(
       `sdvx.in's ${name} layer for this chart isn't a picture.`,
     );
   return { url, bytes, tag: layerTag(file.headers, bytes.byteLength) };
 }
 
-/** A chart's script and three layers, downloaded ahead of joining (`fetchLayers`). */
+/** A chart's three layers, downloaded ahead of joining (`fetchLayers`). */
 export interface Fetched {
   images: SdvxImages;
   /** By full URL. */
   layers: Map<string, Layer>;
 }
 
-/** The notes layer the variant uses. */
-function notesOf(images: SdvxImages, variant: Variant): string {
-  const notes = variant === "mirror" ? images.mirror : images.obj;
-  if (!notes)
-    throw new BuildError("sdvx.in has no mirrored notes for this chart.");
-  return notes;
+/** The notes layer the variant uses, and its name. */
+function notesOf(images: SdvxImages, variant: Variant): [string, LayerName] {
+  return variant === "mirror"
+    ? [images.mirror, "mirrored notes"]
+    : [images.obj, "notes"];
 }
 
 /**
- * Downloads a chart's script and its three layers (compressed, a few MB each), for
- * `makePicture` to join later: the bundling script downloads several charts at once
- * this way while joining them one at a time.
+ * Downloads a chart's three layers (compressed, a few MB each), for `makePicture` to
+ * join later: the bundling script downloads several charts at once this way while
+ * joining them one at a time.
  */
 export async function fetchLayers(
   deps: Pick<PictureDeps, "fetch" | "sdvxOrigin" | "progress">,
-  path: string,
+  ref: string,
   variant: Variant,
 ): Promise<Fetched> {
-  deps.progress?.({ stage: "script" });
-  const images = await readImages(deps.fetch, deps.sdvxOrigin, path);
+  const images = imagesOf(ref);
+  deps.progress?.({ stage: "downloading" });
   const layers = new Map<string, Layer>();
   const named: [string, LayerName][] = [
     [images.bg, "lanes"],
-    [notesOf(images, variant), "notes"],
+    notesOf(images, variant),
     [images.bar, "measure numbers"],
   ];
   for (const [src, name] of named) {
@@ -219,20 +204,14 @@ export async function fetchLayers(
  */
 export async function makePicture(
   deps: PictureDeps,
-  path: string,
+  ref: string,
   variant: Variant,
   onTile: (tile: Tile) => Promise<void>,
   fetched?: Fetched,
 ): Promise<Picture> {
-  let images: SdvxImages;
-  if (fetched) {
-    deps.progress?.({ stage: "joining" });
-    images = fetched.images;
-  } else {
-    deps.progress?.({ stage: "script" });
-    images = await readImages(deps.fetch, deps.sdvxOrigin, path);
-  }
-  const notes = notesOf(images, variant);
+  deps.progress?.({ stage: fetched ? "joining" : "downloading" });
+  const images = fetched?.images ?? imagesOf(ref);
+  const [notes, notesName] = notesOf(images, variant);
   const get = (src: string, name: LayerName) => {
     const url = new URL(src, deps.sdvxOrigin).href;
     const ready = fetched?.layers.get(url);
@@ -252,7 +231,7 @@ export async function makePicture(
   };
   const decode = async (layer: Layer, name: LayerName) => {
     try {
-      return await decodePng(layer.bytes);
+      return await decodeWebp(layer.bytes);
     } catch (error) {
       await deps.broken?.(layer, name);
       throw new BuildError(
@@ -264,9 +243,9 @@ export async function makePicture(
   const bgLayer = await get(images.bg, "lanes");
   const picture = await decode(bgLayer, "lanes");
   const layout = findLayout(picture);
-  const notesLayer = await get(notes, "notes");
-  const notesImage = await decode(notesLayer, "notes");
-  sameSize(picture, notesImage, "notes");
+  const notesLayer = await get(notes, notesName);
+  const notesImage = await decode(notesLayer, notesName);
+  sameSize(picture, notesImage, notesName);
   await giveWay();
   drawOver(picture, notesImage);
   await giveWay();
@@ -297,7 +276,8 @@ export async function makePicture(
       columns: layout.columns.length,
     },
     source: {
-      path,
+      ref,
+      path: "",
       bg: images.bg,
       obj: notes,
       bar: images.bar,

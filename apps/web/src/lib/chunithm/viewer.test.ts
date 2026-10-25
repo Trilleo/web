@@ -2,7 +2,6 @@ import {
   chuniBuilds,
   chuniCharts,
   chuniConstants,
-  chuniSdvxEntries,
   chuniSongs,
   chuniSyncs,
   chuniVersions,
@@ -42,14 +41,14 @@ beforeEach(async () => {
       difficulty: "master",
       level: "14+",
       constant: 147,
-      sdvxPath: "11/11061mst",
+      sdvxRef: "11061/mst",
     },
     { songId: 3062, difficulty: "basic", level: "4" },
     {
       songId: 9,
       difficulty: "master",
       level: "13",
-      sdvxPath: "01/00009mst",
+      sdvxRef: "01009/mst",
       withdrawnAt: new Date(),
     },
   ]);
@@ -119,7 +118,7 @@ describe("a chart's page", () => {
     const [master] = await handle.db
       .select()
       .from(chuniCharts)
-      .where(eq(chuniCharts.sdvxPath, "11/11061mst"));
+      .where(eq(chuniCharts.sdvxRef, "11061/mst"));
     await handle.db.insert(chuniConstants).values([
       { chartId: master?.id ?? 0, version: "x-verse-x", constant: 145 },
       { chartId: master?.id ?? 0, version: "mate", constant: 147 },
@@ -137,33 +136,17 @@ describe("a chart's page", () => {
   });
 
   it("links the original jacket on sdvx.in itself", async () => {
-    // Its script names no jacket: the song folder's jacket/ is where sdvx.in keeps it.
+    // Where sdvx.in keeps the song's jacket: its folder's jacket/.
     expect(
       (await chartPage(handle.db, storage, 3062, "master"))?.jacketOriginal,
     ).toBe("https://sdvx.in/chunithm/11/jacket/11061.png");
-    // One the script names is used as it is.
-    await handle.db.insert(chuniSdvxEntries).values({
-      script: "11/11061sort",
-      entryId: "11061",
-      kind: "song",
-      details: {
-        title: "コンクエスト・チャレンジ",
-        artist: "",
-        bpm: null,
-        jacket: "/chunithm/11/jacket/11061_b.png",
-        charts: [],
-      },
-    });
-    expect(
-      (await chartPage(handle.db, storage, 3062, "basic"))?.jacketOriginal,
-    ).toBe("https://sdvx.in/chunithm/11/jacket/11061_b.png");
   });
 
   it("shows what's built without starting a build", async () => {
     const [master] = await handle.db
       .select()
       .from(chuniCharts)
-      .where(eq(chuniCharts.sdvxPath, "11/11061mst"));
+      .where(eq(chuniCharts.sdvxRef, "11061/mst"));
     if (!master) throw new Error("no chart");
     expect(await peekBuild(handle.db, storage, master, "normal")).toBeNull();
     expect(await handle.db.select().from(chuniBuilds)).toEqual([]);

@@ -118,13 +118,13 @@ secret shown in the same panel.
 
 The CHUNITHM chart viewer (`/tools/chunithm/`) searches every chart (titles and community
 aliases, in English, Japanese, romaji or Chinese) and shows each as one picture, read from the bottom up. Its
-catalog is kept up to date by the server: SEGA's song list, otoge-db's constants and links, and sdvx.in's chart pages,
-merged by SEGA's IDs (`packages/chunithm`, `apps/web/src/lib/chunithm/`). A chart's
-picture is joined from sdvx.in's layers the first time someone asks for it
+catalog is kept up to date by the server: SEGA's song list, otoge-db's constants and links, and sdvx.in's song lists
+(the JSON its viewer reads), merged by SEGA's IDs (`packages/chunithm`, `apps/web/src/lib/chunithm/`). A chart's
+picture is joined from sdvx.in's WebP layers the first time someone asks for it
 (`/api/chunithm/charts/<id>/<difficulty>`) and kept as WebP tiles in storage. The admin
-watches both at `/admin/chunithm/`. `pnpm dev` starts filling it on the first requests
-(a few hours of slow passes over sdvx.in); set `CHUNITHM_SYNC=off` in `apps/web/.env`
-to keep it from fetching.
+watches both at `/admin/chunithm/`. `pnpm dev` fills it on the first requests (one
+pass of about twenty small requests to sdvx.in, then jackets over the next passes);
+set `CHUNITHM_SYNC=off` in `apps/web/.env` to keep it from fetching.
 
 Charts can also be built on your own computer, over your own network, and imported:
 download the to-do list from `/admin/chunithm/import/`, then run

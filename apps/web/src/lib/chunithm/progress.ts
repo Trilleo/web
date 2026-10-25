@@ -69,8 +69,8 @@ export class ProgressLine {
     switch (step.stage) {
       case "waiting":
         return `${head} · next in ${(step.ms / 1000).toFixed(step.ms < 10_000 ? 1 : 0)} s`;
-      case "script":
-        return `${head} · reading its page`;
+      case "downloading":
+        return `${head} · connecting`;
       case "queued":
         return `${head} · downloaded, waiting to be joined`;
       case "joining":

@@ -10,24 +10,30 @@ import {
   otogeFinalFile,
   parseConstant,
   parseOtogeMusic,
-  parseSdvxList,
-  parseSdvxScript,
-  sdvxJacketSources,
+  parseSdvxSongs,
   parseSegaMusic,
-  sdvxLogoSlug,
-  sdvxJacket,
-  sdvxPathInfo,
-  sdvxScriptOf,
-  sdvxScriptUrl,
+  legacySdvxPathInfo,
+  refFromLegacyPath,
+  sdvxFolderList,
+  sdvxImages,
+  sdvxJacketPath,
+  sdvxJacketSources,
+  sdvxRef,
+  sdvxRefInfo,
+  sdvxSongKey,
+  sdvxViewerPath,
   SourceError,
   versionSlug,
   worldsEndStars,
   type CatalogInput,
-  type SdvxEntry,
+  type SdvxChart,
+  type SdvxSong,
 } from "./index";
 
-const fixture = (name: string) =>
-  readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
+const fixture = (name: string): unknown =>
+  JSON.parse(
+    readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8"),
+  );
 
 describe("difficulties and constants", () => {
   it("reads constants as tenths", () => {
@@ -66,15 +72,8 @@ describe("versions", () => {
     expect(versionSlug("Mate")).toBe("mate");
     expect(versionSlug("無印")).toBe("chunithm");
     expect(versionSlug("PARADISE×")).toBe("paradise-lost");
-    expect(sdvxLogoSlug("")).toBe("chunithm");
-    expect(sdvxLogoSlug("AIRPLUS")).toBe("air-plus");
-    expect(sdvxLogoSlug("PARADISELOST")).toBe("paradise-lost");
-    expect(sdvxLogoSlug("VERSEPLUS")).toBe("x-verse");
-    expect(sdvxLogoSlug("VERSEPLUSX")).toBe("x-verse-x");
-    expect(sdvxLogoSlug("MATE")).toBe("mate");
     // One we don't know yet still gets a slug.
-    expect(sdvxLogoSlug("MOON")).toBe("moon");
-    expect(sdvxLogoSlug("MOONPLUS")).toBe("moon-plus");
+    expect(versionSlug("MOON PLUS")).toBe("moon-plus");
   });
 
   it("names otoge-db's final files", () => {
@@ -185,14 +184,14 @@ describe("otoge-db", () => {
       "expert",
       "master",
     ]);
-    expect(song?.charts[0]?.sdvxPath).toBeNull();
+    expect(song?.charts[0]?.sdvxLink).toBeNull();
     expect(song?.charts[3]).toEqual({
       difficulty: "master",
       level: "14+",
       constant: 147,
       notes: 2630,
       designer: "ミニミライト",
-      sdvxPath: "11/11061mst",
+      sdvxLink: "11/11061mst",
     });
     expect(constantRows(song ? [song] : [])).toEqual([
       { songId: 3062, difficulty: "expert", constant: 113 },
@@ -224,223 +223,200 @@ describe("otoge-db", () => {
         constant: null,
         notes: null,
         designer: "階段割qma",
-        sdvxPath: "end/01066end2",
+        sdvxLink: "end/01066end2",
       },
     ]);
   });
 });
 
 describe("sdvx.in", () => {
-  it("knows chart pages", () => {
-    expect(sdvxPathInfo("11/11061mst")).toEqual({
+  it("knows its charts' refs", () => {
+    expect(sdvxRefInfo("11061/mst")).toEqual({
+      id: "11061",
+      diff: "mst",
+      difficulty: "master",
+      folder: "11",
+      fileKey: "mst",
+    });
+    expect(sdvxRefInfo("008/we")).toEqual({
+      id: "008",
+      diff: "we",
+      difficulty: "worldsend",
+      folder: "end",
+      fileKey: "end",
+    });
+    expect(sdvxRefInfo("11/11061mst")).toBeNull();
+    expect(sdvxRefInfo("../etc/passwd")).toBeNull();
+    expect(sdvxRef("01183", "ultima")).toBe("01183/ult");
+    expect(sdvxRef("008", "worldsend")).toBe("008/we");
+    expect(sdvxSongKey("11061/mst")).toBe("11061");
+    expect(sdvxSongKey("008/we")).toBe("we/008");
+    expect(sdvxFolderList(3)).toBe("songs03.json");
+  });
+
+  it("names a chart's layers, jacket and viewer page as its viewer does", () => {
+    expect(sdvxImages("11061/mst")).toEqual({
+      bg: "/chunithm/11/bg/11061bg.webp",
+      obj: "/chunithm/11/obj/data11061mst.webp",
+      bar: "/chunithm/11/bg/11061bar.webp",
+      mirror: "/chunithm/11/obj/mrr11061mst.webp",
+    });
+    expect(sdvxImages("008/we")).toEqual({
+      bg: "/chunithm/end/bg/008bg.webp",
+      obj: "/chunithm/end/obj/data008end.webp",
+      bar: "/chunithm/end/bg/008bar.webp",
+      mirror: "/chunithm/end/obj/mrr008end.webp",
+    });
+    expect(sdvxImages("x")).toBeNull();
+    expect(sdvxJacketPath("11061/ult")).toBe("/chunithm/11/jacket/11061.png");
+    expect(sdvxJacketPath("008/we")).toBe("/chunithm/end/jacket/008.png");
+    expect(sdvxViewerPath("11061/mst")).toBe(
+      "/chunithm/_/viewer.php?id=11061&diff=mst",
+    );
+    expect(sdvxViewerPath("008/we")).toBe(
+      "/chunithm/_/viewer.php?id=008&diff=we",
+    );
+  });
+
+  it("lists where a song's jacket may be, its own first", () => {
+    expect(
+      sdvxJacketSources(["008/we", "11061/mst", "11061/exp", "11061/ult"]),
+    ).toEqual([
+      "/chunithm/11/jacket/11061.png",
+      "/chunithm/end/jacket/008.png",
+    ]);
+  });
+
+  it("reads a folder's songs: only drawn charts, blank rows left out", () => {
+    const songs = parseSdvxSongs(fixture("songs11.json"), "songs");
+    expect(songs.map((song) => song.key)).toEqual(["11062", "11006"]);
+    expect(songs[0]).toEqual({
+      key: "11062",
+      id: "11062",
+      list: "songs",
+      title: "コンクエスト・チャレンジ",
+      artist: "サツキ feat.ろん",
+      genre: "ORIGINAL",
+      bpm: "210",
+      removed: null,
+      charts: [
+        {
+          difficulty: "expert",
+          ref: "11062/exp",
+          level: "11",
+          worldsEndStars: null,
+          designer: null,
+          noteTypes: {
+            tap: 901,
+            hold: 120,
+            slide: 350,
+            air: 370,
+            flick: null,
+          },
+        },
+        {
+          difficulty: "master",
+          ref: "11062/mst",
+          level: "14+",
+          worldsEndStars: null,
+          designer: "ミニミライト",
+          noteTypes: {
+            tap: 1302,
+            hold: 210,
+            slide: 402,
+            air: 600,
+            flick: 116,
+          },
+        },
+      ],
+    });
+    // "_" for no artist; entities decoded; Ultima in the song's own row.
+    expect(songs[1]).toMatchObject({
+      artist: "",
+      genre: "POPS & ANIME",
+    });
+    expect(songs[1]?.charts.map((chart) => chart.ref)).toEqual([
+      "11006/exp",
+      "11006/mst",
+      "11006/ult",
+    ]);
+    expect(songs[1]?.charts[0]?.noteTypes).toBeNull();
+  });
+
+  it("reads World's End songs: kanji and stars, undrawn ones without a chart", () => {
+    const songs = parseSdvxSongs(fixture("songs_we.json"), "worldsend");
+    expect(songs.map((song) => song.key)).toEqual(["we/008", "we/312"]);
+    expect(songs[0]?.charts).toEqual([
+      {
+        difficulty: "worldsend",
+        ref: "008/we",
+        level: "？",
+        worldsEndStars: 3,
+        designer: "JAEPO 2017",
+        noteTypes: { tap: 1600, hold: 100, slide: 300, air: 800, flick: 52 },
+      },
+    ]);
+    expect(songs[1]?.charts).toEqual([]);
+  });
+
+  it("reads removed songs' version and day", () => {
+    const [song] = parseSdvxSongs(fixture("songs_del.json"), "removed");
+    expect(song?.removed).toEqual({ version: "x-verse-x", on: "2025-12-11" });
+    expect(
+      parseSdvxSongs(
+        [{ id: "01001", title: "x", levels: {}, removed: "" }],
+        "removed",
+      )[0]?.removed,
+    ).toEqual({ version: null, on: null });
+    expect(() => parseSdvxSongs({}, "songs")).toThrow(SourceError);
+  });
+
+  it("reads the older site's pages, for moving what was kept from them", () => {
+    expect(legacySdvxPathInfo("11/11061mst")).toEqual({
       dir: "11",
       entryId: "11061",
       difficulty: "master",
     });
-    expect(sdvxPathInfo("end/01066end2")?.difficulty).toBe("worldsend");
-    expect(sdvxPathInfo("ult/11006ult")?.difficulty).toBe("ultima");
-    expect(sdvxPathInfo("../etc/passwd")).toBeNull();
-    expect(sdvxScriptUrl("11/11061sort")).toBe("/chunithm/11/js/11061sort.js");
-  });
-
-  it("reads a World's End script with only its chart's own title", () => {
-    expect(parseSdvxScript(fixture("02045end2.txt"), "end/02045end2")).toEqual({
-      title: "Oshama Scramble! (Cranky Remix) JAEPO 2017",
-      artist: "Cranky",
-      bpm: "190",
-      jacket: "/chunithm/02/jacket/02045.png",
-      charts: [
-        {
-          difficulty: "worldsend",
-          path: "end/02045end2",
-          level: "？",
-          worldsEndStars: 3,
-          designer: "JAEPO 2017",
-          chain: 2852,
-        },
-      ],
-    });
-  });
-
-  it("reads a genre page's entries and their versions", () => {
-    const entries = parseSdvxList(fixture("pops.htm"));
-    expect(entries.map((entry) => entry.script)).toEqual([
-      "11/11002sort",
-      "11/11037sort",
-      "11/11049sort",
-      "10/10180sort",
-      "10/10225sort",
-    ]);
-    expect(entries[0]).toEqual({
-      script: "11/11002sort",
-      entryId: "11002",
-      kind: "song",
-      listTitle: "Bling-Bang-Bang-Born",
-      version: "mate",
-      removed: null,
-    });
-    expect(entries[3]?.version).toBe("x-verse-x");
-  });
-
-  it("reads the removed-songs page", () => {
-    const entries = parseSdvxList(fixture("del.htm"));
-    expect(entries[0]?.removed).toEqual({ version: "mate", on: "2026-07-02" });
-    expect(entries.at(-1)?.removed).toEqual({
-      version: "x-verse-x",
-      on: "2025-12-11",
-    });
-  });
-
-  it("reads a song's script without running it", () => {
-    expect(parseSdvxScript(fixture("11061sort.txt"), "11/11061sort")).toEqual({
-      title: "コンクエスト・チャレンジ",
-      artist: "サツキ feat.ろん",
-      bpm: "210",
-      jacket: null,
-      charts: [
-        {
-          difficulty: "expert",
-          path: "11/11061exp",
-          level: "11",
-          worldsEndStars: null,
-          designer: "みぞれヤナギ",
-          chain: 1741,
-        },
-        {
-          difficulty: "master",
-          path: "11/11061mst",
-          level: "14+",
-          worldsEndStars: null,
-          designer: "ミニミライト",
-          chain: 2630,
-        },
-      ],
-    });
-  });
-
-  it("reads Ultima and World's End scripts", () => {
-    expect(
-      parseSdvxScript(fixture("11006ult.txt"), "ult/11006ult")?.charts,
-    ).toEqual([
-      {
-        difficulty: "ultima",
-        path: "ult/11006ult",
-        level: "14",
-        worldsEndStars: null,
-        designer: "ミニミライト",
-        chain: 1875,
-      },
-    ]);
-    const we = parseSdvxScript(fixture("01066end2.txt"), "end/01066end2");
-    expect(we?.title).toBe("Teriqma");
-    expect(we?.charts).toEqual([
-      {
-        difficulty: "worldsend",
-        path: "end/01066end2",
-        level: "割",
-        worldsEndStars: 3,
-        designer: "階段割qma",
-        chain: 2248,
-      },
-    ]);
-  });
-
-  it("reads older World's End pages, which spell the kanji in romaji", () => {
-    const text = [
-      'var TITLE01045="<div class=f1>Aragami</div>";',
-      'var LV01045W="<a href=/chunithm/end/01045end.htm><img src=/chunithm/chfiles/chlv/hika3.png></a>";',
-      'var LV01045W2="<a href=/chunithm/end/01045end2.htm><img src=/chunithm/chfiles/chlv/star_zzz2.png></a>";',
-    ].join("\n");
-    expect(
-      parseSdvxScript(text, "end/01045end")?.charts.map((c) => [
-        c.level,
-        c.worldsEndStars,
-      ]),
-    ).toEqual([["光", 3]]);
-    // A spelling we don't know keeps its stars and leaves the kanji out.
-    expect(
-      parseSdvxScript(text, "end/01045end2")?.charts.map((c) => [
-        c.level,
-        c.worldsEndStars,
-      ]),
-    ).toEqual([[null, 2]]);
-  });
-
-  it("lists where a song's jacket may be, its own pages first", () => {
-    expect(
-      sdvxJacketSources(
-        ["ult/00001ult", "01/00001mst", "01/00001exp", "end/00001end"],
-        new Map([
-          ["ult/00001ult", { jacket: "/chunithm/01/jacket/00001-alt.png" }],
-        ]),
-      ),
-    ).toEqual([
-      "/chunithm/01/jacket/00001.png",
-      "/chunithm/01/jacket/00001-alt.png",
-    ]);
-    expect(sdvxJacketSources([], new Map())).toEqual([]);
-  });
-
-  it("finds the script behind a chart page", () => {
-    expect(sdvxScriptOf("11/11061mst")).toBe("11/11061sort");
-    expect(sdvxScriptOf("ult/11006ult")).toBe("ult/11006ult");
-    expect(sdvxScriptOf("end/01066end2")).toBe("end/01066end2");
-    expect(sdvxScriptOf("nope")).toBeNull();
-  });
-
-  it("finds a song's jacket", () => {
-    const text =
-      'var TITLE11061="<div class=f1>X</div>";\nvar JK11061="<img src=/chunithm/11/jacket/11061.png width=100px height=100px>";';
-    expect(parseSdvxScript(text, "11/11061sort")?.jacket).toBe(
-      "/chunithm/11/jacket/11061.png",
-    );
-    expect(sdvxJacket(null, "11/11061sort")).toBe(
-      "/chunithm/11/jacket/11061.png",
-    );
-    expect(
-      sdvxJacket({ jacket: "/chunithm/01/jacket/01066.png" }, "end/01066end2"),
-    ).toBe("/chunithm/01/jacket/01066.png");
-    expect(sdvxJacket(null, "end/01066end2")).toBeNull();
-  });
-
-  it("returns null for something that isn't a script", () => {
-    expect(parseSdvxScript("<html>", "11/11061sort")).toBeNull();
-    expect(parseSdvxScript(fixture("11061sort.txt"), "11/nope")).toBeNull();
+    expect(legacySdvxPathInfo("end/01066end2")?.difficulty).toBe("worldsend");
+    expect(refFromLegacyPath("11/11061mst")).toBe("11061/mst");
+    expect(refFromLegacyPath("ult/11006ult")).toBe("11006/ult");
+    expect(refFromLegacyPath("end/01066end2")).toBeNull();
+    expect(refFromLegacyPath("nope")).toBeNull();
   });
 });
 
 describe("the catalog", () => {
   const sdvxSong = (
-    script: string,
+    id: string,
     title: string,
     artist: string,
-    charts: { path: string; level: string; stars?: number }[],
-    entry: Partial<SdvxEntry["entry"]> = {},
-  ): SdvxEntry => ({
-    entry: {
-      script,
-      entryId: script.slice(-9, -4),
-      kind: script.startsWith("end") ? "worldsend" : "song",
-      listTitle: title,
-      version: null,
-      removed: null,
-      ...entry,
-    },
-    details: {
+    charts: {
+      difficulty: SdvxChart["difficulty"];
+      level: string;
+      stars?: number;
+    }[],
+    removed: SdvxSong["removed"] = null,
+  ): SdvxSong => {
+    const worldsEnd = id.length === 3;
+    return {
+      key: worldsEnd ? `we/${id}` : id,
+      id,
+      list: worldsEnd ? "worldsend" : removed ? "removed" : "songs",
       title,
       artist,
+      genre: "",
       bpm: "150",
-      jacket: null,
-      charts: charts.map(({ path, level, stars }) => ({
-        difficulty: sdvxPathInfo(path)?.difficulty ?? "master",
-        path,
+      removed,
+      charts: charts.map(({ difficulty, level, stars }) => ({
+        difficulty,
+        ref: sdvxRef(id, difficulty),
         level,
         worldsEndStars: stars ?? null,
         designer: "Designer",
-        chain: 1000,
+        noteTypes: { tap: 1, hold: 2, slide: 3, air: 4, flick: 5 },
       })),
-    },
-  });
+    };
+  };
 
   const base = (): CatalogInput => ({
     sega: parseSegaMusic(
@@ -477,7 +453,7 @@ describe("the catalog", () => {
       { minSongs: 0 },
     ),
     sdvx: [],
-    overrides: [],
+    placements: [],
   });
 
   it("joins SEGA's songs with otoge-db's details", () => {
@@ -492,16 +468,59 @@ describe("the catalog", () => {
     const master = catalog.charts.find(
       (c) => c.songId === 3062 && c.difficulty === "master",
     );
+    // otoge-db links it, but sdvx.in doesn't list that chart: no link.
     expect(master).toMatchObject({
       level: "14+",
       constant: 147,
       notes: 2630,
-      sdvxPath: "11/11061mst",
-      linkedBy: "otoge-db",
+      sdvxRef: null,
+      linkedBy: null,
     });
     expect(
       catalog.charts.filter((c) => c.songId === 3062).map((c) => c.difficulty),
     ).toEqual(["basic", "advanced", "expert", "master"]);
+  });
+
+  it("takes otoge-db's older links when the chart there is the same song", () => {
+    const input = base();
+    input.sdvx = [
+      // What otoge-db's "11/11061mst" now is: another song (the numbers moved).
+      sdvxSong("11061", "ハイボルテージガール", "someone", [
+        { difficulty: "expert", level: "12" },
+        { difficulty: "master", level: "14" },
+      ]),
+      sdvxSong("11062", "コンクエスト・チャレンジ", "サツキ feat.ろん", [
+        { difficulty: "master", level: "14+" },
+      ]),
+    ];
+    const catalog = buildCatalog(input);
+    const chart = (difficulty: string) =>
+      catalog.charts.find(
+        (c) => c.songId === 3062 && c.difficulty === difficulty,
+      );
+    // Not otoge-db's (another song there), but found by its title.
+    expect(chart("master")).toMatchObject({
+      sdvxRef: "11062/mst",
+      linkedBy: "title",
+      noteTypes: { tap: 1, hold: 2, slide: 3, air: 4, flick: 5 },
+    });
+    expect(chart("expert")).toMatchObject({ sdvxRef: null });
+    expect(catalog.unmatched.map((row) => row.ref)).toEqual([
+      "11061/exp",
+      "11061/mst",
+    ]);
+
+    input.sdvx = [
+      sdvxSong("11061", "Conquest Challenge", "サツキ feat.ろん", [
+        { difficulty: "master", level: "14+" },
+      ]),
+    ];
+    // Another spelling, same artist and level: otoge-db's link stands.
+    expect(
+      buildCatalog(input).charts.find(
+        (c) => c.songId === 3062 && c.difficulty === "master",
+      ),
+    ).toMatchObject({ sdvxRef: "11061/mst", linkedBy: "otoge-db" });
   });
 
   it("keeps removed songs, out of the game", () => {
@@ -561,20 +580,20 @@ describe("the catalog", () => {
     );
   });
 
-  it("links sdvx.in pages otoge-db doesn't, by title and artist", () => {
+  it("links sdvx.in's charts otoge-db doesn't, by title and artist", () => {
     const input = base();
     input.sdvx = [
-      sdvxSong("01/01001sort", "SAME", "two", [
-        { path: "01/01001mst", level: "14+" },
+      sdvxSong("01001", "SAME", "two", [
+        { difficulty: "master", level: "14+" },
       ]),
-      sdvxSong("01/01002sort", "Same", "Three", [
-        { path: "01/01002mst", level: "14+" },
+      sdvxSong("01002", "Same", "Three", [
+        { difficulty: "master", level: "14+" },
       ]),
-      sdvxSong("01/01003sort", "Nothing like it", "x", [
-        { path: "01/01003exp", level: "11" },
+      sdvxSong("01003", "Nothing like it", "x", [
+        { difficulty: "expert", level: "11" },
       ]),
-      sdvxSong("end/01066end2", "Teriqma", "owl", [
-        { path: "end/01066end2", level: "割", stars: 3 },
+      sdvxSong("066", "Teriqma", "owl", [
+        { difficulty: "worldsend", level: "割", stars: 3 },
       ]),
     ];
     const catalog = buildCatalog(input);
@@ -583,63 +602,75 @@ describe("the catalog", () => {
         (c) => c.songId === id && c.difficulty === difficulty,
       );
     expect(chart(101, "master")).toMatchObject({
-      sdvxPath: "01/01001mst",
+      sdvxRef: "01001/mst",
       linkedBy: "title",
-      chain: 1000,
       designer: "Designer",
     });
     expect(chart(8317, "worldsend")).toMatchObject({
-      sdvxPath: "end/01066end2",
+      sdvxRef: "066/we",
       linkedBy: "title",
     });
     expect(
-      catalog.unmatched.map(({ path, reason, candidates }) => ({
-        path,
+      catalog.unmatched.map(({ ref, reason, candidates }) => ({
+        ref,
         reason,
         candidates,
       })),
     ).toEqual([
-      { path: "01/01002mst", reason: "ambiguous", candidates: [100, 101] },
-      { path: "01/01003exp", reason: "no-song", candidates: [] },
+      { ref: "01002/mst", reason: "ambiguous", candidates: [100, 101] },
+      { ref: "01003/exp", reason: "no-song", candidates: [] },
     ]);
   });
 
-  it("never links one page to two charts, or two pages to one chart", () => {
+  it("tells songs of one title and artist apart by level", () => {
+    const input = base();
+    input.sega.push(
+      ...parseSegaMusic(
+        [segaRow({ id: "102", title: "Same", artist: "Two", lev_mas: "13" })],
+        { minSongs: 1 },
+      ),
+    );
+    input.sdvx = [
+      sdvxSong("01001", "Same", "Two", [{ difficulty: "master", level: "13" }]),
+    ];
+    expect(
+      buildCatalog(input).charts.find((c) => c.sdvxRef === "01001/mst")?.songId,
+    ).toBe(102);
+  });
+
+  it("never links one chart of sdvx.in's to two of ours, or two to one", () => {
     const input = base();
     input.sdvx = [
-      // Already otoge-db's page for 3062: a title match elsewhere can't take it.
-      sdvxSong("11/11061sort", "Same", "One", [
-        { path: "11/11061mst", level: "14+" },
+      sdvxSong("01001", "Same", "Two", [
+        { difficulty: "master", level: "14+" },
       ]),
-      sdvxSong("01/01001sort", "Same", "Two", [
-        { path: "01/01001mst", level: "14+" },
-      ]),
-      sdvxSong("01/01009sort", "Same", "Two", [
-        { path: "01/01009mst", level: "14+" },
+      sdvxSong("01009", "Same", "Two", [
+        { difficulty: "master", level: "14+" },
       ]),
     ];
     const catalog = buildCatalog(input);
-    const linked = catalog.charts.filter((c) => c.sdvxPath === "11/11061mst");
-    expect(linked.map((c) => c.songId)).toEqual([3062]);
     expect(
       catalog.charts.find((c) => c.songId === 101 && c.difficulty === "master")
-        ?.sdvxPath,
-    ).toBe("01/01001mst");
+        ?.sdvxRef,
+    ).toBe("01001/mst");
     expect(catalog.unmatched).toMatchObject([
-      { path: "01/01009mst", reason: "taken", candidates: [101] },
+      { ref: "01009/mst", reason: "taken", candidates: [101] },
     ]);
   });
 
-  it("lets the admin link or ignore a page, over everything else", () => {
+  it("lets the admin link or ignore a chart, over everything else", () => {
     const input = base();
     input.sdvx = [
-      sdvxSong("01/01002sort", "Same", "Three", [
-        { path: "01/01002mst", level: "14+" },
+      sdvxSong("01002", "Same", "Three", [
+        { difficulty: "master", level: "14+" },
+      ]),
+      sdvxSong("11061", "コンクエスト・チャレンジ", "サツキ feat.ろん", [
+        { difficulty: "master", level: "14+" },
       ]),
     ];
-    input.overrides = [
-      { path: "01/01002mst", songId: 100, difficulty: "master" },
-      { path: "11/11061mst", songId: null, difficulty: null },
+    input.placements = [
+      { ref: "01002/mst", songId: 100, difficulty: "master" },
+      { ref: "11061/mst", songId: null, difficulty: null },
     ];
     const catalog = buildCatalog(input);
     const chart = (id: number, difficulty: string) =>
@@ -647,19 +678,18 @@ describe("the catalog", () => {
         (c) => c.songId === id && c.difficulty === difficulty,
       );
     expect(chart(100, "master")).toMatchObject({
-      sdvxPath: "01/01002mst",
+      sdvxRef: "01002/mst",
       linkedBy: "admin",
     });
     expect(chart(3062, "master")).toMatchObject({
-      sdvxPath: null,
+      sdvxRef: null,
       linkedBy: null,
     });
     expect(catalog.unmatched).toEqual([]);
   });
 
-  it("takes removal days and versions from sdvx.in's removed-songs page", () => {
+  it("takes removal days and versions from sdvx.in's removed songs", () => {
     const input = base();
-    input.otogeDeleted = [];
     input.otoge = [];
     input.sega = input.sega.filter((s) => s.id !== 3062);
     input.otogeDeleted = parseOtogeMusic([otogeRow({ deleted_date: "" })], {
@@ -667,11 +697,11 @@ describe("the catalog", () => {
     });
     input.sdvx = [
       sdvxSong(
-        "11/11061sort",
+        "11061",
         "コンクエスト・チャレンジ",
         "サツキ feat.ろん",
-        [{ path: "11/11061mst", level: "14+" }],
-        { removed: { version: "x-verse-x", on: "2025-12-11" } },
+        [{ difficulty: "master", level: "14+" }],
+        { version: "x-verse-x", on: "2025-12-11" },
       ),
     ];
     const catalog = buildCatalog(input);

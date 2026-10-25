@@ -1,7 +1,7 @@
 /**
  * CHUNITHM's versions (each a year or half-year of the game). Every source names them
- * its own way: otoge-db "AIR+" and "無印", sdvx.in a logo function (CHUNITHMAIRPLUSLG)
- * and its removals page "LUMINOUS PLUS". `versionSlug` turns any of them into one slug.
+ * its own way: otoge-db "AIR+" and "無印", sdvx.in's removed songs "LUMINOUS PLUS".
+ * `versionSlug` turns any of them into one slug.
  *
  * A version that isn't listed here still works: it gets a slug from its name and sorts
  * after the known ones by when it started. Add it here when it's convenient, so the
@@ -44,17 +44,6 @@ const ALIASES: Record<string, string> = {
   paradisex: "paradise-lost",
 };
 
-/**
- * sdvx.in's logo functions, CHUNITHM<NAME>LG, by <NAME>. Others slug from the name
- * ("SUNPLUS" → "sun-plus", "MOON" → "moon").
- */
-const SDVX_LOGOS: Record<string, string> = {
-  "": "chunithm",
-  PARADISELOST: "paradise-lost",
-  VERSEPLUS: "x-verse",
-  VERSEPLUSX: "x-verse-x",
-};
-
 /** "AIR+", "LUMINOUS PLUS", "X-VERSE-X", "Mate", "無印" → a slug; "" for nothing usable. */
 export function versionSlug(name: string): string {
   const plain = name.normalize("NFKC").trim().toLowerCase();
@@ -64,13 +53,6 @@ export function versionSlug(name: string): string {
     .replace(/\+/g, " plus ")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-}
-
-/** The middle of an sdvx.in logo function's name ("AIRPLUS") → a slug. */
-export function sdvxLogoSlug(logo: string): string {
-  const known = SDVX_LOGOS[logo];
-  if (known !== undefined) return known;
-  return versionSlug(logo.replace(/PLUS$/, " PLUS"));
 }
 
 /** The game's own name for a slug, or the name a source gave for one we don't know. */

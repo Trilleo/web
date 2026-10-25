@@ -68,9 +68,9 @@
   letters (`checkGuess`), UTC days, streaks. Source-only.
 - packages/chunithm (@trilleo/chunithm): the CHUNITHM catalog's pure rules:
   difficulties and constants (tenths), versions (`versionSlug` for every source's
-  names), readers for SEGA's song list, otoge-db and sdvx.in (scripts read as text,
-  never run), `buildCatalog`, which merges them by SEGA's IDs, and charts.ts, which
-  joins sdvx.in's chart layers into one strip. `./testing` draws test charts.
+  names), readers for SEGA's song list, otoge-db and sdvx.in's JSON song lists (refs,
+  layer and jacket names), `buildCatalog`, which merges them by SEGA's IDs, and
+  charts.ts, which joins sdvx.in's chart layers into one strip. `./testing` draws test charts.
   Source-only.
 - study/: study subjects as Markdown files (see Study below and study/README.md).
 - Blog content: Markdown posts in Postgres, written in the admin editor (/admin/posts).
@@ -1166,23 +1166,35 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
 - The CHUNITHM chart viewer (/tools/chunithm/): its song catalog, chart pictures and
   pages. Pure rules in packages/chunithm; data, updates and builds in
   apps/web/src/lib/chunithm/ (sources.ts, sync.ts, build.ts, jackets.ts, viewer.ts,
-  admin.ts), tables chuni_*; the React side in apps/chunithm (@trilleo/tool-chunithm).
+  admin.ts, move.ts), tables chuni_*; the React side in apps/chunithm (@trilleo/tool-chunithm).
 - Sources: SEGA's music.json (what's in the Japanese game, official IDs; the authority),
   otoge-db (otoge-db.net: constants, note counts, designers, versions and dates, links
-  to sdvx.in pages, removed songs, and each ended version's frozen constants in
-  music-ex-<version>-final.json), and sdvx.in (the chart pictures: list pages, then one
-  script per entry for title, artist, BPM, designer, CHAIN and each chart's page).
-  sdvx.in's 配信停止 page lists songs SEGA removed from the game (with the version and
-  day), not charts sdvx.in took down.
+  to sdvx.in's older site's pages, removed songs, and each ended version's frozen
+  constants in music-ex-<version>-final.json), and sdvx.in (the chart pictures). Since
+  25 October 2026 sdvx.in has a viewer (/chunithm/_/viewer.php?id=11061&diff=mst) that
+  reads JSON lists under /chunithm/_/json/: songs<NN>.json per folder (01 up; a folder
+  that isn't there yet redirects), songs_del.json (removed songs, with the version and
+  day: songs SEGA removed, not charts sdvx.in took down), and World's End's
+  songs_we/_wedel/_wecourse/_weuso.json. A row has title, artist, genre, BPM, levels,
+  designers and each chart's notes by kind (tap, hold, slide, air, flick; no CHAIN);
+  a level written "_14+" is one sdvx.in hasn't drawn. Its older site (.htm pages,
+  scripts, PNG layers, another numbering) is no longer read.
 - Songs are keyed by SEGA's ID; World's End charts are songs of their own (IDs from
   8000), with a kanji and 1–5 stars. Songs and charts are never deleted: removed ones
-  stay with `inGame` false. sdvx.in has hundreds more pages for songs removed before
+  stay with `inGame` false. sdvx.in has hundreds more charts for songs removed before
   otoge-db's records: they have no official ID and stay unplaced ("older" on the admin
   page, never alerted).
-- Links from charts to sdvx.in pages (`sdvxPath`, "11/11061mst"), strongest first: the
-  admin's (chuni_sdvx_overrides, which can also ignore a page), otoge-db's, then the
-  same title (+ artist; World's End also kanji and stars). One page per chart, one
-  chart per page.
+- sdvx.in's songs (chuni_sdvx_songs, key "11061", or "we/008" for World's End: their
+  own three-digit IDs) and charts by ref, `chuni_charts.sdvx_ref`: "<id>/<diff>"
+  ("11061/mst", "11061/ult": Ultima is in the song's row; "008/we"). Layers are named
+  from the ref as its viewer names them (`sdvxImages`: /chunithm/<id's first two
+  digits, or end>/bg/<id>bg.webp, obj/data<id><diff or end>.webp, bg/<id>bar.webp,
+  mirror obj/mrr…), jackets /chunithm/<folder>/jacket/<id>.png.
+- Links from our charts to sdvx.in's, strongest first: the admin's
+  (chuni_sdvx_placements, which can also ignore one), otoge-db's (older pages'
+  numbers, `refFromLegacyPath`, taken only when the chart there is the same song:
+  title, or artist and level), then the same title (then artist, level, and removed
+  or not; World's End kanji and stars). One of theirs per chart, one chart per ref.
 - Constants are kept per version (chuni_constants, tenths): the current version's from
   music-ex.json, only for songs in the game; an ended version's from its final file,
   looked for daily until it appears. `chuni_charts.constant` is the current one.
@@ -1190,23 +1202,22 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   (the first day with LAUNCH_SONGS songs); the last is the game now. A new version
   works without a code change; add it to KNOWN_VERSIONS for its proper name.
 - Updates (sync.ts `syncCatalog`): a timer (`startChunithmSync`, started like the
-  webhooks' by the first server-rendered request; every TICK_MS it checks `passDue`) or any request starts a
-  pass every SYNC_EVERY_MS, and BACKLOG_GAP_MS after the last one ended while scripts
-  or jackets are waiting; "Check now" on /admin/chunithm/ starts one at once. One pass
-  at a time per server. The song lists are all-or-nothing, and a SEGA list under
-  MIN_SHARE_KEPT of the songs we have is refused. sdvx.in is read one request at a time
-  (SDVX_PASS: 400 scripts a pass, 300 ms apart, FETCH_LIMITS.sdvxTimeoutMs each, reread
-  after 30 days; songs' folders newest first, then Ultima and World's End), with our
-  User-Agent; the first fill takes about half an hour. A pass stops reading at
-  PASS_TIME_LIMIT_MS, or after SDVX_PASS.failuresToStop requests in a row without an
-  answer; a script that got none, or whose download broke off partway (`readBody`),
-  stays unread for the next pass (a 404 counts as read), and one that failed is read
-  again after SDVX_PASS.retryFailedDays (the admin page lists them, with "Read again").
-  Unfinished rows show as "Interrupted" once no pass is running. Each pass then copies
-  JACKETS_PER_PASS jackets (JACKETS_WHILE_READING while scripts are unread) (jackets.ts: sdvx.in's PNGs, 300px or, for newer songs, up to
-  1000px and 2.5 MB, shrunk to JACKET_SIDE and kept as WebP under
-  `chunithm/jackets/` in storage, newest songs first, a song's own chart pages tried
-  before its Ultima and World's End ones; failures are tried again after
+  webhooks' by the first server-rendered request; every TICK_MS it checks `passDue`)
+  or any request starts a pass every SYNC_EVERY_MS, and BACKLOG_GAP_MS after the last
+  one ended while jackets are waiting (or the move is: the last pass on record has no
+  `sdvxLists`); "Check now" on /admin/chunithm/ starts one at once. One pass at a time
+  per server. The song lists are all-or-nothing, and a SEGA list under
+  MIN_SHARE_KEPT of the songs we have is refused. sdvx.in's lists are read one request
+  at a time (SDVX_PASS.delayMs apart, `fetchSdvxList`: redirects not followed, a 3xx or
+  404 is "not there"), with our User-Agent: folders from 01 until one isn't there
+  (SDVX_MAX_FOLDERS at most), then SDVX_LIST_FILES. A list that fails is reported and
+  keeps what we had from it (rows stay when they drop off a list); after
+  SDVX_PASS.failuresToStop in a row without an answer the rest wait. Unfinished rows
+  show as "Interrupted" once no pass is running. Each pass then copies
+  JACKETS_PER_PASS jackets, within PASS_TIME_LIMIT_MS (jackets.ts: sdvx.in's PNGs,
+  300px or, for newer songs, up to 1000px and 2.5 MB, shrunk to JACKET_SIDE and kept
+  as WebP under `chunithm/jackets/` in storage, newest songs first, a song's own
+  jacket tried before its World's End entry's; failures are tried again after
   JACKET_RETRY_DAYS), and passes keep the BACKLOG_GAP_MS pace while any song is due
   one (`jacketsDue`, the summary's `jacketsLeft`). Opening a chart copies its song's
   missing jacket in the background (`copyJacketSoon`, from the picture route), and the
@@ -1214,54 +1225,74 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   /api/chunithm/jackets → `wantJackets`: one worker, LIST_JACKETS caps a request and the
   queue), then load the index again after JACKET_REFRESH_MS. SEGA's
   image server can't be reached from the server, so pages only ever show our copies. Each pass is logged in chuni_syncs (the last 50). Alerts
-  ("chunithm-update"): new songs, new versions, pages sdvx.in added since the first
-  fill that couldn't be placed (`newPagePaths`), and four failed passes in a row.
+  ("chunithm-update"): new songs, new versions, charts sdvx.in added since its lists
+  were first read that couldn't be placed (`newRefs`), and four failed passes in a row.
+- Moving to the new viewer (move.ts, once, recorded in chuni_sdvx_move and shown on
+  /admin/chunithm/ as "New viewer"): the first pass that reads the new lists turns the
+  admin's placements of older pages (chuni_sdvx_overrides) into placements by ref,
+  found through what the older page's script said (title, artist, level; its number
+  only breaks ties: some songs were renumbered), listing those it can't; removes the
+  older site's kept PNG layers; and copies jackets again that were copied after the
+  older site was renumbered (JACKETS_RENUMBERED). Every pass, `moveLegacyBuilds` points
+  pictures built from the older site (a `source` without `ref`) at their chart's new
+  layers with empty tags, which `checkBuild` fills in on the next check instead of
+  rebuilding (those pictures are correct, and a little sharper); ones built after
+  LANES_RENUMBERED are queued again, failed ones without tiles deleted so they're
+  tried afresh, and ones whose chart has no ref yet wait. chuni_sdvx_entries,
+  chuni_sdvx_overrides and `chuni_charts.sdvx_path`/`chain` are only for the previous
+  release: drop them in a later one.
 - /admin/chunithm/: counts (jackets copied, missing and failed lately, with "Copy
   jackets now": one batch in the background, retrying recent failures too; each failed
   copy is logged with its reason), recent passes, suggested names waiting (a link to
-  /admin/chunithm/aliases/), charts without a page (link one by its
-  path), pages to place (link to a SEGA ID or ignore), placements by hand, withdrawn
+  /admin/chunithm/aliases/), charts not linked (link one by its ref), charts to place
+  (link to a SEGA ID or ignore), placements by hand, what the move did, withdrawn
   charts (hidden and never built; updates leave them), and versions with their
   constants.
 - Settings: CHUNITHM_SYNC=off never fetches; CHUNITHM_SEGA_URL, CHUNITHM_OTOGE_URL and
   CHUNITHM_SDVX_URL point elsewhere, CHUNITHM_SDVX_DELAY_MS changes the wait between
-  sdvx.in requests. E2E points them at e2e/fake-chunithm.ts (a 512-song list and one
-  drawn chart, PNGs made with node:zlib) and waits for the catalog (`catalogReady`).
+  sdvx.in requests. E2E points them at e2e/fake-chunithm.ts (a 512-song list, sdvx.in's
+  JSON lists, one drawn chart as lossless WebP from @jsquash/webp's encoder, a jacket
+  PNG made with node:zlib, and 302s for the rest) and waits for the catalog
+  (`catalogReady`).
   Unit tests pass fetch, sources, storage and a clock to `syncCatalog` instead.
 - Chart pictures (lib/chunithm/build.ts, chuni_builds; joining in packages/chunithm's
   charts.ts): sdvx.in draws a chart as three layers of the same size (bg lanes, obj
-  notes or `mirror…` notes, bar measure numbers), each a row of columns COLUMN.pitch
+  notes or `mrr…` mirrored notes, bar measure numbers), each a row of columns COLUMN.pitch
   (200px) apart: a 50px gutter with the numbers, a 150px lane. A column reads bottom
   to top, its content runs down to the image's bottom from its own top (heights
   differ), and its top COLUMN.overlap (48) rows are the next column's bottom rows;
-  the column count follows the width. A build reads the layers' URLs from the chart
-  page's script (`parseSdvxImages`; never guessed: some layers are gone, and sdvx.in
-  302s missing files to an HTML page, so layers are fetched with `redirect: "manual"`
-  and must be PNGs of one size; notes layers run to 15 MB, slow from the mainland, so
-  sources.ts `download` has no limit on the whole body, only on silence, and resumes
-  a body that breaks off with Range + If-Range: LAYER_DOWNLOAD, JACKET_DOWNLOAD), checks every overlap (`checkOverlaps`: a chart that
-  doesn't line up fails with a reason), finds the measures (each gutter label's
+  the column count follows the width. A build names the layers from the chart's ref
+  (`sdvxImages`; sdvx.in 302s missing files, undrawn ones included, to its front page,
+  so layers are fetched with `redirect: "manual"` and must be WebPs of one size; notes
+  layers run to about 7 MB, slow from the mainland, so sources.ts `download` has no
+  limit on the whole body, only on silence, and resumes a body that breaks off with
+  Range + If-Range: LAYER_DOWNLOAD, JACKET_DOWNLOAD), checks every overlap
+  (`checkOverlaps`, by 4×4 block averages, CHART_LIMITS: the notes are lossy WebP,
+  whose pixels wander near edges, while a column out by a row moves whole blocks; a
+  chart that doesn't line up fails with a reason), finds the measures (each gutter
+  label's
   bottom row), flattens onto black, and cuts the strip (positions counted from the
   bottom) into TILE_HEIGHT WebP tiles under `chunithm/<chart>/<variant>-<random>/` in
   storage, public unless the chart is withdrawn. No `files` rows: chuni_builds holds
   the manifest (tile keys, measures) and where the layers came from (with ETags).
 - Layers kept between attempts (lib/chunithm/layers.ts, chuni_layers): each layer
-  that arrives whole (a PNG) is saved at once as a private object under
+  that arrives whole (a WebP) is saved at once as a private object under
   `chunithm/layers/` (LAYER_PREFIX, named by the URL's SHA-256), so a build that fails
   later downloads only what's missing next time. A kept copy is used only when a HEAD
   to sdvx.in gives the same tag (`currentTag`, shared with `checkBuild`) and it's
-  still the PNG it was; no answer means downloading as usual, a changed or broken one
+  still the WebP it was; no answer means downloading as usual, a changed or broken one
   is removed (so is one that won't decode). Half-finished downloads aren't kept. A
   chart that builds removes its layers (`forgetLayers`: lanes and measure numbers stay
   while its other variant has no picture); the rest go after LAYER_KEEP_DAYS
   (`purgeOldLayers`, at most hourly from `chunithmBuildsInBackground`). A failure's
   reason ends with which layers are kept. Keeping is best effort: storage refusing it
   is only logged.
-- Decoding is png.ts (hand-written, on node:zlib: 8-bit, not interlaced); encoding
-  webp.ts (@jsquash/webp's SIMD build, the wasm inlined with `?inline`, quality 90).
-  A Master chart is about 1.5 s and 2 MB.
+- Decoding and encoding are webp.ts (@jsquash/webp: its decoder for the layers, its
+  SIMD encoder for tiles at quality 90, both wasm files inlined with `?inline`;
+  `lossless` for tests); png.ts (hand-written, on node:zlib: 8-bit, not interlaced)
+  decodes jackets. A Master chart is about 4 s and 2 MB.
 - Built ahead (lib/chunithm/prebuild.ts, `startChunithmPrebuild` with the other
-  timers): every in-game Master and Ultima chart with a page and no normal build,
+  timers): every in-game Master and Ultima chart with a ref and no normal build,
   newest songs first, one per PREBUILD.everyMs tick, only while no visitor's build is
   waiting and nobody has asked for a chart picture in PREBUILD.quietMs
   (`chartsLastAsked`, set by `requestBuild`). Its builds skip the visitors' queue but
@@ -1284,22 +1315,22 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   maxQueued; failures wait retryDelaysMs; a rebuild that fails keeps the old tiles.
   A failure's reason says what broke (a layer, a download cut off, storage refusing,
   or the unexpected error's own message), and the admin page lists them.
-  A ready picture is rebuilt when BUILD_VERSION changes or the chart's page changes,
+  A ready picture is rebuilt when BUILD_VERSION changes or the chart's ref changes,
   and compared with sdvx.in (HEAD, ETags) when viewed after checkAfterDays. Bump
   BUILD_VERSION when tiles or the manifest would come out differently.
 - Withdrawing a chart makes its tiles private (browsers may keep a copy for a day,
   PUBLIC_CACHE); restoring makes them public. /admin/chunithm/ shows the builds, builds
   one by hand, lists failures with their reasons, and throws a build away ("Rebuild").
-- The picture itself is made by lib/chunithm/picture.ts (`makePicture`: the script,
-  the layers, joining, tiles handed to a callback; BUILD_VERSION and BuildError live
-  there), with no database or storage, so the server's `buildChart` and the admin's
-  computer run the same code.
+- The picture itself is made by lib/chunithm/picture.ts (`makePicture`: the layers
+  named from the ref, joining, tiles handed to a callback; BUILD_VERSION and
+  BuildError live there), with no database or storage, so the server's `buildChart`
+  and the admin's computer run the same code.
 - Building on the admin's computer (/admin/chunithm/import/): "Download the to-do
   list" (/admin/chunithm/todo.json, imports.ts `chartTodo`: in-game Master charts
-  with a page and no picture; failed builds count) → `pnpm --filter @trilleo/web
+  with a ref and no picture; failed builds count) → `pnpm --filter @trilleo/web
 chunithm:bundle <list>` (scripts/chunithm-bundle.ts around lib/chunithm/bundler.ts:
   over that computer's network: up to `--parallel` charts (PARALLEL, default 3, at
-  most 8) download at once with `fetchLayers` (script + three compressed layers),
+  most 8) download at once with `fetchLayers` (three compressed layers),
   starts spaced `--delay` apart across all of them, then join and encode one at a
   time (`makePicture` with the `Fetched` layers), so memory and CPU stay as for one;
   store-only ZIPs from zip-writer.ts of about BUNDLE_LIMITS.targetBytes, filled in
@@ -1313,11 +1344,11 @@ chunithm:bundle <list>` (scripts/chunithm-bundle.ts around lib/chunithm/bundler.
   place on a terminal, printed every 10 s otherwise) → upload
   (storage purpose `chunithm-import`: admin-only, private, zip, BUNDLE_MAX_BYTES) →
   "Import" (chuni_imports; `runImports`, one at a time per server, in the background).
-  Bundles (bundle.ts) hold `bundle.json` (format, BUILD_VERSION, each chart's page,
+  Bundles (bundle.ts) hold `bundle.json` (format 2, by ref; BUILD_VERSION, each chart's ref,
   source tags, manifest, tile files) and the tiles. An import reads the ZIP with
   ranged reads (`listZip`, `readZipEntry`), refuses a bundle from another
   BUILD_VERSION, skips charts that no longer need one (a picture already, being
-  built, withdrawn, another page now, unknown), refuses ones that don't check out
+  built, withdrawn, another ref now, unknown), refuses ones that don't check out
   (`checkBundleChart`; every tile a WebP of the right size, `webpSize`), stores the
   rest like a build's tiles, writes a ready chuni_builds row only over no picture
   (otherwise takes the tiles back), then deletes the upload's bytes and refreshes the
@@ -1342,8 +1373,9 @@ chunithm:bundle <list>` (scripts/chunithm-bundle.ts around lib/chunithm/bundler.
 - A chart's page, /tools/chunithm/<SEGA id>/<difficulty>/ (server-rendered, noindex,
   the tool's share card): an info box (the jacket at its own 300px, never enlarged,
   or "No jacket yet", and an "Original jacket" link straight to sdvx.in's full-size
-  file, `sdvxJacketSources`, which visitors' browsers fetch themselves; facts: constant per version, notes, full combo, designer,
-  versions), other difficulties, a credit linking the sdvx.in page, and `ChartViewer`.
+  file, `sdvxJacketSources`, which visitors' browsers fetch themselves; facts: constant per version, notes and sdvx.in's
+  notes by kind, designer, versions), other difficulties, a credit linking the chart in
+  sdvx.in's viewer, and `ChartViewer`.
   The page only reads the build (`peekBuild`, so crawlers start none); the viewer asks
   the picture route (starting the build) and asks again every POLL_MS. Layouts: strip
   (one column, scrolled) and sheet (layout.ts `sheetColumns`: screen-tall columns side

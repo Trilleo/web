@@ -1,8 +1,9 @@
 /**
  * otoge-db (otoge-db.net, github.com/zvuc/otoge-db): a community dataset on top of
  * SEGA's list, with chart constants, note counts, notes designers, the version a song
- * came in, the date, and links to each chart's sdvx.in page. music-ex.json is the game
- * now; music-ex-deleted.json the removed songs (with the day they went);
+ * came in, the date, and links to each chart's page on sdvx.in's older site.
+ * music-ex.json is the game now; music-ex-deleted.json the removed songs (with the day
+ * they went);
  * music-ex-<version>-final.json the constants as they stood when a version ended.
  */
 import {
@@ -12,7 +13,7 @@ import {
   type Difficulty,
 } from "../difficulties";
 import { SourceError, compactDay, field, isRecord } from "./common";
-import { isSdvxPath } from "./sdvx";
+import { legacySdvxPathInfo } from "./sdvx";
 
 export interface OtogeChart {
   difficulty: Difficulty;
@@ -22,8 +23,11 @@ export interface OtogeChart {
   constant: number | null;
   notes: number | null;
   designer: string | null;
-  /** The chart's sdvx.in page, "11/11061mst" (see sdvx.ts). */
-  sdvxPath: string | null;
+  /**
+   * The chart's page on sdvx.in's older site, "11/11061mst" (see sdvx.ts's
+   * `refFromLegacyPath`): otoge-db hasn't moved to the new viewer's refs.
+   */
+  sdvxLink: string | null;
 }
 
 export interface OtogeSong {
@@ -90,7 +94,7 @@ export function parseOtogeMusic(
         constant: parseConstant(field(row, `lev_${key}_i`)),
         notes: count(field(row, `lev_${key}_notes`)),
         designer: field(row, `lev_${key}_designer`) || null,
-        sdvxPath: isSdvxPath(link) ? link : null,
+        sdvxLink: legacySdvxPathInfo(link) ? link : null,
       });
     }
     songs.push({

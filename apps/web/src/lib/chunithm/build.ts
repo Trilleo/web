@@ -6,9 +6,10 @@
  * /api/chunithm/charts/…), one build at a time in this server (`runBuilds`), at most
  * BUILD_LIMITS.perHour an hour, so sdvx.in sees a trickle. One build:
  *
- * 1. Read the chart page's script for its three layers (never guessed: some are gone).
+ * 1. Name its three layers from its ref, as sdvx.in's viewer does (@trilleo/chunithm's
+ *    `sdvxImages`).
  * 2. Fetch each without following redirects (sdvx.in sends missing files to an HTML
- *    page) and check it's a PNG, under BUILD_LIMITS.maxLayerBytes. All three must be
+ *    page) and check it's a WebP, under BUILD_LIMITS.maxLayerBytes. All three must be
  *    there and the same size, or the build fails and says which.
  * 3. Join (findLayout, drawOver, checkOverlaps), find the measures, cut tiles from the
  *    bottom, encode, upload, make public (unless the chart is withdrawn).
@@ -16,9 +17,11 @@
  *
  * A failed build waits BUILD_LIMITS.retryDelaysMs before it's tried again; a rebuild
  * that fails keeps serving the old tiles. Layers that arrived whole are kept between
- * attempts (layers.ts), so the next one only downloads what's missing. A ready chart older than checkAfterDays is
- * compared with sdvx.in (HEAD requests) when it's next viewed, and rebuilt if a layer
- * changed; so is one built by an older BUILD_VERSION or from another page.
+ * attempts (layers.ts), so the next one only downloads what's missing. A ready chart
+ * older than checkAfterDays is compared with sdvx.in (HEAD requests) when it's next
+ * viewed, and rebuilt if a layer changed; so is one built by an older BUILD_VERSION or
+ * for another ref. A picture moved from sdvx.in's older site (move.ts) has empty tags:
+ * its first check records them instead.
  */
 import { ChartLayoutError, type ChartManifest } from "@trilleo/chunithm";
 import {
@@ -163,9 +166,9 @@ export function resetLastAsked(): void {
   lastAsked = 0;
 }
 
-/** Whether a ready build should be made again (newer code, or another page now). */
-function outdated(row: ChuniBuild, sdvxPath: string): boolean {
-  return row.version !== BUILD_VERSION || row.source?.path !== sdvxPath;
+/** Whether a ready build should be made again (newer code, or another ref now). */
+function outdated(row: ChuniBuild, sdvxRef: string): boolean {
+  return row.version !== BUILD_VERSION || row.source?.ref !== sdvxRef;
 }
 
 /**
@@ -186,7 +189,7 @@ export async function requestBuild(
     .select({
       id: chuniCharts.id,
       songId: chuniCharts.songId,
-      sdvxPath: chuniCharts.sdvxPath,
+      sdvxRef: chuniCharts.sdvxRef,
       withdrawnAt: chuniCharts.withdrawnAt,
     })
     .from(chuniCharts)
@@ -195,7 +198,7 @@ export async function requestBuild(
   // Someone's looking at it: make sure its song has its jacket (if it's missing).
   copyJacketSoon(deps, chart.songId);
   if (chart.withdrawnAt) return { status: "unavailable", reason: "withdrawn" };
-  if (!chart.sdvxPath) return { status: "unavailable", reason: "no-page" };
+  if (!chart.sdvxRef) return { status: "unavailable", reason: "no-page" };
   const [row] = await db
     .select()
     .from(chuniBuilds)
@@ -208,7 +211,7 @@ export async function requestBuild(
   const waiting = row?.nextAttemptAt && row.nextAttemptAt > now;
   if (row?.manifest) {
     // Ready: rebuild in the background if it's out of date, or check sdvx.in now and then.
-    if (!waiting && outdated(row, chart.sdvxPath)) await queue(db, row.id, now);
+    if (!waiting && outdated(row, chart.sdvxRef)) await queue(db, row.id, now);
     else if (
       !row.checkedAt ||
       now.getTime() - row.checkedAt.getTime() >
@@ -264,8 +267,8 @@ export async function buildChart(
       .select()
       .from(chuniCharts)
       .where(eq(chuniCharts.id, build.chartId));
-    if (!chart?.sdvxPath)
-      throw new BuildError("The chart has no sdvx.in page.");
+    if (!chart?.sdvxRef)
+      throw new BuildError("The chart has no chart on sdvx.in.");
     const folder = `${TILE_PREFIX}${String(build.chartId)}/${build.variant}-${randomBytes(6).toString("hex")}`;
     const tiles: ChuniBuildManifest["tiles"] = [];
     let bytes = 0;
@@ -281,7 +284,7 @@ export async function buildChart(
           if (kept.includes(name)) kept.splice(kept.indexOf(name), 1);
         },
       },
-      chart.sdvxPath,
+      chart.sdvxRef,
       variantOf(build.variant),
       async (tile) => {
         const key = `${folder}/${String(tile.index)}.webp`;
@@ -420,7 +423,8 @@ async function removeTiles(
 
 /**
  * Compares a ready build's layers with sdvx.in's (HEAD, no downloads); a changed or
- * vanished layer queues a rebuild. Records when it looked.
+ * vanished layer queues a rebuild. An empty tag (a picture moved from the older site)
+ * is filled in instead. Records when it looked.
  */
 export async function checkBuild(
   deps: BuildDeps,
@@ -443,6 +447,7 @@ export async function checkBuild(
     ["obj", row.source.obj],
     ["bar", row.source.bar],
   ] as const;
+  const tags = { ...row.source.tags };
   for (const [name, src] of layers) {
     let tag: string | null;
     try {
@@ -455,11 +460,17 @@ export async function checkBuild(
         .where(eq(chuniBuilds.id, id));
       return "skipped";
     }
-    if (tag !== row.source.tags[name]) {
+    if (tag !== null && tags[name] === "") tags[name] = tag;
+    else if (tag !== tags[name]) {
       await queue(db, id, now);
       return "changed";
     }
   }
+  if (layers.some(([name]) => row.source?.tags[name] !== tags[name]))
+    await db
+      .update(chuniBuilds)
+      .set({ source: { ...row.source, tags } })
+      .where(eq(chuniBuilds.id, id));
   return "same";
 }
 

@@ -1,6 +1,6 @@
 import {
   chuniCharts,
-  chuniSdvxOverrides,
+  chuniSdvxPlacements,
   chuniSongs,
   openDatabase,
   type DatabaseHandle,
@@ -31,7 +31,7 @@ beforeEach(async () => {
       songId: 1,
       difficulty: "master",
       level: "14",
-      sdvxPath: "01/00001mst",
+      sdvxRef: "01001/mst",
       linkedBy: "otoge-db",
     },
     { songId: 2, difficulty: "master", level: "13" },
@@ -42,51 +42,57 @@ afterEach(async () => {
   await handle.close();
 });
 
-describe("placing sdvx.in pages", () => {
-  it("moves a page to the chart the admin names, and keeps the word", async () => {
+describe("placing sdvx.in's charts", () => {
+  it("moves a chart of sdvx.in's to the chart the admin names, and keeps the word", async () => {
     expect(
-      await placePage(handle.db, "01/00001mst", {
+      await placePage(handle.db, "01001/mst", {
         songId: 2,
         difficulty: "master",
       }),
     ).toEqual({ ok: true });
-    expect((await findChart(handle.db, 1, "master"))?.sdvxPath).toBeNull();
+    expect((await findChart(handle.db, 1, "master"))?.sdvxRef).toBeNull();
     expect(await findChart(handle.db, 2, "master")).toMatchObject({
-      sdvxPath: "01/00001mst",
+      sdvxRef: "01001/mst",
       linkedBy: "admin",
     });
-    expect(await handle.db.select().from(chuniSdvxOverrides)).toMatchObject([
-      { path: "01/00001mst", songId: 2, difficulty: "master" },
+    expect(await handle.db.select().from(chuniSdvxPlacements)).toMatchObject([
+      { ref: "01001/mst", songId: 2, difficulty: "master" },
     ]);
 
-    await forgetPage(handle.db, "01/00001mst");
-    expect(await handle.db.select().from(chuniSdvxOverrides)).toEqual([]);
-    expect((await findChart(handle.db, 2, "master"))?.sdvxPath).toBeNull();
+    await forgetPage(handle.db, "01001/mst");
+    expect(await handle.db.select().from(chuniSdvxPlacements)).toEqual([]);
+    expect((await findChart(handle.db, 2, "master"))?.sdvxRef).toBeNull();
   });
 
-  it("ignores a page", async () => {
-    expect(await placePage(handle.db, "01/00001mst", null)).toEqual({
+  it("ignores a chart", async () => {
+    expect(await placePage(handle.db, "01001/mst", null)).toEqual({
       ok: true,
     });
-    expect((await findChart(handle.db, 1, "master"))?.sdvxPath).toBeNull();
-    expect(await handle.db.select().from(chuniSdvxOverrides)).toMatchObject([
-      { path: "01/00001mst", songId: null, difficulty: null },
+    expect((await findChart(handle.db, 1, "master"))?.sdvxRef).toBeNull();
+    expect(await handle.db.select().from(chuniSdvxPlacements)).toMatchObject([
+      { ref: "01001/mst", songId: null, difficulty: null },
     ]);
   });
 
-  it("refuses pages and charts that don't fit", async () => {
+  it("refuses refs and charts that don't fit", async () => {
     expect(
       await placePage(handle.db, "../x", { songId: 2, difficulty: "master" }),
     ).toMatchObject({ ok: false });
-    // An expert page can't be a master chart.
+    // An expert chart can't be a master one; older pages' addresses aren't refs.
     expect(
-      await placePage(handle.db, "01/00001exp", {
+      await placePage(handle.db, "01/01001mst", {
         songId: 2,
         difficulty: "master",
       }),
-    ).toEqual({ ok: false, error: "That page is for another difficulty." });
+    ).toMatchObject({ ok: false });
     expect(
-      await placePage(handle.db, "01/00001mst", {
+      await placePage(handle.db, "01001/exp", {
+        songId: 2,
+        difficulty: "master",
+      }),
+    ).toEqual({ ok: false, error: "That chart is for another difficulty." });
+    expect(
+      await placePage(handle.db, "01001/mst", {
         songId: 9,
         difficulty: "master",
       }),
@@ -139,7 +145,8 @@ describe("the overview", () => {
       charts: 3,
       linked: 1,
       withdrawn: 2,
-      scriptsLeft: 0,
+      sdvxSongs: 0,
+      sdvxListedAt: null,
       versions: [],
       currentVersion: null,
       lastGood: null,

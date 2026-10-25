@@ -1,6 +1,8 @@
 /**
  * Where the CHUNITHM catalog comes from, and fetching it politely: one request at a
  * time to sdvx.in, a timeout, a size cap, and a User-Agent that says who we are.
+ * sdvx.in's lists are JSON (`fetchSdvxList`); its layers are big WebP files
+ * (`download`).
  *
  * Settings (all optional): CHUNITHM_SYNC=off never fetches (e2e); CHUNITHM_SEGA_URL,
  * CHUNITHM_OTOGE_URL (the folder holding music-ex.json) and CHUNITHM_SDVX_URL (the
@@ -14,27 +16,12 @@ export const SEGA_MUSIC_URL =
 export const OTOGE_DATA_URL = "https://otoge-db.net/chunithm/data/";
 export const SDVX_ORIGIN = "https://sdvx.in";
 
-/** sdvx.in's list pages: every genre, Ultima, World's End, and removed songs. */
-export const SDVX_LIST_PAGES = [
-  "/chunithm/sort/pops.htm",
-  "/chunithm/sort/niconico.htm",
-  "/chunithm/sort/toho.htm",
-  "/chunithm/sort/variety.htm",
-  "/chunithm/sort/irodorimidori.htm",
-  "/chunithm/sort/gekimai.htm",
-  "/chunithm/sort/original.htm",
-  "/chunithm/sort/ultima.htm",
-  "/chunithm/end.htm",
-  "/chunithm/del.htm",
-] as const;
-
 export const FETCH_LIMITS = {
   timeoutMs: 30_000,
-  /** sdvx.in's pages and scripts are small: a request taking longer is stuck. */
-  sdvxTimeoutMs: 15_000,
   /** otoge-db's music-ex.json is about 3 MB. */
   maxJsonBytes: 16 * 1024 * 1024,
-  maxPageBytes: 2 * 1024 * 1024,
+  /** sdvx.in's song lists are up to about 300 KB. */
+  maxListBytes: 4 * 1024 * 1024,
 };
 
 export const USER_AGENT = `trilleo.net CHUNITHM chart viewer (+${SITE_URL}/tools/chunithm/)`;
@@ -130,6 +117,51 @@ export async function readBody(
   }
 }
 
+/**
+ * One of sdvx.in's JSON lists, parsed; null when it isn't there (sdvx.in answers a
+ * missing file with a redirect to its front page, or a 404). Throws FetchError when
+ * there's no usable answer.
+ */
+export async function fetchSdvxList(
+  fetcher: typeof fetch,
+  url: string,
+): Promise<unknown> {
+  let response: Response;
+  try {
+    response = await fetcher(url, {
+      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      redirect: "manual",
+      signal: AbortSignal.timeout(FETCH_LIMITS.timeoutMs),
+    });
+  } catch (error) {
+    throw new FetchError(
+      url,
+      error instanceof Error ? error.message : "failed",
+    );
+  }
+  if (
+    response.status === 404 ||
+    (response.status >= 300 && response.status < 400)
+  ) {
+    await response.body?.cancel();
+    return null;
+  }
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new FetchError(url, `HTTP ${String(response.status)}`);
+  }
+  const bytes = await readBody(response, url);
+  if (bytes.byteLength > FETCH_LIMITS.maxListBytes)
+    throw new FetchError(url, "too large");
+  try {
+    return JSON.parse(
+      new TextDecoder("utf-8").decode(bytes).replace(/^\uFEFF/, ""),
+    ) as unknown;
+  } catch {
+    throw new FetchError(url, "not JSON");
+  }
+}
+
 export async function fetchJson(
   fetcher: typeof fetch,
   url: string,
@@ -153,7 +185,7 @@ export interface DownloadLimits {
   tries: number;
 }
 
-/** Big files from sdvx.in: the notes layers, up to about 15 MB. */
+/** Big files from sdvx.in: the notes layers, up to about 7 MB. */
 export const LAYER_DOWNLOAD: Omit<DownloadLimits, "maxBytes"> = {
   stallMs: 30_000,
   totalMs: 6 * 60_000,

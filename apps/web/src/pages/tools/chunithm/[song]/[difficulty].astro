@@ -10,6 +10,7 @@ import {
   DIFFICULTY_LABELS,
   formatConstant,
   isDifficulty,
+  sdvxViewerPath,
 } from "@trilleo/chunithm";
 import { signInHref } from "@trilleo/tool-kit";
 import { ChartViewer, meta, type SavedChart } from "@trilleo/tool-chunithm";
@@ -62,6 +63,21 @@ const others = DIFFICULTIES.flatMap((d) => {
   return other ? [{ ...other, difficulty: d }] : [];
 });
 const aliases = await songAliases(db, song.id);
+/** sdvx.in's count of the notes by kind: "Tap 956 · Hold 143 · …". */
+function noteTypesText(types: typeof chart.noteTypes): string | null {
+  if (!types) return null;
+  const kinds = [
+    ["Tap", types.tap],
+    ["Hold", types.hold],
+    ["Slide", types.slide],
+    ["Air", types.air],
+    ["Flick", types.flick],
+  ] as const;
+  const known = kinds.flatMap(([name, n]) =>
+    n === null ? [] : [`${name} ${n.toLocaleString("en")}`],
+  );
+  return known.length > 0 ? known.join(" · ") : null;
+}
 const facts: [string, string | null][] = [
   ["Artist", song.artist],
   ["Also known as", aliases.map((alias) => alias.alias).join(" · ") || null],
@@ -76,10 +92,7 @@ const facts: [string, string | null][] = [
       : null,
   ],
   ["Notes", chart.notes !== null ? chart.notes.toLocaleString("en") : null],
-  [
-    "Full combo",
-    chart.chain !== null ? chart.chain.toLocaleString("en") : null,
-  ],
+  ["By kind", noteTypesText(chart.noteTypes)],
   ["Added in", page.versionName],
   [
     "Removed",
@@ -102,9 +115,8 @@ const STATUS = {
   approved: "added",
   declined: "not added",
 } as const;
-const sdvxPage = chart.sdvxPath
-  ? `${SDVX_ORIGIN}/chunithm/${chart.sdvxPath}.htm`
-  : null;
+const viewerPath = chart.sdvxRef ? sdvxViewerPath(chart.sdvxRef) : null;
+const sdvxPage = viewerPath ? new URL(viewerPath, SDVX_ORIGIN).href : null;
 const hasMirror = ["expert", "master", "ultima", "worldsend"].includes(
   difficulty,
 );
@@ -255,7 +267,7 @@ const hasMirror = ["expert", "master", "ultima", "worldsend"].includes(
           {others.map((other) => {
             const text = `${DIFFICULTY_LABELS[other.difficulty]} ${other.level}`;
             const viewable =
-              other.sdvxPath !== null && other.withdrawnAt === null;
+              other.sdvxRef !== null && other.withdrawnAt === null;
             return (
               <li>
                 {other.difficulty === difficulty ? (

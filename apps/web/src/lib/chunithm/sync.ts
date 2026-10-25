@@ -3,60 +3,59 @@
  *
  * 1. Fetch SEGA's song list and otoge-db's current and removed songs. If any of them
  *    fails or looks broken, the pass stops there: nothing is half-applied.
- * 2. Fetch sdvx.in's list pages and record their entries (a failed page only means no
- *    new entries from it this time).
- * 3. Read a few entries' scripts (SDVX_PASS.scripts): new ones first, then any not
- *    read for SDVX_PASS.rereadDays. The first fill takes a few hours of passes.
- * 4. Merge everything (@trilleo/chunithm's buildCatalog) and write it in one
- *    transaction: versions, songs, charts and the current version's constants.
- * 5. Look for otoge-db's frozen constants of versions that have ended.
- * 6. Copy a batch of songs' jackets into storage (jackets.ts).
+ * 2. Fetch sdvx.in's JSON lists (each folder's songs, removed songs, World's End) and
+ *    record their songs and charts; a list that fails keeps what we had from it.
+ * 3. Merge everything (@trilleo/chunithm's buildCatalog) and write it in one
+ *    transaction: versions, songs, charts and the current version's constants. The
+ *    first pass after sdvx.in's new viewer also moves what was kept from its older
+ *    site (move.ts).
+ * 4. Look for otoge-db's frozen constants of versions that have ended.
+ * 5. Copy a batch of songs' jackets into storage (jackets.ts).
  *
  * A pass runs every SYNC_EVERY_MS, started by a timer (`startChunithmSync`) or any
- * request; while scripts or jackets are still waiting, the next starts BACKLOG_GAP_MS
- * after the last one ended. The admin can start one with /admin/chunithm/'s "Check
- * now". A pass stops reading after PASS_TIME_LIMIT_MS, or once sdvx.in fails to answer
- * SDVX_PASS.failuresToStop times in a row; the rest waits for the next. New songs, new
- * versions, sdvx.in pages it couldn't place and repeated failures alert the admin.
+ * request; while jackets are still waiting, the next starts BACKLOG_GAP_MS after the
+ * last one ended. The admin can start one with /admin/chunithm/'s "Check now". A pass
+ * stops copying jackets after PASS_TIME_LIMIT_MS, and stops reading sdvx.in once it
+ * fails to answer SDVX_PASS.failuresToStop times in a row; the rest waits for the
+ * next. New songs, new versions, sdvx.in charts it couldn't place and repeated
+ * failures alert the admin.
  */
 import {
+  SDVX_JSON_DIR,
+  SDVX_LIST_FILES,
+  SDVX_MAX_FOLDERS,
   buildCatalog,
   constantRows,
   otogeFinalFile,
   parseOtogeMusic,
-  parseSdvxList,
-  parseSdvxScript,
+  parseSdvxSongs,
   parseSegaMusic,
-  sdvxScriptOf,
-  sdvxScriptUrl,
+  sdvxFolderList,
+  sdvxSongKey,
   type Catalog,
   type CatalogInput,
   type Difficulty,
-  type SdvxEntry,
-  type SdvxListEntry,
+  type SdvxList,
+  type SdvxSong,
 } from "@trilleo/chunithm";
 import {
   chuniCharts,
   chuniConstants,
-  chuniSdvxEntries,
-  chuniSdvxOverrides,
+  chuniSdvxPlacements,
+  chuniSdvxSongs,
   chuniSongs,
   chuniSyncs,
   chuniVersions,
-  type ChuniSdvxDetails,
   type ChuniSyncSummary,
   type Database,
 } from "@trilleo/db";
 import {
   and,
-  asc,
   desc,
   eq,
   inArray,
   isNotNull,
-  isNull,
   lt,
-  or,
   sql,
   type Column,
 } from "drizzle-orm";
@@ -64,44 +63,35 @@ import type { StorageDriver } from "@trilleo/storage/server";
 import { alertAdmin } from "../mail/alerts";
 import { getStorage } from "../storage/config";
 import { copyJackets, jacketsDue } from "./jackets";
+import { moveBuilds, moveLegacyBuilds, movePlacements, moved } from "./move";
 import { forgetIndex } from "./viewer";
 import {
-  FETCH_LIMITS,
   FetchError,
-  SDVX_LIST_PAGES,
   chunithmSources,
   fetchJson,
-  fetchText,
+  fetchSdvxList,
   type ChunithmSources,
 } from "./sources";
 
 const MINUTE_MS = 60 * 1000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
 
-/** How often a pass runs (from any request), and while scripts are still unread. */
+/** How often a pass runs (from any request). */
 export const SYNC_EVERY_MS = 6 * 60 * MINUTE_MS;
-/** While scripts or jackets are waiting, the next pass starts this long after one ends. */
+/** While jackets are waiting, the next pass starts this long after one ends. */
 export const BACKLOG_GAP_MS = 90 * 1000;
 /** How often the timer checks whether a pass is due. */
 export const TICK_MS = 30 * 1000;
 
 export const SDVX_PASS = {
-  /** Scripts read per pass, one at a time. */
-  scripts: 400,
   /** The wait between two requests to sdvx.in. */
-  delayMs: 300,
-  /** A script read this long ago is read again, for designers or levels that changed. */
-  rereadDays: 30,
-  /** A script that failed (cut off, or not readable) is tried again after this. */
-  retryFailedDays: 1,
+  delayMs: 1000,
   /** Requests in a row that get no answer (timeouts, 5xx) before a pass stops asking. */
-  failuresToStop: 5,
+  failuresToStop: 3,
 };
 
-/** A pass stops reading scripts and copying jackets after this long (the rest waits). */
+/** A pass stops copying jackets after this long (the rest waits). */
 export const PASS_TIME_LIMIT_MS = 10 * MINUTE_MS;
-/** Jackets a pass copies while scripts are still unread (the scripts come first). */
-export const JACKETS_WHILE_READING = 10;
 
 /** SEGA's list shrinking below this share of the songs we have in the game is refused. */
 export const MIN_SHARE_KEPT = 0.9;
@@ -129,7 +119,6 @@ export interface SyncDeps {
   timeLimitMs?: number;
   /** Waits between sdvx.in requests (tests pass a no-op). */
   sleep?: (ms: number) => Promise<void>;
-  scriptsPerPass?: number;
 }
 
 const wait = (ms: number) =>
@@ -157,8 +146,7 @@ const emptySummary = (): ChuniSyncSummary => ({
   removedSongs: [],
   newVersions: [],
   constants: 0,
-  scriptsRead: 0,
-  scriptsLeft: 0,
+  sdvxLists: 0,
   unmatched: [],
   errors: [],
 });
@@ -225,130 +213,58 @@ export async function syncCatalog(
   }
 
   // 2. sdvx.in's lists.
-  const listed = new Map<string, SdvxListEntry>();
-  for (const page of SDVX_LIST_PAGES) {
-    try {
-      const html = await fetchText(
-        fetcher,
-        new URL(page, sources.sdvxOrigin).href,
-        FETCH_LIMITS.maxPageBytes,
-        FETCH_LIMITS.sdvxTimeoutMs,
-      );
-      for (const entry of parseSdvxList(html)) {
-        const before = listed.get(entry.script);
-        // An entry on a genre page and the removed page: keep both facts.
-        listed.set(entry.script, {
-          ...entry,
-          version: before?.version ?? entry.version,
-          listTitle: before?.listTitle ?? entry.listTitle,
-          removed: before?.removed ?? entry.removed,
-        });
-      }
-    } catch (error) {
-      summary.errors.push(errorText(error));
-    }
-    await sleep(sources.delayMs ?? SDVX_PASS.delayMs);
-  }
-  await recordEntries(db, [...listed.values()], now());
-
-  // 3. A batch of scripts, within the pass's time and while sdvx.in answers.
-  const timeLimit = deps.timeLimitMs ?? PASS_TIME_LIMIT_MS;
   const started = Date.now();
-  const overTime = () => Date.now() - started > timeLimit;
-  const due = await dueScripts(
-    db,
-    deps.scriptsPerPass ?? SDVX_PASS.scripts,
-    now(),
+  const listed = await readSdvxLists(
+    fetcher,
+    sources,
+    (ms) => sleep(sources.delayMs ?? ms),
+    summary,
   );
-  let failures = 0;
-  for (const script of due) {
-    if (overTime()) {
-      summary.errors.push("Stopped reading scripts at the pass's time limit.");
-      break;
-    }
-    const url = new URL(sdvxScriptUrl(script), sources.sdvxOrigin).href;
-    let details: ChuniSdvxDetails | null = null;
-    let readError: string | null = null;
-    try {
-      details = parseSdvxScript(
-        await fetchText(
-          fetcher,
-          url,
-          FETCH_LIMITS.maxPageBytes,
-          FETCH_LIMITS.sdvxTimeoutMs,
-        ),
-        script,
-      );
-      if (!details) readError = "Not a chart script.";
-      failures = 0;
-    } catch (error) {
-      // An answer (404: the script is gone) counts as read; no answer (a timeout,
-      // a server error) leaves it for the next pass.
-      if (error instanceof FetchError && !error.missing) {
-        failures++;
-        await sleep(sources.delayMs ?? SDVX_PASS.delayMs);
-        if (failures >= SDVX_PASS.failuresToStop) {
-          summary.errors.push(
-            `sdvx.in didn't answer ${String(failures)} times in a row (${errorText(error)}): stopped reading for this pass.`,
-          );
-          break;
-        }
-        continue;
-      }
-      readError = errorText(error);
-      failures = 0;
-    }
-    await db
-      .update(chuniSdvxEntries)
-      .set({
-        readAt: now(),
-        readError,
-        ...(details ? { details } : {}),
-      })
-      .where(eq(chuniSdvxEntries.script, script));
-    summary.scriptsRead += 1;
-    await sleep(sources.delayMs ?? SDVX_PASS.delayMs);
-  }
-  const [left] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(chuniSdvxEntries)
-    .where(isNull(chuniSdvxEntries.readAt));
-  summary.scriptsLeft = left?.count ?? 0;
+  await recordSdvxSongs(db, listed, now());
+  const sdvx = await storedSdvxSongs(db);
 
-  // 4. Merge and write.
+  // 3. Merge and write (moving the older site's data first, once).
+  const placementMove = (await moved(db))
+    ? null
+    : await movePlacements(db, sdvx, now());
   const catalog = buildCatalog({
     sega,
     otoge,
     otogeDeleted,
-    sdvx: await storedEntries(db),
-    overrides: (await db.select().from(chuniSdvxOverrides)).map((row) => ({
-      path: row.path,
+    sdvx,
+    placements: (await db.select().from(chuniSdvxPlacements)).map((row) => ({
+      ref: row.ref,
       songId: row.songId,
       difficulty: row.difficulty,
     })),
   });
   await writeCatalog(db, catalog, summary, now());
+  const storage = deps.storage === undefined ? getStorage() : deps.storage;
+  try {
+    if (placementMove) await moveBuilds(db, storage, now(), placementMove);
+    else await moveLegacyBuilds(db, now());
+  } catch (error) {
+    summary.errors.push(`Moving to sdvx.in's new viewer: ${errorText(error)}`);
+  }
   // The index is cached by finished passes; this one isn't finished yet, but the
   // catalog has changed: build the index afresh on its next read.
   forgetIndex();
 
-  // 5. Ended versions' constants.
+  // 4. Ended versions' constants.
   try {
     await readFinalConstants(db, fetcher, sources, catalog, summary, now());
   } catch (error) {
     summary.errors.push(errorText(error));
   }
 
-  // 6. A batch of jackets.
-  const storage = deps.storage === undefined ? getStorage() : deps.storage;
+  // 5. A batch of jackets.
+  const timeLimit = deps.timeLimitMs ?? PASS_TIME_LIMIT_MS;
   if (storage)
     try {
       summary.jackets = await copyJackets(db, storage, {
         fetch: fetcher,
         sdvxOrigin: sources.sdvxOrigin,
         now: now(),
-        // The scripts come first: only a few jackets while any are unread.
-        ...(summary.scriptsLeft > 0 ? { limit: JACKETS_WHILE_READING } : {}),
         deadline: started + timeLimit,
         sleep: (ms) => sleep(sources.delayMs ?? ms),
       });
@@ -359,106 +275,109 @@ export async function syncCatalog(
   return finish(true);
 }
 
-async function recordEntries(
+/**
+ * Reads sdvx.in's lists, one request at a time: folders from 01 until one isn't there
+ * yet, then the removed and World's End lists. A list that fails is reported and
+ * skipped (what we had from it stays); after SDVX_PASS.failuresToStop in a row
+ * without an answer, the rest wait for the next pass.
+ */
+async function readSdvxLists(
+  fetcher: typeof fetch,
+  sources: ChunithmSources,
+  sleep: (ms: number) => Promise<void>,
+  summary: ChuniSyncSummary,
+): Promise<SdvxSong[]> {
+  const songs = new Map<string, SdvxSong>();
+  let failures = 0;
+  const read = async (file: string, list: SdvxList): Promise<boolean> => {
+    const url = new URL(SDVX_JSON_DIR + file, sources.sdvxOrigin).href;
+    try {
+      const json = await fetchSdvxList(fetcher, url);
+      failures = 0;
+      if (json === null) return false;
+      // A song on two lists (in a folder and removed): the first wins.
+      for (const song of parseSdvxSongs(json, list))
+        if (!songs.has(song.key)) songs.set(song.key, song);
+      summary.sdvxLists = (summary.sdvxLists ?? 0) + 1;
+    } catch (error) {
+      if (error instanceof FetchError) failures++;
+      summary.errors.push(errorText(error));
+    } finally {
+      await sleep(SDVX_PASS.delayMs);
+    }
+    return true;
+  };
+  const stopped = () => failures >= SDVX_PASS.failuresToStop;
+  for (let folder = 1; folder <= SDVX_MAX_FOLDERS && !stopped(); folder++)
+    if (!(await read(sdvxFolderList(folder), "songs"))) break;
+  for (const { file, list } of SDVX_LIST_FILES) {
+    if (stopped()) break;
+    await read(file, list);
+  }
+  if (stopped())
+    summary.errors.push(
+      `sdvx.in didn't answer ${String(failures)} times in a row: stopped reading its lists for this pass.`,
+    );
+  return [...songs.values()];
+}
+
+async function recordSdvxSongs(
   db: Database,
-  entries: SdvxListEntry[],
+  songs: SdvxSong[],
   now: Date,
 ): Promise<void> {
-  for (const rows of chunks(entries))
+  for (const rows of chunks(songs))
     await db
-      .insert(chuniSdvxEntries)
+      .insert(chuniSdvxSongs)
       .values(
-        rows.map((entry) => ({
-          script: entry.script,
-          entryId: entry.entryId,
-          kind: entry.kind,
-          listTitle: entry.listTitle,
-          version: entry.version,
-          removedOn: entry.removed?.on ?? null,
-          removedIn: entry.removed?.version ?? null,
+        rows.map((song) => ({
+          key: song.key,
+          list: song.list,
+          title: song.title,
+          artist: song.artist,
+          genre: song.genre,
+          bpm: song.bpm,
+          charts: song.charts,
+          removed: song.removed !== null,
+          removedOn: song.removed?.on ?? null,
+          removedIn: song.removed?.version ?? null,
           firstSeenAt: now,
           listedAt: now,
         })),
       )
       .onConflictDoUpdate({
-        target: chuniSdvxEntries.script,
+        target: chuniSdvxSongs.key,
         set: {
-          listTitle: excluded(chuniSdvxEntries.listTitle),
-          version: sql`coalesce(${excluded(chuniSdvxEntries.version)}, ${chuniSdvxEntries.version})`,
-          removedOn: excluded(chuniSdvxEntries.removedOn),
-          removedIn: excluded(chuniSdvxEntries.removedIn),
-          listedAt: excluded(chuniSdvxEntries.listedAt),
+          list: excluded(chuniSdvxSongs.list),
+          title: excluded(chuniSdvxSongs.title),
+          artist: excluded(chuniSdvxSongs.artist),
+          genre: excluded(chuniSdvxSongs.genre),
+          bpm: excluded(chuniSdvxSongs.bpm),
+          charts: excluded(chuniSdvxSongs.charts),
+          removed: excluded(chuniSdvxSongs.removed),
+          removedOn: excluded(chuniSdvxSongs.removedOn),
+          removedIn: excluded(chuniSdvxSongs.removedIn),
+          listedAt: excluded(chuniSdvxSongs.listedAt),
         },
       });
 }
 
-/** Never read (first listed first), then read longest ago, past the reread age. */
-async function dueScripts(
-  db: Database,
-  limit: number,
-  now: Date,
-): Promise<string[]> {
-  if (limit <= 0) return [];
-  const fresh = await db
-    .select({ script: chuniSdvxEntries.script })
-    .from(chuniSdvxEntries)
-    .where(isNull(chuniSdvxEntries.readAt))
-    // Songs' folders newest first ("11", "10", …), then Ultima and World's End
-    // ("ult/", "end/", mostly old charts): new songs are the ones people look for.
-    .orderBy(
-      asc(chuniSdvxEntries.firstSeenAt),
-      sql`case when ${chuniSdvxEntries.kind} = 'song' then 0 else 1 end`,
-      desc(chuniSdvxEntries.script),
-    )
-    .limit(limit);
-  if (fresh.length >= limit) return fresh.map((row) => row.script);
-  const stale = await db
-    .select({ script: chuniSdvxEntries.script })
-    .from(chuniSdvxEntries)
-    .where(
-      or(
-        lt(
-          chuniSdvxEntries.readAt,
-          new Date(now.getTime() - SDVX_PASS.rereadDays * DAY_MS),
-        ),
-        // One that failed (cut off, or not a chart we could read): sooner.
-        and(
-          isNotNull(chuniSdvxEntries.readError),
-          lt(
-            chuniSdvxEntries.readAt,
-            new Date(now.getTime() - SDVX_PASS.retryFailedDays * DAY_MS),
-          ),
-        ),
-      ),
-    )
-    .orderBy(asc(chuniSdvxEntries.readAt))
-    .limit(limit - fresh.length);
-  return [...fresh, ...stale].map((row) => row.script);
-}
-
-async function storedEntries(db: Database): Promise<SdvxEntry[]> {
-  const rows = await db.select().from(chuniSdvxEntries);
+/** Every song sdvx.in has listed, as @trilleo/chunithm reads them. */
+export async function storedSdvxSongs(db: Database): Promise<SdvxSong[]> {
+  const rows = await db.select().from(chuniSdvxSongs);
   return rows.map((row) => ({
-    entry: {
-      script: row.script,
-      entryId: row.entryId,
-      kind: row.kind as SdvxListEntry["kind"],
-      listTitle: row.listTitle,
-      version: row.version,
-      removed: row.removedOn
-        ? { version: row.removedIn, on: row.removedOn }
-        : null,
-    },
-    details: row.details
-      ? {
-          ...row.details,
-          jacket: row.details.jacket ?? null,
-          charts: row.details.charts.map((chart) => ({
-            ...chart,
-            difficulty: chart.difficulty as Difficulty,
-          })),
-        }
-      : null,
+    key: row.key,
+    id: row.key.replace(/^we\//, ""),
+    list: row.list as SdvxList,
+    title: row.title,
+    artist: row.artist,
+    genre: row.genre,
+    bpm: row.bpm,
+    charts: row.charts.map((chart) => ({
+      ...chart,
+      difficulty: chart.difficulty as Difficulty,
+    })),
+    removed: row.removed ? { version: row.removedIn, on: row.removedOn } : null,
   }));
 }
 
@@ -552,13 +471,13 @@ async function writeCatalog(
       .set({ removedOn: null, removedIn: null })
       .where(and(eq(chuniSongs.inGame, true), isNotNull(chuniSongs.removedOn)));
 
-    // Charts. Pages that move are let go first, so the unique path index holds.
+    // Charts. Refs that move are let go first, so the unique ref index holds.
     const existing = await tx
       .select({
         id: chuniCharts.id,
         songId: chuniCharts.songId,
         difficulty: chuniCharts.difficulty,
-        sdvxPath: chuniCharts.sdvxPath,
+        sdvxRef: chuniCharts.sdvxRef,
       })
       .from(chuniCharts);
     const pathOf = new Map(
@@ -567,22 +486,21 @@ async function writeCatalog(
     const target = new Map(
       catalog.charts.map((chart) => [
         `${String(chart.songId)}:${chart.difficulty}`,
-        chart.sdvxPath,
+        chart.sdvxRef,
       ]),
     );
     const claimed = new Set(target.values());
     const release = existing.flatMap((row) => {
-      if (!row.sdvxPath) return [];
+      if (!row.sdvxRef) return [];
       const wanted = target.get(`${String(row.songId)}:${row.difficulty}`);
-      // A chart the catalog lacks keeps its page unless another chart takes it.
-      if (wanted === undefined)
-        return claimed.has(row.sdvxPath) ? [row.id] : [];
-      return wanted === row.sdvxPath ? [] : [row.id];
+      // A chart the catalog lacks keeps its ref unless another chart takes it.
+      if (wanted === undefined) return claimed.has(row.sdvxRef) ? [row.id] : [];
+      return wanted === row.sdvxRef ? [] : [row.id];
     });
     for (const ids of chunks(release))
       await tx
         .update(chuniCharts)
-        .set({ sdvxPath: null, linkedBy: null })
+        .set({ sdvxRef: null, linkedBy: null })
         .where(inArray(chuniCharts.id, ids));
     summary.newCharts = firstPass
       ? 0
@@ -607,8 +525,8 @@ async function writeCatalog(
             constant: excluded(chuniCharts.constant),
             notes: excluded(chuniCharts.notes),
             designer: excluded(chuniCharts.designer),
-            chain: excluded(chuniCharts.chain),
-            sdvxPath: excluded(chuniCharts.sdvxPath),
+            noteTypes: excluded(chuniCharts.noteTypes),
+            sdvxRef: excluded(chuniCharts.sdvxRef),
             linkedBy: excluded(chuniCharts.linkedBy),
             updatedAt: excluded(chuniCharts.updatedAt),
           },
@@ -635,7 +553,7 @@ async function writeCatalog(
   });
   summary.songs = catalog.songs.length;
   summary.charts = catalog.charts.length;
-  summary.linked = catalog.charts.filter((chart) => chart.sdvxPath).length;
+  summary.linked = catalog.charts.filter((chart) => chart.sdvxRef).length;
   summary.unmatched = catalog.unmatched;
 }
 
@@ -781,19 +699,17 @@ async function alertIfNeeded(
       );
     if (summary.newVersions.length > 0)
       notes.push(`new version: ${summary.newVersions.join(", ")}`);
-    // Only pages sdvx.in added since the first fill (the rest is retired content
+    // Only charts sdvx.in added since the first fill (the rest is retired content
     // with no official ID), and only once: not those the last pass had.
-    const reported = new Set(previous?.unmatched.map((row) => row.path) ?? []);
-    const added = await newPagePaths(
-      db,
-      summary.unmatched.map((row) => row.path),
+    const reported = new Set(
+      previous?.unmatched.map((row) => row.ref ?? row.path) ?? [],
     );
-    const fresh = summary.unmatched.filter(
-      (row) => added.has(row.path) && !reported.has(row.path),
-    );
+    const refs = summary.unmatched.flatMap((row) => (row.ref ? [row.ref] : []));
+    const added = await newRefs(db, refs);
+    const fresh = refs.filter((ref) => added.has(ref) && !reported.has(ref));
     if (fresh.length > 0)
       notes.push(
-        `${String(fresh.length)} sdvx.in ${fresh.length === 1 ? "page" : "pages"} to place`,
+        `${String(fresh.length)} sdvx.in ${fresh.length === 1 ? "chart" : "charts"} to place`,
       );
   }
   if (notes.length === 0) return;
@@ -808,43 +724,43 @@ async function alertIfNeeded(
   );
 }
 
-/** Entries first seen this long after the first fill began count as new. */
+/** Songs first seen this long after the first fill began count as new. */
 const FIRST_FILL_MS = 60 * MINUTE_MS;
 
 /**
- * Of these sdvx.in chart pages, the ones whose entries appeared after the first fill:
- * what sdvx.in added since, as opposed to its archive.
+ * Of these sdvx.in charts, the ones whose songs appeared on its lists after the first
+ * fill: what sdvx.in added since, as opposed to its archive.
  */
-export async function newPagePaths(
+export async function newRefs(
   db: Database,
-  paths: string[],
+  refs: string[],
 ): Promise<Set<string>> {
-  const scripts = new Map(
-    paths.flatMap((path) => {
-      const script = sdvxScriptOf(path);
-      return script ? [[path, script] as const] : [];
+  const keys = new Map(
+    refs.flatMap((ref) => {
+      const key = sdvxSongKey(ref);
+      return key ? [[ref, key] as const] : [];
     }),
   );
-  if (scripts.size === 0) return new Set();
+  if (keys.size === 0) return new Set();
   const [first] = await db
-    .select({ at: sql<Date | null>`min(${chuniSdvxEntries.firstSeenAt})` })
-    .from(chuniSdvxEntries);
+    .select({ at: sql<Date | null>`min(${chuniSdvxSongs.firstSeenAt})` })
+    .from(chuniSdvxSongs);
   const start = first?.at ? new Date(first.at).getTime() : null;
   if (start === null) return new Set();
   const rows = await db
     .select({
-      script: chuniSdvxEntries.script,
-      firstSeenAt: chuniSdvxEntries.firstSeenAt,
+      key: chuniSdvxSongs.key,
+      firstSeenAt: chuniSdvxSongs.firstSeenAt,
     })
-    .from(chuniSdvxEntries)
-    .where(inArray(chuniSdvxEntries.script, [...new Set(scripts.values())]));
+    .from(chuniSdvxSongs)
+    .where(inArray(chuniSdvxSongs.key, [...new Set(keys.values())]));
   const added = new Set(
     rows
       .filter((row) => row.firstSeenAt.getTime() > start + FIRST_FILL_MS)
-      .map((row) => row.script),
+      .map((row) => row.key),
   );
   return new Set(
-    [...scripts].flatMap(([path, script]) => (added.has(script) ? [path] : [])),
+    [...keys].flatMap(([ref, key]) => (added.has(key) ? [ref] : [])),
   );
 }
 
@@ -871,7 +787,7 @@ export function startSync(
   running = getDb()
     .then((db) => syncCatalog(db, deps))
     .then((result) => {
-      backlog = result.scriptsLeft > 0 || (result.jacketsLeft ?? 0) > 0;
+      backlog = (result.jacketsLeft ?? 0) > 0;
     })
     .catch((error: unknown) => {
       console.warn("CHUNITHM catalog update failed:", error);
@@ -884,8 +800,8 @@ export function startSync(
 }
 
 /**
- * Whether a pass is due: BACKLOG_GAP_MS after the last one ended while scripts or
- * jackets are waiting (the first fill), SYNC_EVERY_MS after it started otherwise.
+ * Whether a pass is due: BACKLOG_GAP_MS after the last one ended while jackets are
+ * waiting (or the move to the new viewer is), SYNC_EVERY_MS after it started otherwise.
  */
 export function passDue(
   state: { lastStart: number; lastEnd: number; backlog: boolean },
@@ -923,9 +839,10 @@ export function chunithmSyncInBackground(
       .then(([last]) => {
         lastStart = last?.startedAt.getTime() ?? 0;
         lastEnd = last?.finishedAt?.getTime() ?? lastStart;
-        backlog = last?.summary
-          ? last.summary.scriptsLeft > 0 || (last.summary.jacketsLeft ?? 0) > 0
-          : true;
+        // A pass from before the new viewer (no `sdvxLists`): the move is due.
+        backlog =
+          last?.summary?.sdvxLists === undefined ||
+          (last.summary.jacketsLeft ?? 0) > 0;
       })
       .catch(() => {
         lastStart = 0;

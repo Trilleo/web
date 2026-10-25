@@ -1,16 +1,15 @@
 /**
  * The admin's side of the CHUNITHM catalog (/admin/chunithm/): how the updates are
- * going, sdvx.in pages to place by hand, and charts taken down.
+ * going, sdvx.in charts to place by hand, and charts taken down.
  *
- * Placing a page (an override) takes effect at once and is kept for every later pass
- * (@trilleo/chunithm's buildCatalog ranks it above everything else). Withdrawing a
+ * Placing one of sdvx.in's charts (by ref) takes effect at once and is kept for every
+ * later pass (@trilleo/chunithm's buildCatalog ranks it above everything else). Withdrawing a
  * chart hides it from the viewer and stops it being built; updates leave it alone.
  */
 import {
   DIFFICULTIES,
   isDifficulty,
-  isSdvxPath,
-  sdvxPathInfo,
+  sdvxRefInfo,
   type Difficulty,
 } from "@trilleo/chunithm";
 import type { StorageDriver } from "@trilleo/storage/server";
@@ -18,8 +17,8 @@ import {
   chuniBuilds,
   chuniCharts,
   chuniConstants,
-  chuniSdvxEntries,
-  chuniSdvxOverrides,
+  chuniSdvxPlacements,
+  chuniSdvxSongs,
   chuniSongs,
   chuniSyncs,
   chuniVersions,
@@ -48,8 +47,9 @@ export interface CatalogOverview {
   charts: number;
   linked: number;
   withdrawn: number;
-  scriptsLeft: number;
-  scriptErrors: number;
+  /** Songs on sdvx.in's lists, and when they were last read. */
+  sdvxSongs: number;
+  sdvxListedAt: Date | null;
   /** Songs whose jacket is in storage, and songs with a page on sdvx.in still without one. */
   jackets: number;
   jacketsMissing: number;
@@ -78,16 +78,16 @@ export async function catalogOverview(db: Database): Promise<CatalogOverview> {
   const [charts] = await db
     .select({
       all: count(),
-      linked: sql<number>`count(${chuniCharts.sdvxPath})::int`,
+      linked: sql<number>`count(${chuniCharts.sdvxRef})::int`,
       withdrawn: sql<number>`count(${chuniCharts.withdrawnAt})::int`,
     })
     .from(chuniCharts);
-  const [scripts] = await db
+  const [sdvx] = await db
     .select({
-      left: sql<number>`count(*) filter (where ${chuniSdvxEntries.readAt} is null)::int`,
-      errors: sql<number>`count(${chuniSdvxEntries.readError})::int`,
+      songs: count(),
+      listedAt: sql<string | null>`max(${chuniSdvxSongs.listedAt})`,
     })
-    .from(chuniSdvxEntries);
+    .from(chuniSdvxSongs);
   const [jackets] = await db
     .select({ n: count() })
     .from(chuniSongs)
@@ -96,7 +96,7 @@ export async function catalogOverview(db: Database): Promise<CatalogOverview> {
     .select({ n: sql<number>`count(distinct ${chuniSongs.id})::int` })
     .from(chuniSongs)
     .innerJoin(chuniCharts, eq(chuniCharts.songId, chuniSongs.id))
-    .where(and(isNull(chuniSongs.jacketKey), isNotNull(chuniCharts.sdvxPath)));
+    .where(and(isNull(chuniSongs.jacketKey), isNotNull(chuniCharts.sdvxRef)));
   const [jacketsFailed] = await db
     .select({ n: sql<number>`count(distinct ${chuniSongs.id})::int` })
     .from(chuniSongs)
@@ -104,7 +104,7 @@ export async function catalogOverview(db: Database): Promise<CatalogOverview> {
     .where(
       and(
         isNull(chuniSongs.jacketKey),
-        isNotNull(chuniCharts.sdvxPath),
+        isNotNull(chuniCharts.sdvxRef),
         isNotNull(chuniSongs.jacketCheckedAt),
       ),
     );
@@ -135,8 +135,8 @@ export async function catalogOverview(db: Database): Promise<CatalogOverview> {
     charts: charts?.all ?? 0,
     linked: charts?.linked ?? 0,
     withdrawn: charts?.withdrawn ?? 0,
-    scriptsLeft: scripts?.left ?? 0,
-    scriptErrors: scripts?.errors ?? 0,
+    sdvxSongs: sdvx?.songs ?? 0,
+    sdvxListedAt: sdvx?.listedAt ? new Date(sdvx.listedAt) : null,
     jackets: jackets?.n ?? 0,
     jacketsMissing: jacketsMissing?.n ?? 0,
     jacketsFailed: jacketsFailed?.n ?? 0,
@@ -154,7 +154,7 @@ export interface ChartRef {
   artist: string;
   difficulty: Difficulty;
   level: string;
-  sdvxPath: string | null;
+  sdvxRef: string | null;
   linkedBy: string | null;
   withdrawnAt: Date | null;
   withdrawnReason: string | null;
@@ -167,7 +167,7 @@ const chartColumns = {
   artist: chuniSongs.artist,
   difficulty: chuniCharts.difficulty,
   level: chuniCharts.level,
-  sdvxPath: chuniCharts.sdvxPath,
+  sdvxRef: chuniCharts.sdvxRef,
   linkedBy: chuniCharts.linkedBy,
   withdrawnAt: chuniCharts.withdrawnAt,
   withdrawnReason: chuniCharts.withdrawnReason,
@@ -222,7 +222,7 @@ export async function chartsWithoutPage(db: Database): Promise<ChartRef[]> {
     .where(
       and(
         eq(chuniSongs.inGame, true),
-        isNull(chuniCharts.sdvxPath),
+        isNull(chuniCharts.sdvxRef),
         isNull(chuniCharts.withdrawnAt),
         inArray(chuniCharts.difficulty, [
           "expert",
@@ -236,47 +236,54 @@ export async function chartsWithoutPage(db: Database): Promise<ChartRef[]> {
     .limit(200);
 }
 
-export interface OverrideRow {
-  path: string;
+export interface PlacementRow {
+  ref: string;
   songId: number | null;
   difficulty: Difficulty | null;
   title: string | null;
+  /** The older site's page it was moved from. */
+  fromPath: string | null;
   createdAt: Date;
 }
 
-export async function listOverrides(db: Database): Promise<OverrideRow[]> {
+export async function listPlacements(db: Database): Promise<PlacementRow[]> {
   return db
     .select({
-      path: chuniSdvxOverrides.path,
-      songId: chuniSdvxOverrides.songId,
-      difficulty: chuniSdvxOverrides.difficulty,
+      ref: chuniSdvxPlacements.ref,
+      songId: chuniSdvxPlacements.songId,
+      difficulty: chuniSdvxPlacements.difficulty,
       title: chuniSongs.title,
-      createdAt: chuniSdvxOverrides.createdAt,
+      fromPath: chuniSdvxPlacements.fromPath,
+      createdAt: chuniSdvxPlacements.createdAt,
     })
-    .from(chuniSdvxOverrides)
-    .leftJoin(chuniSongs, eq(chuniSongs.id, chuniSdvxOverrides.songId))
-    .orderBy(asc(chuniSdvxOverrides.path));
+    .from(chuniSdvxPlacements)
+    .leftJoin(chuniSongs, eq(chuniSongs.id, chuniSdvxPlacements.songId))
+    .orderBy(asc(chuniSdvxPlacements.ref));
 }
 
 export type AdminResult = { ok: true } | { ok: false; error: string };
 
 /**
- * The admin says an sdvx.in page is this chart (or, with `target` null, nothing of
- * ours). Applied now; kept for later passes.
+ * The admin says one of sdvx.in's charts ("11061/mst") is this chart of ours (or,
+ * with `target` null, nothing of ours). Applied now; kept for later passes.
  */
 export async function placePage(
   db: Database,
-  path: string,
+  ref: string,
   target: { songId: number; difficulty: Difficulty } | null,
 ): Promise<AdminResult> {
-  if (!isSdvxPath(path))
-    return { ok: false, error: "That isn't an sdvx.in chart page." };
+  const info = sdvxRefInfo(ref);
+  if (!info)
+    return {
+      ok: false,
+      error: "That isn't one of sdvx.in's charts (like 11061/mst or 008/we).",
+    };
   let chartId: number | null = null;
   if (target) {
-    if (sdvxPathInfo(path)?.difficulty !== target.difficulty)
+    if (info.difficulty !== target.difficulty)
       return {
         ok: false,
-        error: "That page is for another difficulty.",
+        error: "That chart is for another difficulty.",
       };
     const chart = await findChart(db, target.songId, target.difficulty);
     if (!chart)
@@ -286,22 +293,22 @@ export async function placePage(
   await db.transaction(async (tx) => {
     await tx
       .update(chuniCharts)
-      .set({ sdvxPath: null, linkedBy: null })
-      .where(eq(chuniCharts.sdvxPath, path));
+      .set({ sdvxRef: null, linkedBy: null })
+      .where(eq(chuniCharts.sdvxRef, ref));
     if (chartId !== null)
       await tx
         .update(chuniCharts)
-        .set({ sdvxPath: path, linkedBy: "admin", updatedAt: new Date() })
+        .set({ sdvxRef: ref, linkedBy: "admin", updatedAt: new Date() })
         .where(eq(chuniCharts.id, chartId));
     await tx
-      .insert(chuniSdvxOverrides)
+      .insert(chuniSdvxPlacements)
       .values({
-        path,
+        ref,
         songId: target?.songId ?? null,
         difficulty: target?.difficulty ?? null,
       })
       .onConflictDoUpdate({
-        target: chuniSdvxOverrides.path,
+        target: chuniSdvxPlacements.ref,
         set: {
           songId: target?.songId ?? null,
           difficulty: target?.difficulty ?? null,
@@ -313,17 +320,17 @@ export async function placePage(
   return { ok: true };
 }
 
-/** Forgets the admin's word on a page; the next pass links it the usual way. */
-export async function forgetPage(db: Database, path: string): Promise<void> {
+/** Forgets the admin's word on a chart; the next pass links it the usual way. */
+export async function forgetPage(db: Database, ref: string): Promise<void> {
   await db.transaction(async (tx) => {
     await tx
-      .delete(chuniSdvxOverrides)
-      .where(eq(chuniSdvxOverrides.path, path));
+      .delete(chuniSdvxPlacements)
+      .where(eq(chuniSdvxPlacements.ref, ref));
     await tx
       .update(chuniCharts)
-      .set({ sdvxPath: null, linkedBy: null })
+      .set({ sdvxRef: null, linkedBy: null })
       .where(
-        and(eq(chuniCharts.sdvxPath, path), eq(chuniCharts.linkedBy, "admin")),
+        and(eq(chuniCharts.sdvxRef, ref), eq(chuniCharts.linkedBy, "admin")),
       );
   });
   forgetIndex();
@@ -392,33 +399,6 @@ export async function failedBuilds(db: Database): Promise<
     .where(isNotNull(chuniBuilds.error))
     .orderBy(desc(chuniBuilds.nextAttemptAt))
     .limit(100);
-}
-
-/** sdvx.in scripts the last read of failed, with why (they're tried again after a day). */
-export async function failedScripts(
-  db: Database,
-): Promise<{ script: string; error: string; readAt: Date | null }[]> {
-  return db
-    .select({
-      script: chuniSdvxEntries.script,
-      error: sql<string>`${chuniSdvxEntries.readError}`,
-      readAt: chuniSdvxEntries.readAt,
-    })
-    .from(chuniSdvxEntries)
-    .where(isNotNull(chuniSdvxEntries.readError))
-    .orderBy(desc(chuniSdvxEntries.readAt))
-    .limit(100);
-}
-
-/** "Read again": the next pass reads the script first. */
-export async function rereadScript(
-  db: Database,
-  script: string,
-): Promise<void> {
-  await db
-    .update(chuniSdvxEntries)
-    .set({ readAt: null })
-    .where(eq(chuniSdvxEntries.script, script));
 }
 
 /** "master" → "master"; anything else null. */

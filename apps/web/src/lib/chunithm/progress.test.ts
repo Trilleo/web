@@ -7,7 +7,7 @@ const chart = {
   songId: 3062,
   title: "コンクエスト・チャレンジ",
   difficulty: "master",
-  sdvxPath: "11/11061mst",
+  sdvxRef: "11061/mst",
   variant: "normal" as const,
 };
 const at = (step: BundleProgress["step"], index = 12): BundleProgress => ({
@@ -22,8 +22,8 @@ const MB = 1024 * 1024;
 describe("the progress line", () => {
   it("says what each step is doing", () => {
     const line = new ProgressLine();
-    expect(line.text(at({ stage: "script" }), 0)).toBe(
-      `${head} · reading its page`,
+    expect(line.text(at({ stage: "downloading" }), 0)).toBe(
+      `${head} · connecting`,
     );
     expect(line.text(at({ stage: "tiles", done: 0, total: 2 }), 0)).toBe(
       `${head} · tiles 1/2`,

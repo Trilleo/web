@@ -6,8 +6,8 @@
  * about BUNDLE_LIMITS.targetBytes each into `outDir`, ready to upload at
  * /admin/chunithm/import/.
  *
- * Up to `parallel` charts download at once (`fetchLayers`: the script and three
- * compressed layers), starting at most one every `delayMs`; joining and encoding
+ * Up to `parallel` charts download at once (`fetchLayers`: the three compressed
+ * layers), starting at most one every `delayMs`; joining and encoding
  * (`makePicture` with what was fetched) run one chart at a time, so memory and CPU
  * stay as for one. A chart goes into a bundle only once its whole picture is made,
  * so a failure leaves nothing half-written. `progress.json` in `outDir` records charts bundled
@@ -324,7 +324,7 @@ export async function bundleCharts(
       };
       let fetched: Fetched;
       try {
-        fetched = await fetchLayers(deps, chart.sdvxPath, chart.variant);
+        fetched = await fetchLayers(deps, chart.sdvxRef, chart.variant);
       } catch (error) {
         fail(error);
         continue;
@@ -339,7 +339,7 @@ export async function bundleCharts(
         try {
           const picture = await makePicture(
             deps,
-            chart.sdvxPath,
+            chart.sdvxRef,
             chart.variant,
             (tile) => {
               tiles.push(tile);
@@ -350,7 +350,7 @@ export async function bundleCharts(
           const entry: BundleChart = {
             chartId: chart.chartId,
             variant: chart.variant,
-            sdvxPath: chart.sdvxPath,
+            sdvxRef: chart.sdvxRef,
             source: picture.source,
             manifest: picture.manifest,
             tiles: tiles.map((tile) => ({
