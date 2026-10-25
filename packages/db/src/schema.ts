@@ -2912,6 +2912,32 @@ export const chuniBuilds = pgTable(
 );
 
 /**
+ * sdvx.in layers downloaded whole for a build that hasn't succeeded yet, kept as
+ * private objects in storage so its next attempt only downloads what's missing
+ * (apps/web/src/lib/chunithm/layers.ts). Keyed by the layer's URL; `tag` is what
+ * sdvx.in's ETag or Last-Modified and size were. Removed when the chart builds, or
+ * after LAYER_KEEP_DAYS.
+ */
+export const chuniLayers = pgTable(
+  "chuni_layers",
+  {
+    url: text("url").primaryKey(),
+    /** Set null when the chart goes; the age limit removes the object then. */
+    chartId: integer("chart_id").references(() => chuniCharts.id, {
+      onDelete: "set null",
+    }),
+    key: text("key").notNull(),
+    tag: text("tag").notNull(),
+    bytes: integer("bytes").notNull(),
+    savedAt: timestamp("saved_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("chuni_layers_chart_idx").on(table.chartId),
+    index("chuni_layers_saved_idx").on(table.savedAt),
+  ],
+);
+
+/**
  * Other names a song goes by (community nicknames, translations), searched like its
  * title. Added by the admin, from a suggestion, or by a bulk import. `key` is the
  * name as matched (@trilleo/chunithm's matchKey), unique per song.

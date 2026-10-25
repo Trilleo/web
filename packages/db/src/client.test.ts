@@ -84,6 +84,7 @@ describe("openDatabase", () => {
       "chuni_builds",
       "chuni_charts",
       "chuni_constants",
+      "chuni_layers",
       "chuni_prebuild",
       "chuni_sdvx_entries",
       "chuni_sdvx_overrides",

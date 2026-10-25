@@ -58,7 +58,10 @@ GitHub and the server.
    visitors (about 1,800 charts, so about 3.7 GB, and about 11 GB downloaded from
    sdvx.in over two to three days after the first deploy); `CHUNITHM_PREBUILD=off` in
    `app.env` stops that, and then only charts people open are kept, plus jackets
-   (`chunithm/jackets/`, about 20 KB each).
+   (`chunithm/jackets/`, about 20 KB each). A build that fails keeps the layers it had
+   downloaded whole under `chunithm/layers/` (private, tracked in `chuni_layers`, up to
+   about 20 MB a chart) so its next try doesn't download them again; they go once the
+   chart builds, or after 14 days. Deleting them is harmless too.
 
 ### 2. An IAM user for the app
 

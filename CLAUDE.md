@@ -1245,6 +1245,18 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   bottom) into TILE_HEIGHT WebP tiles under `chunithm/<chart>/<variant>-<random>/` in
   storage, public unless the chart is withdrawn. No `files` rows: chuni_builds holds
   the manifest (tile keys, measures) and where the layers came from (with ETags).
+- Layers kept between attempts (lib/chunithm/layers.ts, chuni_layers): each layer
+  that arrives whole (a PNG) is saved at once as a private object under
+  `chunithm/layers/` (LAYER_PREFIX, named by the URL's SHA-256), so a build that fails
+  later downloads only what's missing next time. A kept copy is used only when a HEAD
+  to sdvx.in gives the same tag (`currentTag`, shared with `checkBuild`) and it's
+  still the PNG it was; no answer means downloading as usual, a changed or broken one
+  is removed (so is one that won't decode). Half-finished downloads aren't kept. A
+  chart that builds removes its layers (`forgetLayers`: lanes and measure numbers stay
+  while its other variant has no picture); the rest go after LAYER_KEEP_DAYS
+  (`purgeOldLayers`, at most hourly from `chunithmBuildsInBackground`). A failure's
+  reason ends with which layers are kept. Keeping is best effort: storage refusing it
+  is only logged.
 - Decoding is png.ts (hand-written, on node:zlib: 8-bit, not interlaced); encoding
   webp.ts (@jsquash/webp's SIMD build, the wasm inlined with `?inline`, quality 90).
   A Master chart is about 1.5 s and 2 MB.

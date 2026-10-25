@@ -3,6 +3,7 @@ import { makeChart } from "@trilleo/chunithm/testing";
 import {
   chuniBuilds,
   chuniCharts,
+  chuniLayers,
   chuniSongs,
   openDatabase,
   type DatabaseHandle,
@@ -22,6 +23,7 @@ import {
   runBuilds,
   type BuildDeps,
 } from "./build";
+import { LAYER_KEEP_DAYS, keptLayers, purgeOldLayers } from "./layers";
 import { decodePng, encodePng } from "./png";
 
 const ORIGIN = "https://sdvx.test";
@@ -239,7 +241,8 @@ describe("building a chart's picture", () => {
     const state = await requestBuild(deps(), chartId, "normal");
     expect(state).toEqual({
       status: "failed",
-      error: "sdvx.in has no notes layer for this chart (HTTP 302).",
+      error:
+        "sdvx.in has no notes layer for this chart (HTTP 302). The lanes layer is kept, so the next try downloads only the rest.",
       retryAt: new Date(clock.getTime() + HOUR_MS),
     });
     // Nothing half-built was kept.
@@ -288,7 +291,7 @@ describe("building a chart's picture", () => {
     const state = await requestBuild(deps(), chartId, "normal");
     expect(state).toMatchObject({ status: "failed" });
     expect(state.status === "failed" ? state.error : "").toMatch(
-      /^The measure numbers layer couldn't be downloaded: the download broke off at 0 KB \(terminated\)\. It's tried again later\.$/,
+      /^The measure numbers layer couldn't be downloaded: the download broke off at 0 KB \(terminated\)\. It's tried again later\. The lanes and notes layers are kept, so the next try downloads only the rest\.$/,
     );
   });
 
@@ -315,7 +318,7 @@ describe("building a chart's picture", () => {
     await runBuilds(deps());
     let [row] = await handle.db.select().from(chuniBuilds);
     expect(row?.error).toBe(
-      "sdvx.in's measure numbers layer for this chart isn't a picture.",
+      "sdvx.in's measure numbers layer for this chart isn't a picture. The lanes and notes layers are kept, so the next try downloads only the rest.",
     );
 
     files.set(
@@ -327,7 +330,7 @@ describe("building a chart's picture", () => {
     await runBuilds(deps());
     [row] = await handle.db.select().from(chuniBuilds);
     expect(row?.error).toBe(
-      "The measure numbers layer is 650×390, the lanes 650×400.",
+      "The measure numbers layer is 650×390, the lanes 650×400. All three layers are kept, so the next try downloads them only if sdvx.in has changed them.",
     );
     expect(row?.attempts).toBe(2);
     // The second failure waits longer.
@@ -348,7 +351,9 @@ describe("building a chart's picture", () => {
     await requestBuild(deps(), chartId, "normal");
     await runBuilds(deps());
     const [row] = await handle.db.select().from(chuniBuilds);
-    expect(row?.error).toBe("Columns 1 and 2 don't line up.");
+    expect(row?.error).toBe(
+      "Columns 1 and 2 don't line up. All three layers are kept, so the next try downloads them only if sdvx.in has changed them.",
+    );
   });
 
   it("isn't available for charts without a page, or withdrawn ones", async () => {
@@ -490,6 +495,137 @@ describe("building a chart's picture", () => {
     await resetBuilds(handle.db, storage, chartId);
     expect(await handle.db.select().from(chuniBuilds)).toEqual([]);
     expect(await storage.head(row?.manifest?.tiles[0]?.key ?? "")).toBeNull();
+  });
+});
+
+describe("keeping layers between attempts", () => {
+  const bg = `${ORIGIN}/chunithm/01/bg/00001bg.png`;
+  const notes = `${ORIGIN}/chunithm/01/obj/data00001mst.png`;
+  const mirror = `${ORIGIN}/chunithm/01/obj/mirror00001mst.png`;
+  const bar = `${ORIGIN}/chunithm/01/bg/00001bar.png`;
+  const layerRequests = () =>
+    requests
+      .filter((request) => request.url.endsWith(".png"))
+      .map(
+        (request) => `${request.method} ${request.url.slice(ORIGIN.length)}`,
+      );
+  const kept = async () =>
+    (await handle.db.select().from(chuniLayers)).map((row) => row.url).sort();
+
+  /** Fails once with the measure numbers missing, then puts them back. */
+  async function failOnBar(variant: "normal" | "mirror" = "normal") {
+    const served = files.get(bar);
+    files.delete(bar);
+    await requestBuild(deps(), chartId, variant);
+    expect(await runBuilds(deps())).toBe(0);
+    if (served) files.set(bar, served);
+    clock = new Date(clock.getTime() + 2 * HOUR_MS);
+    requests = [];
+  }
+
+  it("downloads only what's missing, and lets go once the chart builds", async () => {
+    await failOnBar();
+    expect(await kept()).toEqual([bg, notes].sort());
+    expect(await keptLayers(handle.db)).toMatchObject({ count: 2 });
+    const keys = (await handle.db.select().from(chuniLayers)).map(
+      (row) => row.key,
+    );
+
+    await requestBuild(deps(), chartId, "normal");
+    expect(await runBuilds(deps())).toBe(1);
+    expect(layerRequests()).toEqual([
+      "HEAD /chunithm/01/bg/00001bg.png",
+      "HEAD /chunithm/01/obj/data00001mst.png",
+      "GET /chunithm/01/bg/00001bar.png",
+    ]);
+    expect(await kept()).toEqual([]);
+    for (const key of keys) expect(await storage.head(key)).toBeNull();
+  });
+
+  it("downloads a layer again when sdvx.in has changed it", async () => {
+    await failOnBar();
+    files.set(bg, layer(encodePng(chart.bg), '"2"'));
+    await requestBuild(deps(), chartId, "normal");
+    expect(await runBuilds(deps())).toBe(1);
+    expect(layerRequests()).toEqual([
+      "HEAD /chunithm/01/bg/00001bg.png",
+      "GET /chunithm/01/bg/00001bg.png",
+      "HEAD /chunithm/01/obj/data00001mst.png",
+      "GET /chunithm/01/bg/00001bar.png",
+    ]);
+  });
+
+  it("downloads as usual when sdvx.in doesn't answer the check", async () => {
+    await failOnBar();
+    const silentHead: typeof fetch = (input, init) =>
+      init?.method === "HEAD"
+        ? Promise.reject(new TypeError("fetch failed"))
+        : fakeFetch(input, init);
+    await requestBuild(deps(), chartId, "normal");
+    expect(await runBuilds(deps({ fetch: silentHead }))).toBe(1);
+    expect(layerRequests().filter((line) => line.startsWith("GET"))).toEqual([
+      "GET /chunithm/01/bg/00001bg.png",
+      "GET /chunithm/01/obj/data00001mst.png",
+      "GET /chunithm/01/bg/00001bar.png",
+    ]);
+  });
+
+  it("throws away a kept copy that has gone bad", async () => {
+    await failOnBar();
+    const [row] = await handle.db
+      .select()
+      .from(chuniLayers)
+      .where(eq(chuniLayers.url, bg));
+    await storage.put(row?.key ?? "", new Uint8Array([1, 2, 3]), {
+      contentType: "application/octet-stream",
+      contentDisposition: "attachment",
+      cacheControl: "private, no-store",
+    });
+    await requestBuild(deps(), chartId, "normal");
+    expect(await runBuilds(deps())).toBe(1);
+    expect(layerRequests()).toContain("GET /chunithm/01/bg/00001bg.png");
+  });
+
+  it("keeps the shared layers while the other variant still needs them", async () => {
+    await failOnBar("normal");
+    files.delete(bar);
+    await requestBuild(deps(), chartId, "mirror");
+    expect(await runBuilds(deps())).toBe(0);
+    files.set(bar, layer(encodePng(chart.bar)));
+    expect(await kept()).toEqual([bg, mirror, notes].sort());
+
+    // The normal build goes first and leaves lanes for the mirror (bar too, once read).
+    clock = new Date(clock.getTime() + 2 * HOUR_MS);
+    await requestBuild(deps(), chartId, "normal");
+    expect(await runBuilds(deps())).toBe(1);
+    expect(await kept()).toEqual([bg, mirror, bar].sort());
+    requests = [];
+    await requestBuild(deps(), chartId, "mirror");
+    expect(await runBuilds(deps())).toBe(1);
+    expect(layerRequests().every((line) => line.startsWith("HEAD"))).toBe(true);
+    expect(await kept()).toEqual([]);
+  });
+
+  it("removes what's left after LAYER_KEEP_DAYS", async () => {
+    await failOnBar();
+    const day = 24 * HOUR_MS;
+    expect(
+      await purgeOldLayers(
+        deps(),
+        new Date(clock.getTime() + (LAYER_KEEP_DAYS - 1) * day),
+      ),
+    ).toBe(0);
+    const keys = (await handle.db.select().from(chuniLayers)).map(
+      (row) => row.key,
+    );
+    expect(
+      await purgeOldLayers(
+        deps(),
+        new Date(clock.getTime() + (LAYER_KEEP_DAYS + 1) * day),
+      ),
+    ).toBe(2);
+    expect(await keptLayers(handle.db)).toEqual({ count: 0, bytes: 0 });
+    for (const key of keys) expect(await storage.head(key)).toBeNull();
   });
 });
 

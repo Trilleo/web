@@ -15,7 +15,8 @@
  * 4. Record the manifest; remove the tiles it replaced.
  *
  * A failed build waits BUILD_LIMITS.retryDelaysMs before it's tried again; a rebuild
- * that fails keeps serving the old tiles. A ready chart older than checkAfterDays is
+ * that fails keeps serving the old tiles. Layers that arrived whole are kept between
+ * attempts (layers.ts), so the next one only downloads what's missing. A ready chart older than checkAfterDays is
  * compared with sdvx.in (HEAD requests) when it's next viewed, and rebuilt if a layer
  * changed; so is one built by an older BUILD_VERSION or from another page.
  */
@@ -47,13 +48,21 @@ import { StorageError, type StorageDriver } from "@trilleo/storage/server";
 import { randomBytes, createHash } from "node:crypto";
 import { and, asc, count, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { copyJacketSoon } from "./jackets";
+import {
+  currentTag,
+  dropLayer,
+  forgetLayers,
+  keepLayer,
+  keptLayer,
+  layerTag,
+  purgeOldLayers,
+} from "./layers";
 import { decodePng, giveWay, isPng, PngError } from "./png";
 import { getDb } from "../db";
 import { getStorage } from "../storage/config";
 import {
   FETCH_LIMITS,
   FetchError,
-  USER_AGENT,
   chunithmSources,
   LAYER_DOWNLOAD,
   download,
@@ -277,6 +286,10 @@ export async function buildChart(
   const now = deps.now ?? (() => new Date());
   const fetcher = deps.fetch ?? fetch;
   const uploaded: string[] = [];
+  // Layers kept for the next attempt (or reused from the last), by name.
+  const kept: string[] = [];
+  const layer = (src: string, name: string) =>
+    fetchLayer(deps, build.chartId, src, name, kept);
   try {
     const [chart] = await db
       .select()
@@ -291,32 +304,17 @@ export async function buildChart(
       throw new BuildError("sdvx.in has no mirrored notes for this chart.");
 
     // One layer at a time, to keep memory down: lanes, notes over them, numbers on top.
-    const bgLayer = await fetchLayer(
-      fetcher,
-      deps.sdvxOrigin,
-      images.bg,
-      "lanes",
-    );
-    const picture = await decodeLayer(bgLayer.bytes, "lanes");
+    const bgLayer = await layer(images.bg, "lanes");
+    const picture = await decodeLayer(deps, bgLayer, "lanes", kept);
     const layout = findLayout(picture);
-    const notesLayer = await fetchLayer(
-      fetcher,
-      deps.sdvxOrigin,
-      notes,
-      "notes",
-    );
-    const notesImage = await decodeLayer(notesLayer.bytes, "notes");
+    const notesLayer = await layer(notes, "notes");
+    const notesImage = await decodeLayer(deps, notesLayer, "notes", kept);
     sameSize(picture, notesImage, "notes");
     await giveWay();
     drawOver(picture, notesImage);
     await giveWay();
-    const barLayer = await fetchLayer(
-      fetcher,
-      deps.sdvxOrigin,
-      images.bar,
-      "measure numbers",
-    );
-    const barImage = await decodeLayer(barLayer.bytes, "measure numbers");
+    const barLayer = await layer(images.bar, "measure numbers");
+    const barImage = await decodeLayer(deps, barLayer, "measure numbers", kept);
     sameSize(picture, barImage, "measure numbers");
     const measures = findMeasures(barImage, layout);
     await giveWay();
@@ -376,6 +374,10 @@ export async function buildChart(
       })
       .where(eq(chuniBuilds.id, build.id));
     await removeTiles(storage, build.manifest);
+    await forgetLayers(deps, build.chartId, build.id, {
+      own: [notesLayer.url],
+      shared: [bgLayer.url, barLayer.url],
+    });
     return true;
   } catch (error) {
     await removeTiles(storage, {
@@ -390,7 +392,7 @@ export async function buildChart(
         // A rebuild that fails keeps the picture it had.
         status: build.manifest ? "ready" : "failed",
         attempts,
-        error: describe(error),
+        error: describe(error) + keptNote(kept),
         nextAttemptAt: new Date(now().getTime() + delay),
         checkedAt: now(),
       })
@@ -445,14 +447,31 @@ async function readImages(
   return images;
 }
 
-/** A layer's bytes and a tag that changes when sdvx.in redraws it. */
+interface Layer {
+  url: string;
+  bytes: Uint8Array;
+  tag: string;
+}
+
+/**
+ * A layer's bytes and a tag that changes when sdvx.in redraws it: the copy kept from
+ * an earlier attempt if sdvx.in still has the same one, otherwise downloaded (and
+ * kept). Adds its name to `kept` when it's kept.
+ */
 async function fetchLayer(
-  fetcher: typeof fetch,
-  origin: string,
+  deps: BuildDeps,
+  chartId: number,
   src: string,
   name: string,
-): Promise<{ bytes: Uint8Array; tag: string }> {
-  const url = new URL(src, origin).href;
+  kept: string[],
+): Promise<Layer> {
+  const url = new URL(src, deps.sdvxOrigin).href;
+  const reused = await keptLayer(deps, url);
+  if (reused) {
+    kept.push(name);
+    return { url, ...reused };
+  }
+  const fetcher = deps.fetch ?? fetch;
   let file: Downloaded;
   try {
     file = await download(fetcher, url, "image/png", {
@@ -481,17 +500,36 @@ async function fetchLayer(
     throw new BuildError(
       `sdvx.in's ${name} layer for this chart isn't a picture.`,
     );
-  return { bytes, tag: layerTag(file.headers, bytes.byteLength) };
+  const tag = layerTag(file.headers, bytes.byteLength);
+  if (await keepLayer(deps, chartId, url, bytes, tag)) kept.push(name);
+  return { url, bytes, tag };
 }
 
-function layerTag(headers: Headers, size: number): string {
-  return `${headers.get("etag") ?? headers.get("last-modified") ?? ""}|${String(size)}`;
+/** " Lanes and notes are kept…": what the next attempt won't download again. */
+function keptNote(kept: string[]): string {
+  if (kept.length === 0) return "";
+  if (kept.length === 3)
+    return " All three layers are kept, so the next try downloads them only if sdvx.in has changed them.";
+  const names =
+    kept.length === 1
+      ? (kept[0] ?? "")
+      : `${kept.slice(0, -1).join(", ")} and ${kept.at(-1) ?? ""}`;
+  const layers = kept.length === 1 ? "layer is" : "layers are";
+  return ` The ${names} ${layers} kept, so the next try downloads only the rest.`;
 }
 
-async function decodeLayer(bytes: Uint8Array, name: string) {
+async function decodeLayer(
+  deps: BuildDeps,
+  layer: Layer,
+  name: string,
+  kept: string[],
+) {
   try {
-    return await decodePng(bytes);
+    return await decodePng(layer.bytes);
   } catch (error) {
+    // Broken bytes stay broken: don't keep them for the next try.
+    await dropLayer(deps, layer.url);
+    if (kept.includes(name)) kept.splice(kept.indexOf(name), 1);
     throw new BuildError(
       `The ${name} layer can't be read: ${error instanceof Error ? error.message : "broken"}`,
     );
@@ -545,19 +583,9 @@ export async function checkBuild(
     ["bar", row.source.bar],
   ] as const;
   for (const [name, src] of layers) {
-    let tag: string | null = null;
+    let tag: string | null;
     try {
-      const response = await fetcher(new URL(src, deps.sdvxOrigin).href, {
-        method: "HEAD",
-        headers: { "User-Agent": USER_AGENT },
-        redirect: "manual",
-        signal: AbortSignal.timeout(FETCH_LIMITS.timeoutMs),
-      });
-      if (response.status === 200)
-        tag = layerTag(
-          response.headers,
-          Number(response.headers.get("content-length") ?? "0"),
-        );
+      tag = await currentTag(fetcher, new URL(src, deps.sdvxOrigin).href);
     } catch {
       // sdvx.in didn't answer: look again next time.
       await db
@@ -770,6 +798,20 @@ export async function buildOverview(
  * or when the hourly limit held them back).
  */
 export function chunithmBuildsInBackground(now = Date.now()): void {
+  purgeLayersSoon(now);
   if (running || now - lastKick < 5 * MINUTE_MS) return;
   kickBuilds();
+}
+
+let lastPurge = 0;
+
+/** At most hourly: removes layers kept longer than LAYER_KEEP_DAYS (layers.ts). */
+function purgeLayersSoon(now: number): void {
+  if (now - lastPurge < HOUR_MS) return;
+  lastPurge = now;
+  void siteBuildDeps()
+    .then((deps) => (deps ? purgeOldLayers(deps, new Date(now)) : 0))
+    .catch((error: unknown) => {
+      console.warn("Removing old CHUNITHM layers failed:", error);
+    });
 }
