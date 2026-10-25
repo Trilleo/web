@@ -16,6 +16,7 @@ import {
 } from "../minecraft/catalog";
 
 import { ATTACHMENT_EXTENSIONS, ATTACHMENT_LIMITS } from "@trilleo/forum";
+import { BUNDLE_MAX_BYTES } from "../chunithm/limits";
 
 /** Wiki pictures are icons and screenshots: small. */
 export const WIKI_MEDIA_MAX_BYTES = 2 * 1024 * 1024;
@@ -89,6 +90,19 @@ export const STORAGE_PURPOSES: readonly StoragePurpose[] = [
     visibilities: ["public"],
     defaultVisibility: "public",
     review: "untrusted",
+  },
+  {
+    // Bundles of CHUNITHM chart pictures built on the admin's computer
+    // (scripts/chunithm-bundle.ts), imported at /admin/chunithm/import/ and deleted
+    // once imported (lib/chunithm/imports.ts).
+    slug: "chunithm-import",
+    label: "CHUNITHM bundles",
+    uploaders: "admin",
+    extensions: ["zip"],
+    maxFileBytes: BUNDLE_MAX_BYTES,
+    visibilities: ["private"],
+    defaultVisibility: "private",
+    review: "never",
   },
 ];
 

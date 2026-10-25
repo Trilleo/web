@@ -126,6 +126,18 @@ watches both at `/admin/chunithm/`. `pnpm dev` starts filling it on the first re
 (a few hours of slow passes over sdvx.in); set `CHUNITHM_SYNC=off` in `apps/web/.env`
 to keep it from fetching.
 
+Charts can also be built on your own computer, over your own network, and imported:
+download the to-do list from `/admin/chunithm/import/`, then run
+
+```bash
+pnpm --filter @trilleo/web chunithm:bundle ~/Downloads/chunithm-todo-2026-10-25.json
+```
+
+It writes `chunithm-bundle-<day>-<n>.zip` files (about 200 MB each) into
+`chunithm-bundles/` beside the list; upload them on the same page and import them.
+Running it again carries on where it stopped (`--limit`, `--delay`, `--out` and
+`--retry-failed` change what it does).
+
 The study section (`/study/`) is built from the Markdown in `study/`: each subject is a
 folder of numbered units and lessons, with maths, numbered definitions and formulas,
 quizzes, flashcards, plots and circuits (`study/README.md` says how to write them).

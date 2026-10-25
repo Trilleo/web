@@ -6,6 +6,9 @@ const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 
+/** The largest bundle /admin/chunithm/import/ takes (storage purpose "chunithm-import"). */
+export const BUNDLE_MAX_BYTES = 512 * 1024 * 1024;
+
 export const BUILD_LIMITS = {
   /** Builds started per hour, all together. */
   perHour: 60,

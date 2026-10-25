@@ -5,8 +5,12 @@ import {
   type APIRequestContext,
   type Page,
 } from "@playwright/test";
-import { DRAWN, DRAWN_MEASURES, UNDRAWN } from "./fake-chunithm";
-import { adminPage, continueAs, freshLogin } from "./support";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DRAWN, DRAWN_MEASURES, FAKE_CHUNITHM, UNDRAWN } from "./fake-chunithm";
+import { adminPage, continueAs, freshLogin, hydrated } from "./support";
 
 // The catalog comes from e2e/fake-chunithm.ts: an update starts with the server's
 // first requests and takes a few seconds. Specs wait for it.
@@ -250,4 +254,104 @@ test("a list asks the server for the jackets it's missing", async ({
     UNDRAWN.id,
   );
   expect((await sent.response())?.status()).toBe(202);
+});
+
+test("the admin bundles charts on their computer and imports them", async ({
+  browser,
+  baseURL,
+  request,
+}) => {
+  await catalogReady(request);
+  const admin = await adminPage(browser, baseURL);
+  await admin.goto("/admin/chunithm/");
+  await admin
+    .getByRole("link", { name: "Build them on your computer and import" })
+    .click();
+  await expect(
+    admin.getByRole("heading", { level: 1, name: "Import" }),
+  ).toBeVisible();
+
+  // The to-do list downloads as JSON the script reads.
+  const download = admin.waitForEvent("download");
+  await admin.getByTestId("chunithm-todo").click();
+  const todo = JSON.parse(
+    readFileSync(await (await download).path(), "utf8"),
+  ) as { kind: string; buildVersion: number; charts: unknown[] };
+  expect(todo.kind).toBe("chunithm-todo");
+
+  // The real script, on plain Node, against the fake sdvx.in. The list names the
+  // drawn chart's page under a chart the catalog doesn't have, so whichever specs
+  // have built what, the import's answer is the same.
+  const dir = mkdtempSync(join(tmpdir(), "chunithm-e2e-"));
+  writeFileSync(
+    join(dir, "todo.json"),
+    JSON.stringify({
+      ...todo,
+      charts: [
+        {
+          chartId: 999_999,
+          songId: DRAWN.id,
+          title: DRAWN.title,
+          difficulty: "master",
+          sdvxPath: "11/11061mst",
+          variant: "normal",
+        },
+      ],
+    }),
+  );
+  execFileSync(
+    process.execPath,
+    [
+      "--experimental-transform-types",
+      "--disable-warning=ExperimentalWarning",
+      "--import",
+      "./scripts/ts-hooks.mjs",
+      "scripts/chunithm-bundle.ts",
+      join(dir, "todo.json"),
+      "--delay",
+      "0",
+    ],
+    {
+      env: { ...process.env, CHUNITHM_SDVX_URL: FAKE_CHUNITHM, INIT_CWD: dir },
+    },
+  );
+  const out = join(dir, "chunithm-bundles");
+  const [name] = readdirSync(out).filter((file) => file.endsWith(".zip"));
+  expect(name).toMatch(/^chunithm-bundle-.*\.zip$/);
+
+  await hydrated(admin);
+  await admin.getByTestId("file-input").setInputFiles({
+    name: name ?? "",
+    mimeType: "application/zip",
+    buffer: readFileSync(join(out, name ?? "")),
+  });
+  await expect(
+    admin
+      .getByRole("list", { name: "Uploads" })
+      .getByRole("listitem")
+      .filter({ hasText: name ?? "" }),
+  ).toContainText("Uploaded", { timeout: 30_000 });
+
+  await admin.reload();
+  const bundle = admin
+    .getByTestId("chunithm-bundles")
+    .getByRole("listitem")
+    .filter({ hasText: name ?? "" });
+  await bundle.getByRole("button", { name: "Import" }).click();
+  await expect(admin.getByRole("status")).toContainText(
+    "Importing in the background",
+  );
+  const result = admin
+    .getByTestId("chunithm-imports")
+    .getByRole("listitem")
+    .filter({ hasText: name ?? "" });
+  await expect(async () => {
+    await admin.reload();
+    await expect(result).toContainText("0 imported, 1 skipped, 0 refused.", {
+      timeout: 1000,
+    });
+  }).toPass({ timeout: 30_000 });
+  await result.getByText("Skipped and refused charts").click();
+  await expect(result).toContainText("it isn't in the catalog");
+  expect(await axe(admin)).toEqual([]);
 });

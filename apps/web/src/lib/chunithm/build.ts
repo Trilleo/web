@@ -20,27 +20,12 @@
  * compared with sdvx.in (HEAD requests) when it's next viewed, and rebuilt if a layer
  * changed; so is one built by an older BUILD_VERSION or from another page.
  */
-import {
-  COLUMN,
-  ChartLayoutError,
-  checkOverlaps,
-  drawOver,
-  findLayout,
-  findMeasures,
-  parseSdvxImages,
-  sdvxImageScript,
-  stripHeight,
-  stripTile,
-  tileRanges,
-  type ChartManifest,
-  type SdvxImages,
-} from "@trilleo/chunithm";
+import { ChartLayoutError, type ChartManifest } from "@trilleo/chunithm";
 import {
   chuniBuilds,
   chuniCharts,
   type ChuniBuild,
   type ChuniBuildManifest,
-  type ChuniBuildSource,
   type Database,
 } from "@trilleo/db";
 import { PUBLIC_CACHE } from "@trilleo/storage";
@@ -54,31 +39,26 @@ import {
   forgetLayers,
   keepLayer,
   keptLayer,
-  layerTag,
   purgeOldLayers,
 } from "./layers";
-import { decodePng, giveWay, isPng, PngError } from "./png";
+import {
+  BUILD_VERSION,
+  BuildError,
+  downloadLayer,
+  makePicture,
+  type Layer,
+  type LayerName,
+  type Variant,
+} from "./picture";
+import { PngError } from "./png";
 import { getDb } from "../db";
 import { getStorage } from "../storage/config";
-import {
-  FETCH_LIMITS,
-  FetchError,
-  chunithmSources,
-  LAYER_DOWNLOAD,
-  download,
-  fetchText,
-  type Downloaded,
-} from "./sources";
+import { chunithmSources, FetchError } from "./sources";
 import { BUILD_LIMITS } from "./limits";
 import { encodeWebp } from "./webp";
 
 export { BUILD_LIMITS };
-
-/** Bump when the tiles or manifest would come out differently: charts rebuild when viewed. */
-export const BUILD_VERSION = 1;
-
-export const VARIANTS = ["normal", "mirror"] as const;
-export type Variant = (typeof VARIANTS)[number];
+export { BUILD_VERSION, BuildError, VARIANTS, type Variant } from "./picture";
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -103,14 +83,6 @@ export interface BuildDeps {
   fetch?: typeof fetch;
   sdvxOrigin: string;
   now?: () => Date;
-}
-
-/** What went wrong, in words for the admin (and the viewer). */
-export class BuildError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "BuildError";
-  }
 }
 
 /** The manifest the viewer gets: tile keys turned into URLs. */
@@ -284,12 +256,9 @@ export async function buildChart(
 ): Promise<boolean> {
   const { db, storage } = deps;
   const now = deps.now ?? (() => new Date());
-  const fetcher = deps.fetch ?? fetch;
   const uploaded: string[] = [];
   // Layers kept for the next attempt (or reused from the last), by name.
-  const kept: string[] = [];
-  const layer = (src: string, name: string) =>
-    fetchLayer(deps, build.chartId, src, name, kept);
+  const kept: LayerName[] = [];
   try {
     const [chart] = await db
       .select()
@@ -297,65 +266,37 @@ export async function buildChart(
       .where(eq(chuniCharts.id, build.chartId));
     if (!chart?.sdvxPath)
       throw new BuildError("The chart has no sdvx.in page.");
-    const path = chart.sdvxPath;
-    const images = await readImages(fetcher, deps.sdvxOrigin, path);
-    const notes = build.variant === "mirror" ? images.mirror : images.obj;
-    if (!notes)
-      throw new BuildError("sdvx.in has no mirrored notes for this chart.");
-
-    // One layer at a time, to keep memory down: lanes, notes over them, numbers on top.
-    const bgLayer = await layer(images.bg, "lanes");
-    const picture = await decodeLayer(deps, bgLayer, "lanes", kept);
-    const layout = findLayout(picture);
-    const notesLayer = await layer(notes, "notes");
-    const notesImage = await decodeLayer(deps, notesLayer, "notes", kept);
-    sameSize(picture, notesImage, "notes");
-    await giveWay();
-    drawOver(picture, notesImage);
-    await giveWay();
-    const barLayer = await layer(images.bar, "measure numbers");
-    const barImage = await decodeLayer(deps, barLayer, "measure numbers", kept);
-    sameSize(picture, barImage, "measure numbers");
-    const measures = findMeasures(barImage, layout);
-    await giveWay();
-    drawOver(picture, barImage);
-    await giveWay();
-    checkOverlaps(picture, layout);
-
-    const height = stripHeight(layout);
     const folder = `${TILE_PREFIX}${String(build.chartId)}/${build.variant}-${randomBytes(6).toString("hex")}`;
     const tiles: ChuniBuildManifest["tiles"] = [];
     let bytes = 0;
-    for (const [index, [from, to]] of tileRanges(height).entries()) {
-      await giveWay();
-      const webp = await encodeWebp(stripTile(picture, layout, from, to));
-      const key = `${folder}/${String(index)}.webp`;
-      await storage.put(key, webp, {
-        contentType: "image/webp",
-        contentDisposition: "inline",
-        cacheControl: PUBLIC_CACHE,
-      });
-      uploaded.push(key);
-      if (!chart.withdrawnAt) await storage.setPublic(key, true);
-      tiles.push({ key, height: to - from });
-      bytes += webp.length;
-    }
-    const manifest: ChuniBuildManifest = {
-      width: COLUMN.pitch,
-      height,
-      gutter: COLUMN.gutter,
-      lane: COLUMN.lane,
-      tiles,
-      measures,
-      columns: layout.columns.length,
-    };
-    const source: ChuniBuildSource = {
-      path,
-      bg: images.bg,
-      obj: notes,
-      bar: images.bar,
-      tags: { bg: bgLayer.tag, obj: notesLayer.tag, bar: barLayer.tag },
-    };
+    const picture = await makePicture(
+      {
+        fetch: deps.fetch ?? fetch,
+        sdvxOrigin: deps.sdvxOrigin,
+        encode: encodeWebp,
+        layer: (url, name) => fetchLayer(deps, build.chartId, url, name, kept),
+        broken: async (layer, name) => {
+          // Broken bytes stay broken: don't keep them for the next try.
+          await dropLayer(deps, layer.url);
+          if (kept.includes(name)) kept.splice(kept.indexOf(name), 1);
+        },
+      },
+      chart.sdvxPath,
+      variantOf(build.variant),
+      async (tile) => {
+        const key = `${folder}/${String(tile.index)}.webp`;
+        await storage.put(key, tile.bytes, {
+          contentType: "image/webp",
+          contentDisposition: "inline",
+          cacheControl: PUBLIC_CACHE,
+        });
+        uploaded.push(key);
+        if (!chart.withdrawnAt) await storage.setPublic(key, true);
+        tiles.push({ key, height: tile.height });
+        bytes += tile.bytes.length;
+      },
+    );
+    const manifest: ChuniBuildManifest = { ...picture.manifest, tiles };
     const at = now();
     await db
       .update(chuniBuilds)
@@ -365,7 +306,7 @@ export async function buildChart(
         attempts: 0,
         error: null,
         nextAttemptAt: null,
-        source,
+        source: picture.source,
         manifest,
         bytes,
         hidden: chart.withdrawnAt !== null,
@@ -375,8 +316,8 @@ export async function buildChart(
       .where(eq(chuniBuilds.id, build.id));
     await removeTiles(storage, build.manifest);
     await forgetLayers(deps, build.chartId, build.id, {
-      own: [notesLayer.url],
-      shared: [bgLayer.url, barLayer.url],
+      own: [picture.urls.obj],
+      shared: [picture.urls.bg, picture.urls.bar],
     });
     return true;
   } catch (error) {
@@ -412,6 +353,11 @@ export async function buildChart(
   }
 }
 
+/** A row's variant (only ever one of VARIANTS). */
+function variantOf(value: string): Variant {
+  return value === "mirror" ? "mirror" : "normal";
+}
+
 function describe(error: unknown): string {
   if (
     error instanceof BuildError ||
@@ -427,86 +373,30 @@ function describe(error: unknown): string {
   return `Something went wrong while building it (${error instanceof Error ? error.message : String(error)}).`;
 }
 
-async function readImages(
-  fetcher: typeof fetch,
-  origin: string,
-  path: string,
-): Promise<SdvxImages> {
-  const script = sdvxImageScript(path);
-  if (!script) throw new BuildError(`"${path}" isn't an sdvx.in chart page.`);
-  const text = await fetchText(
-    fetcher,
-    new URL(script, origin).href,
-    FETCH_LIMITS.maxPageBytes,
-  );
-  const images = parseSdvxImages(text, path);
-  if (!images)
-    throw new BuildError(
-      `sdvx.in's script for ${path} names no picture for it.`,
-    );
-  return images;
-}
-
-interface Layer {
-  url: string;
-  bytes: Uint8Array;
-  tag: string;
-}
-
 /**
- * A layer's bytes and a tag that changes when sdvx.in redraws it: the copy kept from
- * an earlier attempt if sdvx.in still has the same one, otherwise downloaded (and
- * kept). Adds its name to `kept` when it's kept.
+ * A layer: the copy kept from an earlier attempt if sdvx.in still has the same one,
+ * otherwise downloaded (and kept). Adds its name to `kept` when it's kept.
  */
 async function fetchLayer(
   deps: BuildDeps,
   chartId: number,
-  src: string,
-  name: string,
-  kept: string[],
+  url: string,
+  name: LayerName,
+  kept: LayerName[],
 ): Promise<Layer> {
-  const url = new URL(src, deps.sdvxOrigin).href;
   const reused = await keptLayer(deps, url);
   if (reused) {
     kept.push(name);
     return { url, ...reused };
   }
-  const fetcher = deps.fetch ?? fetch;
-  let file: Downloaded;
-  try {
-    file = await download(fetcher, url, "image/png", {
-      ...LAYER_DOWNLOAD,
-      maxBytes: BUILD_LIMITS.maxLayerBytes,
-    });
-  } catch (error) {
-    const reason =
-      error instanceof FetchError
-        ? error.message.slice(url.length + 2)
-        : error instanceof Error
-          ? error.message
-          : "failed";
-    throw new BuildError(
-      reason === "too large"
-        ? `The ${name} layer is too large.`
-        : `The ${name} layer couldn't be downloaded: ${reason}. It's tried again later.`,
-    );
-  }
-  if (file.status !== 200)
-    throw new BuildError(
-      `sdvx.in has no ${name} layer for this chart (HTTP ${String(file.status)}).`,
-    );
-  const { bytes } = file;
-  if (!isPng(bytes))
-    throw new BuildError(
-      `sdvx.in's ${name} layer for this chart isn't a picture.`,
-    );
-  const tag = layerTag(file.headers, bytes.byteLength);
-  if (await keepLayer(deps, chartId, url, bytes, tag)) kept.push(name);
-  return { url, bytes, tag };
+  const layer = await downloadLayer(deps.fetch ?? fetch, url, name);
+  if (await keepLayer(deps, chartId, url, layer.bytes, layer.tag))
+    kept.push(name);
+  return layer;
 }
 
 /** " Lanes and notes are kept…": what the next attempt won't download again. */
-function keptNote(kept: string[]): string {
+function keptNote(kept: LayerName[]): string {
   if (kept.length === 0) return "";
   if (kept.length === 3)
     return " All three layers are kept, so the next try downloads them only if sdvx.in has changed them.";
@@ -516,35 +406,6 @@ function keptNote(kept: string[]): string {
       : `${kept.slice(0, -1).join(", ")} and ${kept.at(-1) ?? ""}`;
   const layers = kept.length === 1 ? "layer is" : "layers are";
   return ` The ${names} ${layers} kept, so the next try downloads only the rest.`;
-}
-
-async function decodeLayer(
-  deps: BuildDeps,
-  layer: Layer,
-  name: string,
-  kept: string[],
-) {
-  try {
-    return await decodePng(layer.bytes);
-  } catch (error) {
-    // Broken bytes stay broken: don't keep them for the next try.
-    await dropLayer(deps, layer.url);
-    if (kept.includes(name)) kept.splice(kept.indexOf(name), 1);
-    throw new BuildError(
-      `The ${name} layer can't be read: ${error instanceof Error ? error.message : "broken"}`,
-    );
-  }
-}
-
-function sameSize(
-  a: { width: number; height: number },
-  b: { width: number; height: number },
-  name: string,
-) {
-  if (a.width !== b.width || a.height !== b.height)
-    throw new BuildError(
-      `The ${name} layer is ${String(b.width)}×${String(b.height)}, the lanes ${String(a.width)}×${String(a.height)}.`,
-    );
 }
 
 async function removeTiles(

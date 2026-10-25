@@ -1290,6 +1290,33 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
 - Withdrawing a chart makes its tiles private (browsers may keep a copy for a day,
   PUBLIC_CACHE); restoring makes them public. /admin/chunithm/ shows the builds, builds
   one by hand, lists failures with their reasons, and throws a build away ("Rebuild").
+- The picture itself is made by lib/chunithm/picture.ts (`makePicture`: the script,
+  the layers, joining, tiles handed to a callback; BUILD_VERSION and BuildError live
+  there), with no database or storage, so the server's `buildChart` and the admin's
+  computer run the same code.
+- Building on the admin's computer (/admin/chunithm/import/): "Download the to-do
+  list" (/admin/chunithm/todo.json, imports.ts `chartTodo`: in-game Master charts
+  with a page and no picture; failed builds count) → `pnpm --filter @trilleo/web
+chunithm:bundle <list>` (scripts/chunithm-bundle.ts around lib/chunithm/bundler.ts:
+  one chart at a time over that computer's network, store-only ZIPs from
+  zip-writer.ts of about BUNDLE_LIMITS.targetBytes, `progress.json` so a rerun carries
+  on, failures kept for `--retry-failed`, Ctrl-C finishes the open bundle) → upload
+  (storage purpose `chunithm-import`: admin-only, private, zip, BUNDLE_MAX_BYTES) →
+  "Import" (chuni_imports; `runImports`, one at a time per server, in the background).
+  Bundles (bundle.ts) hold `bundle.json` (format, BUILD_VERSION, each chart's page,
+  source tags, manifest, tile files) and the tiles. An import reads the ZIP with
+  ranged reads (`listZip`, `readZipEntry`), refuses a bundle from another
+  BUILD_VERSION, skips charts that no longer need one (a picture already, being
+  built, withdrawn, another page now, unknown), refuses ones that don't check out
+  (`checkBundleChart`; every tile a WebP of the right size, `webpSize`), stores the
+  rest like a build's tiles, writes a ready chuni_builds row only over no picture
+  (otherwise takes the tiles back), then deletes the upload's bytes and refreshes the
+  index. The page lists results with each chart's reason. Queued imports left by a
+  restart start when the page is opened. The script runs on plain Node 24:
+  scripts/ts-hooks.mjs resolves extensionless imports, serves `?inline` as a data URL
+  and gives `import.meta.env`; `--experimental-transform-types` handles parameter
+  properties. Anything the script imports must stay free of the database, storage and
+  Astro (picture.ts, bundle.ts, bundler.ts, sources.ts, png.ts, webp.ts).
 
 - The tool (apps/chunithm): /tools/chunithm/ (`ChunithmApp`) loads the catalog index
   (/api/chunithm/index.json, lib/chunithm/viewer.ts `songIndex`: every song with a
@@ -1393,8 +1420,8 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   production: storage is off and the site still runs (apps/web/src/lib/storage/config.ts).
 - Features declare a purpose in apps/web/src/lib/storage/purposes.ts (who uploads,
   types, size, visibilities, review, `alwaysReview` extensions); uploads name one.
-  `site` is the admin's; `minecraft` and `minecraft-media` are anyone's (the
-  Minecraft platform). `shared` (general uploads, review until trusted) is defined
+  `site` and `chunithm-import` (CHUNITHM bundles) are the admin's; `minecraft` and
+  `minecraft-media` are anyone's (the Minecraft platform). `shared` (general uploads, review until trusted) is defined
   but `enabled: false`; STORAGE_ENABLE_PURPOSES=shared switches it on (e2e).
 - Every status change goes through `transition` (packages/storage/src/moderation.ts)
   and `changeStatus` (guarded by the expected status, logged in storage_events); the

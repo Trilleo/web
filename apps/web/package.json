@@ -8,6 +8,7 @@
     "build": "astro build",
     "build:e2e": "astro build",
     "check:server": "node scripts/check-server-bundle.ts dist",
+    "chunithm:bundle": "node --experimental-transform-types --disable-warning=ExperimentalWarning --import ./scripts/ts-hooks.mjs scripts/chunithm-bundle.ts",
     "preview": "astro preview",
     "typecheck": "astro check",
     "lint": "astro sync && eslint .",

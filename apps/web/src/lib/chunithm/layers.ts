@@ -19,6 +19,7 @@ import { chuniBuilds, chuniLayers, type Database } from "@trilleo/db";
 import type { StorageDriver } from "@trilleo/storage/server";
 import { createHash } from "node:crypto";
 import { and, count, eq, inArray, isNull, lt, ne, sql } from "drizzle-orm";
+import { layerTag } from "./picture";
 import { isPng } from "./png";
 import { FETCH_LIMITS, USER_AGENT } from "./sources";
 
@@ -34,11 +35,6 @@ export interface LayerDeps {
   storage: StorageDriver;
   fetch?: typeof fetch;
   now?: () => Date;
-}
-
-/** A layer's tag: sdvx.in's ETag (or Last-Modified) and size, changed when it's redrawn. */
-export function layerTag(headers: Headers, size: number): string {
-  return `${headers.get("etag") ?? headers.get("last-modified") ?? ""}|${String(size)}`;
 }
 
 /**

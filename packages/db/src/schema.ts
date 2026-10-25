@@ -2937,6 +2937,49 @@ export const chuniLayers = pgTable(
   ],
 );
 
+/** What an import of a bundle made on the admin's computer came to, chart by chart. */
+export interface ChuniImportSummary {
+  imported: number;
+  skipped: { chartId: number; variant: string; reason: string }[];
+  refused: { chartId: number; variant: string; reason: string }[];
+  /** Why the whole bundle was refused. */
+  error?: string;
+}
+
+export const chuniImportStatus = pgEnum("chuni_import_status", [
+  "queued",
+  "running",
+  "done",
+  "failed",
+]);
+
+/**
+ * Bundles of chart pictures built on the admin's computer and uploaded to storage
+ * (purpose "chunithm-import"), imported in the background
+ * (apps/web/src/lib/chunithm/imports.ts). The upload is deleted once imported (its
+ * `files` row stays, as storage keeps rows); the name and summary stay here.
+ */
+export const chuniImports = pgTable(
+  "chuni_imports",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    fileId: text("file_id").references(() => files.id, {
+      onDelete: "set null",
+    }),
+    name: text("name").notNull(),
+    bytes: bigint("bytes", { mode: "number" }).notNull(),
+    status: chuniImportStatus("status").notNull().default("queued"),
+    requestedAt: timestamp("requested_at", { withTimezone: true }).notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    summary: jsonb("summary").$type<ChuniImportSummary>(),
+  },
+  (table) => [
+    uniqueIndex("chuni_imports_file_idx").on(table.fileId),
+    index("chuni_imports_requested_idx").on(table.requestedAt),
+  ],
+);
+
 /**
  * Other names a song goes by (community nicknames, translations), searched like its
  * title. Added by the admin, from a suggestion, or by a bulk import. `key` is the
@@ -3138,5 +3181,6 @@ export type ChuniDifficulty = (typeof chuniDifficulty.enumValues)[number];
 export type ChuniSdvxEntry = typeof chuniSdvxEntries.$inferSelect;
 export type ChuniSync = typeof chuniSyncs.$inferSelect;
 export type ChuniBuild = typeof chuniBuilds.$inferSelect;
+export type ChuniImport = typeof chuniImports.$inferSelect;
 export type ChuniAlias = typeof chuniAliases.$inferSelect;
 export type ChuniAliasSuggestion = typeof chuniAliasSuggestions.$inferSelect;

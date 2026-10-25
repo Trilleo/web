@@ -61,7 +61,10 @@ GitHub and the server.
    (`chunithm/jackets/`, about 20 KB each). A build that fails keeps the layers it had
    downloaded whole under `chunithm/layers/` (private, tracked in `chuni_layers`, up to
    about 20 MB a chart) so its next try doesn't download them again; they go once the
-   chart builds, or after 14 days. Deleting them is harmless too.
+   chart builds, or after 14 days. Deleting them is harmless too. Bundles of chart
+   pictures the admin builds on their own computer are uploaded as private files
+   (`f/`, purpose `chunithm-import`, up to 512 MB each) and their bytes are deleted
+   once imported.
 
 ### 2. An IAM user for the app
 
