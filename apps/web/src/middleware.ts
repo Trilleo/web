@@ -10,6 +10,7 @@ import { noStoreRedirect } from "./lib/auth/redirect";
 import { validateSession } from "./lib/auth/sessions";
 import { emailSetupRedirect } from "./lib/auth/setup";
 import { chunithmBuildsInBackground } from "./lib/chunithm/build";
+import { startChunithmPrebuild } from "./lib/chunithm/prebuild";
 import {
   chunithmSyncInBackground,
   startChunithmSync,
@@ -44,6 +45,8 @@ function startTimers(): void {
   startWebhooks(getDb);
   // The CHUNITHM catalog: a pass whenever one is due.
   startChunithmSync(getDb);
+  // CHUNITHM charts built ahead (Master, Ultima) while no one is opening charts.
+  startChunithmPrebuild();
 }
 
 /** Work any request may start (each at most every few minutes, in the background). */

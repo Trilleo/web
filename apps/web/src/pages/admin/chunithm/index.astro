@@ -49,6 +49,13 @@ import {
   jacketBatchRunning,
   startJacketBatch,
 } from "../../../lib/chunithm/jackets";
+import {
+  PREBUILD,
+  lastPrebuild,
+  prebuildEnabled,
+  prebuildProgress,
+  type PrebuildResult,
+} from "../../../lib/chunithm/prebuild";
 import { getStorage } from "../../../lib/storage/config";
 import {
   newPagePaths,
@@ -184,6 +191,15 @@ const missing = await chartsWithoutPage(db);
 const builds = await buildOverview(db);
 const waitingNames = (await waitingSuggestions(db)).length;
 const failed = await failedBuilds(db);
+const ahead = await prebuildProgress(db);
+const aheadLast = lastPrebuild();
+const AHEAD_WORDS: Record<PrebuildResult, string> = {
+  built: "built one",
+  failed: "one failed",
+  visitors: "waited for visitors",
+  "hour-full": "the hour was full",
+  done: "nothing left",
+};
 const failedReads = await failedScripts(db);
 const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 const fetching = chunithmSources() !== null;
@@ -575,6 +591,17 @@ const td = "border-b border-hair py-2 pr-4 align-top";
           Charts are joined from sdvx.in’s layers the first time someone views
           them, one at a time (at most {BUILD_LIMITS.perHour} an hour), and kept
           as WebP tiles in storage.
+        </p>
+        <p data-testid="chunithm-prebuild">
+          Building ahead: {ahead.ready} of {ahead.total} in-game Master and
+          Ultima charts ready.{" "}
+          <span class="text-muted">
+            {!prebuildEnabled()
+              ? "Switched off here (CHUNITHM_PREBUILD or CHUNITHM_SYNC is off)."
+              : ahead.ready >= ahead.total
+                ? "All done; new songs are built as they come."
+                : `One every ${String(PREBUILD.everyMs / 60_000)} minutes while no one has opened a chart for ${String(PREBUILD.quietMs / 60_000)} minutes${aheadLast ? ` (last: ${AHEAD_WORDS[aheadLast.result]}, ${when(aheadLast.at)})` : ""}.`}
+          </span>
         </p>
         <dl
           class="grid grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-4"

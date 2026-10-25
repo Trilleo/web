@@ -1246,6 +1246,15 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
 - Decoding is png.ts (hand-written, on node:zlib: 8-bit, not interlaced); encoding
   webp.ts (@jsquash/webp's SIMD build, the wasm inlined with `?inline`, quality 90).
   A Master chart is about 1.5 s and 2 MB.
+- Built ahead (lib/chunithm/prebuild.ts, `startChunithmPrebuild` with the other
+  timers): every in-game Master and Ultima chart with a page and no normal build,
+  newest songs first, one per PREBUILD.everyMs tick, only while no visitor's build is
+  waiting and nobody has asked for a chart picture in PREBUILD.quietMs
+  (`chartsLastAsked`, set by `requestBuild`). Its builds skip the visitors' queue but
+  take turns with theirs (`buildInTurn`: one build at a time per server) and count
+  toward BUILD_LIMITS.perHour; a failed one keeps its row and isn't picked again.
+  /admin/chunithm/ shows its progress (`prebuildProgress`) and last tick.
+  CHUNITHM_PREBUILD=off (and CHUNITHM_SYNC=off) stops it; e2e sets it.
 - Builds happen on demand: GET /api/chunithm/charts/<SEGA id>/<difficulty>
   [?variant=mirror] answers ready (the manifest, tile URLs), queued/building (202,
   ask again), failed (why, and when it's tried again) or unavailable (no-chart,

@@ -170,6 +170,18 @@ export function resetVisitorLimits(): void {
   visitors = new VisitorCounter();
 }
 
+let lastAsked = 0;
+
+/** When a chart's picture was last asked for (epoch ms; 0: not since this server started). */
+export function chartsLastAsked(): number {
+  return lastAsked;
+}
+
+/** For tests: as if no one had asked. */
+export function resetLastAsked(): void {
+  lastAsked = 0;
+}
+
 /** Whether a ready build should be made again (newer code, or another page now). */
 function outdated(row: ChuniBuild, sdvxPath: string): boolean {
   return row.version !== BUILD_VERSION || row.source?.path !== sdvxPath;
@@ -187,6 +199,8 @@ export async function requestBuild(
 ): Promise<BuildState> {
   const { db, storage } = deps;
   const now = (deps.now ?? (() => new Date()))();
+  // Someone's looking at charts: the background builder (prebuild.ts) waits.
+  lastAsked = Math.max(lastAsked, now.getTime());
   const [chart] = await db
     .select({
       id: chuniCharts.id,
@@ -600,11 +614,7 @@ async function claimNext(db: Database, now: Date): Promise<ChuniBuild | null> {
         ),
       ),
     );
-  const [started] = await db
-    .select({ n: count() })
-    .from(chuniBuilds)
-    .where(gt(chuniBuilds.startedAt, new Date(now.getTime() - HOUR_MS)));
-  if ((started?.n ?? 0) >= BUILD_LIMITS.perHour) return null;
+  if ((await buildsThisHour(db, now)) >= BUILD_LIMITS.perHour) return null;
   const [next] = await db
     .select({ id: chuniBuilds.id })
     .from(chuniBuilds)
@@ -620,6 +630,31 @@ async function claimNext(db: Database, now: Date): Promise<ChuniBuild | null> {
   return claimed ?? null;
 }
 
+let slot: Promise<unknown> = Promise.resolve();
+
+/**
+ * Builds one chart once the build before it (a visitor's or the background
+ * builder's) is done: one build at a time per server, since each holds three
+ * decoded layers in memory.
+ */
+export function buildInTurn(
+  deps: BuildDeps,
+  build: ChuniBuild,
+): Promise<boolean> {
+  const run = slot.then(() => buildChart(deps, build));
+  slot = run.catch(() => undefined);
+  return run;
+}
+
+/** Builds whose `startedAt` falls in the last hour (BUILD_LIMITS.perHour counts them). */
+export async function buildsThisHour(db: Database, now: Date): Promise<number> {
+  const [started] = await db
+    .select({ n: count() })
+    .from(chuniBuilds)
+    .where(gt(chuniBuilds.startedAt, new Date(now.getTime() - HOUR_MS)));
+  return started?.n ?? 0;
+}
+
 /** Builds what's waiting, one at a time, until the queue is empty or the hour is full. */
 export async function runBuilds(deps: BuildDeps): Promise<number> {
   const now = deps.now ?? (() => new Date());
@@ -627,7 +662,7 @@ export async function runBuilds(deps: BuildDeps): Promise<number> {
   for (;;) {
     const next = await claimNext(deps.db, now());
     if (!next) return built;
-    if (await buildChart(deps, next)) built++;
+    if (await buildInTurn(deps, next)) built++;
   }
 }
 

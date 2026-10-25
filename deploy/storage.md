@@ -54,7 +54,11 @@ GitHub and the server.
    Besides `f/` (files) and `t/` (thumbnails), the app writes CHUNITHM chart pictures
    under `chunithm/`: WebP tiles it builds itself (about 2 MB a chart), tracked in the
    `chuni_builds` table, not `files`. Deleting them is harmless: the next view builds
-   the chart again.
+   the chart again. The app also builds every in-game Master and Ultima chart ahead of
+   visitors (about 1,800 charts, so about 3.7 GB, and about 11 GB downloaded from
+   sdvx.in over two to three days after the first deploy); `CHUNITHM_PREBUILD=off` in
+   `app.env` stops that, and then only charts people open are kept, plus jackets
+   (`chunithm/jackets/`, about 20 KB each).
 
 ### 2. An IAM user for the app
 

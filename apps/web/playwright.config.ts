@@ -41,6 +41,8 @@ const e2eEnv = {
   CHUNITHM_OTOGE_URL: `${FAKE_CHUNITHM}/otoge/`,
   CHUNITHM_SDVX_URL: FAKE_CHUNITHM,
   CHUNITHM_SDVX_DELAY_MS: "0",
+  // Specs start their builds themselves.
+  CHUNITHM_PREBUILD: "off",
   MIGRATIONS_DIR: fileURLToPath(
     new URL("../../packages/db/migrations", import.meta.url),
   ),
