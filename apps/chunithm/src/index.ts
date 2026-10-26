@@ -13,3 +13,5 @@ export {
   savedKey,
 } from "./meta";
 export type { SavedChart } from "./meta";
+export { ScoreCalculator, TABLE_RANKS } from "./ScoreCalculator";
+export type { ScoreCalculatorProps } from "./ScoreCalculator";

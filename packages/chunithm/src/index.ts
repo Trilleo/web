@@ -8,6 +8,7 @@ export * from "./aliases";
 export * from "./catalog";
 export * from "./charts";
 export * from "./difficulties";
+export * from "./score";
 export * from "./search";
 export * from "./sources/common";
 export * from "./sources/otoge";

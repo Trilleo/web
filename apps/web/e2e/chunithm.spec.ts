@@ -259,6 +259,106 @@ test("a suggested name, once approved, finds the song", async ({
   ).toBeVisible();
 });
 
+test("the score calculator works out ranks, plays and ratings", async ({
+  page,
+  request,
+}) => {
+  await catalogReady(request);
+  await page.goto(`/tools/chunithm/${String(DRAWN.id)}/master/`);
+  const calculator = page.getByTestId("score-calculator");
+  await calculator.scrollIntoViewIfNeeded();
+  await hydrated(page);
+  await calculator.getByLabel("Notes").fill("1000");
+  await expect(
+    calculator.getByRole("row", { name: /^SSS\+/ }).getByRole("cell"),
+  ).toHaveText(["1,009,000", "100", "1", "0", "16.85"]);
+
+  const play = page.getByTestId("play-panel");
+  await play.getByLabel("Justice").fill("98");
+  await play.getByLabel("Attack").fill("1");
+  await play.getByLabel("Miss").fill("1");
+  await expect(page.getByTestId("play-score")).toHaveText("1,007,500 SSS");
+
+  const budget = page.getByTestId("budget-panel");
+  await budget.getByLabel("Rank").selectOption("SSS");
+  await budget.getByLabel("Attack").fill("2");
+  await expect(page.getByTestId("budget-result")).toHaveText(
+    "Up to 148 Justice for SSS.",
+  );
+
+  // Constant 14.7: 16.50 needs +1.80, on the way from SS+ to SSS.
+  await page.getByTestId("rating-panel").getByLabel("Rating").fill("16.5");
+  await expect(page.getByTestId("rating-result")).toHaveText(
+    "Needs 1,006,500 (SS+).",
+  );
+  expect(await axe(page)).toEqual([]);
+});
+
+test("the admin adds, removes and decides names on a chart page", async ({
+  browser,
+  baseURL,
+  page,
+  request,
+}) => {
+  await catalogReady(request);
+  const chart = `/tools/chunithm/${String(DRAWN.id)}/master/`;
+  const added = `直接${freshLogin("e2e").slice(4)}`;
+  const suggested = `提案${freshLogin("e2e").slice(4)}`;
+
+  await page.goto(`/sign-in?next=${encodeURIComponent(chart)}`);
+  await page.getByRole("link", { name: "Sign in with GitHub" }).click();
+  await continueAs(page, freshLogin("namer"));
+  await expect(page).toHaveURL(chart);
+  // Everyone else suggests; only the admin adds.
+  await expect(page.getByLabel("Add a name")).toHaveCount(0);
+  await page.getByLabel("Suggest a name").fill(suggested);
+  await page.getByRole("button", { name: "Suggest", exact: true }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Thanks" }),
+  ).toBeVisible();
+  // A forged admin form is refused.
+  const forged = await page.request.post("/tools/chunithm/alias", {
+    form: { intent: "add", song: String(DRAWN.id), alias: "forged" },
+    headers: { Origin: baseURL ?? "" },
+    maxRedirects: 0,
+  });
+  expect(forged.status()).toBe(403);
+
+  const admin = await adminPage(browser, baseURL);
+  await admin.goto(chart);
+  await admin.getByLabel("Add a name").fill(added);
+  await admin.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(admin.locator("#names").getByRole("status")).toHaveText(
+    "Name added: it’s searchable now.",
+  );
+  await expect(admin.getByTestId("chart-facts")).toContainText(added);
+
+  const waiting = admin
+    .getByTestId("admin-suggestions")
+    .getByRole("listitem")
+    .filter({ hasText: suggested });
+  await waiting.getByLabel("Note (optional)").fill("Welcome");
+  await waiting.getByRole("button", { name: "Approve" }).click();
+  await expect(admin.locator("#names").getByRole("status")).toHaveText(
+    "Approved: the name is searchable now.",
+  );
+  await expect(admin.getByTestId("admin-names")).toContainText(suggested);
+  expect(await axe(admin)).toEqual([]);
+
+  for (const name of [added, suggested]) {
+    await admin.getByRole("button", { name: `Remove ${name}` }).click();
+    await expect(admin.locator("#names").getByRole("status")).toHaveText(
+      "Name removed.",
+    );
+  }
+  await expect(admin.getByTestId("chart-facts")).not.toContainText(added);
+
+  await page.reload();
+  await expect(page.getByTestId("my-suggestions")).toContainText(
+    `${suggested} · added · Welcome`,
+  );
+});
+
 test("a list asks the server for the jackets it's missing", async ({
   page,
   request,

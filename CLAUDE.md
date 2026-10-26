@@ -70,7 +70,8 @@
   difficulties and constants (tenths), versions (`versionSlug` for every source's
   names), readers for SEGA's song list, otoge-db and sdvx.in's JSON song lists (refs,
   layer and jacket names), `buildCatalog`, which merges them by SEGA's IDs, and
-  charts.ts, which joins sdvx.in's chart layers into one strip. `./testing` draws test charts.
+  charts.ts, which joins sdvx.in's chart layers into one strip; score.ts, scores, ranks and
+  play rating. `./testing` draws test charts.
   Source-only.
 - study/: study subjects as Markdown files (see Study below and study/README.md).
 - Blog content: Markdown posts in Postgres, written in the admin editor (/admin/posts).
@@ -1384,6 +1385,14 @@ chunithm:bundle <list>` (scripts/chunithm-bundle.ts around lib/chunithm/bundler.
   picture pixel covers whole screen pixels, so tiles are never smoothed. Mirrored notes
   from the mirror build. Measure 1 starts at the box's bottom; the page scrolls it on
   screen once. The layout and size are a "preferences" key, trilleo:tool:chunithm:view.
+- Score calculator (apps/chunithm's ScoreCalculator, `client:visible` under the viewer;
+  rules in packages/chunithm's score.ts): from the note count (chart.notes, editable),
+  each rank's most Justice, Attack and Miss, a play's score, rank and rating, the
+  Justice left after some Attacks and Misses, and the score a rating needs. Exact in
+  integers: a Justice Critical is 1.01 of a note's share, so a Justice loses 1
+  hundredth of a note, an Attack 51, a Miss 101 (`LOSS`, `lossBudget`). Ratings
+  (hundredths) follow the LUMINOUS/VERSE table (`ratingOf`, constant + 2.15 at SSS+);
+  update it if SEGA changes it. Nothing is kept; the rank table renders on the server.
 - Favourites and recent charts are tool data (`SavedChart`, keys f-/r-<id>-<difficulty>,
   RECENT_MAX kept, `isSavedChart` checks saves): this browser signed out, the account
   signed in. Japanese text carries lang="ja" (titles break by phrase:
@@ -1399,7 +1408,9 @@ chunithm:bundle <list>` (scripts/chunithm-bundle.ts around lib/chunithm/bundler.
   /tools/chunithm/alias, no JavaScript needed; SUGGESTION_LIMITS: per day, waiting);
   each alerts the admin ("chunithm-alias"), and the queue approves (adding the name,
   `suggestedBy` kept) or declines, with a note the person sees on the song's chart
-  pages. Suggestions are in the account export (`chunithm.aliasSuggestions`) and go
+  pages. On a chart page the admin also adds names directly, removes them and decides
+  that song's waiting suggestions (`intent` on the same POST route; 403 for anyone else). Suggestions are in the
+  account export (`chunithm.aliasSuggestions`) and go
   with the account; approved names stay, `suggestedBy` set null.
 
 ## Mail

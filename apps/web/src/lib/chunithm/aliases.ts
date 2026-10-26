@@ -248,9 +248,10 @@ export interface WaitingSuggestion {
   aliases: string[];
 }
 
-/** The queue, oldest first. */
+/** The queue, oldest first: all of it, or one song's (its chart pages show it to the admin). */
 export async function waitingSuggestions(
   db: Database,
+  songId?: number,
 ): Promise<WaitingSuggestion[]> {
   const rows = await db
     .select({
@@ -264,7 +265,14 @@ export async function waitingSuggestions(
     .from(chuniAliasSuggestions)
     .innerJoin(chuniSongs, eq(chuniSongs.id, chuniAliasSuggestions.songId))
     .innerJoin(users, eq(users.id, chuniAliasSuggestions.userId))
-    .where(eq(chuniAliasSuggestions.status, "pending"))
+    .where(
+      and(
+        eq(chuniAliasSuggestions.status, "pending"),
+        songId === undefined
+          ? undefined
+          : eq(chuniAliasSuggestions.songId, songId),
+      ),
+    )
     .orderBy(asc(chuniAliasSuggestions.createdAt))
     .limit(200);
   const names = await aliasesBySong(db);

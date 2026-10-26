@@ -118,6 +118,9 @@ describe("suggestions", () => {
     expect(queue).toMatchObject([
       { songId: 2710, title: "Oracle", alias: "神谕", username: "player" },
     ]);
+    // One song's, for its chart pages.
+    expect(await waitingSuggestions(handle.db, 2710)).toHaveLength(1);
+    expect(await waitingSuggestions(handle.db, 3062)).toEqual([]);
 
     expect(
       await decideSuggestion(

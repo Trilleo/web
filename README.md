@@ -121,7 +121,9 @@ aliases, in English, Japanese, romaji or Chinese) and shows each as one picture,
 catalog is kept up to date by the server: SEGA's song list, otoge-db's constants and links, and sdvx.in's song lists
 (the JSON its viewer reads), merged by SEGA's IDs (`packages/chunithm`, `apps/web/src/lib/chunithm/`). A chart's
 picture is joined from sdvx.in's WebP layers the first time someone asks for it
-(`/api/chunithm/charts/<id>/<difficulty>`) and kept as WebP tiles in storage. The admin
+(`/api/chunithm/charts/<id>/<difficulty>`) and kept as WebP tiles in storage. Under it, a score
+calculator works out what each rank allows (Justice, Attack, Miss), a play's score and rating, and
+the score a rating needs (`packages/chunithm/src/score.ts`). The admin
 watches both at `/admin/chunithm/`. `pnpm dev` fills it on the first requests (one
 pass of about twenty small requests to sdvx.in, then jackets over the next passes);
 set `CHUNITHM_SYNC=off` in `apps/web/.env` to keep it from fetching.

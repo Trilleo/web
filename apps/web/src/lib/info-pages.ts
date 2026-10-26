@@ -273,6 +273,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "help",
     changes: [
       {
+        date: "2026-10-26",
+        note: "The CHUNITHM score calculator.",
+      },
+      {
         date: "2026-10-21",
         note: "Polls, attachments and private messages.",
       },
