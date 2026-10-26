@@ -8,6 +8,7 @@ import { LocalDriver } from "@trilleo/storage/server";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  JACKET_MAX_BYTES,
   JACKET_RETRY_DAYS,
   JACKET_SIDE,
   copyJackets,
@@ -165,6 +166,24 @@ describe("copying jackets", () => {
     expect(await storage.head(key)).toMatchObject({
       contentType: "image/webp",
     });
+  });
+
+  it("copies a small jacket that carries megabytes of metadata", async () => {
+    // ASH's 300px jacket is 10 MB, nearly all of it one iTXt chunk.
+    const plain = png();
+    const text = new Uint8Array(12 + 10 * 1024 * 1024);
+    const view = new DataView(text.buffer);
+    view.setUint32(0, text.length - 12);
+    text.set([0x69, 0x54, 0x58, 0x74], 4);
+    const ihdrEnd = 8 + 12 + 13;
+    const bloated = new Uint8Array(plain.length + text.length);
+    bloated.set(plain.subarray(0, ihdrEnd));
+    bloated.set(text, ihdrEnd);
+    bloated.set(plain.subarray(ihdrEnd), ihdrEnd + text.length);
+    expect(bloated.length).toBeLessThan(JACKET_MAX_BYTES);
+    served.set(`${ORIGIN}/chunithm/02/jacket/02002.png`, bloated);
+    expect(await copy()).toBe(1);
+    expect(await jacketOf(2)).not.toBeNull();
   });
 
   it("retries the ones that failed lately when the admin asks", async () => {

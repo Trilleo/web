@@ -192,11 +192,11 @@ export const LAYER_DOWNLOAD: Omit<DownloadLimits, "maxBytes"> = {
   tries: 6,
 };
 
-/** Jackets: 200 KB to 2.5 MB. */
+/** Jackets: 200 KB to 2.5 MB, a few with metadata up to 10 MB or more. */
 export const JACKET_DOWNLOAD: Omit<DownloadLimits, "maxBytes"> = {
   stallMs: 20_000,
-  totalMs: 4 * 60_000,
-  tries: 5,
+  totalMs: 6 * 60_000,
+  tries: 6,
 };
 
 /** How far a download has got, for a progress line (the bundling script's). */

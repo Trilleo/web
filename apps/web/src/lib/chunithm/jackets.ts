@@ -34,8 +34,12 @@ import { encodeWebp } from "./webp";
 
 export const JACKETS_PER_PASS = 100;
 export const JACKET_RETRY_DAYS = 1;
-/** Newer jackets on sdvx.in are up to 1000px and 2.5 MB. */
-const JACKET_MAX_BYTES = 8 * 1024 * 1024;
+/**
+ * Newer jackets on sdvx.in are up to 1000px and 2.5 MB, but a few small ones carry
+ * an editor's metadata many times their size (ASH's 300px jacket is 10 MB, nearly
+ * all of it one iTXt chunk), and the decoder skips it.
+ */
+export const JACKET_MAX_BYTES = 32 * 1024 * 1024;
 /** Jackets are kept at most this wide: pages show them at 300px. */
 export const JACKET_SIDE = 300;
 export const JACKET_PREFIX = "chunithm/jackets/";

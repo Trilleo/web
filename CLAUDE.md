@@ -1230,7 +1230,8 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   SDVX_PASS.failuresToStop in a row without an answer the rest wait. Unfinished rows
   show as "Interrupted" once no pass is running. Each pass then copies
   JACKETS_PER_PASS jackets, within PASS_TIME_LIMIT_MS (jackets.ts: sdvx.in's PNGs,
-  300px or, for newer songs, up to 1000px and 2.5 MB, shrunk to JACKET_SIDE and kept
+  300px or, for newer songs, up to 1000px and 2.5 MB, a few bloated by editor
+  metadata to 10 MB (JACKET_MAX_BYTES; the decoder skips it), shrunk to JACKET_SIDE and kept
   as WebP under `chunithm/jackets/` in storage, newest songs first, a song's own
   jacket tried before its World's End entry's; failures are tried again after
   JACKET_RETRY_DAYS), and passes keep the BACKLOG_GAP_MS pace while any song is due
