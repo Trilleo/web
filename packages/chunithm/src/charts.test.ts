@@ -11,7 +11,7 @@ import {
   stripTile,
   tileRanges,
 } from "./index";
-import { blank, colourAt, makeChart } from "./testing";
+import { BEAT, blank, colourAt, laneAt, makeChart } from "./testing";
 
 describe("joining a chart", () => {
   const tops = [100, 60, 150];
@@ -35,8 +35,8 @@ describe("joining a chart", () => {
   it("stacks the columns into one strip, dropping the shared rows", () => {
     const { bg, obj, total } = makeChart(height, tops, labels);
     const layout = findLayout(bg);
+    checkOverlaps(bg, obj, layout);
     drawOver(bg, obj);
-    checkOverlaps(bg, layout);
     expect(stripHeight(layout)).toBe(total);
     const tile = stripTile(bg, layout, 0, total);
     // Row y of the tile is strip position total - 1 - y: every row has its colour.
@@ -55,14 +55,16 @@ describe("joining a chart", () => {
   it("accepts a next column that previews the last one's end differently", () => {
     const { bg, obj } = makeChart(height, tops, labels);
     const layout = findLayout(bg);
-    drawOver(bg, obj);
     // The second column's lowest rows (its preview of the first) drawn otherwise.
     for (let y = height - COLUMN.overlap / 2; y < height; y++)
-      for (let x = 250; x < 400; x++)
+      for (let x = 250; x < 400; x++) {
         bg.data.set([255, 0, 0, 255], (y * 650 + x) * 4);
+        obj.data.set([255, 0, 0, 0], (y * 650 + x) * 4);
+      }
     expect(() => {
-      checkOverlaps(bg, layout);
+      checkOverlaps(bg, obj, layout);
     }).not.toThrow();
+    drawOver(bg, obj);
     // …and the strip keeps the first column's own drawing there.
     const tile = stripTile(bg, layout, 0, stripHeight(layout));
     const total = stripHeight(layout);
@@ -74,13 +76,12 @@ describe("joining a chart", () => {
   it("refuses columns that don't line up", () => {
     const { bg, obj } = makeChart(height, tops, labels);
     const layout = findLayout(bg);
-    drawOver(bg, obj);
     // Paint over the second column's shared bottom band.
     for (let y = height - COLUMN.overlap; y < height; y++)
       for (let x = 250; x < 400; x++)
         bg.data.set([255, 0, 0, 255], (y * 650 + x) * 4);
     expect(() => {
-      checkOverlaps(bg, layout);
+      checkOverlaps(bg, obj, layout);
     }).toThrow("Columns 1 and 2 don't line up.");
   });
 
@@ -130,41 +131,74 @@ describe("lossy layers", () => {
   const height = 400;
 
   /**
-   * Draws the same notes (a bright line every 6 rows) into the band column 1 and
-   * column 2 share, with column 2's copy `shift` rows lower and `noise` added to it
-   * the way lossy WebP wobbles pixels (alternating up and down).
+   * A two-column chart whose second column's bottom band is moved `shift` rows down
+   * (lanes and notes), with `noise` added to its notes' colour the way lossy WebP
+   * wobbles pixels (alternating up and down; alpha is lossless, so it stays).
    */
   const shared = (shift: number, noise: number) => {
     const { bg, obj } = makeChart(height, tops, []);
     const layout = findLayout(bg);
-    drawOver(bg, obj);
-    const [lower, upper] = layout.columns;
-    if (!lower || !upper) throw new Error("two columns expected");
-    for (let i = 0; i < layout.overlap / 2; i++)
-      for (let x = -COLUMN.gutter; x < COLUMN.lane; x++) {
-        const value = i % 6 === 0 ? 240 : 30;
-        const a = ((lower.top + i) * bg.width + lower.lane + x) * 4;
-        bg.data.set([value, value, value, 255], a);
-        const row = height - layout.overlap + i + shift;
-        const wobble = (x + i) % 2 === 0 ? noise : -noise;
-        const near = (i - shift) % 6 === 0 ? 240 : 30;
-        const v = Math.max(0, Math.min(255, near + wobble));
-        bg.data.set([v, v, v, 255], (row * bg.width + upper.lane + x) * 4);
+    const upper = layout.columns[1];
+    if (!upper) throw new Error("two columns expected");
+    const first = layout.height - 1 - (layout.columns[0]?.top ?? 0) + 1;
+    for (let y = height - layout.overlap; y < height; y++) {
+      const p = first - layout.overlap + (height - 1 - y) - shift;
+      for (let x = upper.lane; x < upper.lane + COLUMN.lane; x++) {
+        const i = (y * bg.width + x) * 4;
+        bg.data.set(laneAt(p), i);
+        const wobble = (x + y) % 2 === 0 ? noise : -noise;
+        const colour = colourAt(p).map((v) =>
+          Math.max(0, Math.min(255, v + wobble)),
+        );
+        obj.data.set([...colour, p % BEAT === 1 ? 128 : 255], i);
       }
-    return { bg, layout };
+    }
+    // The lower column's notes get the same alpha, so only the shift tells them apart.
+    const lower = layout.columns[0];
+    if (lower)
+      for (let y = lower.top; y < lower.top + layout.overlap; y++) {
+        const p = first - 1 - (y - lower.top);
+        for (let x = lower.lane; x < lower.lane + COLUMN.lane; x++)
+          obj.data[(y * bg.width + x) * 4 + 3] = p % BEAT === 1 ? 128 : 255;
+      }
+    return { bg, obj, layout };
   };
 
-  it("lets pixels wobble as lossy WebP makes them", () => {
-    const { bg, layout } = shared(0, 30);
+  it("ignores the notes' colour, which lossy WebP wobbles", () => {
+    const { bg, obj, layout } = shared(0, 60);
     expect(() => {
-      checkOverlaps(bg, layout);
+      checkOverlaps(bg, obj, layout);
     }).not.toThrow();
   });
 
   it("still refuses columns a row out", () => {
-    const { bg, layout } = shared(1, 0);
+    for (const shift of [1, -1]) {
+      const { bg, obj, layout } = shared(shift, 0);
+      expect(() => {
+        checkOverlaps(bg, obj, layout);
+      }).toThrow("Columns 1 and 2 don't line up.");
+    }
+  });
+
+  it("refuses notes a row out on plain lanes", () => {
+    const { bg, obj, layout } = shared(1, 0);
+    // Lanes without beat lines: only the notes' alpha shows the shift.
+    for (let i = 0; i < bg.data.length; i += 4)
+      if ((bg.data[i + 3] ?? 0) > 0) bg.data.set([20, 20, 20, 255], i);
     expect(() => {
-      checkOverlaps(bg, layout);
+      checkOverlaps(bg, obj, layout);
     }).toThrow("Columns 1 and 2 don't line up.");
+  });
+
+  it("ignores the gutter, where the columns may number measures differently", () => {
+    const { bg, obj, layout } = shared(0, 0);
+    const upper = layout.columns[1];
+    if (!upper) throw new Error("two columns expected");
+    for (let y = height - layout.overlap; y < height; y++)
+      for (let x = upper.lane - COLUMN.gutter; x < upper.lane; x++)
+        bg.data.set([255, 255, 255, 255], (y * bg.width + x) * 4);
+    expect(() => {
+      checkOverlaps(bg, obj, layout);
+    }).not.toThrow();
   });
 });

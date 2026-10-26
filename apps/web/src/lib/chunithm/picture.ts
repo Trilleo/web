@@ -246,6 +246,7 @@ export async function makePicture(
   const notesLayer = await get(notes, notesName);
   const notesImage = await decode(notesLayer, notesName);
   sameSize(picture, notesImage, notesName);
+  checkOverlaps(picture, notesImage, layout);
   await giveWay();
   drawOver(picture, notesImage);
   await giveWay();
@@ -255,8 +256,6 @@ export async function makePicture(
   const measures = findMeasures(barImage, layout);
   await giveWay();
   drawOver(picture, barImage);
-  await giveWay();
-  checkOverlaps(picture, layout);
 
   const height = stripHeight(layout);
   const ranges = tileRanges(height);

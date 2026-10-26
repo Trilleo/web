@@ -33,14 +33,15 @@ export const CHART_LIMITS = {
   maxHeight: 4096,
   maxColumns: 200,
   /**
-   * Blocks (`block` pixels square) that may differ in a shared band: their averages
-   * more than `tolerance` apart in a channel. Averages, because the notes layers are
-   * lossy WebP, whose pixels wander near edges, while a column out by a row moves
-   * whole blocks (measured: lined up 0%, one row out 38%).
+   * Share of a shared band's lane pixels that may differ. Lined up, sdvx.in's
+   * columns match exactly on what's compared (measured on 962 pairs: none differed),
+   * while a row out differs on 2.7% or more.
    */
   mismatch: 0.005,
-  block: 4,
-  tolerance: 24,
+  /** How far a notes-layer alpha may be off (it's lossless, so this is slack). */
+  alphaTolerance: 8,
+  /** How far a lanes-layer colour channel may be off (lossy, but flat grey). */
+  colourTolerance: 16,
 };
 
 /** The joined strip is cut into tiles this tall (the last one shorter). */
@@ -129,49 +130,44 @@ export function findLayout(bg: RgbaImage): ChartLayout {
 
 /**
  * Checks that the columns line up: each column's top band shows the next column's
- * bottom band. Only the band's upper half is compared (gutter included): there, past
- * the shared measure line, the lower column previews what the next one draws for
- * real. In the lower half the next column previews the lower one's end, and sdvx.in
- * sometimes draws that preview differently (side rails left off, as in Oracle's
- * Expert); the strip keeps the lower column's own drawing of it. Throws
- * ChartLayoutError naming the first pair that doesn't line up.
+ * bottom band. Run on the lanes and notes layers before they're joined, and only on
+ * what WebP keeps exactly: the notes' alpha (lossless) and the lanes' colour (flat, so
+ * lossy coding hardly moves it). The notes' colour is lossy and wanders by 60 or more
+ * where a column's drawing starts, so it isn't compared; nor is the gutter, whose
+ * measure numbers the two columns may label differently. Only the band's upper half
+ * is compared: there, past the shared measure line, the lower column previews what
+ * the next one draws for real. In the lower half the next column previews the lower
+ * one's end, and sdvx.in sometimes draws that preview differently (side rails left
+ * off, as in Oracle's Expert); the strip keeps the lower column's own drawing of it.
+ * Throws ChartLayoutError naming the first pair that doesn't line up.
  */
-export function checkOverlaps(image: RgbaImage, layout: ChartLayout): void {
-  const { width, data } = image;
+export function checkOverlaps(
+  lanes: RgbaImage,
+  notes: RgbaImage,
+  layout: ChartLayout,
+): void {
+  const { width } = lanes;
   const { height, overlap } = layout;
-  const { block, tolerance } = CHART_LIMITS;
-  const area = block * block;
-  const sums = new Int32Array(8);
+  const { alphaTolerance, colourTolerance } = CHART_LIMITS;
+  const rows = overlap / 2;
+  const total = rows * COLUMN.lane;
   for (let k = 0; k + 1 < layout.columns.length; k++) {
     const lower = layout.columns[k];
     const upper = layout.columns[k + 1];
     if (!lower || !upper) continue;
     let differing = 0;
-    let total = 0;
-    for (let by = 0; by + block <= overlap / 2; by += block)
-      for (let bx = -COLUMN.gutter; bx + block <= COLUMN.lane; bx += block) {
-        sums.fill(0);
-        for (let i = 0; i < block; i++) {
-          const a = lower.top + by + i;
-          const b = height - overlap + by + i;
-          for (let x = bx; x < bx + block; x++) {
-            const ia = (a * width + lower.lane + x) * 4;
-            const ib = (b * width + upper.lane + x) * 4;
-            for (let c = 0; c < 4; c++) {
-              sums[c] = (sums[c] ?? 0) + (data[ia + c] ?? 0);
-              sums[c + 4] = (sums[c + 4] ?? 0) + (data[ib + c] ?? 0);
-            }
-          }
-        }
-        total++;
-        for (let c = 0; c < 4; c++)
-          if (
-            Math.abs((sums[c] ?? 0) - (sums[c + 4] ?? 0)) >
-            tolerance * area
-          ) {
-            differing++;
-            break;
-          }
+    for (let y = 0; y < rows; y++)
+      for (let x = 0; x < COLUMN.lane; x++) {
+        const ia = ((lower.top + y) * width + lower.lane + x) * 4;
+        const ib = ((height - overlap + y) * width + upper.lane + x) * 4;
+        let differs =
+          Math.abs((notes.data[ia + 3] ?? 0) - (notes.data[ib + 3] ?? 0)) >
+          alphaTolerance;
+        for (let c = 0; c < 4 && !differs; c++)
+          differs =
+            Math.abs((lanes.data[ia + c] ?? 0) - (lanes.data[ib + c] ?? 0)) >
+            colourTolerance;
+        if (differs) differing++;
       }
     if (differing > total * CHART_LIMITS.mismatch)
       throw new ChartLayoutError(

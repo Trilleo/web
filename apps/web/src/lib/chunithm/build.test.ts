@@ -343,16 +343,16 @@ describe("building a chart's picture", () => {
     const broken = makeChart(HEIGHT, TOPS, LABELS);
     for (let y = HEIGHT - COLUMN.overlap; y < HEIGHT; y++)
       for (let x = 250; x < 400; x++)
-        broken.obj.data.set([255, 0, 0, 255], (y * 650 + x) * 4);
+        broken.bg.data.set([255, 0, 0, 255], (y * 650 + x) * 4);
     files.set(
-      `${ORIGIN}/chunithm/01/obj/data01001mst.webp`,
-      layer(await webp(broken.obj)),
+      `${ORIGIN}/chunithm/01/bg/01001bg.webp`,
+      layer(await webp(broken.bg)),
     );
     await requestBuild(deps(), chartId, "normal");
     await runBuilds(deps());
     const [row] = await handle.db.select().from(chuniBuilds);
     expect(row?.error).toBe(
-      "Columns 1 and 2 don't line up. All three layers are kept, so the next try downloads them only if sdvx.in has changed them.",
+      "Columns 1 and 2 don't line up. The lanes and notes layers are kept, so the next try downloads only the rest.",
     );
   });
 

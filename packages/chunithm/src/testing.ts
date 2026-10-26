@@ -17,9 +17,14 @@ export const colourAt = (p: number): [number, number, number] => [
   128,
 ];
 
+/** The lanes' grey at strip position p: a beat line every BEAT rows, as sdvx.in's. */
+export const BEAT = 8;
+export const laneAt = (p: number): number[] =>
+  p % BEAT === 0 ? [120, 120, 120, 255] : [20, 20, 20, 255];
+
 /**
- * Draws a chart: a strip with a colour per row (`colourAt`) and measure labels at the
- * given positions, cut into columns with these tops that share COLUMN.overlap rows
+ * Draws a chart: lanes (`laneAt`) under a strip with a colour per row (`colourAt`)
+ * and measure labels at the given positions, cut into columns with these tops that share COLUMN.overlap rows
  * with the next. Returns the three layers and the strip's height.
  */
 export function makeChart(height: number, tops: number[], labels: number[]) {
@@ -38,7 +43,7 @@ export function makeChart(height: number, tops: number[], labels: number[]) {
     for (let y = height - 1; y >= top; y--) {
       const p = first + (height - 1 - y);
       for (let x = lane; x < lane + COLUMN.lane; x++) {
-        set(bg, x, y, [20, 20, 20, 255]);
+        set(bg, x, y, laneAt(p));
         set(obj, x, y, [...colourAt(p), 255]);
       }
       if (labels.some((label) => p >= label && p < label + 10))
