@@ -28,6 +28,7 @@ import {
 import { field } from "../../../lib/comments/form";
 import { getDb } from "../../../lib/db";
 import { getStorage } from "../../../lib/storage/config";
+import { toast, toastError } from "../../../lib/toast";
 
 export const prerender = false;
 
@@ -104,6 +105,12 @@ const row =
 const label = "type-label col-span-4 md:col-span-2 xl:col-span-2";
 const body =
   "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
+if (done === "queued")
+  toast(
+    Astro,
+    "Importing in the background. Reload in a minute to see what it came to.",
+  );
+toastError(Astro, error);
 ---
 
 <BaseLayout title="CHUNITHM import · Admin" noindex>
@@ -173,17 +180,6 @@ const body =
     <div class={row}>
       <p class={label}>Ready</p>
       <div class={body}>
-        {done === "queued" && (
-          <p role="status" class="type-lead border-l-2 border-accent pl-4">
-            Importing in the background. Reload in a minute to see what it came
-            to.
-          </p>
-        )}
-        {error && (
-          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
-            {error}
-          </p>
-        )}
         {waiting.length === 0 ? (
           <p class="text-muted">No bundles waiting.</p>
         ) : (

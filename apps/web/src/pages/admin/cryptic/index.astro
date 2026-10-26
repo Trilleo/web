@@ -24,6 +24,8 @@ import { requireAdmin } from "../../../lib/auth/guard";
 import { crypticOverview, puzzleNumbers } from "../../../lib/cryptic/puzzles";
 import { queueWarning } from "../../../lib/cryptic/queue";
 import { getDb } from "../../../lib/db";
+import { toast } from "../../../lib/toast";
+import Notice from "../../../components/Notice.astro";
 
 export const prerender = false;
 
@@ -70,6 +72,7 @@ const row =
 const label = "type-label col-span-4 md:col-span-2 xl:col-span-2";
 const body =
   "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
+if (done) toast(Astro, DONE[done]);
 ---
 
 <BaseLayout title="Daily cryptic · Admin" noindex>
@@ -98,14 +101,9 @@ const body =
           </a>
         </p>
         {warning && (
-          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+          <Notice>
             {warning} Bots answer “no puzzle” on a day without one.
-          </p>
-        )}
-        {done && DONE[done] && (
-          <p role="status" class="type-lead border-l-2 border-accent pl-4">
-            {DONE[done]}
-          </p>
+          </Notice>
         )}
         {overview.today ? (
           <article

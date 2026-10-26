@@ -25,6 +25,7 @@ import {
 import { getStorage } from "../../../../lib/storage/config";
 import { STATUS_LABELS } from "../../../../lib/storage/labels";
 import { formatBytes } from "@trilleo/tool-kit/files";
+import { toast, toastError } from "../../../../lib/toast";
 
 export const prerender = false;
 
@@ -75,6 +76,13 @@ const input =
   "w-full border border-ink bg-paper px-3 py-2 text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 const small =
   "type-label border border-ink px-2.5 py-1.5 text-ink hover:bg-ink hover:text-paper disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink";
+if (done === "created")
+  toast(Astro, "Project made. Add a few pictures here, then", "done", {
+    href: releaseEditPath(project.id, "new"),
+    label: "make its first release.",
+  });
+else if (error) toastError(Astro, error);
+else if (done) toast(Astro, DONE[done]);
 ---
 
 <BaseLayout title={`Gallery · ${project.name} · Minecraft`} noindex>
@@ -88,25 +96,6 @@ const small =
       current="gallery"
       live={live}
     />
-
-    {done === "created" ? (
-      <p role="status" class="type-lead mt-6 border-l-2 border-accent pl-4">
-        Project made. Add a few pictures here, then{" "}
-        <a href={releaseEditPath(project.id, "new")} class="link-wipe">
-          make its first release
-        </a>
-        .
-      </p>
-    ) : (
-      (error ?? (done && DONE[done])) && (
-        <p
-          role={error ? "alert" : "status"}
-          class="type-lead mt-6 border-l-2 border-accent pl-4"
-        >
-          {error ?? (done ? DONE[done] : "")}
-        </p>
-      )
-    )}
 
     <div class={row}>
       <h2 class={heading}>Add pictures</h2>

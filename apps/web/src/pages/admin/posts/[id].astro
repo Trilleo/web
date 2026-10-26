@@ -20,6 +20,7 @@ import {
 import { getPost } from "../../../lib/blog/store";
 import { parseId } from "../../../lib/comments/form";
 import { getDb } from "../../../lib/db";
+import { toast, toastError } from "../../../lib/toast";
 
 export const prerender = false;
 
@@ -67,15 +68,14 @@ if (Astro.request.method === "POST") {
         publicUrl: null,
         previewUrl: null,
         errors: {},
-        notice: null,
         savedAt: null,
       };
   props = {
     ...base,
     values: outcome.values,
     errors: outcome.errors,
-    notice: "Not saved: check the fields marked below.",
   };
+  toastError(Astro, "Not saved: check the fields marked below.");
   Astro.response.status = 422;
 } else if (id === null) {
   props = {
@@ -85,17 +85,14 @@ if (Astro.request.method === "POST") {
     publicUrl: null,
     previewUrl: null,
     errors: {},
-    notice: null,
     savedAt: null,
   };
 } else {
   const post = await getPost(db, id);
   if (!post) return Astro.rewrite("/404");
   const done = Astro.url.searchParams.get("done") ?? "";
-  props = editorProps(post, {
-    notice: NOTICES[done] ?? null,
-    site: Astro.url.origin,
-  });
+  props = editorProps(post, { site: Astro.url.origin });
+  toast(Astro, NOTICES[done]);
 }
 ---
 

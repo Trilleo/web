@@ -10,6 +10,7 @@ import { listAdminPosts, type AdminPostState } from "../../../lib/blog/store";
 import { getDb } from "../../../lib/db";
 import { formatPostDate } from "../../../lib/listings";
 import { postHref } from "../../../lib/posts";
+import { toast } from "../../../lib/toast";
 
 export const prerender = false;
 
@@ -39,6 +40,7 @@ const MODE_LABEL = {
   closed: "Comments closed",
   off: "Comments off",
 };
+if (deleted) toast(Astro, "Deleted.");
 ---
 
 <BaseLayout title="Posts · Admin" noindex>
@@ -55,11 +57,6 @@ const MODE_LABEL = {
         {counts || "No posts"}
       </p>
       <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
-        {deleted && (
-          <p role="status" class="type-lead border-l-2 border-accent pl-4">
-            Deleted.
-          </p>
-        )}
         <a
           href="/admin/posts/new/"
           class={buttonClasses({ className: "w-fit" })}

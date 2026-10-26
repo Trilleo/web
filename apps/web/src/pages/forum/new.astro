@@ -37,6 +37,7 @@ import {
   loadTree,
   renderBody,
 } from "../../lib/forum/store";
+import { toastError } from "../../lib/toast";
 
 export const prerender = false;
 
@@ -129,6 +130,8 @@ const crumbs = [
   { label: forum.name, href: forumPath(forum) },
   { label: "New topic" },
 ];
+if (errors.title || errors.body || Object.keys(pollErrors).length > 0)
+  toastError(Astro, "Not posted: check the fields marked below.");
 ---
 
 <BaseLayout title={`New topic in ${forum.name}`} noindex>
@@ -171,13 +174,6 @@ const crumbs = [
                   <Fragment set:html={preview} />
                 </div>
               </div>
-            )}
-            {(errors.title ||
-              errors.body ||
-              Object.keys(pollErrors).length > 0) && (
-              <p role="alert" class="border-l-2 border-accent pl-4">
-                Not posted: check the fields marked below.
-              </p>
             )}
             <PostForm
               action={`/forum/new/?in=${encodeURIComponent(forum.slug)}`}

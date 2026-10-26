@@ -33,6 +33,7 @@ import {
   type GroupField,
 } from "../../../../lib/forum/groups";
 import { profileHref } from "../../../../lib/profile/profile";
+import { toast, toastError } from "../../../../lib/toast";
 
 export const prerender = false;
 
@@ -136,6 +137,9 @@ const fields = [
     mono: true,
   },
 ] as const;
+if (Object.keys(errors).length > 0)
+  toastError(Astro, "Not saved: check the fields marked below.");
+else if (done) toast(Astro, DONE[done]);
 ---
 
 <BaseLayout title={`${group?.name ?? "New group"} · Forum · Admin`} noindex>
@@ -152,17 +156,6 @@ const fields = [
     <h1 id="group-heading" class="type-band mt-4 break-words">
       {group?.name ?? "New group"}
     </h1>
-
-    {(done || Object.keys(errors).length > 0) && (
-      <p
-        role={Object.keys(errors).length > 0 ? "alert" : "status"}
-        class="type-lead mt-6 border-l-2 border-accent pl-4"
-      >
-        {Object.keys(errors).length > 0
-          ? "Not saved: check the fields marked below."
-          : (DONE[done ?? ""] ?? "")}
-      </p>
-    )}
 
     <form
       method="post"

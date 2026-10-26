@@ -25,7 +25,6 @@ import Pager from "../../../components/forum/Pager.astro";
 import PostForm from "../../../components/forum/PostForm.astro";
 import PostItem from "../../../components/forum/PostItem.astro";
 import BanNotice from "../../../components/forum/BanNotice.astro";
-import Notices from "../../../components/forum/Notices.astro";
 import TopicBadges from "../../../components/forum/TopicBadges.astro";
 import { draftKey } from "../../../lib/forum/drafts";
 import Lightbox from "../../../components/forum/Lightbox.astro";
@@ -64,6 +63,7 @@ import {
   renderBody,
   usernameOf,
 } from "../../../lib/forum/store";
+import { forumNotices } from "../../../lib/forum/notices";
 
 export const prerender = false;
 
@@ -275,6 +275,7 @@ const quoteHref = (postId: number) =>
 const firstNumber = (listed.page - 1) * FORUM_LIMITS.postsPerPage + 1;
 const modForm = "/forum/action";
 const firstPostId = topic.firstPostId ?? 0;
+forumNotices(Astro);
 ---
 
 <BaseLayout
@@ -437,8 +438,6 @@ const firstPostId = topic.firstPostId ?? 0;
         )}
       </div>
     </div>
-
-    <Notices />
 
     {mod && (
       <div

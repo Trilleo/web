@@ -1,5 +1,10 @@
 import { randomBytes } from "node:crypto";
-import { expect, type Browser, type Page } from "@playwright/test";
+import {
+  expect,
+  type Browser,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 import { FAKE_USERS, type FakeUser } from "./fake-github";
 
 /** A login for this test attempt only (e.g. "newcomer-3fa9c1"); see fakeUserId. */
@@ -26,6 +31,11 @@ export async function continueAs(page: Page, user: string) {
 }
 
 /** Another browser with its own cookies (e.g. the admin next to a commenter). */
+/** The page's pop-up notices (components/Toasts.astro). */
+export function toasts(page: Page): Locator {
+  return page.locator("[data-toasts]");
+}
+
 export async function newPage(browser: Browser, baseURL: string | undefined) {
   const context = await browser.newContext({ baseURL });
   return context.newPage();

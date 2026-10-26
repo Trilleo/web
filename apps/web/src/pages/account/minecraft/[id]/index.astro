@@ -33,6 +33,7 @@ import type {
 } from "../../../../lib/minecraft/input";
 import { actionPath, editPath } from "../../../../lib/minecraft/paths";
 import { isVisible, projectOwner } from "../../../../lib/minecraft/store";
+import { toast, toastError } from "../../../../lib/toast";
 
 export const prerender = false;
 
@@ -95,6 +96,10 @@ const hintClass = (field: ProjectField) => [
   "text-sm",
   errors[field] ? "text-ink" : "text-muted",
 ];
+if (error) toastError(Astro, error);
+else if (hasErrors)
+  toastError(Astro, errors.form ?? "Not saved: check the fields marked below.");
+else if (saved) toast(Astro, "Saved.");
 ---
 
 <BaseLayout
@@ -113,19 +118,8 @@ const hintClass = (field: ProjectField) => [
       live={live}
     />
 
-    {(saved || hasErrors || error) && (
-      <p
-        role={hasErrors || error ? "alert" : "status"}
-        class="type-lead mt-6 border-l-2 border-accent pl-4"
-      >
-        {error ??
-          (hasErrors
-            ? (errors.form ?? "Not saved: check the fields marked below.")
-            : "Saved.")}
-      </p>
-    )}
     {project?.hiddenAt && (
-      <p role="alert" class="type-lead mt-6 border-l-2 border-accent pl-4">
+      <p role="alert" class="mt-6 border-l-2 border-accent pl-3">
         Hidden by the site owner: {project.hiddenReason ?? "no reason given"}.
         Others can’t see it.{" "}
         <a href="/contact/" class="link-wipe">

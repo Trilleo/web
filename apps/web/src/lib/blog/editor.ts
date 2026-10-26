@@ -51,8 +51,6 @@ export interface EditorProps {
   /** Its share link, if one exists (absolute, to copy). */
   previewUrl: string | null;
   errors: PostErrors;
-  /** A one-line result of the last action ("Published.", …). */
-  notice: string | null;
   /** ISO time of the last save, or null. */
   savedAt: string | null;
 }
@@ -85,7 +83,7 @@ export function editorValues(post: Post | PostInput): EditorValues {
 
 export function editorProps(
   post: Post,
-  options: { now?: Date; notice?: string | null; site?: URL | string } = {},
+  options: { now?: Date; site?: URL | string } = {},
 ): EditorProps {
   const now = options.now ?? new Date();
   return {
@@ -100,7 +98,6 @@ export function editorProps(
         ).href
       : null,
     errors: {},
-    notice: options.notice ?? null,
     savedAt: post.savedAt.toISOString(),
   };
 }

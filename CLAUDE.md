@@ -38,7 +38,7 @@
   theme (`theme.css`, CSS `@theme` tokens). Source-only, no build step. Tool
   building blocks: `ToolSection` (a section with its label in the left column),
   `FileDrop`, `Choice` (radio row), `Field` (label + hint as description),
-  `CopyButton`, `fieldClasses`.
+  `CopyButton`, `fieldClasses`; `./toast` the pop-up notices (`showToast`).
 - packages/db (@trilleo/db): Drizzle schema, migrations, and client. Source-only.
 - packages/storage (@trilleo/storage): file storage. `.` the shared rules (names,
   types, limits, the moderation state machine, API shapes), `./server` the drivers
@@ -126,6 +126,20 @@
   ancestors are links, the current page is plain text with aria-current.
 - The site header is stacked at z-30 (above anything raised in the page, below the
   cookie card's z-40), so its account menu covers the page. Keep page z-indexes under 30.
+- Messages after an action ("Saved.", "Couldn't do that.") are toasts: pop-ups
+  stacked in the bottom-right corner (the bottom on phones), at z-20, lifted above
+  the cookie card while it shows. A page queues them in its own frontmatter with
+  `toast(Astro, message)` / `toastError(Astro, message)` (src/lib/toast.ts; an
+  optional link), and components/Toasts.astro (in BaseLayout and WikiLayout,
+  before <main>) renders them, so they show without JavaScript. Scripts and React
+  islands call @trilleo/ui's `showToast(message, { tone })` (packages/ui/src/
+  toast.ts, styles `.toast*` in theme.css). Successes hide after `toastHideMs`
+  (paused on hover or focus); errors stay until closed (button or Escape). Each is
+  a status (errors an alert); server ones are also read out by a hidden announcer.
+  E2E finds them with `toasts(page)` (e2e/support.ts). Standing notices about the
+  page's state ("This file is private", mail not set up) and form errors stay in
+  the page at reading size: components/Notice.astro (the orange line), never
+  `type-lead`.
 - Astro scoped styles don't reach child components: wrap a child in an element
   you own if the parent's CSS must place it.
 - Use the width. Content starts at column 3 only when something hangs in columns

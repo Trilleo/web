@@ -30,6 +30,7 @@ import {
   listMail,
   mailCounts,
 } from "../../../lib/mail/outbox";
+import { toast, toastError } from "../../../lib/toast";
 
 export const prerender = false;
 
@@ -106,6 +107,8 @@ const transport =
 const input =
   "w-full border border-ink bg-paper px-3 py-2 text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 const testTo = config.adminTo[0] ?? admin.email ?? "";
+if (done) toast(Astro, DONE[done]);
+toastError(Astro, problem);
 ---
 
 <BaseLayout title="Mail · Admin" noindex>
@@ -116,15 +119,6 @@ const testTo = config.adminTo[0] ?? admin.email ?? "";
     <AdminNav current="mail" />
 
     <DisplayTitle id="mail-title">Mail</DisplayTitle>
-
-    {(done && DONE[done]) || problem ? (
-      <p
-        role={problem ? "alert" : "status"}
-        class="type-lead mt-6 border-l-2 border-accent pl-4"
-      >
-        {problem ?? (done ? DONE[done] : "")}
-      </p>
-    ) : null}
 
     <div class="grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
       <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">Setup</h2>

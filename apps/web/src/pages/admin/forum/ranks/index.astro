@@ -16,6 +16,7 @@ import { field } from "../../../../lib/comments/form";
 import { getDb } from "../../../../lib/db";
 import { loadRanks, saveRanks } from "../../../../lib/forum/reputation";
 import { cleanLine } from "../../../../lib/profile/profile";
+import { toast, toastError } from "../../../../lib/toast";
 
 export const prerender = false;
 
@@ -56,6 +57,8 @@ const rows = [
 ];
 const saved = Astro.url.searchParams.has("saved");
 const input = "w-full border border-ink bg-paper px-3 py-2 text-base";
+if (error) toastError(Astro, error);
+else if (saved) toast(Astro, "Saved.");
 ---
 
 <BaseLayout title="Ranks · Forum · Admin" noindex>
@@ -70,14 +73,6 @@ const input = "w-full border border-ink bg-paper px-3 py-2 text-base";
       <p class="type-label col-span-4 md:col-span-2 xl:col-span-2">Forum</p>
       <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
         <ForumAdminNav current="ranks" />
-        {(saved || error) && (
-          <p
-            role={error ? "alert" : "status"}
-            class="type-lead border-l-2 border-accent pl-4"
-          >
-            {error ?? "Saved."}
-          </p>
-        )}
         <p class="text-muted">
           Points: {POINTS.post} per published post, {POINTS.reactionReceived}{" "}
           per reaction someone gives one of their posts, {POINTS.acceptedAnswer}{" "}

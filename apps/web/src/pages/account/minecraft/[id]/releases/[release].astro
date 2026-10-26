@@ -40,6 +40,7 @@ import {
 import { getStorage } from "../../../../../lib/storage/config";
 import { STATUS_LABELS } from "../../../../../lib/storage/labels";
 import { downloadPath } from "../../../../../lib/storage/service";
+import { toast, toastError } from "../../../../../lib/toast";
 
 export const prerender = false;
 
@@ -90,6 +91,10 @@ if (Astro.request.method === "POST") {
     outcome.values,
     outcome.errors,
   );
+  toastError(
+    Astro,
+    outcome.errors.form ?? "Not saved: check the fields marked below.",
+  );
   Astro.response.status = 422;
 } else {
   const done = Astro.url.searchParams.get("done");
@@ -107,9 +112,8 @@ if (Astro.request.method === "POST") {
     release && entry
       ? releaseDraftOf(release, entry.dependencies)
       : emptyReleaseDraft(),
-    {},
-    done ? (NOTICES[done] ?? null) : null,
   );
+  if (done) toast(Astro, NOTICES[done]);
 }
 
 // A build without pictures gets an isometric cover from its first preview.
@@ -133,6 +137,8 @@ const row = "grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6";
 const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
 const small =
   "type-label border border-ink px-2.5 py-1.5 text-ink hover:bg-ink hover:text-paper";
+if (error) toastError(Astro, error);
+else if (fileDone) toast(Astro, FILE_DONE[fileDone]);
 ---
 
 <BaseLayout
@@ -168,14 +174,6 @@ const small =
         <div id="files" class:list={[row, "scroll-mt-6"]}>
           <h2 class={heading}>Files ({files.length})</h2>
           <div class="col-span-4 flex flex-col gap-6 md:col-span-6 xl:col-span-10">
-            {(error || (fileDone && FILE_DONE[fileDone])) && (
-              <p
-                role={error ? "alert" : "status"}
-                class="type-lead border-l-2 border-accent pl-4"
-              >
-                {error ?? (fileDone ? FILE_DONE[fileDone] : "")}
-              </p>
-            )}
             {files.length === 0 ? (
               <p class="text-muted">
                 No files yet. Upload the main file: it’s what Download gets.

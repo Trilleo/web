@@ -29,6 +29,7 @@ import {
 } from "../../../lib/chunithm/aliases";
 import { field, parseId } from "../../../lib/comments/form";
 import { getDb } from "../../../lib/db";
+import { toast, toastError } from "../../../lib/toast";
 
 export const prerender = false;
 
@@ -122,6 +123,8 @@ const body =
   "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
 const input =
   "type-row h-9 border-b border-ink bg-transparent focus:outline-none focus-visible:border-accent";
+if (done) toast(Astro, DONE[done]);
+toastError(Astro, error);
 ---
 
 <BaseLayout title="CHUNITHM names · Admin" noindex>
@@ -142,16 +145,6 @@ const input =
     <div class={row}>
       <p class={label}>Suggested</p>
       <div class={body}>
-        {done && DONE[done] && (
-          <p role="status" class="type-lead border-l-2 border-accent pl-4">
-            {DONE[done]}
-          </p>
-        )}
-        {error && (
-          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
-            {error}
-          </p>
-        )}
         {queue.length === 0 ? (
           <p class="text-muted">Nothing waiting.</p>
         ) : (

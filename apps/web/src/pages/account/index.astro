@@ -11,6 +11,7 @@ import { formatPostDate } from "../../lib/listings";
 import { postHref } from "../../lib/posts";
 import { displayName, profileHref } from "../../lib/profile/profile";
 import Avatar from "../../components/account/Avatar.astro";
+import { toast } from "../../lib/toast";
 
 export const prerender = false;
 
@@ -28,6 +29,13 @@ const STATUS = {
   published: "Published",
   hidden: "Hidden by the admin",
 } as const;
+if (Astro.url.searchParams.has("welcome"))
+  toast(
+    Astro,
+    "Welcome! Your account is ready. Add a display name and a bio to your profile, or link GitHub to sign in with it too.",
+    "done",
+    { href: "/account/profile/", label: "Edit your profile" },
+  );
 ---
 
 <BaseLayout title="Account" noindex>
@@ -38,13 +46,6 @@ const STATUS = {
     <p class="type-label text-ink">(Account) @{user.username}</p>
 
     <DisplayTitle id="account-title">Account</DisplayTitle>
-
-    {Astro.url.searchParams.has("welcome") && (
-      <p role="status" class="type-lead mt-6 border-l-2 border-accent pl-4">
-        Welcome! Your account is ready. Add a display name and a bio to your
-        profile, or link GitHub to sign in with it too.
-      </p>
-    )}
 
     <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
       <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">You</h2>

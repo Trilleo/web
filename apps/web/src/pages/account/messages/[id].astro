@@ -30,6 +30,7 @@ import {
 import { draftKey } from "../../../lib/forum/drafts";
 import { formatWhen } from "../../../lib/forum/public";
 import { loadTree } from "../../../lib/forum/store";
+import { toast, toastError } from "../../../lib/toast";
 
 export const prerender = false;
 
@@ -134,6 +135,8 @@ const starter = membership.conversation.startedById === user.id;
 const others = members.filter((member) => member.id !== user.id);
 const now = new Date();
 const small = "group type-label cursor-pointer text-muted hover:text-ink";
+if (error) toastError(Astro, error);
+else toast(Astro, notice);
 ---
 
 <BaseLayout title={membership.conversation.subject} noindex>
@@ -166,15 +169,6 @@ const small = "group type-label cursor-pointer text-muted hover:text-ink";
               .join(", ")}
       </span>
     </p>
-    {(notice || error) && (
-      <p
-        role={error ? "alert" : "status"}
-        class="mt-6 border-l-2 border-accent pl-4"
-      >
-        {error ?? notice}
-      </p>
-    )}
-
     <ol class="mt-8 flex flex-col" data-testid="messages">
       {messages.map((view) => (
         <li

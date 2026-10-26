@@ -331,6 +331,90 @@ html[data-theme-switching]::view-transition-new(root) {
   }
 }
 
+/* ---------------------------------------------------------------------------
+ * Toasts (../toast.ts): the line a page shows after an action, stacked in the
+ * bottom-right corner (the full width on phones), above the cookie card while it
+ * shows (--toast-lift). Under the header (z-30), so its menu still covers them.
+ * The close button is hidden until the script binds it.
+ * ------------------------------------------------------------------------- */
+@layer components {
+  .toast-region {
+    position: fixed;
+    z-index: 20;
+    right: 1rem;
+    bottom: calc(1rem + var(--toast-lift, 0px));
+    left: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    pointer-events: none;
+    @media (width >= 48rem) {
+      left: auto;
+      width: 24rem;
+    }
+    @media print {
+      display: none;
+    }
+  }
+  .toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    border: 1px solid var(--tr-ink);
+    background-color: var(--tr-paper);
+    color: var(--tr-ink);
+    padding: 0.75rem 0.5rem 0.75rem 0.75rem;
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    box-shadow: 0 0 0 1px var(--tr-paper);
+    transition:
+      opacity var(--tr-dur-fast) var(--tr-ease-in),
+      translate var(--tr-dur-fast) var(--tr-ease-in);
+    @media (prefers-reduced-motion: no-preference) {
+      animation: tr-rise var(--tr-dur-base) var(--tr-ease-out) backwards;
+    }
+  }
+  .toast[data-toast="error"] {
+    border-color: var(--tr-accent);
+  }
+  .toast[data-leaving] {
+    opacity: 0;
+    translate: 0 0.5rem;
+  }
+  .toast-message {
+    flex: 1;
+    min-width: 0;
+    border-left: 2px solid var(--tr-accent);
+    padding-left: 0.75rem;
+    overflow-wrap: anywhere;
+  }
+  .toast-link {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+    &:hover {
+      text-decoration-color: var(--tr-accent);
+    }
+  }
+  .toast-close {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    margin-block: -0.25rem;
+    color: var(--tr-muted);
+    cursor: pointer;
+    transition: color var(--tr-dur-fast) var(--tr-ease);
+    &:hover {
+      color: var(--tr-ink);
+    }
+    &[hidden] {
+      display: none;
+    }
+  }
+}
+
 /* Layout: 4 columns on phones, 8 from 768px (iPad), 12 from 1280px (desktop). */
 @utility grid-swiss {
   display: grid;

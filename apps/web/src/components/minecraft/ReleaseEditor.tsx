@@ -14,7 +14,8 @@ import {
 import { uploadFile } from "@trilleo/storage/client";
 import { formatBytes } from "@trilleo/tool-kit/files";
 import { Button, FileDrop, buttonClasses } from "@trilleo/ui";
-import { useId, useMemo, useRef, useState, type SyntheticEvent } from "react";
+import { showToast } from "@trilleo/ui/toast";
+import { useMemo, useRef, useState, type SyntheticEvent } from "react";
 import type { ReleaseEditorProps } from "../../lib/minecraft/creator";
 import {
   CHANNELS,
@@ -50,17 +51,11 @@ export function ReleaseEditor(props: ReleaseEditorProps) {
   const isNew = props.releaseId === null;
   const [values, setValues] = useState<ReleaseDraft>(props.values);
   const [errors, setErrors] = useState(props.errors);
-  const [notice, setNotice] = useState<string | null>(
-    Object.keys(props.errors).length > 0
-      ? (props.errors.form ?? "Not saved: check the fields marked below.")
-      : props.notice,
-  );
   const [file, setFile] = useState<File | null>(null);
   const [hints, setHints] = useState<FileHints | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [progress, setProgress] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
-  const noticeId = useId();
 
   const set = <K extends keyof ReleaseDraft>(
     key: K,
@@ -130,13 +125,13 @@ export function ReleaseEditor(props: ReleaseEditorProps) {
     if (!file || !formRef.current) return;
     event.preventDefault();
     if (wrongType) {
-      setNotice(
+      showToast(
         `The main file must be ${props.extensions.map((ext) => `.${ext}`).join(", ")}.`,
+        { tone: "error" },
       );
       return;
     }
     setPhase("saving");
-    setNotice(null);
     let releaseId: number;
     try {
       const response = await fetch(props.action, {
@@ -149,17 +144,18 @@ export function ReleaseEditor(props: ReleaseEditorProps) {
         | { ok: false; errors: ReleaseEditorProps["errors"] };
       if (!result.ok) {
         setErrors(result.errors);
-        setNotice(
+        showToast(
           result.errors.form ?? "Not saved: check the fields marked below.",
+          { tone: "error" },
         );
         setPhase("idle");
-        document.getElementById(noticeId)?.scrollIntoView({ block: "center" });
         return;
       }
       releaseId = result.releaseId;
     } catch {
-      setNotice(
+      showToast(
         "Couldn’t reach the site. Check your connection and try again.",
+        { tone: "error" },
       );
       setPhase("idle");
       return;
@@ -256,16 +252,6 @@ export function ReleaseEditor(props: ReleaseEditorProps) {
         void onSubmit(event);
       }}
     >
-      {notice && (
-        <p
-          id={noticeId}
-          role={Object.keys(errors).length > 0 ? "alert" : "status"}
-          className="border-l-2 border-accent pl-4 type-lead"
-        >
-          {notice}
-        </p>
-      )}
-
       {isNew && (
         <div className={row}>
           <h2 className={heading}>Main file</h2>

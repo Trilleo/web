@@ -325,6 +325,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "help",
     changes: [
       {
+        date: "2026-10-26",
+        note: "Messages after an action pop up in the corner, are read out, and can be closed with Escape.",
+      },
+      {
         date: "2026-10-21",
         note: "The picture lightbox works with the keyboard; attaching files needs JavaScript.",
       },

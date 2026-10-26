@@ -42,6 +42,8 @@ import Thumb from "../../../components/files/Thumb.astro";
 import { listFiles, statusTotals } from "../../../lib/storage/store";
 import { users } from "@trilleo/db";
 import { eq } from "drizzle-orm";
+import { toast, toastError } from "../../../lib/toast";
+import Notice from "../../../components/Notice.astro";
 
 export const prerender = false;
 
@@ -174,6 +176,8 @@ const dot = (s: FileStatus) =>
     : s === "pending_review" || s === "processing"
       ? "bg-accent"
       : "bg-transparent border border-ink";
+if (done) toast(Astro, DONE_LABELS[done]);
+toastError(Astro, error);
 ---
 
 <BaseLayout title="Files · Admin" noindex>
@@ -191,16 +195,6 @@ const dot = (s: FileStatus) =>
         {formatBytes(stored.bytes)}
       </p>
       <div class="col-span-4 flex flex-col gap-6 md:col-span-6 xl:col-span-7">
-        {done && DONE_LABELS[done] && (
-          <p role="status" class="type-lead border-l-2 border-accent pl-4">
-            {DONE_LABELS[done]}
-          </p>
-        )}
-        {error && (
-          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
-            {error}
-          </p>
-        )}
         {waitingTotal > 0 && (
           <a
             href={`/admin/files/review?tab=${toReview && toReview.waiting === 0 ? (toReview.reports > 0 ? "reports" : "appeals") : "waiting"}`}
@@ -215,9 +209,9 @@ const dot = (s: FileStatus) =>
           </a>
         )}
         {storageKind === null ? (
-          <p class="type-lead border-l-2 border-accent pl-4">
+          <Notice>
             File storage isn’t set up on this server yet (deploy/storage.md).
-          </p>
+          </Notice>
         ) : (
           <>
             {storageKind === "local" && (

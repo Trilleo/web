@@ -208,7 +208,6 @@ export interface ReleaseEditorProps {
   releaseId: number | null;
   values: ReleaseDraft;
   errors: Errors<ReleaseField> & { form?: string };
-  notice: string | null;
   /** Where the form posts. */
   action: string;
   cancelHref: string;
@@ -225,7 +224,6 @@ export async function releaseEditorProps(
   release: McRelease | null,
   values: ReleaseDraft,
   errors: ReleaseEditorProps["errors"] = {},
-  notice: string | null = null,
 ): Promise<ReleaseEditorProps> {
   const info = typeInfo(project.type);
   const choices = await versionChoices(project);
@@ -245,7 +243,6 @@ export async function releaseEditorProps(
     releaseId: release?.id ?? null,
     values,
     errors,
-    notice,
     action: releaseEditPath(project.id, release?.id ?? "new"),
     cancelHref: releasesEditPath(project.id),
     releaseHrefBase: releasesEditPath(project.id),

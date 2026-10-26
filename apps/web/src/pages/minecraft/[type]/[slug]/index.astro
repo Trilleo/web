@@ -175,8 +175,8 @@ const label = "type-label col-span-4 md:col-span-2 xl:col-span-2";
     </p>
 
     {editable && (
-      <div class="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 border-l-2 border-accent pl-4">
-        <p class="type-lead">
+      <div class="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 border-l-2 border-accent pl-3">
+        <p>
           {project.hiddenAt
             ? `Hidden by the site owner: ${project.hiddenReason ?? "no reason given"}.`
             : !visible

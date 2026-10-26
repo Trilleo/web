@@ -36,6 +36,7 @@ import {
   type WikiDraft,
   type WikiField,
 } from "../../../../lib/wiki/wikis";
+import { toast } from "../../../../lib/toast";
 
 export const prerender = false;
 
@@ -98,6 +99,8 @@ const saved =
   Astro.url.searchParams.has("saved") && Astro.request.method === "GET";
 const added =
   Astro.request.method === "GET" ? Astro.url.searchParams.get("member") : null;
+if (saved) toast(Astro, "Saved.");
+if (added) toast(Astro, `@${added} is a member.`);
 ---
 
 {!context || !values ? (
@@ -123,11 +126,6 @@ const added =
         <h2 id="settings-heading" class="text-xl font-semibold">
           The wiki
         </h2>
-        {saved && (
-          <p class="border-l-2 border-accent pl-3" role="status">
-            Saved.
-          </p>
-        )}
         <input type="hidden" name="intent" value="settings" />
         <WikiFields values={values} errors={errors} creating={false} />
         <div>
@@ -149,11 +147,6 @@ const added =
           members, and move, protect and delete pages. The site's admin can do
           everything.
         </p>
-        {added && (
-          <p class="border-l-2 border-accent pl-3" role="status">
-            @{added} is a member.
-          </p>
-        )}
         {members.length === 0 ? (
           <p class="text-muted">No members yet.</p>
         ) : (

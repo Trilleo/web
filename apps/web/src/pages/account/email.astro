@@ -35,6 +35,7 @@ import {
 } from "../../lib/mail/addresses";
 import { mailSetup } from "../../lib/mail/config";
 import { sendNow } from "../../lib/mail/delivery";
+import { toast, toastError } from "../../lib/toast";
 
 export const prerender = false;
 
@@ -118,6 +119,8 @@ const input =
 const row = "grid-swiss gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6";
 const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
 const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
+if (error) toastError(Astro, error);
+else if (doneParam) toast(Astro, DONE[doneParam]);
 ---
 
 <BaseLayout title="Email" noindex>
@@ -137,24 +140,15 @@ const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
     {setup && !error && !doneParam && (
       <div
         role="status"
-        class="mt-6 flex flex-col gap-2 border-l-2 border-accent pl-4"
+        class="mt-6 flex flex-col gap-2 border-l-2 border-accent pl-3"
       >
-        <p class="type-lead">One more step: add your email address.</p>
+        <p class="font-medium">One more step: add your email address.</p>
         <p class="text-muted md:max-w-2xl">
           Accounts here are now known by their email address: you sign in with
           it (a code, no password), and it keeps your account yours even if you
           rename yourself on GitHub. Signing in with GitHub keeps working too.
         </p>
       </div>
-    )}
-
-    {(error || (doneParam && DONE[doneParam])) && (
-      <p
-        role={error ? "alert" : "status"}
-        class="type-lead mt-6 border-l-2 border-accent pl-4"
-      >
-        {error ?? (doneParam ? DONE[doneParam] : "")}
-      </p>
     )}
 
     <div class="mt-7 flex flex-col gap-12 md:mt-8 xl:mt-12">

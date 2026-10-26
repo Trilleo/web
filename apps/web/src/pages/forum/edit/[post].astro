@@ -33,6 +33,7 @@ import {
   loadTree,
   renderBody,
 } from "../../../lib/forum/store";
+import { toastError } from "../../../lib/toast";
 
 export const prerender = false;
 
@@ -104,6 +105,8 @@ const crumbs = [
   { label: topic.title, href: topicPath(forum, topic) },
   { label: "Edit" },
 ];
+if (errors.title || errors.body)
+  toastError(Astro, "Not saved: check the fields marked below.");
 ---
 
 <BaseLayout title={`Edit post · ${topic.title}`} noindex>
@@ -127,11 +130,6 @@ const crumbs = [
               <Fragment set:html={preview} />
             </div>
           </div>
-        )}
-        {(errors.title || errors.body) && (
-          <p role="alert" class="border-l-2 border-accent pl-4">
-            Not saved: check the fields marked below.
-          </p>
         )}
         <PostForm
           action={`/forum/edit/${String(post.id)}/`}

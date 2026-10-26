@@ -12,6 +12,7 @@
     "./consent": "./src/consent.ts",
     "./motion": "./src/motion.ts",
     "./reveal": "./src/reveal.ts",
+    "./toast": "./src/toast.ts",
     "./theme.css": "./src/styles/theme.css"
   },
   "scripts": {

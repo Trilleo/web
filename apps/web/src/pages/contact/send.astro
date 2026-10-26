@@ -70,14 +70,14 @@ const title = result.ok ? "Sent" : "Not sent";
           </p>
         ) : result.error === "invalid" ? (
           <>
-            <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+            <p role="alert" class="border-l-2 border-accent pl-3">
               Something needs fixing before this can be sent.
             </p>
             <ContactForm values={input} errors={result.errors} />
           </>
         ) : (
           <>
-            <p role="alert" class="type-lead border-l-2 border-accent pl-4">
+            <p role="alert" class="border-l-2 border-accent pl-3">
               {SEND_ERROR_MESSAGES[result.error]} The address is{" "}
               <a href={`mailto:${CONTACT_EMAIL}`} class="underline">
                 {CONTACT_EMAIL}

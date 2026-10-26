@@ -41,6 +41,7 @@ import { breadcrumbJsonLd, ogImagePath, toolCard } from "../../../../lib/seo";
 import { getStorage } from "../../../../lib/storage/config";
 import { toolPath } from "../../../../lib/tools/registry";
 import { listToolData } from "../../../../lib/tools/store";
+import { toast } from "../../../../lib/toast";
 
 export const prerender = false;
 
@@ -138,6 +139,7 @@ const sdvxPage = viewerPath ? new URL(viewerPath, SDVX_ORIGIN).href : null;
 const hasMirror = ["expert", "master", "ultima", "worldsend"].includes(
   difficulty,
 );
+toast(Astro, aliasMessage, aliasDone ? "done" : "error");
 ---
 
 <BaseLayout
@@ -357,14 +359,6 @@ const hasMirror = ["expert", "master", "ultima", "worldsend"].includes(
           translations, short forms.
           {aliases.length === 0 && " This song has none yet."}
         </p>
-        {aliasMessage && (
-          <p
-            role={aliasDone ? "status" : "alert"}
-            class="border-l-2 border-accent pl-4"
-          >
-            {aliasMessage}
-          </p>
-        )}
         {admin && aliases.length > 0 && (
           <ul class="flex flex-col text-sm" data-testid="admin-names">
             {aliases.map((alias) => (

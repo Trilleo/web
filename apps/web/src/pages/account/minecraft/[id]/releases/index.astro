@@ -24,6 +24,7 @@ import {
   dailyDownloads,
   recentDownloads,
 } from "../../../../../lib/storage/downloads-stats";
+import { toast, toastError } from "../../../../../lib/toast";
 
 export const prerender = false;
 
@@ -73,6 +74,8 @@ const done = Astro.url.searchParams.get("done");
 const error = Astro.url.searchParams.get("error");
 const row = "grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6";
 const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+if (error) toastError(Astro, error);
+else if (done === "deleted") toast(Astro, "Release deleted, with its files.");
 ---
 
 <BaseLayout title={`Releases · ${project.name} · Minecraft`} noindex>
@@ -86,15 +89,6 @@ const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
       current="releases"
       live={live}
     />
-
-    {(done === "deleted" || error) && (
-      <p
-        role={error ? "alert" : "status"}
-        class="type-lead mt-6 border-l-2 border-accent pl-4"
-      >
-        {error ?? "Release deleted, with its files."}
-      </p>
-    )}
 
     <div class={row}>
       <h2 class={heading}>Releases ({releases.length})</h2>

@@ -37,6 +37,7 @@ import {
   type PuzzleInput,
 } from "../../../lib/cryptic/puzzles";
 import { getDb } from "../../../lib/db";
+import { toast, toastError } from "../../../lib/toast";
 
 export const prerender = false;
 
@@ -143,6 +144,8 @@ const input =
   "type-row h-11 w-full border-b border-ink bg-transparent focus:outline-none focus-visible:border-accent disabled:text-muted";
 const area =
   "w-full border border-ink bg-transparent p-3 text-base focus:outline-none focus-visible:border-accent";
+if (saved) toast(Astro, "Saved.");
+toastError(Astro, error);
 ---
 
 <BaseLayout title={`${title} · Admin`} noindex>
@@ -167,16 +170,6 @@ const area =
       <p class={label}>{live ? "Live" : puzzle?.day ? "Scheduled" : "Draft"}</p>
       <form method="post" class={body} id="puzzle-form" data-cryptic-form>
         <input type="hidden" name="intent" value="save" />
-        {saved && (
-          <p role="status" class="type-lead border-l-2 border-accent pl-4">
-            Saved.
-          </p>
-        )}
-        {error && (
-          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
-            {error}
-          </p>
-        )}
         {live && (
           <p class="border-l-2 border-hair pl-4 text-muted">
             Its day has come, so the answer, enumeration and day stay as they

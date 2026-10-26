@@ -21,6 +21,7 @@ import { javaVersions } from "../../../lib/minecraft/game-versions";
 import { editPath, projectPath } from "../../../lib/minecraft/paths";
 import { openProjectReports } from "../../../lib/minecraft/service";
 import { adminCounts, adminProjects } from "../../../lib/minecraft/store";
+import { toast, toastError } from "../../../lib/toast";
 
 export const prerender = false;
 
@@ -72,6 +73,8 @@ const filters = [
   { value: "featured", label: "Featured" },
 ] as const;
 const actionForm = "/admin/minecraft/action";
+if (done) toast(Astro, DONE[done]);
+toastError(Astro, error);
 ---
 
 <BaseLayout title="Minecraft · Admin" noindex>
@@ -138,16 +141,6 @@ const actionForm = "/admin/minecraft/action";
             <span class="link-wipe">Files to review</span>
           </a>
         </nav>
-        {done && DONE[done] && (
-          <p role="status" class="type-lead border-l-2 border-accent pl-4">
-            {DONE[done]}
-          </p>
-        )}
-        {error && (
-          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
-            {error}
-          </p>
-        )}
       </div>
     </div>
 

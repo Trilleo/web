@@ -22,6 +22,7 @@ import { REPLY_MAX_LENGTH, contactRef } from "../../../lib/contact/reply";
 import { getDb } from "../../../lib/db";
 import { mailSetup } from "../../../lib/mail/config";
 import { mailAbout } from "../../../lib/mail/outbox";
+import { toast, toastError } from "../../../lib/toast";
 
 export const prerender = false;
 
@@ -87,6 +88,8 @@ const actions: Record<InboxView, readonly { status: string; label: string }[]> =
     ],
     archived: [{ status: "read", label: "Move to read" }],
   };
+if (done) toast(Astro, DONE_LABELS[done]);
+toastError(Astro, problem);
 ---
 
 <BaseLayout title="Messages · Admin" noindex>
@@ -135,16 +138,6 @@ const actions: Record<InboxView, readonly { status: string; label: string }[]> =
           Messages are deleted {CONTACT_RETENTION_DAYS} days after they arrive,
           as the privacy policy promises.
         </p>
-        {done && DONE_LABELS[done] && (
-          <p role="status" class="type-lead border-l-2 border-accent pl-4">
-            {DONE_LABELS[done]}
-          </p>
-        )}
-        {problem && (
-          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
-            {problem}
-          </p>
-        )}
       </div>
     </div>
 

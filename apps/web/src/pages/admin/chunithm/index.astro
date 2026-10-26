@@ -18,6 +18,7 @@ import DisplayTitle from "../../../components/DisplayTitle.astro";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { requireAdmin } from "../../../lib/auth/guard";
 import { noStoreRedirect } from "../../../lib/auth/redirect";
+import { toast, toastError } from "../../../lib/toast";
 import {
   DIFFICULTIES,
   WITHDRAW_REASON_MAX,
@@ -275,6 +276,9 @@ const input =
 const table = "w-full border-collapse text-left text-sm";
 const th = "type-label border-b border-ink py-2 pr-4 font-normal text-muted";
 const td = "border-b border-hair py-2 pr-4 align-top";
+const detail = "mt-1 text-sm text-muted";
+if (done) toast(Astro, DONE[done]);
+toastError(Astro, error);
 ---
 
 <BaseLayout title="CHUNITHM · Admin" noindex>
@@ -291,67 +295,42 @@ const td = "border-b border-hair py-2 pr-4 align-top";
     <div class={row}>
       <p class={label}>Catalog</p>
       <div class={body}>
-        {done && DONE[done] && (
-          <p role="status" class="type-lead border-l-2 border-accent pl-4">
-            {DONE[done]}
-          </p>
-        )}
-        {error && (
-          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
-            {error}
-          </p>
-        )}
         {!fetching && (
           <p class="border-l-2 border-hair pl-4 text-muted">
             Fetching is switched off here (CHUNITHM_SYNC=off).
           </p>
         )}
         <dl
-          class="grid grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-5"
+          class="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-3 xl:grid-cols-5"
           data-testid="chunithm-counts"
         >
-          <div>
+          <div class="min-w-0">
             <dt class="type-label text-muted">Songs</dt>
-            <dd class="type-lead">
-              {overview.inGame}
-              <span class="text-muted">
-                {" "}
-                + {overview.songs - overview.inGame} removed
-              </span>
-            </dd>
+            <dd class="type-lead">{overview.inGame}</dd>
+            <dd class={detail}>+ {overview.songs - overview.inGame} removed</dd>
           </div>
-          <div>
+          <div class="min-w-0">
             <dt class="type-label text-muted">Charts linked to sdvx.in</dt>
-            <dd class="type-lead">
-              {overview.linked}{" "}
-              <span class="text-muted">of {overview.charts}</span>
-            </dd>
+            <dd class="type-lead">{overview.linked}</dd>
+            <dd class={detail}>of {overview.charts}</dd>
           </div>
-          <div>
+          <div class="min-w-0">
             <dt class="type-label text-muted">Version</dt>
             <dd class="type-lead">{overview.versions[0]?.name ?? "—"}</dd>
           </div>
-          <div>
+          <div class="min-w-0">
             <dt class="type-label text-muted">Jackets</dt>
-            <dd class="type-lead">
-              {overview.jackets}
-              <span class="text-muted">
-                {" "}
-                · {overview.jacketsMissing} missing
-                {overview.jacketsFailed > 0 &&
-                  ` (${String(overview.jacketsFailed)} failed: tried again a day later, or now with “Copy jackets now”)`}
-              </span>
+            <dd class="type-lead">{overview.jackets}</dd>
+            <dd class={detail}>
+              {overview.jacketsMissing} missing
+              {overview.jacketsFailed > 0 &&
+                ` · ${String(overview.jacketsFailed)} failed`}
             </dd>
           </div>
-          <div>
+          <div class="min-w-0">
             <dt class="type-label text-muted">On sdvx.in’s lists</dt>
-            <dd class="type-lead">
-              {overview.sdvxSongs}
-              <span class="text-muted">
-                {" "}
-                songs · read {when(overview.sdvxListedAt)}
-              </span>
-            </dd>
+            <dd class="type-lead">{overview.sdvxSongs}</dd>
+            <dd class={detail}>songs · read {when(overview.sdvxListedAt)}</dd>
           </div>
         </dl>
         <p class="text-muted">
@@ -359,28 +338,36 @@ const td = "border-b border-hair py-2 pr-4 align-top";
           another, a minute and a half apart, while jackets are still to be
           copied). Sources: SEGA’s song list, otoge-db and sdvx.in’s song lists.
         </p>
-        <form method="post">
-          <input type="hidden" name="intent" value="sync" />
-          <button
-            type="submit"
-            class={primaryButton}
-            disabled={!fetching || running}
-          >
-            {running ? "Checking…" : "Check now"}
-          </button>
-        </form>
-        <form method="post">
-          <input type="hidden" name="intent" value="jackets" />
-          <button
-            type="submit"
-            class={secondaryButton}
-            disabled={
-              !fetching || copyingJackets || overview.jacketsMissing === 0
-            }
-          >
-            {copyingJackets ? "Copying jackets…" : "Copy jackets now"}
-          </button>
-        </form>
+        <div class="flex flex-wrap items-center gap-3">
+          <form method="post">
+            <input type="hidden" name="intent" value="sync" />
+            <button
+              type="submit"
+              class={primaryButton}
+              disabled={!fetching || running}
+            >
+              {running ? "Checking…" : "Check now"}
+            </button>
+          </form>
+          <form method="post">
+            <input type="hidden" name="intent" value="jackets" />
+            <button
+              type="submit"
+              class={secondaryButton}
+              disabled={
+                !fetching || copyingJackets || overview.jacketsMissing === 0
+              }
+            >
+              {copyingJackets ? "Copying jackets…" : "Copy jackets now"}
+            </button>
+          </form>
+          {overview.jacketsFailed > 0 && (
+            <p class="text-sm text-muted md:max-w-md">
+              Jackets that failed are tried again a day later, or now with “Copy
+              jackets now”.
+            </p>
+          )}
+        </div>
       </div>
     </div>
 

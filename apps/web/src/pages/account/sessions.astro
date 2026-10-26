@@ -18,6 +18,7 @@ import {
 import { field } from "../../lib/comments/form";
 import { getDb } from "../../lib/db";
 import { formatPostDate } from "../../lib/listings";
+import { toast } from "../../lib/toast";
 
 export const prerender = false;
 
@@ -61,6 +62,13 @@ const lastUsed = (date: Date) =>
   Date.now() - date.getTime() < 10 * 60_000
     ? "Active now"
     : `Last used ${formatPostDate(date)}, ${time(date)} UTC`;
+if (done)
+  toast(
+    Astro,
+    done === "others"
+      ? "Signed out of every other browser."
+      : "Signed out of that browser.",
+  );
 ---
 
 <BaseLayout title="Sessions" noindex>
@@ -76,14 +84,6 @@ const lastUsed = (date: Date) =>
     </p>
 
     <DisplayTitle id="sessions-title">Sessions</DisplayTitle>
-
-    {done && (
-      <p role="status" class="type-lead mt-6 border-l-2 border-accent pl-4">
-        {done === "others"
-          ? "Signed out of every other browser."
-          : "Signed out of that browser."}
-      </p>
-    )}
 
     <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
       <h2 class="type-label col-span-4 md:col-span-2 xl:col-span-2">

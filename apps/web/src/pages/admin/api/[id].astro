@@ -63,6 +63,7 @@ import { noStoreRedirect } from "../../../lib/auth/redirect";
 import { field, parseId } from "../../../lib/comments/form";
 import { getDb } from "../../../lib/db";
 import { formatPostDate } from "../../../lib/listings";
+import { toast, toastError } from "../../../lib/toast";
 
 export const prerender = false;
 
@@ -256,6 +257,8 @@ const input =
 const stamp = (at: Date) =>
   `${at.toISOString().replace("T", " ").slice(0, 16)} UTC`;
 const STATE_LABEL = { active: "Works", revoked: "Revoked", expired: "Expired" };
+toast(Astro, notice);
+toastError(Astro, error);
 ---
 
 <BaseLayout title={`${app.name} · API · Admin`} noindex>
@@ -286,16 +289,6 @@ const STATE_LABEL = { active: "Works", revoked: "Revoked", expired: "Expired" };
           <span>{usage.requests.toLocaleString("en")} requests in 30 days</span>
           <span>{usage.errors.toLocaleString("en")} failed</span>
         </p>
-        {notice && (
-          <p role="status" class="type-lead border-l-2 border-accent pl-4">
-            {notice}
-          </p>
-        )}
-        {error && (
-          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
-            {error}
-          </p>
-        )}
         {secret && (
           <div
             role="status"

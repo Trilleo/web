@@ -29,6 +29,7 @@ import ScanBadge from "../../components/files/ScanBadge.astro";
 import { dailyDownloads } from "../../lib/storage/downloads-stats";
 import { hasOpenReport } from "../../lib/storage/reports";
 import { fileEvents, fileOwner, getFile } from "../../lib/storage/store";
+import { toast, toastError } from "../../lib/toast";
 
 export const prerender = false;
 
@@ -92,6 +93,12 @@ const facts = [
 const row = "grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6";
 const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
 const body = "col-span-4 md:col-span-6 xl:col-span-7";
+if (reported)
+  toast(
+    Astro,
+    "Thanks: you’ve reported this file. The site owner will look at it.",
+  );
+toastError(Astro, reportError);
 ---
 
 <BaseLayout
@@ -106,7 +113,7 @@ const body = "col-span-4 md:col-span-6 xl:col-span-7";
     <p class="type-label text-ink">(File) {file.label}</p>
 
     {statusNotice && (
-      <p role="status" class="type-lead mt-6 border-l-2 border-accent pl-4">
+      <p role="status" class="mt-6 border-l-2 border-accent pl-3">
         {statusNotice}
         {file.statusReason && <>: {file.statusReason}</>}
         {(status === "rejected" ||
@@ -127,7 +134,7 @@ const body = "col-span-4 md:col-span-6 xl:col-span-7";
       </p>
     )}
     {manager && isPublic === false && status === "published" && (
-      <p role="status" class="type-lead mt-6 border-l-2 border-accent pl-4">
+      <p role="status" class="mt-6 border-l-2 border-accent pl-3">
         This file is private: only you and the site owner can see it.
       </p>
     )}
@@ -310,16 +317,6 @@ const body = "col-span-4 md:col-span-6 xl:col-span-7";
     <div class={row} id="report">
       <h2 class={heading}>Report</h2>
       <div class:list={[body, "flex flex-col gap-5"]}>
-        {reported && (
-          <p role="status" class="type-lead border-l-2 border-accent pl-4">
-            Thanks: you’ve reported this file. The site owner will look at it.
-          </p>
-        )}
-        {reportError && (
-          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
-            {reportError}
-          </p>
-        )}
         {canReport && !reported && (
           <details class="group/report">
             <summary

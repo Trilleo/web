@@ -22,6 +22,7 @@ import {
   dailyDownloads,
   recentDownloads,
 } from "../../../lib/storage/downloads-stats";
+import { toast } from "../../../lib/toast";
 
 export const prerender = false;
 
@@ -52,6 +53,7 @@ const DONE: Record<string, string> = {
 };
 const row = "grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6";
 const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+if (done) toast(Astro, DONE[done]);
 ---
 
 <BaseLayout title="Minecraft · Account" noindex>
@@ -60,12 +62,6 @@ const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
     class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
   >
     <CreatorHeader login={user.username} title="Projects" />
-
-    {done && DONE[done] && (
-      <p role="status" class="type-lead mt-6 border-l-2 border-accent pl-4">
-        {DONE[done]}
-      </p>
-    )}
 
     <div class={row}>
       <h2 class={heading}>Your projects ({projects.length})</h2>

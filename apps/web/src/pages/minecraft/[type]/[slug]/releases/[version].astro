@@ -101,8 +101,8 @@ const body = "col-span-4 md:col-span-6 xl:col-span-7";
     {release.title && <p class="type-dek mt-4 text-muted">{release.title}</p>}
 
     {editable && !entry.live && (
-      <div class="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 border-l-2 border-accent pl-4">
-        <p class="type-lead">Not out yet: its main file isn’t published.</p>
+      <div class="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 border-l-2 border-accent pl-3">
+        <p>Not out yet: its main file isn’t published.</p>
         <a
           href={releaseEditPath(project.id, release.id)}
           class={buttonClasses({ variant: "secondary" })}

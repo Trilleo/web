@@ -24,6 +24,7 @@ import { counted, formatWhen, pageParam } from "../../../lib/forum/public";
 import { loadTree, waitingCount } from "../../../lib/forum/store";
 import { formatPostDate } from "../../../lib/listings";
 import { profileHref } from "../../../lib/profile/profile";
+import { toast, toastError } from "../../../lib/toast";
 
 export const prerender = false;
 
@@ -72,6 +73,8 @@ const logLabel = (action: string) =>
   Object.hasOwn(LOG_ACTIONS, action)
     ? LOG_ACTIONS[action as keyof typeof LOG_ACTIONS]
     : action;
+if (done) toast(Astro, DONE[done]);
+toastError(Astro, error);
 ---
 
 <BaseLayout title="Forum · Admin" noindex>
@@ -86,16 +89,6 @@ const logLabel = (action: string) =>
       <p class="type-label col-span-4 md:col-span-2 xl:col-span-2">Overview</p>
       <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
         <ForumAdminNav current={tab} queue={queue} />
-        {done && DONE[done] && (
-          <p role="status" class="type-lead border-l-2 border-accent pl-4">
-            {DONE[done]}
-          </p>
-        )}
-        {error && (
-          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
-            {error}
-          </p>
-        )}
       </div>
     </div>
 

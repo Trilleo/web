@@ -41,6 +41,7 @@ import { loadTree } from "../../../lib/forum/store";
 import { addPrefix, prefixesOf, removePrefix } from "../../../lib/forum/tags";
 import { PREFIX_MAX, PREFIX_STYLES } from "@trilleo/forum";
 import { profileHref } from "../../../lib/profile/profile";
+import { toast, toastError } from "../../../lib/toast";
 
 export const prerender = false;
 
@@ -188,6 +189,10 @@ const descriptionHint = hint(
   `One line under its name. Up to ${String(FORUM_LIMITS.description.max)} characters.`,
 );
 const parentHint = hint("parentId", "The category or forum it sits in.");
+if (Object.keys(errors).length > 0)
+  toastError(Astro, "Not saved: check the fields marked below.");
+else if (error) toastError(Astro, error);
+else if (done) toast(Astro, DONE_MESSAGES[done] ?? "Saved.");
 ---
 
 <BaseLayout title={`${heading} · Forum · Admin`} noindex>
@@ -212,17 +217,6 @@ const parentHint = hint("parentId", "The category or forum it sits in.");
     <h1 id="forum-edit-title" class="type-band mt-4 break-words">
       {heading}
     </h1>
-
-    {(done || error || Object.keys(errors).length > 0) && (
-      <p
-        role={error || Object.keys(errors).length > 0 ? "alert" : "status"}
-        class="type-lead mt-6 border-l-2 border-accent pl-4"
-      >
-        {Object.keys(errors).length > 0
-          ? "Not saved: check the fields marked below."
-          : (error ?? DONE_MESSAGES[done ?? ""] ?? "Saved.")}
-      </p>
-    )}
 
     <form
       method="post"

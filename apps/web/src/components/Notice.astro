@@ -1,0 +1,19 @@
+---
+/**
+ * A notice that belongs to the page's state rather than to an action just taken
+ * ("This file is private", "Mail isn't set up"): the orange line, at reading size.
+ * Results of an action ("Saved.") are toasts instead (lib/toast.ts).
+ */
+import type { HTMLAttributes } from "astro/types";
+
+type Props = HTMLAttributes<"div">;
+
+const { class: className, ...attributes } = Astro.props;
+---
+
+<div
+  class:list={["flex flex-col gap-2 border-l-2 border-accent pl-3", className]}
+  {...attributes}
+>
+  <slot />
+</div>

@@ -41,6 +41,7 @@ import {
   type AvatarError,
 } from "../../lib/profile/avatar";
 import { updateProfile } from "../../lib/profile/store";
+import { toast, toastError } from "../../lib/toast";
 
 export const prerender = false;
 
@@ -148,6 +149,14 @@ const lines = [
     autocomplete: "off",
   },
 ] as const;
+if (hasErrors) toastError(Astro, "Not saved: check the fields marked below.");
+else if (saved)
+  toast(Astro, "Saved.", "done", {
+    href: profileHref(user.username),
+    label: "See your profile",
+  });
+if (avatarError) toastError(Astro, avatarError);
+else toast(Astro, avatarStatus);
 ---
 
 <BaseLayout title="Edit profile" noindex>
@@ -164,36 +173,9 @@ const lines = [
 
     <DisplayTitle id="profile-title">Profile</DisplayTitle>
 
-    {(saved || hasErrors) && (
-      <p
-        role={hasErrors ? "alert" : "status"}
-        class="type-lead mt-6 border-l-2 border-accent pl-4"
-      >
-        {hasErrors ? (
-          "Not saved: check the fields marked below."
-        ) : (
-          <>
-            Saved.{" "}
-            <a href={profileHref(user.username)} class="link-wipe">
-              See your profile
-            </a>
-            .
-          </>
-        )}
-      </p>
-    )}
-
     <div id="avatar" class:list={[row, "mt-7 scroll-mt-6 md:mt-8 xl:mt-12"]}>
       <h2 class={heading}>Picture</h2>
       <div class={body}>
-        {(avatarStatus || avatarError) && (
-          <p
-            role={avatarError ? "alert" : "status"}
-            class="border-l-2 border-accent pl-4"
-          >
-            {avatarError ?? avatarStatus}
-          </p>
-        )}
         <div class="flex flex-wrap items-start gap-5">
           <Avatar user={user} size="lg" />
           <form

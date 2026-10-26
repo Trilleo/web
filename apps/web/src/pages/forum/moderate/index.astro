@@ -6,7 +6,6 @@
  */
 import Breadcrumb from "../../../components/Breadcrumb.astro";
 import DisplayTitle from "../../../components/DisplayTitle.astro";
-import Notices from "../../../components/forum/Notices.astro";
 import ReportQueue from "../../../components/forum/ReportQueue.astro";
 import WaitingQueue from "../../../components/forum/WaitingQueue.astro";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
@@ -26,6 +25,7 @@ import {
   waitingCount,
   waitingPosts,
 } from "../../../lib/forum/store";
+import { forumNotices } from "../../../lib/forum/notices";
 
 export const prerender = false;
 
@@ -80,6 +80,7 @@ const tabs = [
   { key: "waiting", label: "Waiting for approval", count: waiting },
   { key: "reports", label: "Reports", count: reportCount },
 ] as const;
+forumNotices(Astro);
 ---
 
 <BaseLayout title="Moderation · Forum" noindex>
@@ -97,7 +98,6 @@ const tabs = [
     <DisplayTitle id="moderate-title" fit={7.4}>
       Moderation
     </DisplayTitle>
-    <Notices />
 
     <div class="grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
       <nav

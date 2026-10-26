@@ -16,7 +16,7 @@ import {
   FAKE_CHUNITHM,
   UNDRAWN,
 } from "./fake-chunithm";
-import { adminPage, continueAs, freshLogin, hydrated } from "./support";
+import { adminPage, continueAs, freshLogin, hydrated, toasts } from "./support";
 
 // The catalog comes from e2e/fake-chunithm.ts: an update starts with the server's
 // first requests and takes a few seconds. Specs wait for it.
@@ -328,7 +328,7 @@ test("the admin adds, removes and decides names on a chart page", async ({
   await admin.goto(chart);
   await admin.getByLabel("Add a name").fill(added);
   await admin.getByRole("button", { name: "Add", exact: true }).click();
-  await expect(admin.locator("#names").getByRole("status")).toHaveText(
+  await expect(toasts(admin).getByRole("status")).toHaveText(
     "Name added: it’s searchable now.",
   );
   await expect(admin.getByTestId("chart-facts")).toContainText(added);
@@ -339,7 +339,7 @@ test("the admin adds, removes and decides names on a chart page", async ({
     .filter({ hasText: suggested });
   await waiting.getByLabel("Note (optional)").fill("Welcome");
   await waiting.getByRole("button", { name: "Approve" }).click();
-  await expect(admin.locator("#names").getByRole("status")).toHaveText(
+  await expect(toasts(admin).getByRole("status")).toHaveText(
     "Approved: the name is searchable now.",
   );
   await expect(admin.getByTestId("admin-names")).toContainText(suggested);
@@ -347,9 +347,7 @@ test("the admin adds, removes and decides names on a chart page", async ({
 
   for (const name of [added, suggested]) {
     await admin.getByRole("button", { name: `Remove ${name}` }).click();
-    await expect(admin.locator("#names").getByRole("status")).toHaveText(
-      "Name removed.",
-    );
+    await expect(toasts(admin).getByRole("status")).toHaveText("Name removed.");
   }
   await expect(admin.getByTestId("chart-facts")).not.toContainText(added);
 

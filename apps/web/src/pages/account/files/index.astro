@@ -18,6 +18,7 @@ import Thumb from "../../../components/files/Thumb.astro";
 import { getStorage } from "../../../lib/storage/config";
 import { recentDownloads } from "../../../lib/storage/downloads-stats";
 import { filePagePath, thumbnailUrlFor } from "../../../lib/storage/service";
+import { toast, toastError } from "../../../lib/toast";
 
 export const prerender = false;
 
@@ -63,6 +64,8 @@ const appealable = (status: string, purgedAt: Date | null) =>
 const row = "grid-swiss mt-12 gap-y-6 border-t border-ink pt-4 md:pt-5 xl:pt-6";
 const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
 const body = "col-span-4 md:col-span-6 xl:col-span-7";
+if (done) toast(Astro, DONE_LABELS[done]);
+toastError(Astro, error);
 ---
 
 <BaseLayout title="Your files" noindex>
@@ -78,17 +81,6 @@ const body = "col-span-4 md:col-span-6 xl:col-span-7";
     </p>
 
     <DisplayTitle id="files-title">Files</DisplayTitle>
-
-    {done && DONE_LABELS[done] && (
-      <p role="status" class="type-lead mt-6 border-l-2 border-accent pl-4">
-        {DONE_LABELS[done]}
-      </p>
-    )}
-    {error && (
-      <p role="alert" class="type-lead mt-6 border-l-2 border-accent pl-4">
-        {error}
-      </p>
-    )}
 
     <div class={row}>
       <h2 class={heading}>Storage</h2>
@@ -123,7 +115,7 @@ const body = "col-span-4 md:col-span-6 xl:col-span-7";
       <h2 class={heading}>Standing</h2>
       <div class:list={[body, "flex flex-col gap-3"]}>
         {standing.bannedAt ? (
-          <p class="type-lead border-l-2 border-accent pl-4">
+          <p class="border-l-2 border-accent pl-3">
             You can’t upload files at the moment
             {standing.banReason === "strikes"
               ? `: you have ${String(standing.activeStrikes)} strikes. The ban lifts when your strikes expire or an appeal is accepted.`

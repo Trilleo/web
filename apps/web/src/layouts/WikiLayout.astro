@@ -11,6 +11,7 @@ import type { PostHeading, User, Wiki } from "@trilleo/db";
 import { THEME_COLORS, themeInitScript } from "@trilleo/ui/theme";
 import CookieConsent from "../components/CookieConsent.astro";
 import TableOfContents from "../components/TableOfContents.astro";
+import Toasts from "../components/Toasts.astro";
 import WikiFooter from "../components/wiki/WikiFooter.astro";
 import WikiHeader from "../components/wiki/WikiHeader.astro";
 import WikiSidebar from "../components/wiki/WikiSidebar.astro";
@@ -106,6 +107,7 @@ const contents = toc.filter((heading) => heading.depth === 2);
       Skip to content
     </a>
     <WikiHeader wiki={wiki} user={user} main={main} path={path} />
+    <Toasts />
     <div class="grid-swiss px-page flex-1 gap-y-10 py-8 md:py-10">
       {wiki && (
         <div class="col-span-4 border-t border-ink pt-6 max-md:order-last md:col-span-2 md:border-t-0 md:pt-0 xl:col-span-2">

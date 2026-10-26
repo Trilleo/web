@@ -14,6 +14,7 @@ import { requireAdmin } from "../../../../lib/auth/guard";
 import { getDb } from "../../../../lib/db";
 import { listGroups } from "../../../../lib/forum/groups";
 import { counted } from "../../../../lib/forum/public";
+import { toast } from "../../../../lib/toast";
 
 export const prerender = false;
 
@@ -36,6 +37,7 @@ const window = (minutes: number | null) =>
         : minutes % 60 === 0
           ? `Edit for ${counted(minutes / 60, "hour")}`
           : `Edit for ${counted(minutes, "minute")}`;
+if (done === "deleted") toast(Astro, "Deleted.");
 ---
 
 <BaseLayout title="Groups · Forum · Admin" noindex>
@@ -50,11 +52,6 @@ const window = (minutes: number | null) =>
       <p class="type-label col-span-4 md:col-span-2 xl:col-span-2">Forum</p>
       <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
         <ForumAdminNav current="groups" />
-        {done === "deleted" && (
-          <p role="status" class="type-lead border-l-2 border-accent pl-4">
-            Deleted.
-          </p>
-        )}
         <p class="text-muted">
           Someone may do something if any of their groups may. Guests,
           Newcomers, Members and Admins follow the account; you add people to

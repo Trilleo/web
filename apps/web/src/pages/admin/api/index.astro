@@ -22,6 +22,7 @@ import { requireAdmin } from "../../../lib/auth/guard";
 import { noStoreRedirect } from "../../../lib/auth/redirect";
 import { getDb } from "../../../lib/db";
 import { formatPostDate } from "../../../lib/listings";
+import Notice from "../../../components/Notice.astro";
 
 export const prerender = false;
 
@@ -182,11 +183,7 @@ const input =
         New app
       </h2>
       <form method="post" class={`${body} max-w-2xl`} aria-labelledby="new-app">
-        {error && (
-          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
-            {error}
-          </p>
-        )}
+        {error && <Notice role="alert">{error}</Notice>}
         <label class="flex flex-col gap-1.5">
           <span class="type-label text-muted">Name</span>
           <input

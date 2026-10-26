@@ -1,0 +1,49 @@
+---
+/**
+ * The page's pop-ups (lib/toast.ts `toast()`), in BaseLayout and WikiLayout, before
+ * <main> so screen readers meet them after the header. Server-rendered, so they show
+ * without JavaScript; @trilleo/ui's toast.ts then announces them, adds the close
+ * button and hides successes. Scripts add more with `showToast()`.
+ */
+import { TOAST_CLOSE_ICON } from "@trilleo/ui/toast";
+
+const toasts = Astro.locals.toasts ?? [];
+---
+
+{toasts.length > 0 && (
+  <section data-toasts aria-label="Notifications" class="toast-region">
+    {toasts.map((item) => (
+      <div
+        class="toast"
+        data-toast={item.tone}
+        role={item.tone === "error" ? "alert" : "status"}
+      >
+        <p class="toast-message">
+          {item.message}
+          {item.link && (
+            <>
+              {" "}
+              <a href={item.link.href} class="toast-link">
+                {item.link.label}
+              </a>
+            </>
+          )}
+        </p>
+        <button
+          type="button"
+          class="toast-close"
+          data-toast-close
+          aria-label="Dismiss"
+          hidden
+          set:html={TOAST_CLOSE_ICON}
+        />
+      </div>
+    ))}
+  </section>
+)}
+
+<script>
+  import { bindToasts } from "@trilleo/ui/toast";
+
+  bindToasts(document);
+</script>

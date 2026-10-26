@@ -471,11 +471,6 @@ export function PostEditor(props: EditorProps) {
 
   return (
     <div className="flex flex-col gap-12">
-      {props.notice && (
-        <p role="status" className="border-l-2 border-accent pl-4 type-lead">
-          {props.notice}
-        </p>
-      )}
       {backup && (
         <div
           role="alert"

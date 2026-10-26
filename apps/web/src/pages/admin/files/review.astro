@@ -15,6 +15,8 @@ import {
   reviewItems,
   type ReviewTab,
 } from "../../../lib/storage/review";
+import { toast, toastError } from "../../../lib/toast";
+import Notice from "../../../components/Notice.astro";
 
 export const prerender = false;
 
@@ -69,6 +71,8 @@ const DONE_LABELS: Record<string, string> = {
   ban: "Uploads banned.",
   unban: "Ban lifted.",
 };
+if (done) toast(Astro, DONE_LABELS[done]);
+toastError(Astro, error);
 ---
 
 <BaseLayout title="Review · Files · Admin" noindex>
@@ -114,20 +118,10 @@ const DONE_LABELS: Record<string, string> = {
           ))}
         </nav>
         <p class="text-muted">{TAB_HINTS[tab]}</p>
-        {done && DONE_LABELS[done] && (
-          <p role="status" class="type-lead border-l-2 border-accent pl-4">
-            {DONE_LABELS[done]}
-          </p>
-        )}
-        {error && (
-          <p role="alert" class="type-lead border-l-2 border-accent pl-4">
-            {error}
-          </p>
-        )}
         {!deps && (
-          <p class="type-lead border-l-2 border-accent pl-4">
+          <Notice>
             File storage isn’t set up on this server yet (deploy/storage.md).
-          </p>
+          </Notice>
         )}
       </div>
     </div>
