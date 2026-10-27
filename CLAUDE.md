@@ -1291,7 +1291,12 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   gutter numbers often differ while lining up. Only where notes hide a line does it
   compare the drawing, on the lane: the notes layer's lossless alpha and the lanes'
   flat colour, never the notes' lossy colour; CHART_LIMITS. A chart that doesn't line
-  up fails with a reason), finds the measures (each gutter label's
+  up fails with a reason). A few charts' lanes (and sometimes measure numbers) are
+  still sdvx.in's older, half-size drawing under full-size notes (Oshama Scramble!'s
+  and 乗り切れ受験ウォーズ's Masters; OLD_COLUMN, `isOldLayer` by size): `fitOldLayer`
+  redraws them on the full-size grid (rows doubled from the top, lanes stretched, the
+  numbers doubled against the lane, BPM changes left out) and clears lanes above where
+  each column's notes start, since the older lanes may run on. Then it finds the measures (each gutter label's
   bottom row), flattens onto black, and cuts the strip (positions counted from the
   bottom) into TILE_HEIGHT WebP tiles under `chunithm/<chart>/<variant>-<random>/` in
   storage, public unless the chart is withdrawn. No `files` rows: chuni_builds holds

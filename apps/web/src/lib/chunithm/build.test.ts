@@ -1,5 +1,5 @@
 import { COLUMN, TILE_HEIGHT } from "@trilleo/chunithm";
-import { makeChart } from "@trilleo/chunithm/testing";
+import { makeChart, makeOldLayer } from "@trilleo/chunithm/testing";
 import {
   chuniBuilds,
   chuniCharts,
@@ -188,6 +188,27 @@ describe("building a chart's picture", () => {
     expect(row?.source).toMatchObject({
       ref: "01001/mst",
       obj: "/chunithm/01/obj/data01001mst.webp",
+    });
+  });
+
+  it("builds a chart whose lanes and numbers are sdvx.in's older, half-size drawing", async () => {
+    // As Oshama Scramble!'s and 乗り切れ受験ウォーズ's Masters still are.
+    files.set(
+      `${ORIGIN}/chunithm/01/bg/01001bg.webp`,
+      layer(await webp(makeOldLayer(chart.bg))),
+    );
+    files.set(
+      `${ORIGIN}/chunithm/01/bg/01001bar.webp`,
+      layer(await webp(makeOldLayer(chart.bar))),
+    );
+    await requestBuild(deps(), chartId, "normal");
+    await runBuilds(deps());
+    const state = await requestBuild(deps(), chartId, "normal");
+    if (state.status !== "ready") throw new Error(`not ready: ${state.status}`);
+    expect(state.manifest).toMatchObject({ height: chart.total, columns: 3 });
+    expect(state.manifest.measures).toHaveLength(LABELS.length);
+    state.manifest.measures.forEach((p, i) => {
+      expect(Math.abs(p - (LABELS[i] ?? 0))).toBeLessThanOrEqual(1);
     });
   });
 

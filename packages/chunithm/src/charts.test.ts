@@ -7,11 +7,20 @@ import {
   drawOver,
   findLayout,
   findMeasures,
+  fitOldLayer,
+  isOldLayer,
   stripHeight,
   stripTile,
   tileRanges,
 } from "./index";
-import { BEAT, blank, colourAt, laneAt, makeChart } from "./testing";
+import {
+  BEAT,
+  blank,
+  colourAt,
+  laneAt,
+  makeChart,
+  makeOldLayer,
+} from "./testing";
 
 describe("joining a chart", () => {
   const tops = [100, 60, 150];
@@ -229,5 +238,47 @@ describe("lossy layers", () => {
     expect(() => {
       checkOverlaps(bg, obj, layout);
     }).not.toThrow();
+  });
+});
+
+describe("sdvx.in's older, half-size layers", () => {
+  const tops = [100, 60, 150];
+  const height = 400;
+  const labels = [10, 250, 300, 600, 790];
+
+  it("recognises them by their size", () => {
+    const { bg, obj } = makeChart(height, tops, labels);
+    const old = makeOldLayer(bg);
+    expect(old.width).toBe(3 * 104 + 8);
+    expect(isOldLayer(old, obj)).toBe(true);
+    expect(isOldLayer(bg, obj)).toBe(false);
+    expect(isOldLayer({ width: old.width + 1, height: old.height }, obj)).toBe(
+      false,
+    );
+    expect(isOldLayer({ width: old.width, height: 100 }, obj)).toBe(false);
+  });
+
+  it("redraws them on the full-size grid, where they line up with the notes", () => {
+    const { bg, obj, bar } = makeChart(height, tops, labels);
+    const lanes = fitOldLayer(makeOldLayer(bg), obj, true);
+    const layout = findLayout(lanes);
+    expect(layout).toEqual(findLayout(bg));
+    expect(() => {
+      checkOverlaps(lanes, obj, layout);
+    }).not.toThrow();
+    // Measure numbers keep their rows, to the row halving's nearest.
+    const measures = findMeasures(fitOldLayer(makeOldLayer(bar), obj), layout);
+    expect(measures).toHaveLength(labels.length);
+    measures.forEach((p, i) => {
+      expect(Math.abs(p - (labels[i] ?? 0))).toBeLessThanOrEqual(1);
+    });
+  });
+
+  it("clears older lanes that run on above where the notes start", () => {
+    // As in Oshama Scramble!'s Master: the older lanes' last column is longer.
+    const longer = makeChart(height, [100, 60, 100], labels).bg;
+    const { obj } = makeChart(height, tops, labels);
+    const lanes = fitOldLayer(makeOldLayer(longer), obj, true);
+    expect(findLayout(lanes).columns.map((column) => column.top)).toEqual(tops);
   });
 });

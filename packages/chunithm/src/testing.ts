@@ -2,7 +2,7 @@
  * For tests: chart pictures drawn the way sdvx.in draws them, small enough to build
  * in a test (see charts.ts for the layout).
  */
-import { COLUMN, type RgbaImage } from "./charts";
+import { COLUMN, OLD_COLUMN, type RgbaImage } from "./charts";
 
 export const blank = (width: number, height: number): RgbaImage => ({
   width,
@@ -73,4 +73,45 @@ export function makeChart(height: number, tops: number[], labels: number[]) {
     }
   });
   return { bg, obj, bar, total: start, lines };
+}
+
+/**
+ * A full-size layer drawn the way sdvx.in's older site drew it (see OLD_COLUMN): half
+ * the rows, lanes squeezed to OLD_COLUMN.lane, the gutter's right part halved.
+ */
+export function makeOldLayer(image: RgbaImage): RgbaImage {
+  const columns = (image.width - COLUMN.gutter) / COLUMN.pitch;
+  const width = columns * OLD_COLUMN.pitch + OLD_COLUMN.margin;
+  const height = Math.ceil(image.height / 2);
+  const old = blank(width, height);
+  const copy = (sx: number, sy: number, x: number, y: number) => {
+    const i = (Math.min(sy, image.height - 1) * image.width + sx) * 4;
+    old.data.set(image.data.subarray(i, i + 4), (y * width + x) * 4);
+  };
+  for (let y = 0; y < height; y++)
+    for (let k = 0; k < columns; k++) {
+      const left = k * COLUMN.pitch;
+      const oldLeft = k * OLD_COLUMN.pitch;
+      for (
+        let r = OLD_COLUMN.gutter - OLD_COLUMN.label;
+        r < OLD_COLUMN.gutter;
+        r++
+      )
+        copy(
+          left + COLUMN.gutter - 2 * (OLD_COLUMN.gutter - r),
+          2 * y,
+          oldLeft + r,
+          y,
+        );
+      for (let x = 0; x < OLD_COLUMN.lane; x++)
+        copy(
+          left +
+            COLUMN.gutter +
+            Math.floor((x * COLUMN.lane) / OLD_COLUMN.lane),
+          2 * y,
+          oldLeft + OLD_COLUMN.gutter + x,
+          y,
+        );
+    }
+  return old;
 }

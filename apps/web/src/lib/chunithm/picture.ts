@@ -15,6 +15,8 @@ import {
   drawOver,
   findLayout,
   findMeasures,
+  fitOldLayer,
+  isOldLayer,
   sdvxImages,
   stripHeight,
   stripTile,
@@ -241,17 +243,24 @@ export async function makePicture(
   };
 
   const bgLayer = await get(images.bg, "lanes");
-  const picture = await decode(bgLayer, "lanes");
-  const layout = findLayout(picture);
+  const lanesImage = await decode(bgLayer, "lanes");
   const notesLayer = await get(notes, notesName);
   const notesImage = await decode(notesLayer, notesName);
+  // A few charts' lanes are still sdvx.in's older, half-size drawing (OLD_COLUMN).
+  const picture = isOldLayer(lanesImage, notesImage)
+    ? fitOldLayer(lanesImage, notesImage, true)
+    : lanesImage;
   sameSize(picture, notesImage, notesName);
+  const layout = findLayout(picture);
   checkOverlaps(picture, notesImage, layout);
   await giveWay();
   drawOver(picture, notesImage);
   await giveWay();
   const barLayer = await get(images.bar, "measure numbers");
-  const barImage = await decode(barLayer, "measure numbers");
+  const barDrawn = await decode(barLayer, "measure numbers");
+  const barImage = isOldLayer(barDrawn, notesImage)
+    ? fitOldLayer(barDrawn, notesImage)
+    : barDrawn;
   sameSize(picture, barImage, "measure numbers");
   const measures = findMeasures(barImage, layout);
   await giveWay();

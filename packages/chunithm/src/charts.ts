@@ -366,6 +366,89 @@ export function findMeasures(bar: RgbaImage, layout: ChartLayout): number[] {
   return measures;
 }
 
+/**
+ * sdvx.in's older drawing of a layer: a few charts (Oshama Scramble!'s and
+ * 乗り切れ受験ウォーズ's Masters) still have their lanes, and sometimes their measure
+ * numbers, as a half-size picture from its older site, under full-size notes. Its
+ * columns are OLD_COLUMN.pitch apart (a gutter, then a lane), every row is half a row
+ * of the full-size grid, counted from the top, and the picture is `margin` wider than
+ * its columns. sdvx.in's viewer stretches it over the notes; `fitOldLayer` redraws
+ * it on the full-size grid instead.
+ */
+export const OLD_COLUMN = {
+  pitch: 104,
+  gutter: 20,
+  lane: 71,
+  margin: 8,
+  /** The gutter's columns kept, from its right: wider, it holds the last lane's BPM. */
+  label: 12,
+} as const;
+
+/** Whether `layer` is sdvx.in's older, half-size drawing of a picture `size` big. */
+export function isOldLayer(
+  layer: { width: number; height: number },
+  size: { width: number; height: number },
+): boolean {
+  const columns = (size.width - COLUMN.gutter) / COLUMN.pitch;
+  return (
+    Number.isInteger(columns) &&
+    layer.width === columns * OLD_COLUMN.pitch + OLD_COLUMN.margin &&
+    Math.abs(layer.height * 2 - size.height) <= COLUMN.overlap
+  );
+}
+
+/**
+ * Redraws an older, half-size layer (see OLD_COLUMN) the size of `notes`: rows
+ * doubled from the top, lanes stretched to COLUMN.lane, and the measure numbers
+ * doubled and set against the lane, as sdvx.in sets them. Its BPM changes, drawn past
+ * the lane, are left out. For the lanes, `clip` clears each column above where its
+ * notes start: the notes are the current drawing, and the older lanes may run on.
+ */
+export function fitOldLayer(
+  old: RgbaImage,
+  notes: RgbaImage,
+  clip = false,
+): RgbaImage {
+  const { width, height } = notes;
+  const out = new Uint8Array(width * height * 4);
+  const columns = (width - COLUMN.gutter) / COLUMN.pitch;
+  const keep = OLD_COLUMN.label * 2;
+  for (let y = 0; y < height; y++) {
+    const sy = Math.min(Math.floor((y + 1) / 2), old.height - 1);
+    for (let k = 0; k < columns; k++) {
+      const left = k * COLUMN.pitch;
+      const oldLeft = k * OLD_COLUMN.pitch;
+      for (let dx = COLUMN.gutter - keep; dx < COLUMN.pitch; dx++) {
+        const sx =
+          dx < COLUMN.gutter
+            ? oldLeft + OLD_COLUMN.gutter - Math.ceil((COLUMN.gutter - dx) / 2)
+            : oldLeft +
+              OLD_COLUMN.gutter +
+              Math.floor(
+                ((dx - COLUMN.gutter) * OLD_COLUMN.lane) / COLUMN.lane,
+              );
+        const i = (sy * old.width + sx) * 4;
+        out.set(old.data.subarray(i, i + 4), (y * width + left + dx) * 4);
+      }
+    }
+  }
+  if (clip)
+    for (let k = 0; k < columns; k++) {
+      const lane = COLUMN.gutter + k * COLUMN.pitch;
+      let top = 0;
+      search: for (; top < height; top++)
+        for (let x = lane; x < lane + COLUMN.lane; x++)
+          if ((notes.data[(top * width + x) * 4 + 3] ?? 0) > 0) break search;
+      for (let y = 0; y < top; y++)
+        out.fill(
+          0,
+          (y * width + lane) * 4,
+          (y * width + lane + COLUMN.lane) * 4,
+        );
+    }
+  return { width, height, data: out };
+}
+
 /** Layers on top of the lanes, in place: `over` drawn over `under` (both RGBA). */
 export function drawOver(under: RgbaImage, over: RgbaImage): void {
   if (under.width !== over.width || under.height !== over.height)
