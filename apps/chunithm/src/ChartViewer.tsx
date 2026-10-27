@@ -480,7 +480,9 @@ function Picture({ label, manifest, mode, zoom }: PictureProps) {
         aria-label={`${label}: the chart, measure 1 at the bottom`}
         data-testid="chart-picture"
         data-mode={mode}
-        className={`h-[calc(100dvh-10rem)] min-h-96 border border-ink focus:outline-2 focus:outline-offset-2 focus:outline-accent ${mode === "strip" ? "overflow-x-auto overflow-y-auto" : "overflow-x-auto overflow-y-hidden"}`}
+        // svh, not dvh: on phones dvh follows the address bar as it slides in and out,
+        // so the box would resize mid-scroll.
+        className={`h-[calc(100svh-10rem)] min-h-96 border border-ink focus:outline-2 focus:outline-offset-2 focus:outline-accent ${mode === "strip" ? "overflow-x-auto overflow-y-auto" : "overflow-x-auto overflow-y-hidden"}`}
       >
         {mode === "strip" ? (
           <div
