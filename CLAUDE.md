@@ -1283,11 +1283,15 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   layers run to about 7 MB, slow from the mainland, so sources.ts `download` has no
   limit on the whole body, only on silence, and resumes a body that breaks off with
   Range + If-Range: LAYER_DOWNLOAD, JACKET_DOWNLOAD), checks every overlap
-  (`checkOverlaps`, before joining, on the lane only: the notes layer's alpha, which
-  WebP keeps losslessly, and the lanes' flat colour, never the notes' lossy colour,
-  which wanders by 60+ where a column starts, nor the gutter, whose numbers may differ;
-  CHART_LIMITS: lined up they match exactly, a row out differs on 2.7%+; a chart that
-  doesn't line up fails with a reason), finds the measures (each gutter label's
+  (`checkOverlaps`, before joining, by the measure line the two columns hand over on:
+  in the lanes layer it ends on the shared band's row COLUMN.measureLine in both;
+  `findLayout` puts each column's top by that line too, since sdvx.in draws some
+  columns' lanes a few rows short. The bands' drawing can't decide, as sdvx.in draws
+  each column on its own: notes a row apart, previews past the line, lane dividers and
+  gutter numbers often differ while lining up. Only where notes hide a line does it
+  compare the drawing, on the lane: the notes layer's lossless alpha and the lanes'
+  flat colour, never the notes' lossy colour; CHART_LIMITS. A chart that doesn't line
+  up fails with a reason), finds the measures (each gutter label's
   bottom row), flattens onto black, and cuts the strip (positions counted from the
   bottom) into TILE_HEIGHT WebP tiles under `chunithm/<chart>/<variant>-<random>/` in
   storage, public unless the chart is withdrawn. No `files` rows: chuni_builds holds

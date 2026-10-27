@@ -8,7 +8,9 @@
  * A column is read from the bottom up; the next column carries on above where it ends.
  * Every column's content runs down to the image's bottom edge, from its own top (a
  * column holds whole measures, so heights differ), and neighbours overlap: the top
- * COLUMN.overlap rows of one column are the bottom rows of the next.
+ * COLUMN.overlap rows of one column are the bottom rows of the next. The measure line
+ * where one column hands over to the next runs across the middle of that band, in
+ * the lanes layer, ending on its row COLUMN.measureLine.
  *
  * Positions on the joined strip are counted in pixels from its bottom (`p`), where
  * the chart starts, as the viewer reads it.
@@ -22,6 +24,8 @@ export const COLUMN = {
   lane: 150,
   /** Rows a column shares with the next one. */
   overlap: 48,
+  /** The shared band's measure line (two rows thick): its last row, from the band's top. */
+  measureLine: 24,
 } as const;
 
 /** How opaque a lanes-layer pixel must be to count as lane (out of 255). */
@@ -33,9 +37,19 @@ export const CHART_LIMITS = {
   maxHeight: 4096,
   maxColumns: 200,
   /**
-   * Share of a shared band's lane pixels that may differ. Lined up, sdvx.in's
-   * columns match exactly on what's compared (measured on 962 pairs: none differed),
-   * while a row out differs on 2.7% or more.
+   * A lanes-layer row is a measure line where at least `lineWidth` of the lane's
+   * pixels are more than `lineContrast` brighter (out of 255) than the rows `lineGap`
+   * above and below. sdvx.in's lines span about 100px between the side rails.
+   */
+  lineWidth: 80,
+  lineContrast: 20,
+  lineGap: 3,
+  /** How far from where it belongs a column's measure line is looked for. */
+  lineSearch: 8,
+  /**
+   * Where no measure line shows (notes drawn over it): the share of a shared band's
+   * lane pixels that may differ. Lined up, sdvx.in's columns mostly match exactly on
+   * what's compared, while a row out differs on 2.7% or more.
    */
   mismatch: 0.005,
   /** How far a notes-layer alpha may be off (it's lossless, so this is slack). */
@@ -65,7 +79,11 @@ export interface RgbaImage {
 export interface ChartLayout {
   width: number;
   height: number;
-  /** Each column's lane (left edge) and its first row with anything in it. */
+  /**
+   * Each column's lane (left edge) and its top: its first row with anything in it,
+   * or, where the lanes are drawn a few rows short or long, where its measure line
+   * puts it.
+   */
   columns: { lane: number; top: number }[];
   overlap: number;
 }
@@ -80,8 +98,43 @@ interface Segment {
 }
 
 /**
+ * Where a measure line ends near row `near` of a lane in the lanes layer: the last
+ * row of the line closest to it, within CHART_LIMITS.lineSearch rows, or null.
+ */
+function measureLineEnd(
+  lanes: RgbaImage,
+  lane: number,
+  near: number,
+): number | null {
+  const { width, height, data } = lanes;
+  const { lineWidth, lineContrast, lineGap, lineSearch } = CHART_LIMITS;
+  const luma = (x: number, y: number) => {
+    if (y < 0 || y >= height) return 0;
+    const i = (y * width + x) * 4;
+    const sum = (data[i] ?? 0) + (data[i + 1] ?? 0) + (data[i + 2] ?? 0);
+    return (sum / 3) * ((data[i + 3] ?? 0) / 255);
+  };
+  const isLine = (y: number) => {
+    let bright = 0;
+    for (let x = lane; x < lane + COLUMN.lane; x++) {
+      const v = luma(x, y);
+      if (v > luma(x, y - lineGap) + lineContrast)
+        if (v > luma(x, y + lineGap) + lineContrast) bright++;
+    }
+    return bright >= lineWidth;
+  };
+  let best: number | null = null;
+  for (let y = near - lineSearch; y <= near + lineSearch; y++)
+    if (isLine(y) && !isLine(y + 1))
+      if (best === null || Math.abs(y - near) < Math.abs(best - near)) best = y;
+  return best;
+}
+
+/**
  * Finds the columns in the lanes layer: runs of columns that have anything drawn,
- * each a lane wide, on the pitch. Throws ChartLayoutError otherwise.
+ * each a lane wide, on the pitch. Throws ChartLayoutError otherwise. A column's top
+ * is where its lanes start, unless its measure line says otherwise: sdvx.in draws
+ * some columns' lanes a few rows short (06102's Master, by 4).
  */
 export function findLayout(bg: RgbaImage): ChartLayout {
   const { width, height, data } = bg;
@@ -120,6 +173,10 @@ export function findLayout(bg: RgbaImage): ChartLayout {
     let top = 0;
     search: for (; top < height; top++)
       for (let x = left; x < right; x += 3) if (opaqueAt(x, top)) break search;
+    if (index < runs.length - 1) {
+      const end = measureLineEnd(bg, left, top + COLUMN.measureLine);
+      if (end !== null) top = Math.max(0, end - COLUMN.measureLine);
+    }
     return { lane: left, top };
   });
   for (const [index, column] of columns.entries())
@@ -130,50 +187,79 @@ export function findLayout(bg: RgbaImage): ChartLayout {
 
 /**
  * Checks that the columns line up: each column's top band shows the next column's
- * bottom band. Run on the lanes and notes layers before they're joined, and only on
- * what WebP keeps exactly: the notes' alpha (lossless) and the lanes' colour (flat, so
- * lossy coding hardly moves it). The notes' colour is lossy and wanders by 60 or more
- * where a column's drawing starts, so it isn't compared; nor is the gutter, whose
- * measure numbers the two columns may label differently. Only the band's upper half
- * is compared: there, past the shared measure line, the lower column previews what
- * the next one draws for real. In the lower half the next column previews the lower
- * one's end, and sdvx.in sometimes draws that preview differently (side rails left
- * off, as in Oracle's Expert); the strip keeps the lower column's own drawing of it.
- * Throws ChartLayoutError naming the first pair that doesn't line up.
+ * bottom band. The measure line they hand over on decides: it must end on the band's
+ * row COLUMN.measureLine in both (findLayout has already put the lower column's top
+ * by it, so this checks the next column's band is where the layout says).
+ *
+ * The bands' drawing can't decide: sdvx.in draws each column on its own, and the two
+ * often differ while lining up (measured on 1,904 pairs): notes a row apart from
+ * rounding, a measure line one row thicker, lane dividers in one only, what's past
+ * the line previewed differently (11029's Master), measure numbers placed or labelled
+ * differently in the gutter. So only where notes hide a line is the drawing compared,
+ * on what WebP keeps nearly exactly: the notes' alpha (lossless) and the lanes' flat
+ * colour, in the lane, the band's upper half. Throws ChartLayoutError naming the
+ * first pair that doesn't line up.
  */
 export function checkOverlaps(
   lanes: RgbaImage,
   notes: RgbaImage,
   layout: ChartLayout,
 ): void {
-  const { width } = lanes;
   const { height, overlap } = layout;
-  const { alphaTolerance, colourTolerance } = CHART_LIMITS;
-  const rows = overlap / 2;
-  const total = rows * COLUMN.lane;
   for (let k = 0; k + 1 < layout.columns.length; k++) {
     const lower = layout.columns[k];
     const upper = layout.columns[k + 1];
     if (!lower || !upper) continue;
-    let differing = 0;
-    for (let y = 0; y < rows; y++)
-      for (let x = 0; x < COLUMN.lane; x++) {
-        const ia = ((lower.top + y) * width + lower.lane + x) * 4;
-        const ib = ((height - overlap + y) * width + upper.lane + x) * 4;
-        let differs =
-          Math.abs((notes.data[ia + 3] ?? 0) - (notes.data[ib + 3] ?? 0)) >
-          alphaTolerance;
-        for (let c = 0; c < 4 && !differs; c++)
-          differs =
-            Math.abs((lanes.data[ia + c] ?? 0) - (lanes.data[ib + c] ?? 0)) >
-            colourTolerance;
-        if (differs) differing++;
-      }
-    if (differing > total * CHART_LIMITS.mismatch)
+    const band = height - overlap;
+    const lowerLine = measureLineEnd(
+      lanes,
+      lower.lane,
+      lower.top + COLUMN.measureLine,
+    );
+    const upperLine = measureLineEnd(
+      lanes,
+      upper.lane,
+      band + COLUMN.measureLine,
+    );
+    const linedUp =
+      lowerLine !== null && upperLine !== null
+        ? lowerLine - lower.top === COLUMN.measureLine &&
+          upperLine - band === COLUMN.measureLine
+        : drawnAlike(lanes, notes, layout, lower, upper);
+    if (!linedUp)
       throw new ChartLayoutError(
         `Columns ${String(k + 1)} and ${String(k + 2)} don't line up.`,
       );
   }
+}
+
+/** Whether two columns' shared band is drawn alike (see checkOverlaps). */
+function drawnAlike(
+  lanes: RgbaImage,
+  notes: RgbaImage,
+  layout: ChartLayout,
+  lower: { lane: number; top: number },
+  upper: { lane: number; top: number },
+): boolean {
+  const { width } = lanes;
+  const { height, overlap } = layout;
+  const { alphaTolerance, colourTolerance } = CHART_LIMITS;
+  const rows = overlap / 2;
+  let differing = 0;
+  for (let y = 0; y < rows; y++)
+    for (let x = 0; x < COLUMN.lane; x++) {
+      const ia = ((lower.top + y) * width + lower.lane + x) * 4;
+      const ib = ((height - overlap + y) * width + upper.lane + x) * 4;
+      let differs =
+        Math.abs((notes.data[ia + 3] ?? 0) - (notes.data[ib + 3] ?? 0)) >
+        alphaTolerance;
+      for (let c = 0; c < 4 && !differs; c++)
+        differs =
+          Math.abs((lanes.data[ia + c] ?? 0) - (lanes.data[ib + c] ?? 0)) >
+          colourTolerance;
+      if (differs) differing++;
+    }
+  return differing <= rows * COLUMN.lane * CHART_LIMITS.mismatch;
 }
 
 function segments(layout: ChartLayout): Segment[] {

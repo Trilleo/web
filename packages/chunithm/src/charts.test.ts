@@ -55,8 +55,9 @@ describe("joining a chart", () => {
   it("accepts a next column that previews the last one's end differently", () => {
     const { bg, obj } = makeChart(height, tops, labels);
     const layout = findLayout(bg);
-    // The second column's lowest rows (its preview of the first) drawn otherwise.
-    for (let y = height - COLUMN.overlap / 2; y < height; y++)
+    // The second column's lowest rows (its preview of the first, below the measure
+    // line they share) drawn otherwise.
+    for (let y = height - COLUMN.overlap / 2 + 2; y < height; y++)
       for (let x = 250; x < 400; x++) {
         bg.data.set([255, 0, 0, 255], (y * 650 + x) * 4);
         obj.data.set([255, 0, 0, 0], (y * 650 + x) * 4);
@@ -71,6 +72,34 @@ describe("joining a chart", () => {
     const p = height - 1 - 130; // row 130: in the first column's top band, lower half
     const i = ((total - 1 - p) * COLUMN.pitch + COLUMN.gutter + 10) * 4;
     expect([...tile.data.slice(i, i + 4)]).toEqual([...colourAt(p), 255]);
+  });
+
+  it("accepts bands drawn differently on a shared measure line", () => {
+    const { bg, obj } = makeChart(height, tops, labels);
+    const layout = findLayout(bg);
+    // As sdvx.in does: what's past the line previewed otherwise, and lane dividers
+    // drawn in one column only.
+    for (
+      let y = height - COLUMN.overlap;
+      y < height - COLUMN.measureLine - 4;
+      y++
+    )
+      for (let x = 250; x < 400; x++) obj.data[(y * 650 + x) * 4 + 3] = 0;
+    for (let y = height - COLUMN.overlap; y < height; y++)
+      for (const x of [290, 330, 370])
+        bg.data.set([88, 88, 88, 255], (y * 650 + x) * 4);
+    expect(() => {
+      checkOverlaps(bg, obj, layout);
+    }).not.toThrow();
+  });
+
+  it("puts a column's top by its measure line where its lanes start short", () => {
+    const { bg } = makeChart(height, tops, labels);
+    const clean = findLayout(bg);
+    // As in 呪歌-JyuKa-'s Master: the first column's lanes start 4 rows into its band.
+    for (let y = 100; y < 104; y++)
+      for (let x = 50; x < 200; x++) bg.data[(y * 650 + x) * 4 + 3] = 0;
+    expect(findLayout(bg)).toEqual(clean);
   });
 
   it("refuses columns that don't line up", () => {
@@ -136,7 +165,7 @@ describe("lossy layers", () => {
    * wobbles pixels (alternating up and down; alpha is lossless, so it stays).
    */
   const shared = (shift: number, noise: number) => {
-    const { bg, obj } = makeChart(height, tops, []);
+    const { bg, obj, lines } = makeChart(height, tops, []);
     const layout = findLayout(bg);
     const upper = layout.columns[1];
     if (!upper) throw new Error("two columns expected");
@@ -145,7 +174,7 @@ describe("lossy layers", () => {
       const p = first - layout.overlap + (height - 1 - y) - shift;
       for (let x = upper.lane; x < upper.lane + COLUMN.lane; x++) {
         const i = (y * bg.width + x) * 4;
-        bg.data.set(laneAt(p), i);
+        bg.data.set(laneAt(p, lines), i);
         const wobble = (x + y) % 2 === 0 ? noise : -noise;
         const colour = colourAt(p).map((v) =>
           Math.max(0, Math.min(255, v + wobble)),
@@ -180,9 +209,9 @@ describe("lossy layers", () => {
     }
   });
 
-  it("refuses notes a row out on plain lanes", () => {
+  it("compares the notes' alpha where no measure line shows", () => {
     const { bg, obj, layout } = shared(1, 0);
-    // Lanes without beat lines: only the notes' alpha shows the shift.
+    // Lanes without any lines: only the notes' alpha shows the shift.
     for (let i = 0; i < bg.data.length; i += 4)
       if ((bg.data[i + 3] ?? 0) > 0) bg.data.set([20, 20, 20, 255], i);
     expect(() => {
