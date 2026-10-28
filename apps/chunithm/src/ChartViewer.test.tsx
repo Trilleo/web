@@ -89,6 +89,30 @@ describe("the chart viewer", () => {
     ]);
   });
 
+  it("says when a chart is on plain lanes, without measure numbers", () => {
+    vi.stubGlobal("fetch", vi.fn());
+    render(
+      <ChartViewer
+        songId={1179}
+        difficulty="ultima"
+        label="Lapis, Ultima 14+"
+        initial={{
+          status: "ready",
+          manifest: { ...manifest, measures: [], plainLanes: true },
+          builtAt: "2026-10-28T00:00:00Z",
+        }}
+        hasMirror={false}
+        signedIn={false}
+        signInHref="/sign-in"
+      />,
+    );
+    expect(screen.getByTestId("chart-plain-lanes").textContent).toContain(
+      "plain lanes",
+    );
+    expect(screen.queryByTestId("chart-measure")).toBeNull();
+    expect(screen.getByTestId("chart-picture")).toBeTruthy();
+  });
+
   it("says why a picture can't be shown", async () => {
     vi.stubGlobal(
       "fetch",

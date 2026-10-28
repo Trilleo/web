@@ -2969,6 +2969,8 @@ export interface ChuniBuildManifest {
   tiles: { key: string; height: number }[];
   measures: number[];
   columns: number;
+  /** Drawn on plain lanes of our own: sdvx.in's didn't fit the notes (no measures). */
+  plainLanes?: true;
 }
 
 /**

@@ -445,31 +445,38 @@ function Picture({ label, manifest, mode, zoom }: PictureProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <form
-        onSubmit={jump}
-        className="flex flex-wrap items-center gap-3 type-label"
-      >
-        <span aria-live="polite" data-testid="chart-measure">
-          Measure {measure} of {total}
-        </span>
-        <label htmlFor={inputId} className="sr-only">
-          Go to measure
-        </label>
-        <input
-          id={inputId}
-          type="number"
-          min={1}
-          max={total}
-          value={target}
-          onChange={(event) => {
-            setTarget(event.target.value);
-          }}
-          className="h-9 w-20 border border-ink bg-paper px-2 text-ink focus:outline-2 focus:outline-offset-2 focus:outline-accent"
-        />
-        <Button type="submit" variant="secondary">
-          Go to measure
-        </Button>
-      </form>
+      {manifest.plainLanes ? (
+        <p className="text-sm text-muted" data-testid="chart-plain-lanes">
+          sdvx.in hasn’t drawn lanes or measure numbers for this chart, so its
+          notes are shown on plain lanes, without measure lines.
+        </p>
+      ) : (
+        <form
+          onSubmit={jump}
+          className="flex flex-wrap items-center gap-3 type-label"
+        >
+          <span aria-live="polite" data-testid="chart-measure">
+            Measure {measure} of {total}
+          </span>
+          <label htmlFor={inputId} className="sr-only">
+            Go to measure
+          </label>
+          <input
+            id={inputId}
+            type="number"
+            min={1}
+            max={total}
+            value={target}
+            onChange={(event) => {
+              setTarget(event.target.value);
+            }}
+            className="h-9 w-20 border border-ink bg-paper px-2 text-ink focus:outline-2 focus:outline-offset-2 focus:outline-accent"
+          />
+          <Button type="submit" variant="secondary">
+            Go to measure
+          </Button>
+        </form>
+      )}
       <div
         ref={box}
         onScroll={onScroll}

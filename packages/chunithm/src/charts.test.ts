@@ -9,6 +9,7 @@ import {
   findMeasures,
   fitOldLayer,
   isOldLayer,
+  plainLanes,
   stripHeight,
   stripTile,
   tileRanges,
@@ -280,5 +281,55 @@ describe("sdvx.in's older, half-size layers", () => {
     const { obj } = makeChart(height, tops, labels);
     const lanes = fitOldLayer(makeOldLayer(longer), obj, true);
     expect(findLayout(lanes).columns.map((column) => column.top)).toEqual(tops);
+  });
+});
+
+describe("plain lanes, for notes sdvx.in has no lanes for", () => {
+  const tops = [100, 60, 150];
+  const height = 400;
+
+  it("lays the notes' own columns out and checks they line up", () => {
+    const { bg, obj, total } = makeChart(height, tops, []);
+    const lanes = plainLanes(obj);
+    expect(lanes).not.toBeNull();
+    if (!lanes) return;
+    const layout = findLayout(lanes);
+    expect(layout).toEqual(findLayout(bg));
+    expect(() => {
+      checkOverlaps(lanes, obj, layout);
+    }).not.toThrow();
+    expect(stripHeight(layout)).toBe(total);
+    // Opaque black lanes, nothing in the gutters.
+    const at = (x: number, y: number) => [
+      ...lanes.data.slice((y * obj.width + x) * 4, (y * obj.width + x) * 4 + 4),
+    ];
+    expect(at(COLUMN.gutter, height - 1)).toEqual([0, 0, 0, 255]);
+    expect(at(COLUMN.gutter, 99)).toEqual([0, 0, 0, 0]);
+    expect(at(10, height - 1)).toEqual([0, 0, 0, 0]);
+  });
+
+  it("still notices notes that don't line up", () => {
+    const { obj } = makeChart(height, tops, []);
+    // Notes' alpha varies along the strip (makeChart's red is p % 251) as real
+    // notes' does; then column 2 is drawn a row higher than its band says.
+    for (let i = 0; i < obj.data.length; i += 4)
+      if (obj.data[i + 3]) obj.data[i + 3] = (obj.data[i] ?? 0) % 3 ? 100 : 255;
+    for (let y = 0; y < height - 1; y++) {
+      const to = (y * obj.width + 250) * 4;
+      const from = to + obj.width * 4;
+      obj.data.copyWithin(to, from, from + COLUMN.lane * 4);
+    }
+    const lanes = plainLanes(obj);
+    if (!lanes) throw new Error("expected lanes");
+    expect(() => {
+      checkOverlaps(lanes, obj, findLayout(lanes));
+    }).toThrow("Columns 1 and 2 don't line up.");
+  });
+
+  it("refuses notes that aren't on the grid", () => {
+    expect(
+      plainLanes(blank(COLUMN.gutter + 2 * COLUMN.pitch + 7, height)),
+    ).toBeNull();
+    expect(plainLanes(blank(COLUMN.gutter, height))).toBeNull();
   });
 });

@@ -449,6 +449,33 @@ export function fitOldLayer(
   return { width, height, data: out };
 }
 
+/**
+ * Plain lanes for a notes layer that sdvx.in has no lanes for: a few Ultima charts
+ * (Lapis's, タイガーランペイジ's) are drawn on their own grid while the song's lanes and
+ * measure numbers are still the other difficulties'. The notes' columns are on the
+ * usual grid and overlap as usual, and their side rails run each column's full
+ * height, so each lane is opaque black from the first row its notes reach down to the
+ * bottom: findLayout reads the columns from it and checkOverlaps compares the notes.
+ * There are no measure lines. Null when the notes aren't on the grid.
+ */
+export function plainLanes(notes: RgbaImage): RgbaImage | null {
+  const { width, height, data } = notes;
+  const columns = (width - COLUMN.gutter) / COLUMN.pitch;
+  if (!Number.isInteger(columns) || columns < 1) return null;
+  const out = new Uint8Array(width * height * 4);
+  for (let k = 0; k < columns; k++) {
+    const lane = COLUMN.gutter + k * COLUMN.pitch;
+    let top = 0;
+    search: for (; top < height; top++)
+      for (let x = lane; x < lane + COLUMN.lane; x++)
+        if ((data[(top * width + x) * 4 + 3] ?? 0) > 0) break search;
+    for (let y = top; y < height; y++)
+      for (let x = lane; x < lane + COLUMN.lane; x++)
+        out[(y * width + x) * 4 + 3] = 255;
+  }
+  return { width, height, data: out };
+}
+
 /** Layers on top of the lanes, in place: `over` drawn over `under` (both RGBA). */
 export function drawOver(under: RgbaImage, over: RgbaImage): void {
   if (under.width !== over.width || under.height !== over.height)
@@ -486,7 +513,9 @@ export interface ChartManifest {
   lane: number;
   /** Bottom first; each `height` rows of the strip. */
   tiles: { url: string; height: number }[];
-  /** Where each measure starts, from the bottom; measure 1 first. */
+  /** Where each measure starts, from the bottom; measure 1 first. Empty with `plainLanes`. */
   measures: number[];
   columns: number;
+  /** Drawn on our own plain lanes (`plainLanes`): no measure lines or numbers. */
+  plainLanes?: true;
 }

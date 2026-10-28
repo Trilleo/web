@@ -1296,7 +1296,14 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   and 乗り切れ受験ウォーズ's Masters; OLD_COLUMN, `isOldLayer` by size): `fitOldLayer`
   redraws them on the full-size grid (rows doubled from the top, lanes stretched, the
   numbers doubled against the lane, BPM changes left out) and clears lanes above where
-  each column's notes start, since the older lanes may run on. Then it finds the measures (each gutter label's
+  each column's notes start, since the older lanes may run on. A few Ultima charts
+  (Lapis's, タイガーランペイジ's, seven in all) have notes drawn on their own grid while
+  the song's lanes and numbers are still its other difficulties', another size: their
+  notes go on plain black lanes (`plainLanes`, from where each column's notes start;
+  the overlap check still compares the notes), without measure lines or numbers
+  (manifest `plainLanes`, `measures` empty; the viewer says so instead of the measure
+  counter). The numbers are still downloaded, so a redraw by sdvx.in changes a tag and
+  rebuilds it. Then it finds the measures (each gutter label's
   bottom row), flattens onto black, and cuts the strip (positions counted from the
   bottom) into TILE_HEIGHT WebP tiles under `chunithm/<chart>/<variant>-<random>/` in
   storage, public unless the chart is withdrawn. No `files` rows: chuni_builds holds

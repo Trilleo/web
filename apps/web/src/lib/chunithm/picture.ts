@@ -17,6 +17,7 @@ import {
   findMeasures,
   fitOldLayer,
   isOldLayer,
+  plainLanes,
   sdvxImages,
   stripHeight,
   stripTile,
@@ -247,24 +248,33 @@ export async function makePicture(
   const notesLayer = await get(notes, notesName);
   const notesImage = await decode(notesLayer, notesName);
   // A few charts' lanes are still sdvx.in's older, half-size drawing (OLD_COLUMN).
-  const picture = isOldLayer(lanesImage, notesImage)
+  const fitted = isOldLayer(lanesImage, notesImage)
     ? fitOldLayer(lanesImage, notesImage, true)
     : lanesImage;
+  // A few Ultima charts have no lanes of their own: the song's are another
+  // difficulty's, another size. Their notes go on plain lanes (`plainLanes`).
+  const plain =
+    sizeOf(fitted) === sizeOf(notesImage) ? null : plainLanes(notesImage);
+  const picture = plain ?? fitted;
   sameSize(picture, notesImage, notesName);
   const layout = findLayout(picture);
   checkOverlaps(picture, notesImage, layout);
   await giveWay();
   drawOver(picture, notesImage);
   await giveWay();
+  // Downloaded even for plain lanes, so its tag notices sdvx.in drawing proper ones.
   const barLayer = await get(images.bar, "measure numbers");
   const barDrawn = await decode(barLayer, "measure numbers");
-  const barImage = isOldLayer(barDrawn, notesImage)
-    ? fitOldLayer(barDrawn, notesImage)
-    : barDrawn;
-  sameSize(picture, barImage, "measure numbers");
-  const measures = findMeasures(barImage, layout);
-  await giveWay();
-  drawOver(picture, barImage);
+  let measures: number[] = [];
+  if (!plain) {
+    const barImage = isOldLayer(barDrawn, notesImage)
+      ? fitOldLayer(barDrawn, notesImage)
+      : barDrawn;
+    sameSize(picture, barImage, "measure numbers");
+    measures = findMeasures(barImage, layout);
+    await giveWay();
+    drawOver(picture, barImage);
+  }
 
   const height = stripHeight(layout);
   const ranges = tileRanges(height);
@@ -282,6 +292,7 @@ export async function makePicture(
       lane: COLUMN.lane,
       measures,
       columns: layout.columns.length,
+      ...(plain ? { plainLanes: true as const } : {}),
     },
     source: {
       ref,
@@ -293,6 +304,10 @@ export async function makePicture(
     },
     urls: { bg: bgLayer.url, obj: notesLayer.url, bar: barLayer.url },
   };
+}
+
+function sizeOf(image: { width: number; height: number }): string {
+  return `${String(image.width)}×${String(image.height)}`;
 }
 
 function sameSize(

@@ -168,6 +168,7 @@ function parseManifest(
     lane: lane as number,
     columns: columns as number,
     measures,
+    ...(value.plainLanes === true ? { plainLanes: true as const } : {}),
   };
 }
 
@@ -245,8 +246,9 @@ export function checkBundleChart(chart: BundleChart): string | null {
     )
   )
     return "its tiles don't add up to its height";
+  // Only plain lanes (picture.ts) come without measure numbers.
   if (
-    manifest.measures.length === 0 ||
+    (manifest.measures.length === 0) !== (manifest.plainLanes === true) ||
     manifest.measures.some(
       (at, index) =>
         at > manifest.height || at < (manifest.measures[index - 1] ?? 0),

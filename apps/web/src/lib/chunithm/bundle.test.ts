@@ -134,6 +134,24 @@ describe("bundles", () => {
     expect(checkBundleChart(chart())).toBeNull();
   });
 
+  it("takes a chart on plain lanes, which has no measures", () => {
+    const base = chart();
+    const plain = {
+      ...base,
+      manifest: { ...base.manifest, measures: [], plainLanes: true as const },
+    };
+    const parsed = parseBundleIndex({ ...index, charts: [plain] });
+    if (typeof parsed === "string") throw new Error(parsed);
+    expect(parsed.charts[0]?.manifest).toEqual(plain.manifest);
+    expect(checkBundleChart(plain)).toBeNull();
+    expect(
+      checkBundleChart({
+        ...plain,
+        manifest: { ...plain.manifest, measures: [0, 400] },
+      }),
+    ).toMatch(/measures/);
+  });
+
   it("refuses damaged indexes", () => {
     // Bundles from before sdvx.in's new viewer (by its older pages) are refused.
     expect(parseBundleIndex({ ...index, format: 1 })).toMatch(
@@ -174,6 +192,12 @@ describe("bundles", () => {
       checkBundleChart({
         ...base,
         manifest: { ...base.manifest, measures: [0, 900, 400] },
+      }),
+    ).toMatch(/measures/);
+    expect(
+      checkBundleChart({
+        ...base,
+        manifest: { ...base.manifest, measures: [] },
       }),
     ).toMatch(/measures/);
     expect(checkBundleChart({ ...base, sdvxRef: "02002/mst" })).toMatch(

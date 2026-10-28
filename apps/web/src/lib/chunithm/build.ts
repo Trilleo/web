@@ -10,7 +10,8 @@
  *    `sdvxImages`).
  * 2. Fetch each without following redirects (sdvx.in sends missing files to an HTML
  *    page) and check it's a WebP, under BUILD_LIMITS.maxLayerBytes. All three must be
- *    there and the same size, or the build fails and says which.
+ *    there and the same size, or the build fails and says which (except lanes that
+ *    don't fit notes on the grid: those go on plain lanes, picture.ts).
  * 3. Join (findLayout, checkOverlaps, drawOver), find the measures, cut tiles from the
  *    bottom, encode, upload, make public (unless the chart is withdrawn).
  * 4. Record the manifest; remove the tiles it replaced.
@@ -105,6 +106,7 @@ export function publicManifest(
     })),
     measures: manifest.measures,
     columns: manifest.columns,
+    ...(manifest.plainLanes ? { plainLanes: true as const } : {}),
   };
 }
 

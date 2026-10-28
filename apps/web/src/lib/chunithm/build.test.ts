@@ -212,6 +212,32 @@ describe("building a chart's picture", () => {
     });
   });
 
+  it("puts notes on plain lanes when sdvx.in's lanes and numbers are another chart's", async () => {
+    // As Lapis's Ultima: the song's lanes are its other difficulties', another size.
+    const other = makeChart(HEIGHT + 30, [...TOPS, 80], LABELS);
+    files.set(
+      `${ORIGIN}/chunithm/01/bg/01001bg.webp`,
+      layer(await webp(other.bg)),
+    );
+    files.set(
+      `${ORIGIN}/chunithm/01/bg/01001bar.webp`,
+      layer(await webp(other.bar)),
+    );
+    await requestBuild(deps(), chartId, "normal");
+    await runBuilds(deps());
+    const state = await requestBuild(deps(), chartId, "normal");
+    if (state.status !== "ready") throw new Error(`not ready: ${state.status}`);
+    expect(state.manifest).toMatchObject({
+      height: chart.total,
+      columns: 3,
+      measures: [],
+      plainLanes: true,
+    });
+    // The measure numbers' tag is kept too, to notice sdvx.in drawing proper ones.
+    const [row] = await handle.db.select().from(chuniBuilds);
+    expect(row?.source?.tags.bar).not.toBe("");
+  });
+
   it("makes the tiles right: the strip, bottom first, on black", async () => {
     await requestBuild(deps(), chartId, "normal");
     await runBuilds(deps());
