@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { isAdmin, requireUser } from "../../lib/auth/guard";
+import { requireHuman, requireHumanJson } from "../../lib/captcha/gate";
 import { noStoreRedirect } from "../../lib/auth/redirect";
 import { field } from "../../lib/comments/form";
 import { getDb } from "../../lib/db";
@@ -21,6 +22,7 @@ const HEADERS = { "Cache-Control": "private, no-store" };
  * admin may send a bigger one (AVATAR_ADMIN_MAX_BYTES). The
  * profile page's script asks for JSON ({"url"} or {"error"}); the plain form comes
  * back to /account/profile/ with ?avatar=saved|removed or ?avatar-error=<code>.
+ * A new picture goes through the human check (a 428 for JSON, /check/ for the form).
  */
 export const POST: APIRoute = async (context) => {
   const user = requireUser(context);
@@ -59,6 +61,10 @@ export const POST: APIRoute = async (context) => {
 
   const file = form.get("avatar");
   if (!(file instanceof File)) return refuse("empty", 400);
+  const check = json
+    ? await requireHumanJson(context, "avatar")
+    : await requireHuman(context, "avatar");
+  if (check) return check;
   const result = await saveAvatar(
     db,
     user.id,

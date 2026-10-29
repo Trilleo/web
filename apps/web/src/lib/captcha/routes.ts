@@ -1,7 +1,8 @@
 /**
  * What the human check guards. Each route names the pages whose POSTs it covers
- * (the only places /check/ sends anyone back to) and its `steps`: actions an hour
- * from one visitor before the light check, the heavy one and the puzzle.
+ * (the only places /check/ sends anyone back to; none for JSON routes) and its
+ * `steps`: actions an hour from one visitor before the light check, the heavy one
+ * and the puzzle.
  */
 
 export interface CheckRouteInfo {
@@ -21,6 +22,27 @@ export const CHECK_ROUTES = {
     label: "Contact form",
     paths: ["/contact/send"],
     steps: [2, 4, 6],
+  },
+  // JSON routes (requireHumanJson): no pages to go back to.
+  upload: {
+    label: "Uploads (untrusted accounts)",
+    paths: [],
+    steps: [10, 20, 40],
+  },
+  avatar: {
+    label: "Profile pictures",
+    paths: ["/account/avatar"],
+    steps: [5, 10, 20],
+  },
+  "preview-fetch": {
+    label: "Preview's server fetch",
+    paths: [],
+    steps: [10, 20, 30],
+  },
+  "chart-build": {
+    label: "New CHUNITHM chart pictures",
+    paths: [],
+    steps: [5, 10, 20],
   },
 } as const satisfies Record<string, CheckRouteInfo>;
 

@@ -5,6 +5,7 @@ import {
   previewFetch,
   readTarget,
 } from "../../../../lib/tools/preview/fetch";
+import { requireHumanJson } from "../../../../lib/captcha/gate";
 
 export const prerender = false;
 
@@ -22,6 +23,8 @@ export const POST: APIRoute = async (context) => {
     return new Response("Cross-site requests are refused", { status: 403 });
   const url = await readTarget(request);
   if (url === null) return errorResponse("invalid-url");
+  const check = await requireHumanJson(context, "preview-fetch");
+  if (check) return check;
   let ip = "";
   try {
     ip = context.clientAddress;

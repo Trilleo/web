@@ -7,6 +7,12 @@ import {
 } from "@trilleo/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CHECK_LIMITS, Checker } from "./checker";
+import {
+  requireHuman,
+  requireHumanJson,
+  setPassCookie,
+  type CheckContext,
+} from "./gate";
 import { CHECK_ROUTES, checkTarget, isCheckRoute } from "./routes";
 import {
   CHECK_FLOOD,
@@ -256,5 +262,63 @@ describe("store", () => {
       mode: "attack",
       setBy: "admin",
     });
+  });
+});
+
+describe("gate", () => {
+  const original = process.env.CAPTCHA_TEST;
+  beforeEach(() => {
+    process.env.CAPTCHA_TEST = "1";
+  });
+  afterEach(() => {
+    if (original === undefined) delete process.env.CAPTCHA_TEST;
+    else process.env.CAPTCHA_TEST = original;
+  });
+
+  /** A request's context, with the e2e cookie that sets the level. */
+  function context(level: number, path = "/account/avatar") {
+    const jar = new Map<string, string>([
+      ["trilleo_check_test", String(level)],
+    ]);
+    return {
+      url: new URL(`http://127.0.0.1${path}`),
+      locals: { user: null, session: null },
+      clientAddress: "203.0.113.9",
+      cookies: {
+        get: (name: string) => {
+          const value = jar.get(name);
+          return value === undefined ? undefined : { value };
+        },
+        set: (name: string, value: string) => {
+          jar.set(name, value);
+        },
+      },
+    } as unknown as CheckContext;
+  }
+
+  it("lets level 0 through", async () => {
+    expect(await requireHuman(context(0), "avatar")).toBeNull();
+    expect(await requireHumanJson(context(0), "avatar")).toBeNull();
+  });
+
+  it("answers a form with a 307 to /check/, and JSON with a 428", async () => {
+    const form = await requireHuman(context(2), "avatar");
+    expect(form?.status).toBe(307);
+    expect(form?.headers.get("location")).toBe(
+      "/check/?route=avatar&level=2&to=%2Faccount%2Favatar",
+    );
+    const json = await requireHumanJson(context(3), "upload");
+    expect(json?.status).toBe(428);
+    expect(await json?.json()).toMatchObject({
+      humanCheck: { route: "upload", level: 3 },
+    });
+  });
+
+  it("lets a pass through until its level is too low", async () => {
+    const ctx = context(2);
+    setPassCookie(ctx, 2);
+    expect(await requireHumanJson(ctx, "upload")).toBeNull();
+    ctx.cookies.set("trilleo_check_test", "3");
+    expect((await requireHumanJson(ctx, "upload"))?.status).toBe(428);
   });
 });

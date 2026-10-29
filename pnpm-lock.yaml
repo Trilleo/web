@@ -223,6 +223,9 @@ importers:
 
   apps/chunithm:
     dependencies:
+      '@trilleo/captcha':
+        specifier: workspace:*
+        version: link:../../packages/captcha
       '@trilleo/chunithm':
         specifier: workspace:*
         version: link:../../packages/chunithm
@@ -517,6 +520,9 @@ importers:
 
   apps/preview:
     dependencies:
+      '@trilleo/captcha':
+        specifier: workspace:*
+        version: link:../../packages/captcha
       '@trilleo/tool-convert':
         specifier: workspace:*
         version: link:../convert
@@ -844,6 +850,10 @@ importers:
         version: 5.0.3(@types/node@26.6.4)(jsdom@30.1.1)(vite@8.3.1(@types/node@26.6.4)(jiti@2.7.0))
 
   packages/captcha:
+    dependencies:
+      '@trilleo/ui':
+        specifier: workspace:*
+        version: link:../ui
     devDependencies:
       '@types/node':
         specifier: ^26.6.4
@@ -954,6 +964,9 @@ importers:
 
   packages/storage:
     dependencies:
+      '@trilleo/captcha':
+        specifier: workspace:*
+        version: link:../captcha
       '@trilleo/tool-kit':
         specifier: workspace:*
         version: link:../tool-kit

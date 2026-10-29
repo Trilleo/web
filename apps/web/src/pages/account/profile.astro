@@ -588,6 +588,7 @@ else toast(Astro, avatarStatus);
 </script>
 
 <script>
+  import { humanFetch } from "@trilleo/captcha/client";
   import { cropToSquare, coverRect } from "../../lib/profile/crop";
 
   // The picture form: crop to a square in the browser, send a small WebP. Without
@@ -692,7 +693,8 @@ else toast(Astro, avatarStatus);
       const blob = await cropToSquare(canvas);
       const body = new FormData();
       body.set("avatar", blob, "avatar");
-      const response = await fetch(form.action, {
+      // humanFetch: a 428 from the human check earns a pass and sends it again.
+      const response = await humanFetch()(form.action, {
         method: "POST",
         body,
         headers: { Accept: "application/json" },

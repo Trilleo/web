@@ -4,6 +4,7 @@
  * streams the file and keeps nothing. Either way the file stays in memory: nothing is
  * saved to the device.
  */
+import { humanFetch } from "@trilleo/captcha/client";
 import {
   MAX_PREVIEW_BYTES,
   nameFromDisposition,
@@ -101,7 +102,9 @@ async function serverProblem(response: Response): Promise<PreviewError> {
   return new PreviewError(
     response.status === 429
       ? "Too many previews from here for now. Try again later."
-      : "This link couldn't be fetched.",
+      : response.status === 428
+        ? "This link needs the check for bots first. Try again and finish it."
+        : "This link couldn't be fetched.",
   );
 }
 
@@ -109,7 +112,8 @@ async function viaServer(
   link: ResolvedLink,
   options: FetchOptions,
 ): Promise<FetchedLink> {
-  const run = options.fetch ?? fetch;
+  // A 428 from the site's human check earns a pass and asks again.
+  const run = humanFetch(options.fetch ?? fetch);
   const response = await run(FETCH_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

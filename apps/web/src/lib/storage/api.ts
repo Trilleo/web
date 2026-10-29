@@ -9,7 +9,8 @@
  *   DELETE uploads/<id>            cancel it
  *   GET    files/<id>              how a file is doing (owner or admin)
  *
- * Signed in only; changes only from this site's pages. Never cached.
+ * Signed in only; changes only from this site's pages. Never cached. Starting an
+ * upload goes through the human check for accounts storage doesn't trust yet.
  */
 import {
   FILE_ID_PATTERN,
@@ -34,6 +35,7 @@ import {
   type Result,
   type StorageDeps,
 } from "./service";
+import { uploaderRole } from "./standing";
 import { getFile } from "./store";
 
 export interface StorageApiRequest {
@@ -43,6 +45,8 @@ export interface StorageApiRequest {
   /** What follows /api/storage/, e.g. "uploads/abc123def456/parts". */
   path: string;
   deps: () => Promise<StorageDeps | null>;
+  /** The human check (lib/captcha): null to go ahead, or its 428 answer. */
+  humanCheck?: () => Promise<Response | null>;
 }
 
 const HEADERS = { "Cache-Control": "no-store" };
@@ -141,6 +145,14 @@ async function route(input: StorageApiRequest): Promise<Response> {
     if (method !== "POST") return problem(405, "Not allowed.");
     const body = parseUploadRequest(await readJson(request));
     if (!body) return problem(400, "Send { purpose, name, size }.");
+    if (
+      input.humanCheck &&
+      !requester.isAdmin &&
+      (await uploaderRole(deps.db, requester.user.id, false)) !== "trusted"
+    ) {
+      const check = await input.humanCheck();
+      if (check) return check;
+    }
     return fromResult(await startUpload(deps, requester, body), (value) => {
       const started: UploadStarted = {
         file: toSummary(value.file, deps.storage),

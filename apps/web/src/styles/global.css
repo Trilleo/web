@@ -6,6 +6,7 @@
 @import "./wiki.css";
 @import "./wiki-minecraft.css";
 @import "./study.css";
+@import "./check.css";
 
 /* Tools' own components use Tailwind classes too (workspace packages aren't scanned). */
 @source "../../../chunithm/src";
@@ -17,6 +18,7 @@
 @source "../../../preview/src";
 @source "../../../qr/src";
 @source "../../../skygrid/src";
+@source "../../../../packages/captcha/src";
 @source "../../../../packages/storage/src";
 @source "../../../../packages/study/src";
 @source "../../../../packages/wiki/src";

@@ -2,6 +2,7 @@
  * Talking to the site: the catalog index (/api/chunithm/index.json) and a chart's
  * picture (/api/chunithm/charts/<id>/<difficulty>), which may still be building.
  */
+import { HUMAN_CHECK_STATUS, humanFetch } from "@trilleo/captcha/client";
 import type { ChartManifest, Difficulty, SongIndex } from "@trilleo/chunithm";
 
 export type Variant = "normal" | "mirror";
@@ -14,7 +15,13 @@ export type PictureState =
   | {
       status: "unavailable";
       reason:
-        "no-chart" | "no-page" | "withdrawn" | "storage" | "busy" | "too-many";
+        | "no-chart"
+        | "no-page"
+        | "withdrawn"
+        | "storage"
+        | "busy"
+        | "too-many"
+        | "human-check";
     };
 
 /** Words for an unavailable picture. */
@@ -28,6 +35,8 @@ export const UNAVAILABLE: Record<
   storage: "Chart pictures aren't available here right now.",
   busy: "Lots of charts are being drawn right now. Try again in a minute.",
   "too-many": "You've opened many new charts this hour. Try again later.",
+  "human-check":
+    "New charts from here need the check for bots first. Reload to try it again.",
 };
 
 export function pictureUrl(
@@ -44,10 +53,14 @@ export async function fetchPicture(
   variant: Variant,
   signal?: AbortSignal,
 ): Promise<PictureState> {
-  const response = await fetch(pictureUrl(songId, difficulty, variant), {
+  // A new build may need the site's human check: humanFetch earns a pass and asks
+  // again. Left unpassed (the puzzle closed), the chart says so.
+  const response = await humanFetch()(pictureUrl(songId, difficulty, variant), {
     signal,
     headers: { Accept: "application/json" },
   });
+  if (response.status === HUMAN_CHECK_STATUS)
+    return { status: "unavailable", reason: "human-check" };
   const body = (await response.json()) as PictureState;
   return body;
 }

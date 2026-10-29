@@ -13,6 +13,7 @@
     "./motion": "./src/motion.ts",
     "./reveal": "./src/reveal.ts",
     "./toast": "./src/toast.ts",
+    "./classes": "./src/classes.ts",
     "./theme.css": "./src/styles/theme.css"
   },
   "scripts": {

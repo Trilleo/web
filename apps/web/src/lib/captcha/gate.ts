@@ -16,7 +16,7 @@ import type { APIContext } from "astro";
 import { isAdmin } from "../auth/guard";
 import { getDb } from "../db";
 import { Checker } from "./checker";
-import { currentMode, flushChecksInBackground } from "./store";
+import { currentMode } from "./store";
 import type { CheckRoute } from "./routes";
 
 export const checker = new Checker();
@@ -68,7 +68,6 @@ export async function levelFor(
   route: CheckRoute,
 ): Promise<{ level: CheckLevel; mode: CheckMode; visitor: string }> {
   const visitor = visitorOf(context);
-  flushChecksInBackground(getDb, checker);
   if (checkTestMode()) {
     const forced = Number(context.cookies.get(TEST_COOKIE)?.value ?? "0");
     const level = ([0, 1, 2, 3].includes(forced) ? forced : 0) as CheckLevel;
@@ -104,13 +103,13 @@ export function checkUrl(route: CheckRoute, to: string, level = 1): string {
 }
 
 /**
- * null: go ahead (the action is counted). Otherwise a 307 to /check/, which the
- * page returns as it is. The admin is never checked.
+ * Whether the visitor may go ahead on `route` now (the action is then counted), or
+ * the level they need to show first. The admin is never checked.
  */
-export async function requireHuman(
+async function admit(
   context: CheckContext,
   route: CheckRoute,
-): Promise<Response | null> {
+): Promise<CheckLevel | null> {
   if (isAdmin(context.locals.user)) return null;
   const { level, visitor } = await levelFor(context, route);
   if (passCovers(context, visitor, level)) {
@@ -118,6 +117,19 @@ export async function requireHuman(
     return null;
   }
   checker.count(route, "challenged");
+  return level;
+}
+
+/**
+ * For form posts. null: go ahead. Otherwise a 307 to /check/, which the page
+ * returns as it is.
+ */
+export async function requireHuman(
+  context: CheckContext,
+  route: CheckRoute,
+): Promise<Response | null> {
+  const level = await admit(context, route);
+  if (level === null) return null;
   return new Response(null, {
     status: 307,
     headers: {
@@ -128,5 +140,32 @@ export async function requireHuman(
         level,
       ),
     },
+  });
+}
+
+/** What a JSON route answers when a check is needed (HTTP 428). */
+export interface HumanCheckDemand {
+  error: string;
+  humanCheck: { route: CheckRoute; level: CheckLevel };
+}
+
+/**
+ * For JSON routes called from the site's own scripts. null: go ahead. Otherwise a
+ * 428 naming the route: @trilleo/captcha/client's `humanFetch` earns a pass (the
+ * proof-of-work, or the puzzle in a dialog) and sends the request again.
+ */
+export async function requireHumanJson(
+  context: CheckContext,
+  route: CheckRoute,
+): Promise<Response | null> {
+  const level = await admit(context, route);
+  if (level === null) return null;
+  const body: HumanCheckDemand = {
+    error: "Show you’re a person first: lots has been sent from your network.",
+    humanCheck: { route, level },
+  };
+  return Response.json(body, {
+    status: 428,
+    headers: { "Cache-Control": "private, no-store" },
   });
 }

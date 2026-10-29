@@ -3,6 +3,7 @@ import { LocalDriver } from "@trilleo/storage/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { upsertGitHubUser } from "../auth/accounts";
 import { handleStorageApi } from "./api";
+import { setTrust } from "./standing";
 import type { Requester, StorageDeps } from "./service";
 
 const ORIGIN = "https://www.trilleo.net";
@@ -47,6 +48,7 @@ function call(
     body?: unknown;
     origin?: string | null;
     noStorage?: boolean;
+    humanCheck?: () => Promise<Response | null>;
   } = {},
 ) {
   const headers = new Headers();
@@ -65,12 +67,47 @@ function call(
     requester: options.requester === undefined ? admin : options.requester,
     path,
     deps: () => Promise.resolve(options.noStorage ? null : deps),
+    ...(options.humanCheck ? { humanCheck: options.humanCheck } : {}),
   });
 }
 
 const start = { purpose: "site", name: "a.txt", size: 5 };
 
 describe("storage API", () => {
+  it("sends accounts it doesn't trust yet through the human check", async () => {
+    let asked = 0;
+    const humanCheck = () => {
+      asked += 1;
+      return Promise.resolve(
+        Response.json({ humanCheck: { route: "upload" } }, { status: 428 }),
+      );
+    };
+    const refused = await call("POST", "uploads", {
+      requester: someone,
+      body: start,
+      humanCheck,
+    });
+    expect(refused.status).toBe(428);
+    expect(asked).toBe(1);
+
+    // The admin and trusted uploaders aren't asked.
+    expect(
+      (await call("POST", "uploads", { body: start, humanCheck })).status,
+    ).toBe(201);
+    await setTrust(handle.db, {
+      userId: someone.user.id,
+      mode: "trusted",
+      actorId: admin.user.id,
+    });
+    const trusted = await call("POST", "uploads", {
+      requester: someone,
+      body: start,
+      humanCheck,
+    });
+    expect(trusted.status).not.toBe(428);
+    expect(asked).toBe(1);
+  });
+
   it("needs a signed-in person and this site's origin", async () => {
     expect(
       (await call("POST", "uploads", { requester: null, body: start })).status,

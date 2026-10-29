@@ -9,6 +9,8 @@ import {
 import { noStoreRedirect } from "./lib/auth/redirect";
 import { validateSession } from "./lib/auth/sessions";
 import { emailSetupRedirect } from "./lib/auth/setup";
+import { checker } from "./lib/captcha/gate";
+import { flushChecksInBackground } from "./lib/captcha/store";
 import { chunithmBuildsInBackground } from "./lib/chunithm/build";
 import { startChunithmPrebuild } from "./lib/chunithm/prebuild";
 import {
@@ -65,6 +67,8 @@ function backgroundWork(): void {
   chunithmSyncInBackground(getDb);
   // CHUNITHM chart pictures waiting to be built (a few minutes apart at most).
   chunithmBuildsInBackground();
+  // The human check's counts, and its watch for floods (every minute at most).
+  flushChecksInBackground(getDb, checker);
 }
 
 /**

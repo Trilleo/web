@@ -55,6 +55,7 @@ const WRONG: Record<string, string> = {
 
 let error: string | null = null;
 let fields: [string, string][] = [];
+let filesLeft = false;
 let view:
   | { kind: "none" }
   | { kind: "refused" }
@@ -76,6 +77,13 @@ if (route && to && Astro.request.method === "POST") {
       ? [[name, value] as [string, string]]
       : [],
   );
+  // Files can't ride along in hidden fields: say so (and keep saying so).
+  filesLeft =
+    field(form, "_check_files") === "1" ||
+    [...form.values()].some(
+      (value) => typeof value !== "string" && value.size > 0,
+    );
+  if (filesLeft) fields.push(["_check_files", "1"]);
   const visitor = visitorOf(Astro);
   const token = field(form, "_check_token");
   const wantsPuzzle = field(form, "_check_mode") === "puzzle";
@@ -139,10 +147,20 @@ const reveal = checkTestMode();
           : "A lot has been sent from your network lately, so the site wants to be sure you’re a person. Your form is kept and sent once this is done."
     }
   >
-    {error && (
-      <p slot="notice" role="alert" class="border-l-2 border-accent pl-3">
-        {error}
-      </p>
+    {(error || filesLeft) && (
+      <div slot="notice" class="flex flex-col gap-3">
+        {error && (
+          <p role="alert" class="border-l-2 border-accent pl-3">
+            {error}
+          </p>
+        )}
+        {filesLeft && (
+          <p class="border-l-2 border-accent pl-3" data-files-left>
+            Files can’t be carried through this check: once it’s done, choose
+            yours again.
+          </p>
+        )}
+      </div>
     )}
 
     {view.kind === "puzzle" && (

@@ -17,6 +17,7 @@
     "react-dom": "^19.0.0"
   },
   "dependencies": {
+    "@trilleo/captcha": "workspace:*",
     "@trilleo/chunithm": "workspace:*",
     "@trilleo/tool-kit": "workspace:*",
     "@trilleo/ui": "workspace:*",

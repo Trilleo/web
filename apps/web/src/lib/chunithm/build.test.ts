@@ -140,6 +140,32 @@ async function served(url: string): Promise<boolean> {
 }
 
 describe("building a chart's picture", () => {
+  it("asks the human check only before queueing a new build", async () => {
+    let asked = 0;
+    const refuse = () => {
+      asked += 1;
+      return Promise.resolve(false);
+    };
+    expect(await requestBuild(deps(), chartId, "normal", "", refuse)).toEqual({
+      status: "unavailable",
+      reason: "human-check",
+    });
+    expect(asked).toBe(1);
+    const allow = () => {
+      asked += 1;
+      return Promise.resolve(true);
+    };
+    expect(await requestBuild(deps(), chartId, "normal", "", allow)).toEqual({
+      status: "queued",
+    });
+    // Waiting or ready pictures need no check.
+    await requestBuild(deps(), chartId, "normal", "", refuse);
+    expect(await runBuilds(deps())).toBe(1);
+    const ready = await requestBuild(deps(), chartId, "normal", "", refuse);
+    expect(ready.status).toBe("ready");
+    expect(asked).toBe(2);
+  });
+
   it("is asked for, built, and then ready with its tiles and measures", async () => {
     expect(await requestBuild(deps(), chartId, "normal")).toEqual({
       status: "queued",

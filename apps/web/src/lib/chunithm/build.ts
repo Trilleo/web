@@ -78,7 +78,13 @@ export type BuildState =
   | {
       status: "unavailable";
       reason:
-        "no-chart" | "no-page" | "withdrawn" | "storage" | "busy" | "too-many";
+        | "no-chart"
+        | "no-page"
+        | "withdrawn"
+        | "storage"
+        | "busy"
+        | "too-many"
+        | "human-check";
     };
 
 export interface BuildDeps {
@@ -182,6 +188,8 @@ export async function requestBuild(
   chartId: number,
   variant: Variant,
   ip = "",
+  /** Asked before a new build is queued (the human check): false refuses it. */
+  admit?: () => Promise<boolean>,
 ): Promise<BuildState> {
   const { db, storage } = deps;
   const now = (deps.now ?? (() => new Date()))();
@@ -231,6 +239,8 @@ export async function requestBuild(
     .where(eq(chuniBuilds.status, "queued"));
   if ((queued?.n ?? 0) >= BUILD_LIMITS.maxQueued)
     return { status: "unavailable", reason: "busy" };
+  if (admit && !(await admit()))
+    return { status: "unavailable", reason: "human-check" };
   if (!visitors.take(VisitorCounter.key(ip), now.getTime()))
     return { status: "unavailable", reason: "too-many" };
   if (row) await queue(db, row.id, now);

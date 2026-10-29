@@ -5,6 +5,7 @@
  *
  *   const file = await uploadFile(input.files[0], { purpose: "site", onProgress });
  */
+import { humanFetch } from "@trilleo/captcha/client";
 import {
   MAX_PART_URLS,
   type PartUrls,
@@ -121,7 +122,8 @@ export async function uploadFile(
   options: UploadOptions,
 ): Promise<StoredFileSummary> {
   const endpoint = trimTrailingSlashes(options.endpoint ?? "/api/storage");
-  const send = options.fetch ?? fetch;
+  // A 428 from the human check (new accounts sending a lot) earns a pass and retries.
+  const send = humanFetch(options.fetch ?? fetch);
   const put = options.putPart ?? xhrPut;
   const sleep =
     options.sleep ??

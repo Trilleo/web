@@ -1,0 +1,31 @@
+/* The human check's puzzle (components/check/PuzzleForm.astro) and its dialog
+   (@trilleo/captcha/client, drawn in plain DOM for JSON requests). */
+
+/* Chosen squares fill with the accent (dark shapes on orange) and gain a thick
+   border, so the choice doesn't rest on colour alone. */
+.check-cell:has(:checked) {
+  background: var(--tr-accent);
+  color: var(--tr-on-accent);
+  box-shadow: inset 0 0 0 3px var(--tr-ink);
+}
+
+.check-cell:has(:focus-visible) {
+  outline: 2px solid var(--tr-accent);
+  outline-offset: 2px;
+}
+
+.human-check-dialog {
+  width: calc(100% - 2rem);
+  max-width: 28rem;
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  overflow-y: auto;
+  border: 1px solid var(--tr-ink);
+  background: var(--tr-paper);
+  color: var(--tr-ink);
+  padding: 1.5rem;
+}
+
+.human-check-dialog::backdrop {
+  background: color-mix(in srgb, var(--tr-ink) 45%, transparent);
+}
