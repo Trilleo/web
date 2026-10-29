@@ -184,5 +184,5 @@ and troubleshooting: [deploy/README.md](deploy/README.md). File storage (the OBS
 SMTP settings): [deploy/mail.md](deploy/mail.md).
 
 Conventions and architecture notes for contributors (and AI assistants) are in
-[CLAUDE.md](CLAUDE.md). Keep these documents current: update them in the same change as
+[CLAUDE.md](CLAUDE.md); commit messages follow [docs/COMMIT_STRUCTURE.md](docs/COMMIT_STRUCTURE.md). Keep these documents current: update them in the same change as
 the code they describe.

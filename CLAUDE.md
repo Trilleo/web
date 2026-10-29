@@ -4,14 +4,17 @@
 
 - Before starting any non-trivial task, ask me clarifying questions about the
   idea and design instead of assuming. Propose a plan and wait for approval.
-- Do not commit after changes.
+- Do not commit after changes. Instead, end with a commit message for the change, in a
+  code block, written by docs/COMMIT_STRUCTURE.md (`<Tag>: <What changes>`; tags Feature, Fix,
+  Improvement, Internal, Backend).
 - Keep changes scoped to one task. Summarize what changed and why at the end.
 - Keep the documentation current: after every change, check what it affects and
   update it in the same change. That means this file, README.md, deploy/README.md,
-  deploy/storage.md, deploy/mail.md, apps/web/.env.example, and the information pages (legal, FAQ,
+  deploy/storage.md, deploy/mail.md, docs/COMMIT_STRUCTURE.md, apps/web/.env.example, and the information pages (legal, FAQ,
   accessibility, security, colophon, about), which state facts about the code. A
   change to a legal page's substance also gets an entry in its `changes`. A change to
   the API gets an entry in its changelog (apps/web/src/lib/api/docs/changelog.ts).
+- Files in docs/ have upper-case names (docs/COMMIT_STRUCTURE.md), as in TownyMenu.
 
 ## Architecture
 
