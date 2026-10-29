@@ -6,6 +6,7 @@
  * song's other names (the admin adds, removes and decides them here too). Rendered per visit; kept out of
  * search engines (the pictures are sdvx.in's work, credited and linked here).
  */
+import HumanCheck from "../../../../components/check/HumanCheck.astro";
 import {
   DIFFICULTIES,
   DIFFICULTY_LABELS,
@@ -483,6 +484,7 @@ toast(Astro, aliasMessage, aliasDone ? "done" : "error");
             >
               Suggest
             </button>
+            <HumanCheck route="alias" />
           </form>
         ) : (
           <p>

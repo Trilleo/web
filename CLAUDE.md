@@ -381,12 +381,19 @@
   site makes no outside requests). Rules in packages/captcha (`.` pure rules,
   `./client` the browser side); the rest in apps/web/src/lib/captcha/ (routes.ts,
   checker.ts, gate.ts, store.ts, client.ts).
-- Routes (CHECK_ROUTES): a name, the pages whose POSTs it guards (none for JSON
-  routes), and `steps`: actions an hour from one visitor before level 1 (light
-  proof-of-work, POW_BITS[1]), 2 (heavy) and 3 (the puzzle). Failures and the mode add
-  levels. Forms: "sign-in" (POST /sign-in, and "Send a new code" on /sign-in/code: each
-  is an email), "contact" (/contact/send), "avatar" (a new picture on /account/avatar;
-  removing one isn't checked). JSON: "upload" (starting an upload, only for accounts
+- Routes (CHECK_ROUTES): a name, the pages whose POSTs it guards (`paths`: exact
+  paths, or RegExps for addresses with names in them; none for JSON routes; `where`
+  is how /admin/captcha/ shows them), and `steps`: actions an hour from one visitor
+  before level 1 (light proof-of-work, POW_BITS[1]), 2 (heavy) and 3 (the puzzle).
+  Failures and the mode add levels. Forms: "sign-in" (POST /sign-in, and "Send a new
+  code" on /sign-in/code: each is an email), "contact" (/contact/send), "comment"
+  (/comments) and "forum-post" (/forum/new/ and a topic's reply; Preview isn't
+  checked) for newcomers only (`isNewcomer`: signed in, not the admin, no
+  users.trusted_at), "wiki-proposal" (proposing on /<wiki>/-/edit/<Title>, on the
+  wiki's host; members' saves aren't checked), "alias" (suggesting a CHUNITHM name;
+  the admin's intents aren't), "avatar" (a new picture on /account/avatar; removing
+  one isn't checked). Private messages need a trusted sender already, so they aren't
+  guarded. JSON: "upload" (starting an upload, only for accounts
   storage doesn't trust yet: `uploaderRole` isn't "trusted"; StorageApiRequest's
   `humanCheck`), "preview-fetch" (Preview's server fetch), "chart-build" (only when a
   CHUNITHM picture would be newly queued: requestBuild's `admit`, so ready, waiting
@@ -401,7 +408,9 @@
   level (so its pass always gets through) with the form carried in hidden fields, and
   once it's answered sets the pass and 307s back. Any POST form is covered, without
   JS. Files can't ride along: /check/ says so (`data-files-left`), and the visitor
-  chooses them again. The admin is never checked.
+  chooses them again. The admin is never checked. On the wiki's host /check/ passes
+  through the wiki rewrite (`passesThrough` in lib/wiki/host.ts), uses WikiLayout, and
+  is sent back to the address the visitor sees (without /wiki/).
 - JSON routes: `requireHumanJson(context, route)` answers 428 `{ error, humanCheck:
 { route, level } }`. The browser's `humanFetch` (@trilleo/captcha/client) earns a
   pass and sends the request again (bodies must be resendable); storage's
@@ -414,7 +423,12 @@
   @trilleo/ui/classes, the React-free button and field classes; `.check-cell` and
   `.human-check-dialog` in styles/check.css). Closing it is "not passed": nothing is
   sent. <HumanCheck route intent?> inside a form does the same before the form goes
-  (`intent` limits it to one submit button). /check/ solves its proof-of-work the same
+  (`intent` limits it to one submit button): one submit listener on the document
+  (`enhanceHumanChecks`), so forms in server islands (comments) are covered. On
+  server-rendered pages it also writes the level needed now (`neededLevel`: only
+  looks, never counts or spends; `data-human-level`), and at 0 the form is sent at
+  once, with no round trip; prerendered pages (contact) ask when sent. The server
+  decides again either way. /check/ solves its proof-of-work the same
   way; without JS it shows the puzzle instead (in <noscript>).
 - The puzzle (PuzzleForm.astro, and the dialog): a 4×4 grid of jittered shapes drawn
   as paths in currentColor, a checkbox per cell, plus a question in words for those who
@@ -432,8 +446,8 @@
   CHECK_FLOOD.failuresPerHour failed checks in an hour raise a Normal mode for an hour
   by itself and alert the admin ("captcha-flood", every 6 hours at most).
 - E2E: CAPTCHA_TEST=1 checks only browsers with a `trilleo_check_test` cookie (its
-  value is the level; set it for path "/") and ignores the mode, so other specs never
-  meet it; puzzles carry their answers (`data-answer`, `data-text-answer`, on the
+  value is the level; set it for path "/", then reload, since forms are drawn with
+  their level) and ignores the mode, so other specs never meet it; puzzles carry their answers (`data-answer`, `data-text-answer`, on the
   /check/ form or the dialog). e2e/human-check.spec.ts. axe can't run with JS off:
   /check/'s accessibility is checked with JS on, its enhancer removed.
 

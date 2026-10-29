@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { deflateSync } from "node:zlib";
+import { DRAWN } from "./fake-chunithm";
 import { FAKE_DOCS } from "./fake-docs";
 import { adminPage, continueAs, freshLogin, hydrated, toasts } from "./support";
 
@@ -14,6 +15,14 @@ async function signedInAtLevel(page: Page, level: number, next = "/contact/") {
   await page.getByRole("link", { name: "Sign in with GitHub" }).click();
   await continueAs(page, freshLogin("checked"));
   await expect(page).toHaveURL(next);
+  await setLevel(page, level);
+}
+
+/**
+ * Sets the level this browser's checks get, on the page's own host, and reloads:
+ * server-rendered forms say which level they need when they're drawn.
+ */
+async function setLevel(page: Page, level: number) {
   await page.context().addCookies([
     {
       name: "trilleo_check_test",
@@ -22,6 +31,7 @@ async function signedInAtLevel(page: Page, level: number, next = "/contact/") {
       path: "/",
     },
   ]);
+  await page.reload();
 }
 
 async function fillContact(page: Page, text: string) {
@@ -37,6 +47,18 @@ async function tickAnswer(page: Page, selector: string) {
   for (const cell of answer.split(",").map(Number))
     await scope.locator(".check-cell").nth(cell).click();
   await scope.getByRole("button", { name: "Continue" }).click();
+}
+
+/** Fails the test if the page ever goes to /check/ (the form should have its pass). */
+function neverDetours(page: Page) {
+  const detours: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/check/")
+      detours.push(request.url());
+  });
+  return () => {
+    expect(detours).toEqual([]);
+  };
 }
 
 /** No axe violations on the page as it is. */
@@ -317,4 +339,133 @@ test("the admin sets the mode, and the dashboard says so", async ({
     await expect(admin.locator("[data-mode-now]")).toContainText("Normal");
     await admin.context().close();
   }
+});
+
+test("a form the page says needs no check is sent at once", async ({
+  page,
+}) => {
+  await signedInAtLevel(page, 0, "/forum/new/?in=general");
+  await expect(page.locator("[data-human-check]")).toHaveAttribute(
+    "data-human-level",
+    "0",
+  );
+  const asked: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/check/")) asked.push(request.url());
+  });
+  const title = `Unchecked topic ${freshLogin("topic")}`;
+  await page.getByLabel("Title").fill(title);
+  await page.getByLabel("Your post").fill("Hello.");
+  await page.getByRole("button", { name: "Post topic" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(title);
+  expect(asked).toEqual([]);
+});
+
+test("a newcomer's comment earns its pass in the comments' island", async ({
+  page,
+}) => {
+  const post = "/writing/why-i-moved-off-wordpress/";
+  await signedInAtLevel(page, 2, post);
+  await expect(
+    page.locator("#comments").getByText("Loading comments…"),
+  ).toHaveCount(0);
+  const checkDetours = neverDetours(page);
+  const text = `Checked comment ${freshLogin("comment")}`;
+  await page.getByLabel("Your comment").fill(text);
+  await page.getByRole("button", { name: "Post comment" }).click();
+  await expect(page).toHaveURL(/#comment-\d+$/, { timeout: 30_000 });
+  await expect(
+    page.getByRole("article").filter({ hasText: text }),
+  ).toBeVisible();
+  checkDetours();
+});
+
+test.describe("forum without JavaScript", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("a newcomer's topic goes through the puzzle and arrives", async ({
+    page,
+  }) => {
+    await signedInAtLevel(page, 3, "/forum/new/?in=general");
+    const title = `Checked topic ${freshLogin("topic")}`;
+    await page.getByLabel("Title").fill(title);
+    await page.getByLabel("Your post").fill("Hello from a person.");
+    await page.getByRole("button", { name: "Post topic" }).click();
+    await expect(page).toHaveURL(/\/check\/\?route=forum-post/);
+    // Preview isn't checked, so only posting detours; the form rides along.
+    await expect(
+      page.locator('form[data-answer] input[type="hidden"][name="title"]'),
+    ).toHaveValue(title);
+    await tickAnswer(page, "form[data-answer]");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(title);
+  });
+});
+
+test("a proposed wiki edit detours through /check/ on the wiki's host", async ({
+  browser,
+  baseURL,
+}) => {
+  const origin = new URL(baseURL ?? "http://127.0.0.1:4329");
+  origin.hostname = "wiki.localhost";
+  const context = await browser.newContext({ baseURL: origin.origin });
+  const page = await context.newPage();
+  try {
+    await page.goto("/-/sign-in?next=%2Fskygrid%2FMain_Page");
+    await page.getByRole("link", { name: "Sign in with GitHub" }).click();
+    await continueAs(page, freshLogin("wikicheck"));
+    await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+    await setLevel(page, 3);
+    await page.getByRole("link", { name: "Propose a change" }).click();
+    // Sent as a plain form (as without JavaScript), so the server sends it to /check/.
+    await page.locator("[data-human-check]").evaluate((marker) => {
+      marker.remove();
+    });
+    const summary = `Checked ${freshLogin("prop")}`;
+    await page.getByLabel("Text").fill("A person was here.\n");
+    await page.getByLabel("Summary of your change").fill(summary);
+    await page.getByRole("button", { name: "Propose" }).click();
+    await expect(page).toHaveURL(
+      /^http:\/\/wiki\.localhost:\d+\/check\/\?route=wiki-proposal/,
+    );
+    await expect(
+      page.getByRole("heading", { name: "One quick check" }),
+    ).toBeVisible();
+    await accessible(page);
+    await tickAnswer(page, "form[data-answer]");
+    await expect(page).toHaveURL(/\/skygrid\/-\/proposals\/\d+$/);
+    await expect(page.locator("[data-proposal-status]")).toHaveAttribute(
+      "data-proposal-status",
+      "pending",
+    );
+  } finally {
+    await context.close();
+  }
+});
+
+test("a CHUNITHM name suggestion earns its pass first", async ({
+  page,
+  request,
+}) => {
+  await expect
+    .poll(
+      async () => {
+        const response = await request.get("/api/chunithm/index.json");
+        if (!response.ok()) return false;
+        const index = (await response.json()) as { songs: { id: number }[] };
+        return index.songs.some((song) => song.id === DRAWN.id);
+      },
+      { timeout: 90_000, intervals: [1000] },
+    )
+    .toBe(true);
+  const chart = `/tools/chunithm/${String(DRAWN.id)}/master/`;
+  await signedInAtLevel(page, 1, chart);
+  const checkDetours = neverDetours(page);
+  await page
+    .getByLabel("Suggest a name")
+    .fill(`検査${freshLogin("e2e").slice(4)}`);
+  await page.getByRole("button", { name: "Suggest", exact: true }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Thanks" }),
+  ).toBeVisible({ timeout: 30_000 });
+  checkDetours();
 });

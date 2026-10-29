@@ -448,16 +448,18 @@ const ticketHours = TICKET_LIMITS.maxAgeMs / 3_600_000;
     </li>
     <li id="human-check">
       The check for bots. When a lot is sent from one network (sign-in codes,
-      the contact form, profile pictures, a new account’s uploads, Preview’s
-      server fetch, new CHUNITHM chart pictures), the site asks for proof you’re
-      a person: your browser works out a small sum, or you solve a picture
-      puzzle. To know when to ask, the server keeps a scrambled form of your IP
-      address (an HMAC with a key that changes whenever the server restarts) and
-      the times of your recent tries, in memory, for an hour. Passing sets a
-      cookie for {CHECK_LIMITS.passMs / 60_000} minutes (see the cookie policy).
-      Nothing about it is written to the database except daily totals for all
-      visitors together, and nothing is sent to anyone else: the check runs
-      entirely on this site.
+      the contact form, comments and forum posts from new accounts, proposed
+      wiki edits, suggested CHUNITHM song names, profile pictures, a new
+      account’s uploads, Preview’s server fetch, new CHUNITHM chart pictures),
+      the site asks for proof you’re a person: your browser works out a small
+      sum, or you solve a picture puzzle. To know when to ask, the server keeps
+      a scrambled form of your IP address (an HMAC with a key that changes
+      whenever the server restarts) and the times of your recent tries, in
+      memory, for an hour. Passing sets a cookie for{" "}
+      {CHECK_LIMITS.passMs / 60_000} minutes (see the cookie policy). Nothing
+      about it is written to the database except daily totals for all visitors
+      together, and nothing is sent to anyone else: the check runs entirely on
+      this site.
     </li>
   </ul>
 

@@ -19,6 +19,7 @@ import BanNotice from "../../components/forum/BanNotice.astro";
 import PostForm from "../../components/forum/PostForm.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { requireUser } from "../../lib/auth/guard";
+import { isNewcomer, requireHuman } from "../../lib/captcha/gate";
 import { noStoreRedirect } from "../../lib/auth/redirect";
 import { field, parseId } from "../../lib/comments/form";
 import { getDb } from "../../lib/db";
@@ -99,6 +100,10 @@ if (Astro.request.method === "POST" && allowed) {
   } else if (field(form, "intent") === "preview") {
     preview = await renderBody(db, body);
   } else {
+    if (isNewcomer(user)) {
+      const check = await requireHuman(Astro, "forum-post");
+      if (check) return check;
+    }
     const result = await createTopic(db, {
       tree,
       forum,
@@ -197,6 +202,7 @@ if (errors.title || errors.body || Object.keys(pollErrors).length > 0)
                   : undefined
               }
               pending={attachments}
+              humanCheck={isNewcomer(user)}
             >
               {canPoll && (
                 <PollFields slot="extra" draft={poll} errors={pollErrors} />

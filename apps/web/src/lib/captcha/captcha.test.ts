@@ -4,10 +4,12 @@ import {
   captchaStats,
   openDatabase,
   type DatabaseHandle,
+  type User,
 } from "@trilleo/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CHECK_LIMITS, Checker } from "./checker";
 import {
+  isNewcomer,
   requireHuman,
   requireHumanJson,
   setPassCookie,
@@ -44,6 +46,24 @@ describe("routes", () => {
     expect(checkTarget("sign-in", "//evil.example/sign-in")).toBeNull();
     expect(checkTarget("sign-in", "https://evil.example/sign-in")).toBeNull();
     expect(checkTarget("contact", null)).toBeNull();
+  });
+
+  it("matches pages with names in their address", () => {
+    expect(checkTarget("forum-post", "/forum/general/12-hello/")).toBe(
+      "/forum/general/12-hello/",
+    );
+    expect(checkTarget("forum-post", "/forum/new/?in=general")).toBe(
+      "/forum/new/?in=general",
+    );
+    expect(checkTarget("forum-post", "/forum/general/")).toBeNull();
+    expect(
+      checkTarget("forum-post", "/forum/general/12-x/../../evil"),
+    ).toBeNull();
+    expect(checkTarget("wiki-proposal", "/sky/-/edit/Iron_Ore")).toBe(
+      "/sky/-/edit/Iron_Ore",
+    );
+    expect(checkTarget("wiki-proposal", "/sky/-/settings")).toBeNull();
+    expect(checkTarget("comment", "/comments")).toBe("/comments");
   });
 });
 
@@ -276,12 +296,16 @@ describe("gate", () => {
   });
 
   /** A request's context, with the e2e cookie that sets the level. */
-  function context(level: number, path = "/account/avatar") {
+  function context(
+    level: number,
+    path = "/account/avatar",
+    origin = "http://127.0.0.1",
+  ) {
     const jar = new Map<string, string>([
       ["trilleo_check_test", String(level)],
     ]);
     return {
-      url: new URL(`http://127.0.0.1${path}`),
+      url: new URL(`${origin}${path}`),
       locals: { user: null, session: null },
       clientAddress: "203.0.113.9",
       cookies: {
@@ -312,6 +336,23 @@ describe("gate", () => {
     expect(await json?.json()).toMatchObject({
       humanCheck: { route: "upload", level: 3 },
     });
+  });
+
+  it("sends the wiki's host back to the address its visitor sees", async () => {
+    const form = await requireHuman(
+      context(1, "/wiki/sky/-/edit/Iron_Ore", "http://wiki.localhost:4321"),
+      "wiki-proposal",
+    );
+    expect(form?.headers.get("location")).toBe(
+      "/check/?route=wiki-proposal&level=1&to=%2Fsky%2F-%2Fedit%2FIron_Ore",
+    );
+  });
+
+  it("knows newcomers: signed in, not the admin, nothing approved", () => {
+    const user = { id: "u", trustedAt: null } as unknown as User;
+    expect(isNewcomer(user)).toBe(true);
+    expect(isNewcomer({ ...user, trustedAt: new Date() })).toBe(false);
+    expect(isNewcomer(null)).toBe(false);
   });
 
   it("lets a pass through until its level is too low", async () => {

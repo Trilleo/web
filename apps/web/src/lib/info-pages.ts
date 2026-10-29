@@ -83,7 +83,7 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-10-29",
-        note: "The check for bots: what the server keeps in memory to decide when to ask, and for how long; it also covers profile pictures, uploads, Preview's server fetch and new chart pictures.",
+        note: "The check for bots: what the server keeps in memory to decide when to ask, and for how long; it also covers new accounts' comments and forum posts, proposed wiki edits, suggested song names, profile pictures, uploads, Preview's server fetch and new chart pictures.",
       },
       {
         date: "2026-10-25",

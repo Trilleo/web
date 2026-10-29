@@ -37,12 +37,17 @@ export function wikiOrigin(url: URL): string {
 }
 
 /**
- * Paths on the wiki's host that aren't the wiki's: Astro's own and built assets, and
- * the site's APIs (the upload widget calls /api/storage/ on the page's own host, with
- * the wiki's session).
+ * Paths on the wiki's host that aren't the wiki's: Astro's own and built assets, the
+ * site's APIs (the upload widget calls /api/storage/ on the page's own host, with
+ * the wiki's session), and the human check's page (proposed edits sent without
+ * JavaScript detour through it and come back here).
  */
 function passesThrough(pathname: string): boolean {
-  return pathname.startsWith("/_") || pathname.startsWith("/api/");
+  return (
+    pathname.startsWith("/_") ||
+    pathname.startsWith("/api/") ||
+    pathname === "/check/"
+  );
 }
 
 /** Where a request on the wiki's host is served from, or null to leave it alone. */

@@ -7,9 +7,11 @@
  * who can't edit the page propose their change instead (members review it); anyone
  * else sees the source.
  */
+import HumanCheck from "../../../../../components/check/HumanCheck.astro";
 import NoWiki from "../../../../../components/wiki/NoWiki.astro";
 import PageHeading from "../../../../../components/wiki/PageHeading.astro";
 import WikiLayout from "../../../../../layouts/WikiLayout.astro";
+import { requireHuman } from "../../../../../lib/captcha/gate";
 import { field } from "../../../../../lib/comments/form";
 import { noStoreRedirect } from "../../../../../lib/auth/redirect";
 import { canEditPage, canProposeTo } from "../../../../../lib/wiki/access";
@@ -115,6 +117,8 @@ if (context && title) {
         new Set(keys.filter((key) => !found.has(key))),
       );
     } else if (!canEdit && user) {
+      const check = await requireHuman(Astro, "wiki-proposal");
+      if (check) return check;
       const result = await propose(db, {
         wiki,
         author: user,
@@ -288,6 +292,7 @@ const signIn = `/-/sign-in?next=${encodeURIComponent(publicPath(Astro.url))}`;
               A minor edit (typos, formatting)
             </label>
           )}
+          {!canEdit && <HumanCheck route="wiki-proposal" intent="save" />}
           <div class="flex flex-wrap gap-3">
             <button
               type="submit"

@@ -15,6 +15,7 @@ import {
 } from "@trilleo/forum";
 import ForumAttachments from "./ForumAttachments";
 import { buttonClasses } from "@trilleo/ui";
+import HumanCheck from "../check/HumanCheck.astro";
 
 interface Props {
   action: string;
@@ -48,6 +49,8 @@ interface Props {
   attached?: readonly { id: string; name: string }[];
   /** Uploads sent with a post that came back (refused, or previewed): kept. */
   pending?: readonly string[];
+  /** The page checks this writer (a newcomer) with the human check before posting. */
+  humanCheck?: boolean;
 }
 
 const {
@@ -70,6 +73,7 @@ const {
   attach,
   attached = [],
   pending = [],
+  humanCheck = false,
 } = Astro.props;
 const input =
   "w-full border border-ink bg-paper px-3 py-2.5 text-base text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-invalid:border-accent";
@@ -251,6 +255,7 @@ const input =
     <p class="type-label mb-3 text-muted">Preview</p>
     <div class="comment-body forum-body" data-live-preview-body></div>
   </section>
+  {humanCheck && <HumanCheck route="forum-post" intent="post" />}
   <div class="flex flex-wrap items-center gap-3">
     <button type="submit" name="intent" value="post" class={buttonClasses()}>
       {submitLabel}

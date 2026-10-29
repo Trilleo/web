@@ -44,6 +44,7 @@ describe("the wiki's host", () => {
     expect(
       wikiRewrite(url("https://wiki.trilleo.net/api/storage/uploads")),
     ).toBeNull();
+    expect(wikiRewrite(url("https://wiki.trilleo.net/check/?a=1"))).toBeNull();
   });
 
   it("sends /wiki/ on the main host to the wiki", () => {

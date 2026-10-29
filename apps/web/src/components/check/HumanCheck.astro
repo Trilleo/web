@@ -3,7 +3,10 @@
  * Put inside a form whose page calls `requireHuman` for this route. With
  * JavaScript, the form gets its check (if it needs one) before it's sent, with a
  * line saying so; without, the server's detour through /check/ does the same.
+ * Server-rendered pages say which level the form needs now, so most forms are sent
+ * at once; prerendered ones (the contact page) ask when they're sent.
  */
+import { neededLevel } from "../../lib/captcha/gate";
 import type { CheckRoute } from "../../lib/captcha/routes";
 
 interface Props {
@@ -13,10 +16,22 @@ interface Props {
 }
 
 const { route, intent } = Astro.props;
+const level = Astro.isPrerendered ? undefined : await neededLevel(Astro, route);
 ---
 
-<div data-human-check={route} data-human-intent={intent}>
-  <p data-human-status role="status" class="text-sm text-muted" hidden></p>
+<!-- `contents`: until it has something to say, the form's layout (gaps) doesn't see it. -->
+<div
+  class="contents"
+  data-human-check={route}
+  data-human-intent={intent}
+  data-human-level={level}
+>
+  <p
+    data-human-status
+    role="status"
+    class="basis-full text-sm text-muted"
+    hidden
+  ></p>
 </div>
 
 <script>

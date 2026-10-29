@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { isDifficulty } from "@trilleo/chunithm";
 import { signInHref } from "@trilleo/tool-kit";
 import { isAdmin } from "../../../lib/auth/guard";
+import { requireHuman } from "../../../lib/captcha/gate";
 import { noStoreRedirect } from "../../../lib/auth/redirect";
 import {
   addAlias,
@@ -71,6 +72,8 @@ export const POST: APIRoute = async (context) => {
       done,
     );
   }
+  const check = await requireHuman(context, "alias");
+  if (check) return check;
   return answer(
     await suggestAlias(db, user.id, songId, field(form, "alias")),
     "sent",

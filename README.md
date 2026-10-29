@@ -118,7 +118,8 @@ sends players' guesses for the site to check and score. Apps can also be sent ev
 as they happen (webhooks: the day's cryptic at midnight, new posts), signed with a
 secret shown in the same panel.
 
-Things that cost something to answer (sign-in codes, the contact form, profile
+Things that cost something to answer (sign-in codes, the contact form, new accounts'
+comments and forum posts, proposed wiki edits, suggested CHUNITHM names, profile
 pictures, new accounts' uploads, Preview's server fetch, new CHUNITHM chart pictures)
 have a check for bots of the site's own, with no third-party service: a proof-of-work
 the browser solves by itself, growing harder as one network keeps sending, then a grid

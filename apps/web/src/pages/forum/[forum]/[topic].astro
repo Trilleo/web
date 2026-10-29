@@ -23,6 +23,7 @@ import { buttonClasses } from "@trilleo/ui";
 import Breadcrumb from "../../../components/Breadcrumb.astro";
 import Pager from "../../../components/forum/Pager.astro";
 import PostForm from "../../../components/forum/PostForm.astro";
+import { isNewcomer, requireHuman } from "../../../lib/captcha/gate";
 import PostItem from "../../../components/forum/PostItem.astro";
 import BanNotice from "../../../components/forum/BanNotice.astro";
 import TopicBadges from "../../../components/forum/TopicBadges.astro";
@@ -132,6 +133,10 @@ if (Astro.request.method === "POST") {
   if (field(form, "intent") === "preview") {
     preview = await renderBody(db, replyBody);
   } else {
+    if (isNewcomer(user)) {
+      const check = await requireHuman(Astro, "forum-post");
+      if (check) return check;
+    }
     const result = await createReply(db, {
       tree,
       forum,
@@ -688,6 +693,7 @@ forumNotices(Astro);
               draftKey={draftKey.reply(topic.id)}
               attach={canAttach ? { room: 5 - pendingFiles.length } : undefined}
               pending={pendingFiles}
+              humanCheck={isNewcomer(user)}
               id="reply-form"
               rows={8}
             />

@@ -8,57 +8,60 @@
 import { solvePow } from "@trilleo/captcha";
 import { earnPass, progressText } from "@trilleo/captcha/client";
 
-const enhanced = new WeakSet<HTMLFormElement>();
+let listening = false;
+/** Forms sent again once their pass is earned: let through this time. */
+const passing = new WeakSet<HTMLFormElement>();
 
-/** Forms with a [data-human-check] inside get the check before they're sent. */
-export function enhanceHumanChecks(root: ParentNode = document): void {
-  for (const marker of root.querySelectorAll<HTMLElement>(
-    "[data-human-check]",
-  )) {
-    const form = marker.closest("form");
-    const route = marker.dataset.humanCheck;
-    if (!form || !route || enhanced.has(form)) continue;
-    enhanced.add(form);
-    const status = marker.querySelector<HTMLElement>("[data-human-status]");
+/**
+ * Forms with a [data-human-check] inside get the check before they're sent. One
+ * listener on the document, so forms that arrive later (server islands) are
+ * covered too.
+ */
+export function enhanceHumanChecks(): void {
+  if (listening) return;
+  listening = true;
+  document.addEventListener("submit", (event) => {
+    const form = event.target;
+    if (event.defaultPrevented) return;
+    if (!(form instanceof HTMLFormElement) || passing.has(form)) return;
+    const marker = form.querySelector<HTMLElement>("[data-human-check]");
+    const route = marker?.dataset.humanCheck;
+    if (!marker || !route) return;
+    // The page said none is needed: send it as it is (the server still decides).
+    if (marker.dataset.humanLevel === "0") return;
+    const submitter = event.submitter;
     const intent = marker.dataset.humanIntent;
-    let checked = false;
-    const send = (submitter: HTMLElement | null) => {
-      checked = true;
+    if (
+      intent !== undefined &&
+      !(submitter instanceof HTMLButtonElement && submitter.value === intent)
+    )
+      return;
+    event.preventDefault();
+    const status = marker.querySelector<HTMLElement>("[data-human-status]");
+    const buttons = form.querySelectorAll<HTMLButtonElement>("button");
+    for (const button of buttons) button.disabled = true;
+    const show = (text: string | null) => {
+      if (!status) return;
+      status.hidden = text === null;
+      status.textContent = text ?? "";
+    };
+    const send = () => {
+      for (const button of buttons) button.disabled = false;
+      passing.add(form);
       form.requestSubmit(
         submitter instanceof HTMLButtonElement ? submitter : null,
       );
-      checked = false;
+      passing.delete(form);
     };
-    form.addEventListener("submit", (event) => {
-      const submitter = event.submitter;
-      if (checked) return;
-      if (
-        intent !== undefined &&
-        !(submitter instanceof HTMLButtonElement && submitter.value === intent)
-      )
-        return;
-      event.preventDefault();
-      const buttons = form.querySelectorAll<HTMLButtonElement>("button");
-      for (const button of buttons) button.disabled = true;
-      const show = (text: string | null) => {
-        if (!status) return;
-        status.hidden = text === null;
-        status.textContent = text ?? "";
-      };
-      void earnPass(route, { onStatus: show })
-        .then((passed) => {
-          for (const button of buttons) button.disabled = false;
-          // The puzzle was closed: nothing is sent.
-          if (!passed) return;
-          send(submitter);
-        })
-        .catch(() => {
-          // The server will send the visitor to /check/ if it still wants a check.
-          for (const button of buttons) button.disabled = false;
-          send(submitter);
-        });
-    });
-  }
+    void earnPass(route, { onStatus: show })
+      .then((passed) => {
+        // The puzzle was closed: nothing is sent.
+        if (passed) send();
+        else for (const button of buttons) button.disabled = false;
+      })
+      // The server will send the visitor to /check/ if it still wants a check.
+      .catch(send);
+  });
 }
 
 /** /check/'s proof-of-work form: solve it, fill in the nonce, send. */

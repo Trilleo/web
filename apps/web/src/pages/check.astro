@@ -11,6 +11,7 @@ import { buttonClasses } from "@trilleo/ui";
 import AuthCard from "../components/account/AuthCard.astro";
 import PuzzleForm from "../components/check/PuzzleForm.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
+import WikiLayout from "../layouts/WikiLayout.astro";
 import { noStoreRedirect } from "../lib/auth/redirect";
 import { CHECK_LIMITS } from "../lib/captcha/checker";
 import {
@@ -23,6 +24,7 @@ import {
 } from "../lib/captcha/gate";
 import { checkTarget, isCheckRoute } from "../lib/captcha/routes";
 import { field } from "../lib/comments/form";
+import { isWikiHost, mainOrigin } from "../lib/wiki/host";
 
 export const prerender = false;
 
@@ -132,9 +134,12 @@ if (route && to && Astro.request.method === "POST") {
 }
 
 const reveal = checkTestMode();
+// Proposed wiki edits come here on the wiki's host: its own layout, links to www.
+const Layout = isWikiHost(Astro.url) ? WikiLayout : BaseLayout;
+const privacy = `${isWikiHost(Astro.url) ? mainOrigin(Astro.url) : ""}/legal/privacy/#human-check`;
 ---
 
-<BaseLayout title="One quick check" noindex>
+<Layout title="One quick check" noindex>
   <AuthCard
     id="check-title"
     label="Human check"
@@ -235,13 +240,13 @@ const reveal = checkTestMode();
       The site keeps nothing about you in its database: it remembers a scrambled
       form of your network address in memory for an hour, and passing sets a
       cookie for {String(CHECK_LIMITS.passMs / 60_000)} minutes. See the{" "}
-      <a href="/legal/privacy/#human-check" class="text-ink underline">
+      <a href={privacy} class="text-ink underline">
         privacy policy
       </a>
       .
     </p>
   </AuthCard>
-</BaseLayout>
+</Layout>
 
 <script>
   import { solvePowForm } from "../lib/captcha/client";

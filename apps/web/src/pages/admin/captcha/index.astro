@@ -195,9 +195,7 @@ const label = "type-label col-span-4 md:col-span-2 xl:col-span-2";
             {Object.values(CHECK_ROUTES).map((route) => (
               <tr class="border-t border-hair align-baseline">
                 <td class="py-2 pr-3">{route.label}</td>
-                <td class="py-2 pr-3 font-mono text-xs">
-                  {route.paths.join(", ")}
-                </td>
+                <td class="py-2 pr-3 font-mono text-xs">{route.where}</td>
                 {route.steps.map((step) => (
                   <td class="py-2 text-right">{step}</td>
                 ))}

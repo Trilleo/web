@@ -1,6 +1,7 @@
 ---
 import { buttonClasses } from "@trilleo/ui";
 import { COMMENT_MAX_LENGTH } from "../../lib/comments/store";
+import HumanCheck from "../check/HumanCheck.astro";
 
 interface Props {
   postSlug: string;
@@ -8,7 +9,7 @@ interface Props {
   parentId?: number | undefined;
   /** Text to start with, e.g. after a refused post. */
   body?: string;
-  /** The writer's comments wait for approval (they're new here). */
+  /** The writer's comments wait for approval (they're new here): the human check asks them. */
   reviewed?: boolean;
   /** Keeps ids unique when a page has several forms. */
   idSuffix?: string;
@@ -47,6 +48,7 @@ const hintId = `comment-hint-${idSuffix}`;
     <code>&gt;</code> quotes and links work.
     {reviewed && " Your first comment appears once it’s approved."}
   </p>
+  {reviewed && <HumanCheck route="comment" />}
   <div>
     <button type="submit" class={buttonClasses()}>
       {isReply ? "Post reply" : "Post comment"}

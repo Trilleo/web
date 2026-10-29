@@ -10,6 +10,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import { isAdmin } from "../../lib/auth/guard";
 import { noStoreRedirect } from "../../lib/auth/redirect";
 import { findPublicPost, toBlogPost } from "../../lib/blog/store";
+import { isNewcomer, requireHuman } from "../../lib/captcha/gate";
 import { field, parseId } from "../../lib/comments/form";
 import {
   commentErrorMessage,
@@ -58,6 +59,12 @@ if (!user) {
   );
 }
 
+// Newcomers' comments wait for approval anyway, but bots can still flood the queue.
+if (isNewcomer(user)) {
+  const check = await requireHuman(Astro, "comment");
+  if (check) return check;
+}
+
 const body = field(form, "body");
 const parentField = field(form, "parent");
 const parentId = parentField === "" ? null : parseId(parentField);
@@ -103,6 +110,7 @@ const message = commentErrorMessage(result.error, normalizeBody(body).length);
             postSlug={post.id}
             parentId={parentId ?? undefined}
             body={body}
+            reviewed={isNewcomer(user)}
           />
         )}
         <a

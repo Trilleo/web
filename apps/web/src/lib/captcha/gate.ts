@@ -12,9 +12,11 @@
  * proof-of-work before the form is sent, so the detour never happens.
  */
 import type { CheckLevel, CheckMode } from "@trilleo/captcha";
+import type { User } from "@trilleo/db";
 import type { APIContext } from "astro";
 import { isAdmin } from "../auth/guard";
 import { getDb } from "../db";
+import { isWikiHost } from "../wiki/host";
 import { Checker } from "./checker";
 import { currentMode } from "./store";
 import type { CheckRoute } from "./routes";
@@ -103,6 +105,38 @@ export function checkUrl(route: CheckRoute, to: string, level = 1): string {
 }
 
 /**
+ * The level the visitor's next action on `route` would need right now, for a page
+ * to tell its form (0: none, or their pass covers it). Only looks: nothing is
+ * counted or spent, and the server decides again when the form arrives.
+ */
+export async function neededLevel(
+  context: CheckContext,
+  route: CheckRoute,
+): Promise<CheckLevel> {
+  if (isAdmin(context.locals.user)) return 0;
+  const { level, visitor } = await levelFor(context, route);
+  return passCovers(context, visitor, level, false) ? 0 : level;
+}
+
+/**
+ * Someone the newcomer routes (comments, forum posts) check: signed in, not the
+ * admin, and nothing of theirs approved yet (users.trusted_at).
+ */
+export function isNewcomer(user: User | null | undefined): boolean {
+  if (!user) return false;
+  return user.trustedAt === null && !isAdmin(user);
+}
+
+/** The page's address as the visitor sees it (the wiki host's pages live under /wiki/). */
+function visiblePath(url: URL): string {
+  const path =
+    isWikiHost(url) && url.pathname.startsWith("/wiki/")
+      ? url.pathname.slice("/wiki".length)
+      : url.pathname;
+  return path + url.search;
+}
+
+/**
  * Whether the visitor may go ahead on `route` now (the action is then counted), or
  * the level they need to show first. The admin is never checked.
  */
@@ -134,11 +168,7 @@ export async function requireHuman(
     status: 307,
     headers: {
       "Cache-Control": "private, no-store",
-      Location: checkUrl(
-        route,
-        context.url.pathname + context.url.search,
-        level,
-      ),
+      Location: checkUrl(route, visiblePath(context.url), level),
     },
   });
 }
