@@ -1,6 +1,7 @@
 /**
  * Cookie and storage consent: what a visitor allowed, kept in this browser. Two
- * optional categories on top of the necessary ones (signing in, and this choice):
+ * optional categories on top of the necessary ones (signing in, the human check's
+ * pass cookie, and this choice):
  *
  *   preferences  things kept in this browser so the site remembers them: light/dark
  *                mode, tool data and game saves while signed out. On by default;

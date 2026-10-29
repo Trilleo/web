@@ -4,6 +4,7 @@
  * form (to /sign-in), so it works without JavaScript.
  */
 import { buttonClasses } from "@trilleo/ui";
+import HumanCheck from "../check/HumanCheck.astro";
 
 interface Props {
   action: string;
@@ -58,4 +59,5 @@ const input =
   >
     Continue with email
   </button>
+  <HumanCheck route="sign-in" />
 </form>

@@ -1,5 +1,5 @@
 ---
-/** The admin's sections: the dashboard (comments, account), posts, files, Minecraft, the forum, the daily cryptic, the CHUNITHM catalog, the API, messages and mail. */
+/** The admin's sections: the dashboard (comments, account), posts, files, Minecraft, the forum, the daily cryptic, the CHUNITHM catalog, the API, the human check, messages and mail. */
 interface Props {
   current:
     | "dashboard"
@@ -10,6 +10,7 @@ interface Props {
     | "cryptic"
     | "chunithm"
     | "api"
+    | "captcha"
     | "messages"
     | "mail";
 }
@@ -24,6 +25,7 @@ const items = [
   { key: "cryptic", label: "Cryptic", href: "/admin/cryptic/" },
   { key: "chunithm", label: "CHUNITHM", href: "/admin/chunithm/" },
   { key: "api", label: "API", href: "/admin/api/" },
+  { key: "captcha", label: "Human check", href: "/admin/captcha/" },
   { key: "messages", label: "Messages", href: "/admin/messages/" },
   { key: "mail", label: "Mail", href: "/admin/mail/" },
 ] as const;

@@ -13,6 +13,7 @@ import {
   sendContactMessage,
   type ContactInput,
 } from "../../lib/contact/store";
+import { requireHuman } from "../../lib/captcha/gate";
 import { getDb } from "../../lib/db";
 import { CONTACT_EMAIL } from "../../lib/site";
 
@@ -24,6 +25,9 @@ if (Astro.request.method !== "POST") {
 
 Astro.response.headers.set("Cache-Control", "private, no-store");
 Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const check = await requireHuman(Astro, "contact");
+if (check) return check;
 
 const form = await Astro.request.formData();
 const input: ContactInput = {

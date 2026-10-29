@@ -10,6 +10,7 @@ import {
 import { NEW_KEY_MAX_AGE_S } from "../../lib/api/admin";
 import { SESSION_TTL_MS } from "../../lib/auth/sessions";
 import { STATE_MAX_AGE_S } from "../../lib/wiki/handoff";
+import { CHECK_LIMITS } from "../../lib/captcha/checker";
 
 const sessionDays = SESSION_TTL_MS / (24 * 60 * 60 * 1000);
 
@@ -25,10 +26,11 @@ import { STUDY_STORAGE_KEY } from "@trilleo/study/client";
 <InfoLayout path="/legal/cookies/" sections={sections} history>
   <h2 id="short">In short</h2>
   <p>
-    The site sets cookies only to sign you in: one while you’re signed in, and
-    short-lived ones while you’re signing in. Those are necessary and always on.
-    Two things are your choice, from the card you see on your first visit or
-    “Cookie settings” at the bottom of every page:
+    The site sets cookies only to sign you in (one while you’re signed in, and
+    short-lived ones while you’re signing in) and, if you pass its check for
+    bots, to remember that for a while. Those are necessary and always on. Two
+    things are your choice, from the card you see on your first visit or “Cookie
+    settings” at the bottom of every page:
   </p>
 
   <ul>
@@ -124,6 +126,21 @@ import { STUDY_STORAGE_KEY } from "@trilleo/study/client";
           makes it to the page that shows it once.
         </td>
         <td>{NEW_KEY_MAX_AGE_S / 60} minutes, or until it’s shown</td>
+      </tr>
+      <tr>
+        <td>
+          <code>__Host-trilleo_human</code>
+        </td>
+        <td>
+          Set only when the site checks you’re not a bot (when a lot has been
+          sent from your network): a signed pass, so you aren’t checked again on
+          every form. It holds a scrambled form of your network address, never
+          the address itself.
+        </td>
+        <td>
+          {CHECK_LIMITS.passMs / 60_000} minutes, or {CHECK_LIMITS.passUses}{" "}
+          forms
+        </td>
       </tr>
     </tbody>
   </table>

@@ -1,0 +1,236 @@
+---
+/**
+ * The human check (lib/captcha/gate.ts). A protected page sends a POST here with a
+ * 307, so the visitor's form arrives as it was. This page shows a challenge (the
+ * proof-of-work, solved by the browser, or the puzzle without JavaScript or when
+ * the level calls for it), carries the form along in hidden fields, and once the
+ * answer is right sets a pass cookie and 307s back with the form again.
+ */
+import { PUZZLE_LEVEL } from "@trilleo/captcha";
+import { buttonClasses } from "@trilleo/ui";
+import AuthCard from "../components/account/AuthCard.astro";
+import PuzzleForm from "../components/check/PuzzleForm.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { noStoreRedirect } from "../lib/auth/redirect";
+import { CHECK_LIMITS } from "../lib/captcha/checker";
+import {
+  checkTestMode,
+  checkUrl,
+  checker,
+  levelFor,
+  setPassCookie,
+  visitorOf,
+} from "../lib/captcha/gate";
+import { checkTarget, isCheckRoute } from "../lib/captcha/routes";
+import { field } from "../lib/comments/form";
+
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const params = Astro.url.searchParams;
+const routeParam = params.get("route");
+const route = isCheckRoute(routeParam) ? routeParam : null;
+const to = route ? checkTarget(route, params.get("to")) : null;
+// What the page asked for (it can only raise the level, never lower it).
+const asked = Math.min(
+  PUZZLE_LEVEL,
+  Math.max(1, Number(params.get("level")) || 1),
+);
+
+if (!route || !to) {
+  Astro.response.status = 400;
+} else if (Astro.request.method !== "POST") {
+  // Nothing to carry on: back to the page itself.
+  return noStoreRedirect(to, 303);
+}
+
+const WRONG: Record<string, string> = {
+  wrong: "That wasn’t right. Here’s a new one.",
+  expired: "That check ran out of time. Here’s a new one.",
+  spent: "That check was already used. Here’s a new one.",
+  invalid: "That check didn’t come from here. Here’s a new one.",
+};
+
+let error: string | null = null;
+let fields: [string, string][] = [];
+let view:
+  | { kind: "none" }
+  | { kind: "refused" }
+  | {
+      kind: "pow";
+      token: string;
+      salt: string;
+      bits: number;
+      puzzle: ReturnType<typeof checker.puzzleChallenge>;
+    }
+  | { kind: "puzzle"; challenge: ReturnType<typeof checker.puzzleChallenge> } =
+  { kind: "none" };
+const self = route && to ? checkUrl(route, to, asked) : "/check/";
+
+if (route && to && Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  fields = [...form.entries()].flatMap(([name, value]) =>
+    typeof value === "string" && !name.startsWith("_check_")
+      ? [[name, value] as [string, string]]
+      : [],
+  );
+  const visitor = visitorOf(Astro);
+  const token = field(form, "_check_token");
+  const wantsPuzzle = field(form, "_check_mode") === "puzzle";
+
+  if (token && !wantsPuzzle) {
+    const nonce = field(form, "_check_nonce");
+    const result = checker.verify(token, route, visitor, {
+      nonce: nonce === "" ? undefined : Number(nonce),
+      cells: form.getAll("_check_cell").map((cell) => Number(cell)),
+      text: field(form, "_check_text"),
+    });
+    if (result.ok) {
+      checker.count(route, "passed");
+      setPassCookie(Astro, result.level);
+      return new Response(null, {
+        status: 307,
+        headers: { "Cache-Control": "private, no-store", Location: to },
+      });
+    }
+    checker.fail(route, visitor);
+    error = WRONG[result.reason] ?? WRONG.wrong ?? null;
+  }
+
+  if (checker.refused(visitor) && !checkTestMode()) {
+    view = { kind: "refused" };
+    Astro.response.status = 429;
+  } else {
+    const level = Math.max(asked, (await levelFor(Astro, route)).level);
+    if (wantsPuzzle || level >= PUZZLE_LEVEL) {
+      view = {
+        kind: "puzzle",
+        challenge: checker.puzzleChallenge(route, visitor),
+      };
+      checker.count(route, "puzzles");
+    } else {
+      const pow = checker.powChallenge(route, visitor, level === 2 ? 2 : 1);
+      view = {
+        kind: "pow",
+        ...pow,
+        // Shown instead when JavaScript is off.
+        puzzle: checker.puzzleChallenge(route, visitor),
+      };
+    }
+    if (error) Astro.response.status = 422;
+  }
+}
+
+const reveal = checkTestMode();
+---
+
+<BaseLayout title="One quick check" noindex>
+  <AuthCard
+    id="check-title"
+    label="Human check"
+    title={view.kind === "refused" ? "Too many tries" : "One quick check"}
+    description={
+      view.kind === "none"
+        ? "This check doesn’t lead anywhere. Go back and try again."
+        : view.kind === "refused"
+          ? "Lots of checks from your network have failed lately. Try again in an hour."
+          : "A lot has been sent from your network lately, so the site wants to be sure you’re a person. Your form is kept and sent once this is done."
+    }
+  >
+    {error && (
+      <p slot="notice" role="alert" class="border-l-2 border-accent pl-3">
+        {error}
+      </p>
+    )}
+
+    {view.kind === "puzzle" && (
+      <PuzzleForm
+        action={self}
+        token={view.challenge.token}
+        puzzle={view.challenge.puzzle}
+        {fields}
+        revealAnswers={reveal}
+      />
+    )}
+
+    {view.kind === "pow" && (
+      <>
+        <form
+          method="post"
+          action={self}
+          class="flex flex-col gap-4"
+          data-pow-form
+          data-salt={view.salt}
+          data-bits={String(view.bits)}
+          hidden
+        >
+          {fields.map(([name, value]) => (
+            <input type="hidden" {name} {value} />
+          ))}
+          <input type="hidden" name="_check_token" value={view.token} />
+          <input type="hidden" name="_check_nonce" value="" />
+          <p role="status" data-pow-status class="font-medium">
+            Checking you’re not a bot…
+          </p>
+          <p class="text-sm text-muted">
+            Your browser is working out a small sum. It takes a moment and needs
+            nothing from you.
+          </p>
+          <button
+            type="submit"
+            name="_check_mode"
+            value="puzzle"
+            class={buttonClasses({
+              hover: "plain",
+              variant: "secondary",
+              className: "w-full",
+            })}
+          >
+            Solve a puzzle instead
+          </button>
+        </form>
+        <noscript>
+          <PuzzleForm
+            action={self}
+            token={view.puzzle.token}
+            puzzle={view.puzzle.puzzle}
+            {fields}
+            revealAnswers={reveal}
+            idPrefix="check-nojs"
+          />
+        </noscript>
+      </>
+    )}
+
+    {view.kind !== "pow" && view.kind !== "puzzle" && (
+      <a
+        href="/"
+        class={buttonClasses({ hover: "plain", className: "w-full" })}
+      >
+        Home
+      </a>
+    )}
+
+    <p slot="footer">
+      The site keeps nothing about you in its database: it remembers a scrambled
+      form of your network address in memory for an hour, and passing sets a
+      cookie for {String(CHECK_LIMITS.passMs / 60_000)} minutes. See the{" "}
+      <a href="/legal/privacy/#human-check" class="text-ink underline">
+        privacy policy
+      </a>
+      .
+    </p>
+  </AuthCard>
+</BaseLayout>
+
+<script>
+  import { solvePowForm } from "../lib/captcha/client";
+
+  const form = document.querySelector<HTMLFormElement>("[data-pow-form]");
+  if (form) {
+    form.hidden = false;
+    solvePowForm(form);
+  }
+</script>

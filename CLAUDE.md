@@ -66,6 +66,9 @@
 - packages/cryptic (@trilleo/cryptic): the daily cryptic's pure rules: enumerations
   (`parseEnumeration`, `enumerationOf`, `answerFits`), checking guesses by their
   letters (`checkGuess`), UTC days, streaks. Source-only.
+- packages/captcha (@trilleo/captcha): the human check's pure rules: levels and modes
+  (`requiredLevel`), proof-of-work (`solvePow`, `checkPow`, a hand-written synchronous
+  SHA-256) and the grid puzzle (`makePuzzle`, `cellSvg`). Source-only.
 - packages/chunithm (@trilleo/chunithm): the CHUNITHM catalog's pure rules:
   difficulties and constants (tenths), versions (`versionSlug` for every source's
   names), readers for SEGA's song list, otoge-db and sdvx.in's JSON song lists (refs,
@@ -369,6 +372,48 @@
   accounts, a link to sessions, recent activity), /account/sessions/ (sign other browsers out; sessions keep
   last_used_at, written at most every 5 minutes, and the User-Agent),
   /account/export.json (everything we keep, as JSON).
+
+## Human check
+
+- The site's own CAPTCHA (no third party: the server is in mainland China and the
+  site makes no outside requests). Rules in packages/captcha; the rest in
+  apps/web/src/lib/captcha/ (routes.ts, checker.ts, gate.ts, store.ts, client.ts).
+- Routes (CHECK_ROUTES): a name, the pages whose POSTs it guards, and `steps`: actions
+  an hour from one visitor before level 1 (light proof-of-work, POW_BITS[1]), 2
+  (heavy) and 3 (the puzzle). Failures and the mode add levels. So far: "sign-in"
+  (POST /sign-in, and "Send a new code" on /sign-in/code: each is an email) and
+  "contact" (/contact/send). Sign-up itself sends nothing, so it isn't guarded.
+- A guarded handler starts with `const check = await requireHuman(Astro, route); if
+(check) return check;` before anything else happens. Level 0, or a pass cookie
+  (`trilleo_human`, CHECK_LIMITS.passMs or passUses actions) at a high enough level:
+  it goes ahead and counts. Otherwise a 307 to /check/?route=&to=, so the browser
+  re-posts the same form there; /check/ shows the challenge with the form carried
+  in hidden fields (only string fields: files can't ride along), and once it's
+  answered sets the pass and 307s back. Any POST form is covered, without JS. The
+  admin is never checked.
+- With JS, <HumanCheck route intent?> inside the form asks /api/check/challenge before
+  sending and solves the proof-of-work on the page (main thread, in slices: no worker,
+  since Astro may inline the script), posting the nonce to /api/check/solve for the
+  pass; `intent` limits it to one submit button. /check/ solves its proof-of-work the
+  same way; without JS it shows the puzzle instead (in <noscript>).
+- The puzzle (PuzzleForm.astro): a 4×4 grid of jittered shapes drawn as paths in
+  currentColor, a checkbox per cell, plus a question in words for those who can't see
+  it (either answer passes). It stops generic bots, not one written for this site;
+  the levels and the existing limits do the rest.
+- Memory, not the database (checker.ts): visitors are an HMAC of the IP with a key
+  made at startup (a restart voids passes and forgets visitors), tries are kept an
+  hour, challenges and passes are signed tokens, answered challenges are remembered
+  until they expire so each works once, and CHECK_LIMITS.failuresToRefuse failures in
+  an hour turn a visitor away. The database keeps the mode (captcha_settings, one
+  row) and daily totals per route (captcha_stats, CHECK_STATS_DAYS), written at most
+  every minute.
+- /admin/captcha/: the mode (Normal, Raised, Under attack; for 1/6/24 hours or until
+  changed), the routes' steps, 14 days of counts. /admin warns while it isn't Normal.
+  CHECK_FLOOD.failuresPerHour failed checks in an hour raise a Normal mode for an hour
+  by itself and alert the admin ("captcha-flood", every 6 hours at most).
+- E2E: CAPTCHA_TEST=1 checks only browsers with a `trilleo_check_test` cookie (its
+  value is the level) and ignores the mode, so other specs never meet it; puzzles
+  carry their answers (`data-answer`, `data-text-answer`). e2e/human-check.spec.ts.
 
 ## Comments
 

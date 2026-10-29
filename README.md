@@ -59,6 +59,8 @@ packages/wiki       @trilleo/wiki: wiki components (infobox, notice, tabs, …):
                     markdown-it plugin, and the tabs script
 packages/study      @trilleo/study: the study section's engine (content loader, lesson
                     renderer with KaTeX, quizzes, circuits, React widgets)
+packages/captcha    @trilleo/captcha: the human check's rules (levels, proof-of-work,
+                    the grid puzzle)
 study/              Study subjects: Markdown lessons, one folder per subject (see study/README.md)
 deploy/             Caddy config, server compose file, deploy and backup scripts, runbooks
 Dockerfile          Production images: `web` (Caddy + static site) and `app` (Node server)
@@ -115,6 +117,14 @@ recent failures. The first thing on it is a daily cryptic crossword clue, writte
 sends players' guesses for the site to check and score. Apps can also be sent events
 as they happen (webhooks: the day's cryptic at midnight, new posts), signed with a
 secret shown in the same panel.
+
+Forms that cost something to answer (sign-in codes, the contact form) have a check for
+bots of the site's own, with no third-party service: a proof-of-work the browser solves
+by itself, growing harder as one network keeps sending, then a grid puzzle (also what
+browsers without JavaScript get). It's in `packages/captcha` and
+`apps/web/src/lib/captcha/`; the admin sets its mode (Normal, Raised, Under attack) and
+reads its counts at `/admin/captcha/`. In `pnpm dev` nobody sees it unless they send a
+lot; to try it, switch the mode to "Under attack".
 
 The CHUNITHM chart viewer (`/tools/chunithm/`) searches every chart (titles and community
 aliases, in English, Japanese, romaji or Chinese) and shows each as one picture, read from the bottom up. Its

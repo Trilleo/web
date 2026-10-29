@@ -5,6 +5,7 @@
  * was wrong, with each field's problem beside it.
  */
 import { buttonClasses, fieldClasses } from "@trilleo/ui";
+import HumanCheck from "../check/HumanCheck.astro";
 import {
   CONTACT_FIELD_LIMITS,
   CONTACT_TOPICS,
@@ -157,4 +158,5 @@ const described = (field: ContactField, hint?: string) =>
       .
     </p>
   </div>
+  <HumanCheck route="contact" />
 </form>

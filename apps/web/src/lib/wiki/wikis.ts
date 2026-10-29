@@ -26,6 +26,7 @@ export const RESERVED_WIKI_SLUGS: ReadonlySet<string> = new Set([
   "assets",
   "auth",
   "avatars",
+  "check",
   "colophon",
   "comments",
   "contact",

@@ -82,6 +82,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "legal",
     changes: [
       {
+        date: "2026-10-29",
+        note: "The check for bots: what the server keeps in memory to decide when to ask, and for how long.",
+      },
+      {
         date: "2026-10-25",
         note: "CHUNITHM charts: the “Original jacket” link takes your browser to sdvx.in itself.",
       },
@@ -173,6 +177,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "The cookies and browser storage the site uses, what each is for, and how to choose what’s kept.",
     group: "legal",
     changes: [
+      {
+        date: "2026-10-29",
+        note: "Listed the pass cookie set when you pass the check for bots (necessary).",
+      },
       {
         date: "2026-10-24",
         note: "Listed what the CHUNITHM tool remembers in your browser: favourites, recent charts and your layout (preferences).",

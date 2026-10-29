@@ -22,6 +22,8 @@ import {
 } from "../../lib/auth/email-sign-in";
 import { noStoreRedirect, safeNextPath } from "../../lib/auth/redirect";
 import { startSession } from "../../lib/auth/sign-in";
+import { requireHuman } from "../../lib/captcha/gate";
+import HumanCheck from "../../components/check/HumanCheck.astro";
 import { field } from "../../lib/comments/form";
 import { getDb } from "../../lib/db";
 import { CODE_DIGITS } from "../../lib/mail/addresses";
@@ -47,6 +49,8 @@ if (Astro.request.method === "POST") {
   const db = await getDb();
   const form = await Astro.request.formData();
   if (field(form, "intent") === "resend") {
+    const check = await requireHuman(Astro, "sign-in");
+    if (check) return check;
     let ip = "";
     try {
       ip = Astro.clientAddress;
@@ -168,6 +172,7 @@ const input =
       >
         Send a new code
       </button>
+      <HumanCheck route="sign-in" intent="resend" />
     </form>
 
     <p slot="footer">

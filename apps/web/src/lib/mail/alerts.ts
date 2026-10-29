@@ -45,6 +45,7 @@ export const ALERT_KINDS = {
   "webhook-disabled": "Webhook switched off",
   "chunithm-update": "CHUNITHM catalog",
   "chunithm-alias": "CHUNITHM name suggested",
+  "captcha-flood": "Bots at the human check",
 } as const;
 export type AlertKind = keyof typeof ALERT_KINDS;
 

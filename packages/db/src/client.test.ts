@@ -79,6 +79,8 @@ describe("openDatabase", () => {
       "api_webhooks",
       "avatars",
       "blocked_hashes",
+      "captcha_settings",
+      "captcha_stats",
       "chuni_alias_suggestions",
       "chuni_aliases",
       "chuni_builds",

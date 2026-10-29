@@ -43,6 +43,9 @@ const e2eEnv = {
   CHUNITHM_SDVX_DELAY_MS: "0",
   // Specs start their builds themselves.
   CHUNITHM_PREBUILD: "off",
+  // The human check asks only browsers with a trilleo_check_test cookie (its level),
+  // and puzzles carry their answers (e2e/human-check.spec.ts).
+  CAPTCHA_TEST: "1",
   MIGRATIONS_DIR: fileURLToPath(
     new URL("../../packages/db/migrations", import.meta.url),
   ),

@@ -19,6 +19,8 @@ import { moderationOverview } from "../../lib/comments/store";
 import { dayOf } from "@trilleo/cryptic";
 import { daysCovered } from "../../lib/cryptic/puzzles";
 import { queueWarning } from "../../lib/cryptic/queue";
+import { CHECK_MODE_LABELS } from "@trilleo/captcha";
+import { readMode } from "../../lib/captcha/store";
 import { getDb } from "../../lib/db";
 import { indexNowKey } from "../../lib/indexnow";
 import { infoPaths } from "../../lib/info-pages";
@@ -93,6 +95,7 @@ const expiresAt = Astro.locals.session?.expiresAt;
 const migration = await accountMigration(db, admin, authConfig());
 const crypticDays = await daysCovered(db, dayOf(new Date()));
 const crypticWarning = queueWarning(crypticDays);
+const checkMode = await readMode(db);
 
 type Fact = { term: string; value: string } | { term: string; date: Date };
 const facts: Fact[] = [
@@ -122,6 +125,20 @@ const facts: Fact[] = [
     <AdminNav current="dashboard" />
 
     <DisplayTitle id="admin-title">Admin</DisplayTitle>
+
+    {checkMode.mode !== "normal" && (
+      <p class="mt-7 border-l-2 border-accent pl-4 md:mt-8" data-check-warning>
+        The human check is {CHECK_MODE_LABELS[checkMode.mode]}
+        {checkMode.until
+          ? ` until ${checkMode.until.toISOString().slice(11, 16)} UTC`
+          : ""}
+        {checkMode.setBy === "auto" ? " (raised by itself after a flood)" : ""}.{" "}
+        <a href="/admin/captcha/" class="underline">
+          Change it
+        </a>
+        .
+      </p>
+    )}
 
     <div class="mt-7 md:mt-8 xl:mt-12">
       <Moderation {...overview} titles={titles} adminId={admin.id} />

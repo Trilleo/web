@@ -14,6 +14,7 @@ import AuthCard from "../components/account/AuthCard.astro";
 import EmailStep from "../components/account/EmailStep.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { authConfig } from "../lib/auth/config";
+import { requireHuman } from "../lib/captcha/gate";
 import { setPendingCookie } from "../lib/auth/cookies";
 import {
   SIGN_IN_CODE_ERRORS,
@@ -40,6 +41,9 @@ let error = signInErrorMessage(params.get("error"));
 let typed = "";
 
 if (Astro.request.method === "POST" && !user) {
+  // Each code is an email: bots sending lots of them meet the human check.
+  const check = await requireHuman(Astro, "sign-in");
+  if (check) return check;
   const form = await Astro.request.formData();
   next = safeNextPath(field(form, "next"));
   typed = field(form, "email");

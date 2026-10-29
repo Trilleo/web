@@ -3197,6 +3197,34 @@ export const chuniPrebuild = pgTable("chuni_prebuild", {
   pausedUntil: timestamp("paused_until", { withTimezone: true }),
 });
 
+/**
+ * The human check's mode (one row, id 1): "normal", "raised" or "attack", until a
+ * time or (null) until changed. `setBy` is "admin", or "auto" when a flood raised it.
+ */
+export const captchaSettings = pgTable("captcha_settings", {
+  id: integer("id").primaryKey(),
+  mode: text("mode").notNull(),
+  until: timestamp("until", { withTimezone: true }),
+  setBy: text("set_by").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+});
+
+/** The human check's counts per route and UTC day, for /admin/captcha/. */
+export const captchaStats = pgTable(
+  "captcha_stats",
+  {
+    day: date("day", { mode: "string" }).notNull(),
+    route: text("route").notNull(),
+    /** Visitors sent to a check. */
+    challenged: integer("challenged").notNull().default(0),
+    passed: integer("passed").notNull().default(0),
+    failed: integer("failed").notNull().default(0),
+    /** Puzzles shown (the rest were proof-of-work). */
+    puzzles: integer("puzzles").notNull().default(0),
+  },
+  (table) => [primaryKey({ columns: [table.day, table.route] })],
+);
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type UserIdentity = typeof userIdentities.$inferSelect;

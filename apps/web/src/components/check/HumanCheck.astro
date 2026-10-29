@@ -1,0 +1,26 @@
+---
+/**
+ * Put inside a form whose page calls `requireHuman` for this route. With
+ * JavaScript, the form gets its check (if it needs one) before it's sent, with a
+ * line saying so; without, the server's detour through /check/ does the same.
+ */
+import type { CheckRoute } from "../../lib/captcha/routes";
+
+interface Props {
+  route: CheckRoute;
+  /** Only when sent with the button of this `intent` value (the others aren't checked). */
+  intent?: string;
+}
+
+const { route, intent } = Astro.props;
+---
+
+<div data-human-check={route} data-human-intent={intent}>
+  <p data-human-status role="status" class="text-sm text-muted" hidden></p>
+</div>
+
+<script>
+  import { enhanceHumanChecks } from "../../lib/captcha/client";
+
+  enhanceHumanChecks();
+</script>

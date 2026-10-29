@@ -1,4 +1,5 @@
 ---
+import { CHECK_LIMITS } from "../../lib/captcha/checker";
 import { BUILD_LIMITS } from "../../lib/chunithm/limits";
 import { AVATAR_MAX_BYTES } from "../../lib/profile/avatar";
 import { NOTIFICATION_RETENTION_DAYS } from "../../lib/forum/notifications";
@@ -444,6 +445,18 @@ const ticketHours = TICKET_LIMITS.maxAgeMs / 3_600_000;
       not you, except when you follow a chart page’s “Original jacket” link:
       that opens the full-size picture on sdvx.in itself, so your browser asks
       sdvx.in for it directly.
+    </li>
+    <li id="human-check">
+      The check for bots. When a lot is sent from one network (sign-in codes,
+      the contact form), the site asks for proof you’re a person: your browser
+      works out a small sum, or you solve a picture puzzle. To know when to ask,
+      the server keeps a scrambled form of your IP address (an HMAC with a key
+      that changes whenever the server restarts) and the times of your recent
+      tries, in memory, for an hour. Passing sets a cookie for{" "}
+      {CHECK_LIMITS.passMs / 60_000} minutes (see the cookie policy). Nothing
+      about it is written to the database except daily totals for all visitors
+      together, and nothing is sent to anyone else: the check runs entirely on
+      this site.
     </li>
   </ul>
 
