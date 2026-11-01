@@ -10,7 +10,7 @@
 # only on purpose. Dependabot proposes updates monthly; keep the Node versions in step.
 
 # 1. Build the site with the workspace's pinned pnpm.
-FROM node:24.21.0-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS build
+FROM node:24.22.2-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS build
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     SKIP_INSTALL_SIMPLE_GIT_HOOKS=1 \
     ASTRO_TELEMETRY_DISABLED=1 \
@@ -53,7 +53,7 @@ ARG GIT_SHA=unknown
 RUN printf '%s\n' "$GIT_SHA" > apps/web/dist/client/version.txt
 
 # 2. The Astro server. Its build bundles its dependencies, so there's no node_modules.
-FROM node:24.21.0-alpine3.24@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS app
+FROM node:24.22.2-alpine3.24@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS app
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=4321 \
@@ -67,7 +67,7 @@ EXPOSE 4321
 CMD ["node", "dist/server/entry.mjs"]
 
 # 3. Caddy with the static files (last, so it's also the default target).
-FROM caddy:2.11.4-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b AS web
+FROM caddy:2.11.6-alpine@sha256:d44355d3c2149dc580ce2cac735955d1c08d3d00882c30489c241aa51a5c10d9 AS web
 COPY deploy/Caddyfile /etc/caddy/Caddyfile
 COPY deploy/cloudflare-ips.txt /etc/caddy/cloudflare-ips.txt
 COPY --chmod=755 deploy/start-caddy.sh /usr/local/bin/start-caddy
