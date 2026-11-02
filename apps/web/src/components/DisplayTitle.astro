@@ -23,8 +23,14 @@ const label = `${text}.`;
 // The display line-height is tighter than the font's descent: a g, j, p, q or y
 // would reach the rule below the title, so those words get room under them.
 const descends = /[gjpqy]/.test(text);
+// Each word is its own inline-block, so a title of several words ("Human check")
+// wraps between them. One inline-block holding them all would wrap inside itself,
+// fill the line, and push the period onto a line of its own. The last word keeps
+// the period with it. Markup in the slot stays whole (its tags may hold spaces).
+const words = word.includes("<") ? [word] : word.split(/\s+/);
+const last = words.pop() ?? "";
 ---
 
 <!-- No whitespace between the word and the period: it would show as a space. -->
 <!-- prettier-ignore -->
-<h1 {id} aria-label={label} class:list={[fit ? "type-display-fit whitespace-nowrap" : "type-display", "mt-5 -ml-[0.03em] xl:mt-7", descends && "pb-[0.12em]"]} style={fit ? `--fit: ${String(fit)}` : undefined}><span class="inline-block animate-mask-up" set:html={word} /><span class="inline-block origin-[50%_80%] animate-pop text-accent [animation-delay:450ms]">.</span></h1>
+<h1 {id} aria-label={label} class:list={[fit ? "type-display-fit whitespace-nowrap" : "type-display", "mt-5 -ml-[0.03em] xl:mt-7", descends && "pb-[0.12em]"]} style={fit ? `--fit: ${String(fit)}` : undefined}>{words.map((w) => (<><span class="inline-block animate-mask-up" set:html={w} />{" "}</>))}<span class="whitespace-nowrap"><span class="inline-block animate-mask-up" set:html={last} /><span class="inline-block origin-[50%_80%] animate-pop text-accent [animation-delay:450ms]">.</span></span></h1>
