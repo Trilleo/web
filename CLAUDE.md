@@ -165,7 +165,8 @@
   (`xl:col-start-3`).
 - Card lists (ToolList) fill their last row on desktop: two leftover cards share
   it, a lone card runs the full width, sideways. DisplayTitle leaves room under
-  words with descenders (g, j, p, q, y) so they don't touch the rule.
+  words with descenders (g, j, p, q, y) so they don't touch the rule, and wraps a
+  title of several words between them, keeping the period with the last word.
 - Information pages and posts: on desktop with a contents list, text in columns
   3–9; without one, and on iPad (where it's hidden), columns 1–7. Without an
   aside, tables run on past the text, ten columns wide (`.prose-wide`). On phones,
