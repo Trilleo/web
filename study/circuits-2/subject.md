@@ -19,5 +19,5 @@ numbers. Try the circuits and graphs — change a value and see what happens —
 finish with the quiz. Chinese terms sit beside the English ones, so the lessons
 match the slides and the exam.
 
-The course is still being taught: lessons follow the lectures up to 15 October 2026,
-and new ones are added as the term goes on.
+The course is complete: the lessons cover every lecture in the study plan, up to
+15 October 2026.
