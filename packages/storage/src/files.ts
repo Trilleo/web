@@ -242,18 +242,29 @@ export function cleanName(raw: string): string {
  * "Moj-swiat.mcworld".
  */
 export function urlName(name: string): string {
-  const slug = name
+  const collapsed = name
     .normalize("NFKD")
     .replace(COMBINING_MARKS, "")
     .replace(/[^A-Za-z0-9._-]+/g, "-")
-    .replace(/-{2,}/g, "-")
-    .replace(/^[-.]+|[-.]+$/g, "")
-    .slice(0, 100)
-    .replace(/[-.]+$/, "");
+    .replace(/-{2,}/g, "-");
+  const slug = trimDashesAndDots(trimDashesAndDots(collapsed).slice(0, 100));
   const ext = extensionOf(name).replace(/[^a-z0-9]/g, "");
   // Names in other scripts lose everything: keep at least the extension.
   if (!slug || slug === ext) return ext ? `file.${ext}` : "file";
   return slug;
+}
+
+/**
+ * Drops dashes and dots from both ends. A loop, not `/^[-.]+|[-.]+$/`: that regex
+ * takes quadratic time on a long run of them in the middle of a name.
+ */
+function trimDashesAndDots(text: string): string {
+  const edge = (char: string | undefined) => char === "-" || char === ".";
+  let start = 0;
+  let end = text.length;
+  while (start < end && edge(text[start])) start++;
+  while (end > start && edge(text[end - 1])) end--;
+  return text.slice(start, end);
 }
 
 /** A file's object key: `f/<id>/<url name>`. */

@@ -74,6 +74,12 @@ describe("versions", () => {
     expect(versionSlug("PARADISE×")).toBe("paradise-lost");
     // One we don't know yet still gets a slug.
     expect(versionSlug("MOON PLUS")).toBe("moon-plus");
+    // Long runs of separators stay fast (no quadratic trimming).
+    const started = performance.now();
+    expect(versionSlug(`${"-".repeat(100_000)}new${" -".repeat(50_000)}`)).toBe(
+      "new",
+    );
+    expect(performance.now() - started).toBeLessThan(1000);
   });
 
   it("names otoge-db's final files", () => {

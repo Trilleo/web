@@ -45,7 +45,9 @@ export function slugify(text: string): string {
       .normalize("NFKD")
       .replace(/[̀-ͯ]/g, "")
       .replace(/[^\p{L}\p{N}]+/gu, "-")
-      .replace(/^-+|-+$/g, "") || "item"
+      // The line above leaves single dashes, so one at each end is all there is to
+      // trim (`/^-+|-+$/` would be quadratic on a long run of them).
+      .replace(/^-|-$/g, "") || "item"
   );
 }
 

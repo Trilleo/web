@@ -495,7 +495,9 @@
   link them with `?v=<hash of the card>`, cached immutably; bump OG_CARD_VERSION
   when the card's design changes. Fonts and resvg's WebAssembly are inlined with
   `?inline` (astro.config's `assetsInclude`), so the bundle carries them. satori is
-  pinned to 0.32: newer versions load harfbuzzjs, which the bundle can't carry.
+  pinned to 0.32: newer versions load harfbuzzjs, which the bundle can't carry. 0.32's escaping
+  advisory (GHSA-wx4j-mvgx-mqwp) only touches attributes and styles: keep people's text
+  to text children (render.test.ts checks hostile text).
 - Structured data: WebSite + Person (the author, "Trilleo") on the home page,
   BlogPosting on posts, WebApplication on tools, VideoGame on games,
   SoftwareApplication (mods, plugins) or CreativeWork (worlds, builds, packs) on

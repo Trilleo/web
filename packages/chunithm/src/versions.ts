@@ -49,10 +49,14 @@ export function versionSlug(name: string): string {
   const plain = name.normalize("NFKC").trim().toLowerCase();
   const alias = ALIASES[plain] ?? ALIASES[plain.replace(/\s+/g, "")];
   if (alias) return alias;
-  return plain
-    .replace(/\+/g, " plus ")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  return (
+    plain
+      .replace(/\+/g, " plus ")
+      .replace(/[^a-z0-9]+/g, "-")
+      // The line above leaves single dashes, so one at each end is all there is to
+      // trim (`/^-+|-+$/` would be quadratic on a long run of them).
+      .replace(/^-|-$/g, "")
+  );
 }
 
 /** The game's own name for a slug, or the name a source gave for one we don't know. */

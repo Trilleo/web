@@ -47,6 +47,13 @@ describe("names", () => {
     expect(urlName("我的世界.zip")).toBe("file.zip");
     expect(urlName("我的世界")).toBe("file");
     expect(urlName("--.png")).toBe("file.png");
+    expect(urlName(".-.name.-.zip")).toBe("name.-.zip");
+  });
+
+  it("makes URL names fast from long runs of dashes and dots", () => {
+    const started = performance.now();
+    expect(urlName(`a${"-.".repeat(50_000)}b`)).toBe("a");
+    expect(performance.now() - started).toBeLessThan(1000);
   });
 
   it("builds keys from the id and the URL name", () => {

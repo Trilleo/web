@@ -23,6 +23,25 @@ describe("renderCard", () => {
     expect(svg).toMatch(/^<svg/);
     expect(svg).not.toContain("<text");
   });
+
+  // satori 0.32 has an escaping advisory (GHSA-wx4j-mvgx-mqwp) for values in
+  // attributes and styles. Cards only pass people's text as text children, which
+  // become glyph paths, so nothing typed can reach the markup.
+  it("keeps hostile text out of the SVG's markup", async () => {
+    const hostile = `"><script>x</script><image href="https://e.test/a"/>]]></svg>&amp;'`;
+    const svg = await renderCardSvg({
+      section: hostile,
+      title: hostile,
+      meta: hostile,
+    });
+    const plain = await renderCardSvg(card);
+    const tags = (markup: string) =>
+      new Set([...markup.matchAll(/<([a-zA-Z]+)/g)].map((match) => match[1]));
+    expect(tags(svg)).toEqual(tags(plain));
+    expect(svg).not.toContain("e.test");
+    expect(svg).not.toContain("script");
+    expect(svg.match(/<\/svg>/g)).toHaveLength(1);
+  });
 });
 
 describe("titleSize", () => {

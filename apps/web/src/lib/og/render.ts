@@ -5,7 +5,11 @@
  * WebAssembly are inlined into the bundle by Vite's `?inline`.
  *
  * satori is pinned to 0.32: later versions shape text with harfbuzzjs, which reads
- * its WebAssembly from its own folder and so can't run from the bundle.
+ * its WebAssembly from its own folder and so can't run from the bundle. 0.32 has an
+ * SVG escaping advisory (GHSA-wx4j-mvgx-mqwp, fixed in 0.33.5) for attribute and
+ * style values; it doesn't reach us while people's text only goes in as text
+ * children (escaped, and drawn as glyph paths) and every style and attribute is our
+ * own constant. Keep it that way: render.test.ts checks hostile text.
  */
 import { Resvg, initWasm } from "@resvg/resvg-wasm";
 import resvgWasm from "@resvg/resvg-wasm/index_bg.wasm?inline";
