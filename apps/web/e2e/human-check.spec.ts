@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { deflateSync } from "node:zlib";
 import { DRAWN } from "./fake-chunithm";
 import { FAKE_DOCS } from "./fake-docs";
@@ -40,10 +40,19 @@ async function fillContact(page: Page, text: string) {
   await page.getByRole("button", { name: "Send message" }).click();
 }
 
+/**
+ * A puzzle's answer, carried in test mode. The dialog opens before its puzzle has
+ * loaded, so wait for the attribute: reading it at once can find nothing.
+ */
+async function answerOf(scope: Locator, name: string): Promise<string> {
+  await expect(scope).toHaveAttribute(name, /./);
+  return (await scope.getAttribute(name)) ?? "";
+}
+
 /** Ticks the right squares in `scope` (a puzzle form or the dialog). */
 async function tickAnswer(page: Page, selector: string) {
   const scope = page.locator(selector);
-  const answer = (await scope.getAttribute("data-answer")) ?? "";
+  const answer = await answerOf(scope, "data-answer");
   for (const cell of answer.split(",").map(Number))
     await scope.locator(".check-cell").nth(cell).click();
   await scope.getByRole("button", { name: "Continue" }).click();
@@ -178,7 +187,7 @@ test("with JavaScript, the puzzle opens in a dialog, and its question passes too
   await expect(page.getByLabel("Message")).toHaveValue(text);
 
   await page.getByRole("button", { name: "Send message" }).click();
-  const answer = (await dialog(page).getAttribute("data-text-answer")) ?? "";
+  const answer = await answerOf(dialog(page), "data-text-answer");
   await dialog(page).getByRole("textbox").fill(answer.toUpperCase());
   await dialog(page).getByRole("button", { name: "Continue" }).click();
   await sent(page);
