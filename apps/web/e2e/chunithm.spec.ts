@@ -138,6 +138,37 @@ test("someone finds a chart by romaji, opens its picture and keeps it", async ({
   ).toBeVisible();
 });
 
+test("someone turns on judgement ranges for a chart", async ({
+  page,
+  request,
+}) => {
+  await catalogReady(request);
+  await page.goto(`/tools/chunithm/${String(DRAWN.id)}/master/`);
+  await expect(page.getByTestId("chart-picture")).toBeVisible({
+    timeout: 60_000,
+  });
+  const ranges = page.getByRole("group", { name: "Judgement ranges" });
+  await ranges.getByText("On", { exact: true }).click();
+  // Its own picture, built on request, with what the ranges mean.
+  const legend = page.getByTestId("ranges-legend");
+  await expect(legend).toBeVisible({ timeout: 60_000 });
+  await expect(legend).toContainText("Justice Critical");
+  await expect(legend).toContainText("Measured at 180 BPM");
+  await expect(page.getByTestId("chart-picture")).toBeVisible();
+  await expect(page.getByTestId("chart-picture")).toHaveAttribute(
+    "aria-label",
+    /with judgement ranges/,
+  );
+  expect(await axe(page)).toEqual([]);
+  // Remembered with the layout and size: on again after a reload.
+  await page.reload();
+  await expect(page.getByTestId("ranges-legend")).toBeVisible({
+    timeout: 60_000,
+  });
+  await ranges.getByText("Off", { exact: true }).click();
+  await expect(page.getByTestId("ranges-legend")).toBeHidden();
+});
+
 test("a chart sdvx.in hasn't drawn says so", async ({ page, request }) => {
   await catalogReady(request);
   await page.goto(`/tools/chunithm/${String(UNDRAWN.id)}/master/`);

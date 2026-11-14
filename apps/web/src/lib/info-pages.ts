@@ -178,6 +178,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "legal",
     changes: [
       {
+        date: "2026-11-14",
+        note: "The CHUNITHM tool also remembers whether you show judgement ranges (preferences).",
+      },
+      {
         date: "2026-10-29",
         note: "Listed the pass cookie set when you pass the check for bots (necessary).",
       },
@@ -280,6 +284,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "Short answers about accounts, your data, the tools, the games, comments and the forum.",
     group: "help",
     changes: [
+      {
+        date: "2026-11-14",
+        note: "CHUNITHM judgement ranges.",
+      },
       {
         date: "2026-10-26",
         note: "The CHUNITHM score calculator.",

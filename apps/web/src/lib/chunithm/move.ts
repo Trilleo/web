@@ -43,6 +43,7 @@ import {
   type Database,
 } from "@trilleo/db";
 import type { StorageDriver } from "@trilleo/storage/server";
+import { isBuildVariant, notesVariant } from "./picture";
 import { and, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
 
 /**
@@ -226,7 +227,10 @@ export async function moveLegacyBuilds(
       ref: row.ref,
       path: row.source.path,
       bg: images.bg,
-      obj: row.variant === "mirror" ? images.mirror : images.obj,
+      obj:
+        isBuildVariant(row.variant) && notesVariant(row.variant) === "mirror"
+          ? images.mirror
+          : images.obj,
       bar: images.bar,
       tags: { bg: "", obj: "", bar: "" },
     };

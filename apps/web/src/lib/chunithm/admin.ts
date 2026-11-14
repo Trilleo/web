@@ -8,6 +8,7 @@
  */
 import {
   DIFFICULTIES,
+  countsAgree,
   isDifficulty,
   sdvxRefInfo,
   type Difficulty,
@@ -399,6 +400,57 @@ export async function failedBuilds(db: Database): Promise<
     .where(isNotNull(chuniBuilds.error))
     .orderBy(desc(chuniBuilds.nextAttemptAt))
     .limit(100);
+}
+
+/** How the admin page names a build's variant (after the chart). */
+export const VARIANT_NOTES: Record<string, string> = {
+  normal: "",
+  mirror: " (mirror)",
+  judgement: " (judgement ranges)",
+  "judgement-mirror": " (mirror, judgement ranges)",
+};
+
+export interface JudgementCheck {
+  /** Pictures drawn with judgement ranges. */
+  drawn: number;
+  /** Those whose notes found don't match sdvx.in's counts (`countsAgree`). */
+  disagreeing: (ChartRef & {
+    variant: string;
+    found: { tap: number; flick: number };
+    expected: { tap: number | null; flick: number | null };
+  })[];
+}
+
+/**
+ * Checks the judgement pictures' notes against sdvx.in's counts: a picture whose
+ * notes were found short (or over) may have ranges missing or on the wrong things.
+ */
+export async function judgementChecks(db: Database): Promise<JudgementCheck> {
+  const rows = await db
+    .select({
+      ...chartColumns,
+      variant: chuniBuilds.variant,
+      manifest: chuniBuilds.manifest,
+    })
+    .from(chuniBuilds)
+    .innerJoin(chuniCharts, eq(chuniCharts.id, chuniBuilds.chartId))
+    .innerJoin(chuniSongs, eq(chuniSongs.id, chuniCharts.songId))
+    .where(
+      and(
+        inArray(chuniBuilds.variant, ["judgement", "judgement-mirror"]),
+        isNotNull(chuniBuilds.manifest),
+      ),
+    );
+  const disagreeing: JudgementCheck["disagreeing"] = [];
+  let drawn = 0;
+  for (const { manifest, ...row } of rows) {
+    const info = manifest?.judgement;
+    if (!info) continue;
+    drawn++;
+    if (info.expected && countsAgree(info.found, info.expected) === false)
+      disagreeing.push({ ...row, found: info.found, expected: info.expected });
+  }
+  return { drawn, disagreeing };
 }
 
 /** "master" → "master"; anything else null. */

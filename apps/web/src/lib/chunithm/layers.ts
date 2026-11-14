@@ -11,7 +11,8 @@
  * kept: each attempt resumes those itself (sources.ts `download`).
  *
  * A chart's layers go once it builds (`forgetLayers`; lanes and measure numbers stay
- * while its other variant still needs them), and anything left after LAYER_KEEP_DAYS
+ * while another of its builds still needs them, its notes layer while a build from
+ * the same notes, with or without judgement ranges, does), and anything left after LAYER_KEEP_DAYS
  * goes from the builds' background tick (`purgeOldLayers`). Keeping is best effort:
  * storage refusing it is logged and the build goes on.
  */
@@ -153,16 +154,19 @@ async function removeLayer(
 
 /**
  * After a chart builds: removes the layers it was built from. `shared` (lanes and
- * measure numbers) stay while another build of the chart has no picture yet.
+ * measure numbers) stay while another build of the chart has no picture yet, `own`
+ * (its notes) while one of the `sharing` variants hasn't.
  */
 export async function forgetLayers(
   deps: LayerDeps,
   chartId: number,
   buildId: number,
   layers: { own: string[]; shared: string[] },
+  /** The variants made from the same `own` layers (they keep them while waiting). */
+  sharing: string[] = [],
 ): Promise<void> {
-  const [waiting] = await deps.db
-    .select({ n: count() })
+  const waiting = await deps.db
+    .select({ variant: chuniBuilds.variant })
     .from(chuniBuilds)
     .where(
       and(
@@ -171,7 +175,11 @@ export async function forgetLayers(
         isNull(chuniBuilds.manifest),
       ),
     );
-  const urls = [...layers.own, ...((waiting?.n ?? 0) > 0 ? [] : layers.shared)];
+  const ownWaits = waiting.some((row) => sharing.includes(row.variant));
+  const urls = [
+    ...(ownWaits ? [] : layers.own),
+    ...(waiting.length > 0 ? [] : layers.shared),
+  ];
   if (urls.length === 0) return;
   const rows = await deps.db
     .select()

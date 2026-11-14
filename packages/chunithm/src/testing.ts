@@ -115,3 +115,100 @@ export function makeOldLayer(image: RgbaImage): RgbaImage {
     }
   return old;
 }
+
+/** Notes `drawNote` draws, as sdvx.in draws them. */
+export type TestNote =
+  | "tap"
+  | "extap"
+  | "flick"
+  | "hold"
+  | "hold-end"
+  | "slide"
+  | "extap-hold"
+  | "air-tap";
+
+type Rgba = [number, number, number, number];
+
+/** Rows of a bar, from its line's row (0) down: each the pixel drawn there. */
+const SPRITES: Record<string, [number, Rgba][]> = {
+  // Highlight, then the coloured edge a row under the line, then a faint fade.
+  tap: [
+    [-1, [255, 236, 236, 240]],
+    [0, [255, 220, 219, 237]],
+    [1, [250, 110, 116, 200]],
+    [2, [179, 41, 65, 97]],
+  ],
+  extap: [
+    [-1, [255, 255, 200, 222]],
+    [0, [255, 255, 194, 240]],
+    [1, [253, 255, 140, 255]],
+    [2, [224, 246, 196, 34]],
+  ],
+  flick: [
+    [0, [197, 248, 255, 133]],
+    [1, [163, 254, 253, 255]],
+    [2, [90, 235, 250, 118]],
+  ],
+  hold: [
+    [0, [255, 211, 192, 255]],
+    [1, [255, 184, 109, 217]],
+    [2, [224, 151, 96, 109]],
+  ],
+  slide: [
+    [0, [199, 220, 255, 231]],
+    [1, [128, 135, 233, 207]],
+    [2, [51, 79, 224, 50]],
+  ],
+  // Under an air arrow only the bar's faint edge shows.
+  air: [
+    [-6, [39, 249, 7, 254]],
+    [-5, [39, 249, 7, 254]],
+    [-4, [42, 248, 3, 253]],
+    [-3, [81, 252, 40, 253]],
+    [-2, [162, 250, 84, 213]],
+    [-1, [249, 207, 100, 110]],
+    [2, [212, 89, 37, 86]],
+    [3, [240, 86, 83, 38]],
+  ],
+};
+const HOLD_BODY: Rgba = [230, 120, 252, 153];
+const SLIDE_BODY: Rgba = [140, 210, 255, 251];
+
+/**
+ * Draws a note on a notes layer, its line on row `row` of the column whose lane starts
+ * at `lane`, across cells [from, to) of the 16 (judgement.ts's PLAYFIELD: 6px cells
+ * from 27px into the lane), leaving the pixel between neighbouring notes clear as
+ * sdvx.in does. Holds and slides get a body above (their end, "hold-end", one below).
+ */
+export function drawNote(
+  image: RgbaImage,
+  lane: number,
+  row: number,
+  from: number,
+  to: number,
+  kind: TestNote,
+): void {
+  const x0 = lane + 27 + from * 6;
+  const x1 = lane + 27 + to * 6 - 1;
+  const put = (y: number, rgba: Rgba) => {
+    if (y < 0 || y >= image.height) return;
+    for (let x = x0; x < x1; x++)
+      image.data.set(rgba, (y * image.width + x) * 4);
+  };
+  const body = (first: number, last: number, rgba: Rgba) => {
+    for (let y = first; y <= last; y++) put(y, rgba);
+  };
+  if (kind === "hold" || kind === "extap-hold")
+    body(row - 30, row - 2, HOLD_BODY);
+  if (kind === "hold-end") body(row + 3, row + 30, HOLD_BODY);
+  if (kind === "slide") body(row - 30, row - 1, SLIDE_BODY);
+  const sprite =
+    kind === "air-tap"
+      ? SPRITES.air
+      : kind === "extap-hold"
+        ? SPRITES.extap
+        : kind === "hold-end"
+          ? SPRITES.hold
+          : SPRITES[kind];
+  for (const [dy, rgba] of sprite ?? []) put(row + dy, rgba);
+}

@@ -24,10 +24,17 @@
  * for another ref. A picture moved from sdvx.in's older site (move.ts) has empty tags:
  * its first check records them instead.
  */
-import { ChartLayoutError, type ChartManifest } from "@trilleo/chunithm";
+import {
+  ChartLayoutError,
+  JUDGEMENT_VERSION,
+  chartBpm,
+  isDifficulty,
+  type ChartManifest,
+} from "@trilleo/chunithm";
 import {
   chuniBuilds,
   chuniCharts,
+  chuniSongs,
   type ChuniBuild,
   type ChuniBuildManifest,
   type Database,
@@ -49,7 +56,11 @@ import {
   BUILD_VERSION,
   BuildError,
   downloadLayer,
+  isBuildVariant,
+  isJudgement,
   makePicture,
+  notesVariant,
+  type BuildVariant,
   type Layer,
   type LayerName,
   type Variant,
@@ -62,7 +73,17 @@ import { BUILD_LIMITS } from "./limits";
 import { encodeWebp } from "./webp";
 
 export { BUILD_LIMITS };
-export { BUILD_VERSION, BuildError, VARIANTS, type Variant } from "./picture";
+export {
+  BUILD_VARIANTS,
+  BUILD_VERSION,
+  BuildError,
+  VARIANTS,
+  isBuildVariant,
+  isJudgement,
+  notesVariant,
+  type BuildVariant,
+  type Variant,
+} from "./picture";
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -84,7 +105,8 @@ export type BuildState =
         | "storage"
         | "busy"
         | "too-many"
-        | "human-check";
+        | "human-check"
+        | "no-bpm";
     };
 
 export interface BuildDeps {
@@ -113,6 +135,15 @@ export function publicManifest(
     measures: manifest.measures,
     columns: manifest.columns,
     ...(manifest.plainLanes ? { plainLanes: true as const } : {}),
+    ...(manifest.judgement
+      ? {
+          judgement: {
+            bpm: manifest.judgement.bpm,
+            pxPerMs: manifest.judgement.pxPerMs,
+            windows: manifest.judgement.windows,
+          },
+        }
+      : {}),
   };
 }
 
@@ -174,9 +205,36 @@ export function resetLastAsked(): void {
   lastAsked = 0;
 }
 
-/** Whether a ready build should be made again (newer code, or another ref now). */
-function outdated(row: ChuniBuild, sdvxRef: string): boolean {
-  return row.version !== BUILD_VERSION || row.source?.ref !== sdvxRef;
+/**
+ * Whether a ready build should be made again: newer code, or another ref now; for
+ * judgement ranges, newer range code or another BPM.
+ */
+function outdated(
+  row: ChuniBuild,
+  sdvxRef: string,
+  bpm: number | null,
+): boolean {
+  if (row.version !== BUILD_VERSION || row.source?.ref !== sdvxRef) return true;
+  if (!isBuildVariant(row.variant) || !isJudgement(row.variant)) return false;
+  const drawn = row.manifest?.judgement;
+  return drawn?.version !== JUDGEMENT_VERSION || drawn.bpm !== bpm;
+}
+
+/**
+ * The BPM a chart's judgement ranges are measured at: the song's (otoge-db's main
+ * BPM), or the chart's own where otoge-db gives one. Null when unknown.
+ */
+export async function bpmOfChart(
+  db: Database,
+  chartId: number,
+): Promise<number | null> {
+  const [row] = await db
+    .select({ bpm: chuniSongs.bpm, difficulty: chuniCharts.difficulty })
+    .from(chuniCharts)
+    .innerJoin(chuniSongs, eq(chuniSongs.id, chuniCharts.songId))
+    .where(eq(chuniCharts.id, chartId));
+  if (!row || !isDifficulty(row.difficulty)) return null;
+  return chartBpm(row.bpm, row.difficulty);
 }
 
 /**
@@ -186,7 +244,7 @@ function outdated(row: ChuniBuild, sdvxRef: string): boolean {
 export async function requestBuild(
   deps: BuildDeps,
   chartId: number,
-  variant: Variant,
+  variant: BuildVariant,
   ip = "",
   /** Asked before a new build is queued (the human check): false refuses it. */
   admit?: () => Promise<boolean>,
@@ -209,6 +267,10 @@ export async function requestBuild(
   copyJacketSoon(deps, chart.songId);
   if (chart.withdrawnAt) return { status: "unavailable", reason: "withdrawn" };
   if (!chart.sdvxRef) return { status: "unavailable", reason: "no-page" };
+  // Judgement ranges are measured in time: without a BPM there are none.
+  const bpm = isJudgement(variant) ? await bpmOfChart(db, chartId) : null;
+  if (isJudgement(variant) && bpm === null)
+    return { status: "unavailable", reason: "no-bpm" };
   const [row] = await db
     .select()
     .from(chuniBuilds)
@@ -221,7 +283,8 @@ export async function requestBuild(
   const waiting = row?.nextAttemptAt && row.nextAttemptAt > now;
   if (row?.manifest) {
     // Ready: rebuild in the background if it's out of date, or check sdvx.in now and then.
-    if (!waiting && outdated(row, chart.sdvxRef)) await queue(db, row.id, now);
+    if (!waiting && outdated(row, chart.sdvxRef, bpm))
+      await queue(db, row.id, now);
     else if (
       !row.checkedAt ||
       now.getTime() - row.checkedAt.getTime() >
@@ -281,6 +344,20 @@ export async function buildChart(
       .where(eq(chuniCharts.id, build.chartId));
     if (!chart?.sdvxRef)
       throw new BuildError("The chart has no chart on sdvx.in.");
+    const variant = variantOf(build.variant);
+    let judgement: Parameters<typeof makePicture>[5];
+    if (isJudgement(variant)) {
+      const bpm = await bpmOfChart(db, build.chartId);
+      if (bpm === null)
+        throw new BuildError(
+          "No BPM is known for this song, so its judgement ranges can't be measured.",
+        );
+      const types = chart.noteTypes;
+      judgement = {
+        bpm,
+        expected: types ? { tap: types.tap, flick: types.flick } : null,
+      };
+    }
     const folder = `${TILE_PREFIX}${String(build.chartId)}/${build.variant}-${randomBytes(6).toString("hex")}`;
     const tiles: ChuniBuildManifest["tiles"] = [];
     let bytes = 0;
@@ -297,7 +374,7 @@ export async function buildChart(
         },
       },
       chart.sdvxRef,
-      variantOf(build.variant),
+      notesVariant(variant),
       async (tile) => {
         const key = `${folder}/${String(tile.index)}.webp`;
         await storage.put(key, tile.bytes, {
@@ -310,6 +387,8 @@ export async function buildChart(
         tiles.push({ key, height: tile.height });
         bytes += tile.bytes.length;
       },
+      undefined,
+      judgement,
     );
     const manifest: ChuniBuildManifest = { ...picture.manifest, tiles };
     const at = now();
@@ -330,10 +409,15 @@ export async function buildChart(
       })
       .where(eq(chuniBuilds.id, build.id));
     await removeTiles(storage, build.manifest);
-    await forgetLayers(deps, build.chartId, build.id, {
-      own: [picture.urls.obj],
-      shared: [picture.urls.bg, picture.urls.bar],
-    });
+    await forgetLayers(
+      deps,
+      build.chartId,
+      build.id,
+      { own: [picture.urls.obj], shared: [picture.urls.bg, picture.urls.bar] },
+      // Its notes layer stays while a build from the same one waits (with or without
+      // judgement ranges).
+      BUILD_VARIANTS_SHARING[notesVariant(variant)],
+    );
     return true;
   } catch (error) {
     await removeTiles(storage, {
@@ -368,10 +452,16 @@ export async function buildChart(
   }
 }
 
-/** A row's variant (only ever one of VARIANTS). */
-function variantOf(value: string): Variant {
-  return value === "mirror" ? "mirror" : "normal";
+/** A row's variant (only ever one of BUILD_VARIANTS). */
+function variantOf(value: string): BuildVariant {
+  return isBuildVariant(value) ? value : "normal";
 }
+
+/** The builds made from each notes layer. */
+const BUILD_VARIANTS_SHARING: Record<Variant, BuildVariant[]> = {
+  normal: ["normal", "judgement"],
+  mirror: ["mirror", "judgement-mirror"],
+};
 
 function describe(error: unknown): string {
   if (

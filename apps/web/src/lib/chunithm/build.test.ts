@@ -1,5 +1,15 @@
-import { COLUMN, TILE_HEIGHT } from "@trilleo/chunithm";
-import { makeChart, makeOldLayer } from "@trilleo/chunithm/testing";
+import {
+  COLUMN,
+  JUDGEMENT_VERSION,
+  JUDGEMENT_WINDOWS,
+  TILE_HEIGHT,
+} from "@trilleo/chunithm";
+import {
+  blank,
+  drawNote,
+  makeChart,
+  makeOldLayer,
+} from "@trilleo/chunithm/testing";
 import {
   chuniBuilds,
   chuniCharts,
@@ -22,6 +32,7 @@ import {
   resetVisitorLimits,
   runBuilds,
   type BuildDeps,
+  type BuildVariant,
 } from "./build";
 import { LAYER_KEEP_DAYS, keptLayers, purgeOldLayers } from "./layers";
 import { decodePng, encodePng } from "./png";
@@ -571,6 +582,106 @@ describe("building a chart's picture", () => {
   });
 });
 
+describe("judgement ranges", () => {
+  const notesUrl = `${ORIGIN}/chunithm/01/obj/data01001mst.webp`;
+
+  beforeEach(async () => {
+    // Three taps on otherwise empty notes: two in the first column, one in the second.
+    const notes = blank(chart.obj.width, chart.obj.height);
+    drawNote(notes, COLUMN.gutter, 300, 0, 4, "tap");
+    drawNote(notes, COLUMN.gutter, 250, 0, 4, "tap");
+    drawNote(notes, COLUMN.gutter + COLUMN.pitch, 200, 4, 8, "extap");
+    files.set(notesUrl, layer(await webp(notes)));
+    await handle.db
+      .update(chuniSongs)
+      .set({ bpm: "240" })
+      .where(eq(chuniSongs.id, 1));
+    await handle.db
+      .update(chuniCharts)
+      .set({
+        noteTypes: { tap: 3, hold: 0, slide: 0, air: 0, flick: 0 },
+      })
+      .where(eq(chuniCharts.id, chartId));
+  });
+
+  it("draws them on request, at the song's BPM, and says how", async () => {
+    expect(await requestBuild(deps(), chartId, "judgement")).toEqual({
+      status: "queued",
+    });
+    expect(await runBuilds(deps())).toBe(1);
+    const state = await requestBuild(deps(), chartId, "judgement");
+    if (state.status !== "ready") throw new Error(`not ready: ${state.status}`);
+    // The commonest gap between LABELS is 50px a measure: 12.5px a beat at 240 BPM.
+    expect(state.manifest.judgement).toEqual({
+      bpm: 240,
+      pxPerMs: 0.05,
+      windows: JUDGEMENT_WINDOWS,
+    });
+    expect(state.manifest.measures).toEqual(LABELS);
+    const [row] = await handle.db.select().from(chuniBuilds);
+    expect(row?.variant).toBe("judgement");
+    expect(row?.manifest?.judgement).toMatchObject({
+      version: JUDGEMENT_VERSION,
+      found: { tap: 3, flick: 0 },
+      expected: { tap: 3, flick: 0 },
+    });
+    // The normal picture is a build of its own.
+    expect((await requestBuild(deps(), chartId, "normal")).status).toBe(
+      "queued",
+    );
+  });
+
+  it("draws the mirror's from the mirrored notes", async () => {
+    await requestBuild(deps(), chartId, "judgement-mirror");
+    await runBuilds(deps());
+    const [row] = await handle.db.select().from(chuniBuilds);
+    expect(row).toMatchObject({ variant: "judgement-mirror", status: "ready" });
+    expect(row?.source?.obj).toBe("/chunithm/01/obj/mrr01001mst.webp");
+  });
+
+  it("isn't available without the song's BPM", async () => {
+    await handle.db
+      .update(chuniSongs)
+      .set({ bpm: null })
+      .where(eq(chuniSongs.id, 1));
+    expect(await requestBuild(deps(), chartId, "judgement")).toEqual({
+      status: "unavailable",
+      reason: "no-bpm",
+    });
+    expect(await handle.db.select().from(chuniBuilds)).toEqual([]);
+  });
+
+  it("is drawn again when the song's BPM changes", async () => {
+    await requestBuild(deps(), chartId, "judgement");
+    await runBuilds(deps());
+    await handle.db
+      .update(chuniSongs)
+      .set({ bpm: "120" })
+      .where(eq(chuniSongs.id, 1));
+    const state = await requestBuild(deps(), chartId, "judgement");
+    // The old picture shows meanwhile.
+    expect(state.status).toBe("ready");
+    expect(await runBuilds(deps())).toBe(1);
+    const again = await requestBuild(deps(), chartId, "judgement");
+    if (again.status !== "ready") throw new Error(`not ready: ${again.status}`);
+    expect(again.manifest.judgement?.bpm).toBe(120);
+  });
+
+  it("fails on plain lanes, which have no measures to measure by", async () => {
+    const other = makeChart(HEIGHT + 30, [...TOPS, 80], LABELS);
+    files.set(
+      `${ORIGIN}/chunithm/01/bg/01001bg.webp`,
+      layer(await webp(other.bg)),
+    );
+    // Plain lanes are read from the notes' columns.
+    files.set(notesUrl, layer(await webp(chart.obj)));
+    await requestBuild(deps(), chartId, "judgement");
+    expect(await runBuilds(deps())).toBe(0);
+    const [row] = await handle.db.select().from(chuniBuilds);
+    expect(row?.error).toMatch(/plain lanes/);
+  });
+});
+
 describe("keeping layers between attempts", () => {
   const bg = `${ORIGIN}/chunithm/01/bg/01001bg.webp`;
   const notes = `${ORIGIN}/chunithm/01/obj/data01001mst.webp`;
@@ -586,7 +697,7 @@ describe("keeping layers between attempts", () => {
     (await handle.db.select().from(chuniLayers)).map((row) => row.url).sort();
 
   /** Fails once with the measure numbers missing, then puts them back. */
-  async function failOnBar(variant: "normal" | "mirror" = "normal") {
+  async function failOnBar(variant: BuildVariant = "normal") {
     const served = files.get(bar);
     files.delete(bar);
     await requestBuild(deps(), chartId, variant);
@@ -677,6 +788,18 @@ describe("keeping layers between attempts", () => {
     expect(await runBuilds(deps())).toBe(1);
     expect(layerRequests().every((line) => line.startsWith("HEAD"))).toBe(true);
     expect(await kept()).toEqual([]);
+  });
+
+  it("keeps the notes while a judgement build from them still needs them", async () => {
+    await handle.db
+      .update(chuniSongs)
+      .set({ bpm: "240" })
+      .where(eq(chuniSongs.id, 1));
+    await failOnBar("judgement");
+    // The normal picture builds first; the judgement one still needs its notes.
+    await requestBuild(deps(), chartId, "normal");
+    expect(await runBuilds(deps())).toBe(1);
+    expect(await kept()).toContain(notes);
   });
 
   it("removes what's left after LAYER_KEEP_DAYS", async () => {

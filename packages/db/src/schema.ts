@@ -2971,12 +2971,31 @@ export interface ChuniBuildManifest {
   columns: number;
   /** Drawn on plain lanes of our own: sdvx.in's didn't fit the notes (no measures). */
   plainLanes?: true;
+  /** Judgement ranges drawn under the notes (the "judgement" variants only). */
+  judgement?: ChuniJudgementInfo;
+}
+
+/**
+ * How a picture's judgement ranges were drawn (@trilleo/chunithm's JudgementInfo):
+ * the BPM and scale, the windows in ms, the notes found and sdvx.in's counts then.
+ */
+export interface ChuniJudgementInfo {
+  version: number;
+  bpm: number;
+  pxPerMs: number;
+  windows: Record<
+    "normal" | "critical",
+    { critical: number; justice: number; attack: number }
+  >;
+  found: { tap: number; flick: number };
+  expected: { tap: number | null; flick: number | null } | null;
 }
 
 /**
  * A chart's picture, joined from sdvx.in's layers and kept in storage as WebP tiles
  * (apps/web/src/lib/chunithm/build.ts). One per chart and variant ("normal", or
- * "mirror" from sdvx.in's mirrored notes). Built when someone first asks for it.
+ * "mirror" from sdvx.in's mirrored notes; "judgement" and "judgement-mirror" with
+ * judgement ranges drawn under the notes). Built when someone first asks for it.
  */
 export const chuniBuilds = pgTable(
   "chuni_builds",

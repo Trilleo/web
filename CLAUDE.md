@@ -78,8 +78,9 @@
   difficulties and constants (tenths), versions (`versionSlug` for every source's
   names), readers for SEGA's song list, otoge-db and sdvx.in's JSON song lists (refs,
   layer and jacket names), `buildCatalog`, which merges them by SEGA's IDs, and
-  charts.ts, which joins sdvx.in's chart layers into one strip; score.ts, scores, ranks and
-  play rating. `./testing` draws test charts.
+  charts.ts, which joins sdvx.in's chart layers into one strip; judgement.ts, which finds
+  the notes in a notes layer and draws their judgement ranges; score.ts, scores, ranks and
+  play rating. `./testing` draws test charts (and notes, `drawNote`).
   Source-only.
 - study/: study subjects as Markdown files (see Study below and study/README.md).
 - Blog content: Markdown posts in Postgres, written in the admin editor (/admin/posts).
@@ -1503,6 +1504,36 @@ chunithm:bundle <list>` (scripts/chunithm-bundle.ts around lib/chunithm/bundler.
   picture pixel covers whole screen pixels, so tiles are never smoothed. Mirrored notes
   from the mirror build. Measure 1 starts at the box's bottom; the page scrolls it on
   screen once. The layout and size are a "preferences" key, trilleo:tool:chunithm:view.
+- Judgement ranges (packages/chunithm's judgement.ts; variants "judgement" and
+  "judgement-mirror", `BUILD_VARIANTS` in picture.ts; `VARIANTS` stays normal/mirror, the
+  notes layers bundles and prebuild use): the viewer's "Judgement ranges" switch (a
+  "preferences" choice in trilleo:tool:chunithm:view) asks the picture route for
+  ?variant=judgement, built on request only. `makePicture` (given `JudgementInput`: the
+  BPM and sdvx.in's counts) reads the measure numbers first, finds the notes in the notes
+  layer (`findNotes`: each ground note is a thin bar on a grid of 16 6px cells
+  (PLAYFIELD); the bar's colour says the kind (red tap, yellow ExTap, cyan flick, orange
+  hold, blue slide; a hold's or slide's start has its body above and nothing below,
+  relay points and ends aren't judged); taps under an air arrow are read from their
+  faint edge; neighbouring notes are parted by the dim pixel between them), works out
+  the bands (`judgementRanges`: JUDGEMENT_WINDOWS in ms, players' measurements; ExTaps,
+  ExTap starts and flicks all Justice Critical; overlapping notes close together split
+  their windows at the midpoint, Justice and Attack across the whole note, Justice
+  Critical only in shared cells, with a white line; chords within CHORD_PX don't) and
+  draws them on the lanes under the notes (`drawRanges`, JUDGEMENT_COLOURS, early below
+  the note and stronger). Pixels per ms (`pixelsPerMs`) come from the commonest measure
+  gap (sdvx.in draws every beat of a chart the same height, so BPM changes don't show)
+  and the BPM (`chartBpm`: otoge-db's single main BPM, or a chart's own as in
+  "440(MASTER譜面のみ220)"; no BPM is unavailable "no-bpm"; plain lanes fail, having no
+  measures). So songs that change speed are off there: the viewer's legend
+  (`RangesLegend`) says so, with the windows. The manifest keeps `judgement` (version,
+  BPM, scale, windows, notes found, sdvx.in's counts); a picture is drawn again when
+  JUDGEMENT_VERSION or the BPM changes. Bump JUDGEMENT_VERSION when found notes or
+  drawn ranges would come out differently. Found counts are checked against sdvx.in's
+  (`countsAgree`, COUNT_CHECK: its TAP count takes taps, ExTaps and hold and slide
+  starts; HOLD and SLIDE count ticks, so they can't be checked) and /admin/chunithm/
+  lists pictures that disagree (`judgementChecks`). A notes layer kept between
+  attempts stays while a build from the same notes still waits (`forgetLayers`'s
+  `sharing`).
 - Score calculator (apps/chunithm's ScoreCalculator, `client:visible` under the viewer;
   rules in packages/chunithm's score.ts): from the note count (chart.notes, editable),
   each rank's most Justice, Attack and Miss, a play's score, rank and rating, the

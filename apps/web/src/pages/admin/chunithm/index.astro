@@ -25,6 +25,8 @@ import {
   catalogOverview,
   chartsWithoutPage,
   failedBuilds,
+  judgementChecks,
+  VARIANT_NOTES,
   findChart,
   difficultyFrom,
   forgetPage,
@@ -229,6 +231,7 @@ const missing = await chartsWithoutPage(db);
 const builds = await buildOverview(db);
 const waitingNames = (await waitingSuggestions(db)).length;
 const failed = await failedBuilds(db);
+const judgement = await judgementChecks(db);
 const ahead = await prebuildProgress(db);
 const aheadLast = lastPrebuild();
 const aheadPause = await prebuildPause(db, new Date());
@@ -769,7 +772,7 @@ toastError(Astro, error);
                 <span>
                   #{build.songId} {build.title} ·{" "}
                   {DIFFICULTY_LABELS[build.difficulty]}
-                  {build.variant === "mirror" && " (mirror)"}
+                  {VARIANT_NOTES[build.variant] ?? ""}
                   <span class="block text-muted">
                     {build.error} · {build.attempts}{" "}
                     {build.attempts === 1 ? "try" : "tries"} · next{" "}
@@ -783,6 +786,45 @@ toastError(Astro, error);
                     Rebuild
                   </button>
                 </form>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+
+    <div class={row}>
+      <p class={label}>Judgement ranges</p>
+      <div class={body} data-testid="chunithm-judgement">
+        <p class="text-muted">
+          {judgement.drawn}{" "}
+          {judgement.drawn === 1 ? "picture has" : "pictures have"} judgement
+          ranges, drawn when a visitor turns them on. Their notes are found in
+          sdvx.in’s pictures and counted against sdvx.in’s own numbers (taps
+          include ExTaps and the starts of holds and slides). A chart listed
+          here found too few or too many, so some of its ranges are missing or
+          misplaced.
+        </p>
+        {judgement.disagreeing.length > 0 && (
+          <ul class="flex flex-col">
+            {judgement.disagreeing.map((build) => (
+              <li class="flex flex-wrap items-center justify-between gap-3 border-b border-hair py-3">
+                <span>
+                  #{build.songId} {build.title} ·{" "}
+                  {DIFFICULTY_LABELS[build.difficulty]}
+                  {VARIANT_NOTES[build.variant] ?? ""}
+                  <span class="block text-muted">
+                    Taps found {build.found.tap} of {build.expected.tap ?? "?"}{" "}
+                    · flicks {build.found.flick} of{" "}
+                    {build.expected.flick ?? "?"}
+                  </span>
+                </span>
+                <a
+                  class="underline"
+                  href={`/tools/chunithm/${String(build.songId)}/${build.difficulty}/`}
+                >
+                  Open the chart
+                </a>
               </li>
             ))}
           </ul>

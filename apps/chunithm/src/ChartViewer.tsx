@@ -1,4 +1,9 @@
-import type { Difficulty } from "@trilleo/chunithm";
+import {
+  JUDGEMENT_COLOURS,
+  SIDE_OPACITY,
+  type ChartManifest,
+  type Difficulty,
+} from "@trilleo/chunithm";
 import {
   preferenceStore,
   useToolItems,
@@ -54,6 +59,8 @@ type Mode = "strip" | "sheet";
 interface ViewPrefs {
   mode: Mode;
   zoom: Zoom;
+  /** Judgement ranges drawn under the notes. */
+  ranges: boolean;
 }
 
 const PREFS_EVENT = "trilleo:chunithm-view";
@@ -70,6 +77,7 @@ function readPrefs(raw: string | null): Partial<ViewPrefs> {
       ...(ZOOMS.includes(record.zoom as Zoom)
         ? { zoom: record.zoom as Zoom }
         : {}),
+      ...(typeof record.ranges === "boolean" ? { ranges: record.ranges } : {}),
     };
   } catch {
     return {};
@@ -154,7 +162,7 @@ export function ChartViewer({
   signInHref,
   initialSaved,
 }: ChartViewerProps) {
-  const [variant, setVariant] = useState<Variant>("normal");
+  const [mirrored, setMirrored] = useState(false);
   const [states, setStates] = useState<Partial<Record<Variant, PictureState>>>(
     initial ? { normal: initial } : {},
   );
@@ -166,12 +174,23 @@ export function ChartViewer({
   const mode: Mode =
     prefsText === null ? "strip" : (prefs.mode ?? (wide ? "sheet" : "strip"));
   const zoom: Zoom = prefs.zoom ?? 1;
+  const ranges = prefs.ranges ?? false;
   const setMode = (next: Mode) => {
-    writePrefs({ mode: next, zoom });
+    writePrefs({ mode: next, zoom, ranges });
   };
   const setZoom = (next: Zoom) => {
-    writePrefs({ mode, zoom: next });
+    writePrefs({ mode, zoom: next, ranges });
   };
+  const setRanges = (next: boolean) => {
+    writePrefs({ mode, zoom, ranges: next });
+  };
+  const variant: Variant = ranges
+    ? mirrored
+      ? "judgement-mirror"
+      : "judgement"
+    : mirrored
+      ? "mirror"
+      : "normal";
   const state = states[variant];
 
   // Ask (and ask again) until the picture is there or can't be.
@@ -251,14 +270,27 @@ export function ChartViewer({
         {hasMirror && (
           <Choice
             legend="Notes"
-            value={variant}
+            value={mirrored ? "mirror" : "normal"}
             options={[
               { value: "normal", label: "As played" },
               { value: "mirror", label: "Mirrored" },
             ]}
-            onChange={setVariant}
+            onChange={(next) => {
+              setMirrored(next === "mirror");
+            }}
           />
         )}
+        <Choice
+          legend="Judgement ranges"
+          value={ranges ? "on" : "off"}
+          options={[
+            { value: "off", label: "Off" },
+            { value: "on", label: "On" },
+          ]}
+          onChange={(next) => {
+            setRanges(next === "on");
+          }}
+        />
         <div className="flex flex-col gap-2">
           <span className="type-label">Favourite</span>
           <button
@@ -282,26 +314,36 @@ export function ChartViewer({
         </p>
       )}
 
+      {state?.status === "ready" && state.manifest.judgement && (
+        <RangesLegend judgement={state.manifest.judgement} />
+      )}
       {state?.status === "ready" ? (
         <Picture
           key={variant}
-          label={`${label}${variant === "mirror" ? " (mirrored)" : ""}`}
+          label={`${label}${mirrored ? " (mirrored)" : ""}${ranges ? ", with judgement ranges" : ""}`}
           manifest={state.manifest}
           mode={mode}
           zoom={zoom}
         />
       ) : (
-        <Waiting state={state ?? null} />
+        <Waiting state={state ?? null} ranges={ranges} />
       )}
     </div>
   );
 }
 
-function Waiting({ state }: { state: PictureState | null }) {
+function Waiting({
+  state,
+  ranges,
+}: {
+  state: PictureState | null;
+  ranges: boolean;
+}) {
   let text: string;
   if (!state || state.status === "queued" || state.status === "building")
-    text =
-      "Joining the chart from sdvx.in’s pictures. The first time takes a few seconds…";
+    text = ranges
+      ? "Finding the notes and drawing their judgement ranges. The first time takes a few seconds…"
+      : "Joining the chart from sdvx.in’s pictures. The first time takes a few seconds…";
   else if (state.status === "failed")
     text = `This chart couldn’t be drawn: ${state.error}${state.retryAt ? ` It will be tried again after ${new Date(state.retryAt).toLocaleString()}.` : ""}`;
   else if (state.status === "unavailable") text = UNAVAILABLE[state.reason];
@@ -314,6 +356,92 @@ function Waiting({ state }: { state: PictureState | null }) {
     >
       {text}
     </p>
+  );
+}
+
+const JUDGEMENT_NAMES = {
+  critical: "Justice Critical",
+  justice: "Justice",
+  attack: "Attack",
+} as const;
+
+/** "33.3" or "100": a window in ms as players quote it. */
+function formatMs(ms: number): string {
+  return Number.isInteger(ms) ? String(ms) : ms.toFixed(1);
+}
+
+/** A swatch in the picture's own colour (fixed: the ranges are part of the picture). */
+function swatch(
+  judgement: keyof typeof JUDGEMENT_NAMES,
+  side: "early" | "late",
+) {
+  const [r, g, b] = JUDGEMENT_COLOURS[judgement];
+  return `rgb(${String(r)} ${String(g)} ${String(b)} / ${String(SIDE_OPACITY[side])})`;
+}
+
+/**
+ * What the ranges mean: each judgement's colour and window, which side is early, the
+ * split between close notes, and the BPM they were measured at.
+ */
+function RangesLegend({
+  judgement,
+}: {
+  judgement: NonNullable<ChartManifest["judgement"]>;
+}) {
+  const { normal, critical } = judgement.windows;
+  const rows = (["critical", "justice", "attack"] as const).map((key) => {
+    const inner =
+      key === "critical"
+        ? 0
+        : key === "justice"
+          ? normal.critical
+          : normal.justice;
+    return { key, inner, outer: normal[key] };
+  });
+  return (
+    <section
+      aria-label="Judgement ranges"
+      className="flex flex-col gap-3 border border-hair p-4 text-sm"
+      data-testid="ranges-legend"
+    >
+      <ul className="flex flex-wrap gap-x-6 gap-y-2">
+        {rows.map(({ key, inner, outer }) => (
+          <li key={key} className="flex items-center gap-2">
+            <span aria-hidden="true" className="flex border border-ink bg-ink">
+              <span
+                className="block h-4 w-3"
+                style={{ background: swatch(key, "early") }}
+              />
+              <span
+                className="block h-4 w-3"
+                style={{ background: swatch(key, "late") }}
+              />
+            </span>
+            <span>
+              {JUDGEMENT_NAMES[key]}{" "}
+              <span className="font-mono text-muted">
+                {inner === 0 ? "±" : `±${formatMs(inner)}–`}
+                {formatMs(outer)} ms
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-muted">
+        Below each note is early, above it late (stronger and lighter). ExTaps,
+        ExTap starts and flicks are a Justice Critical anywhere within ±
+        {formatMs(critical.attack)} ms. Where close notes overlap, their windows
+        split halfway between them, marked by a white line: past it, the Justice
+        and Attack are gone across the whole note, the Justice Critical only
+        where the notes overlap.
+      </p>
+      <p className="text-muted">
+        Measured at {formatMs(judgement.bpm)} BPM throughout: where the song
+        changes speed, the ranges there are off. The windows are players’
+        measurements, not SEGA’s, and a note sdvx.in draws under another may
+        have none.
+      </p>
+    </section>
   );
 }
 

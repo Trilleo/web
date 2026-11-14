@@ -23,7 +23,7 @@ import type { StorageDriver } from "@trilleo/storage/server";
 import { createHash } from "node:crypto";
 import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import { aliasesBySong } from "./aliases";
-import { publicManifest, type BuildState, type Variant } from "./build";
+import { publicManifest, type BuildState, type BuildVariant } from "./build";
 import { SDVX_ORIGIN } from "./sources";
 
 /** How long a built index is reused before it's read again. */
@@ -200,7 +200,7 @@ export async function peekBuild(
   db: Database,
   storage: StorageDriver,
   chart: Pick<ChuniChart, "id" | "sdvxRef" | "withdrawnAt">,
-  variant: Variant,
+  variant: BuildVariant,
 ): Promise<BuildState | null> {
   if (chart.withdrawnAt) return { status: "unavailable", reason: "withdrawn" };
   if (!chart.sdvxRef) return { status: "unavailable", reason: "no-page" };

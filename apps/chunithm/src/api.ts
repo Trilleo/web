@@ -5,7 +5,8 @@
 import { HUMAN_CHECK_STATUS, humanFetch } from "@trilleo/captcha/client";
 import type { ChartManifest, Difficulty, SongIndex } from "@trilleo/chunithm";
 
-export type Variant = "normal" | "mirror";
+/** Which picture: as played or mirrored, each with or without judgement ranges. */
+export type Variant = "normal" | "mirror" | "judgement" | "judgement-mirror";
 
 /** What the picture route answers (lib/chunithm/build.ts's BuildState, as JSON). */
 export type PictureState =
@@ -21,7 +22,8 @@ export type PictureState =
         | "storage"
         | "busy"
         | "too-many"
-        | "human-check";
+        | "human-check"
+        | "no-bpm";
     };
 
 /** Words for an unavailable picture. */
@@ -37,6 +39,8 @@ export const UNAVAILABLE: Record<
   "too-many": "You've opened many new charts this hour. Try again later.",
   "human-check":
     "New charts from here need the check for bots first. Reload to try it again.",
+  "no-bpm":
+    "This song’s BPM isn’t known, so its judgement ranges can’t be measured.",
 };
 
 export function pictureUrl(
@@ -44,7 +48,7 @@ export function pictureUrl(
   difficulty: Difficulty,
   variant: Variant,
 ): string {
-  return `/api/chunithm/charts/${String(songId)}/${difficulty}${variant === "mirror" ? "?variant=mirror" : ""}`;
+  return `/api/chunithm/charts/${String(songId)}/${difficulty}${variant === "normal" ? "" : `?variant=${variant}`}`;
 }
 
 export async function fetchPicture(

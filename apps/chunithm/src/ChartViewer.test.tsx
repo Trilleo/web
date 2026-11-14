@@ -4,6 +4,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
 } from "@testing-library/react";
 import type { ChartManifest } from "@trilleo/chunithm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -87,6 +88,64 @@ describe("the chart viewer", () => {
       "/t/0.webp",
       "/t/1.webp",
     ]);
+  });
+
+  it("turns judgement ranges on: asks for that picture, explains it, remembers", async () => {
+    const withRanges: ChartManifest = {
+      ...manifest,
+      tiles: [{ url: "/j/0.webp", height: 3000 }],
+      judgement: {
+        bpm: 240,
+        pxPerMs: 0.05,
+        windows: {
+          normal: { critical: 33.3, justice: 66.7, attack: 100 },
+          critical: { critical: 100, justice: 100, attack: 100 },
+        },
+      },
+    };
+    const fetchMock = vi.fn((url: string) =>
+      Promise.resolve(
+        Response.json(
+          url.includes("variant=judgement")
+            ? {
+                status: "ready",
+                manifest: withRanges,
+                builtAt: "2026-11-14T00:00:00Z",
+              }
+            : { status: "ready", manifest, builtAt: "2026-11-14T00:00:00Z" },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <ChartViewer
+        songId={3062}
+        difficulty="master"
+        label="Song, Master 14+"
+        initial={{ status: "ready", manifest, builtAt: "2026-11-14T00:00:00Z" }}
+        hasMirror
+        signedIn={false}
+        signInHref="/sign-in"
+      />,
+    );
+    expect(screen.queryByTestId("ranges-legend")).toBeNull();
+    const group = screen.getByRole("group", { name: "Judgement ranges" });
+    fireEvent.click(within(group).getByLabelText("On"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain(
+      "?variant=judgement",
+    );
+    const legend = screen.getByTestId("ranges-legend");
+    expect(legend.textContent).toContain("Justice Critical");
+    expect(legend.textContent).toContain("±33.3–66.7 ms");
+    expect(legend.textContent).toContain("Measured at 240 BPM");
+    const images = screen.getByTestId("chart-picture").querySelectorAll("img");
+    expect(images[0]?.getAttribute("src")).toBe("/j/0.webp");
+    expect(localStorage.getItem("trilleo:tool:chunithm:view")).toContain(
+      '"ranges":true',
+    );
   });
 
   it("says when a chart is on plain lanes, without measure numbers", () => {

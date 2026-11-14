@@ -1,4 +1,5 @@
 import {
+  chuniBuilds,
   chuniCharts,
   chuniSdvxPlacements,
   chuniSongs,
@@ -12,6 +13,7 @@ import {
   chartsWithoutPage,
   findChart,
   forgetPage,
+  judgementChecks,
   placePage,
   restoreChart,
   withdrawChart,
@@ -151,5 +153,66 @@ describe("the overview", () => {
       currentVersion: null,
       lastGood: null,
     });
+  });
+});
+
+describe("checking judgement pictures' notes", () => {
+  it("lists the pictures whose notes found don't match sdvx.in's counts", async () => {
+    const charts = await handle.db
+      .select({ id: chuniCharts.id, difficulty: chuniCharts.difficulty })
+      .from(chuniCharts);
+    const [first, second] = charts;
+    if (!first || !second) throw new Error("no charts");
+    const manifest = (found: number) => ({
+      width: 200,
+      height: 100,
+      gutter: 50,
+      lane: 150,
+      tiles: [],
+      measures: [],
+      columns: 1,
+      judgement: {
+        version: 1,
+        bpm: 120,
+        pxPerMs: 0.1,
+        windows: {
+          normal: { critical: 33.3, justice: 66.7, attack: 100 },
+          critical: { critical: 100, justice: 100, attack: 100 },
+        },
+        found: { tap: found, flick: 0 },
+        expected: { tap: 100, flick: 0 },
+      },
+    });
+    await handle.db.insert(chuniBuilds).values([
+      {
+        chartId: first.id,
+        variant: "judgement",
+        status: "ready",
+        manifest: manifest(97),
+      },
+      {
+        chartId: second.id,
+        variant: "judgement-mirror",
+        status: "ready",
+        manifest: manifest(60),
+      },
+      // A normal picture isn't checked.
+      {
+        chartId: second.id,
+        variant: "normal",
+        status: "ready",
+        manifest: manifest(1),
+      },
+    ]);
+    const check = await judgementChecks(handle.db);
+    expect(check.drawn).toBe(2);
+    expect(check.disagreeing).toMatchObject([
+      {
+        id: second.id,
+        variant: "judgement-mirror",
+        found: { tap: 60, flick: 0 },
+        expected: { tap: 100, flick: 0 },
+      },
+    ]);
   });
 });

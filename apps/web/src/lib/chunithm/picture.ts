@@ -2,7 +2,8 @@
  * Making a chart's picture from sdvx.in: its three layers, named from its ref as
  * sdvx.in's viewer names them (each a WebP of the same size: lossy colour, lossless
  * alpha), joined into one strip (@trilleo/chunithm's charts.ts) and cut into
- * TILE_HEIGHT WebP tiles.
+ * TILE_HEIGHT WebP tiles. A judgement build also draws each note's judgement ranges
+ * under it (@trilleo/chunithm's judgement.ts).
  *
  * No database or storage here, so the same code runs on the server (build.ts, which
  * keeps layers between attempts and uploads the tiles) and on the admin's computer
@@ -11,12 +12,19 @@
  */
 import {
   COLUMN,
+  JUDGEMENT_VERSION,
+  JUDGEMENT_WINDOWS,
   checkOverlaps,
+  countNotes,
   drawOver,
+  drawRanges,
   findLayout,
   findMeasures,
+  findNotes,
   fitOldLayer,
   isOldLayer,
+  judgementRanges,
+  pixelsPerMs,
   plainLanes,
   sdvxImages,
   stripHeight,
@@ -25,7 +33,11 @@ import {
   type RgbaImage,
   type SdvxImages,
 } from "@trilleo/chunithm";
-import type { ChuniBuildManifest, ChuniBuildSource } from "@trilleo/db";
+import type {
+  ChuniBuildManifest,
+  ChuniBuildSource,
+  ChuniJudgementInfo,
+} from "@trilleo/db";
 import { BUILD_LIMITS } from "./limits";
 import { giveWay } from "./png";
 import {
@@ -42,8 +54,42 @@ import { decodeWebp, isWebp } from "./webp";
  */
 export const BUILD_VERSION = 1;
 
+/** Which notes layer a picture is made from: as played, or sdvx.in's mirrored one. */
 export const VARIANTS = ["normal", "mirror"] as const;
 export type Variant = (typeof VARIANTS)[number];
+
+/**
+ * What a build makes: a variant's picture, or the same with judgement ranges drawn
+ * under the notes (built only when someone asks; never bundled or built ahead).
+ */
+export const BUILD_VARIANTS = [
+  ...VARIANTS,
+  "judgement",
+  "judgement-mirror",
+] as const;
+export type BuildVariant = (typeof BUILD_VARIANTS)[number];
+
+export function isBuildVariant(value: string): value is BuildVariant {
+  return (BUILD_VARIANTS as readonly string[]).includes(value);
+}
+
+/** Whether a build draws judgement ranges. */
+export function isJudgement(variant: BuildVariant): boolean {
+  return variant === "judgement" || variant === "judgement-mirror";
+}
+
+/** The notes layer a build uses. */
+export function notesVariant(variant: BuildVariant): Variant {
+  return variant === "mirror" || variant === "judgement-mirror"
+    ? "mirror"
+    : "normal";
+}
+
+/** What drawing judgement ranges needs: the chart's BPM, and sdvx.in's counts. */
+export interface JudgementInput {
+  bpm: number;
+  expected: { tap: number | null; flick: number | null } | null;
+}
 
 /** What went wrong, in words for the admin (and the viewer). */
 export class BuildError extends Error {
@@ -203,7 +249,9 @@ export async function fetchLayers(
 /**
  * Makes the chart's picture: one layer at a time, to keep memory down (lanes, notes
  * over them, numbers on top), then each tile, bottom first, to `onTile`. With
- * `fetched` (from `fetchLayers`) nothing is downloaded.
+ * `fetched` (from `fetchLayers`) nothing is downloaded. With `judgement`, the notes
+ * are found and their judgement ranges drawn on the lanes before the notes go over
+ * them (the measure numbers are read first then, to measure them).
  */
 export async function makePicture(
   deps: PictureDeps,
@@ -211,6 +259,8 @@ export async function makePicture(
   variant: Variant,
   onTile: (tile: Tile) => Promise<void>,
   fetched?: Fetched,
+  /** Draws judgement ranges under the notes (judgement.ts). */
+  judgement?: JudgementInput,
 ): Promise<Picture> {
   deps.progress?.({ stage: fetched ? "joining" : "downloading" });
   const images = fetched?.images ?? imagesOf(ref);
@@ -259,19 +309,57 @@ export async function makePicture(
   sameSize(picture, notesImage, notesName);
   const layout = findLayout(picture);
   checkOverlaps(picture, notesImage, layout);
+  // Downloaded even for plain lanes, so its tag notices sdvx.in drawing proper ones.
+  const readBar = async () => {
+    const layer = await get(images.bar, "measure numbers");
+    const drawn = await decode(layer, "measure numbers");
+    return { layer, drawn };
+  };
+  const fitBar = (drawn: RgbaImage) => {
+    const image = isOldLayer(drawn, notesImage)
+      ? fitOldLayer(drawn, notesImage)
+      : drawn;
+    sameSize(picture, image, "measure numbers");
+    return image;
+  };
+  let bar: { layer: Layer; drawn: RgbaImage } | null = null;
+  let fittedBar: RgbaImage | null = null;
+  let measures: number[] = [];
+  let drawn: ChuniJudgementInfo | undefined;
+  if (judgement) {
+    // The ranges go under the notes and are measured by the measures: numbers first.
+    if (plain)
+      throw new BuildError(
+        "This chart is on plain lanes without measure lines, so its judgement ranges can't be measured.",
+      );
+    bar = await readBar();
+    fittedBar = fitBar(bar.drawn);
+    measures = findMeasures(fittedBar, layout);
+    const pxPerMs = pixelsPerMs(measures, judgement.bpm);
+    if (pxPerMs === null)
+      throw new BuildError(
+        "This chart has too few measures to measure its judgement ranges.",
+      );
+    const notes = findNotes(notesImage, layout);
+    await giveWay();
+    drawRanges(picture, layout, judgementRanges(notes, pxPerMs));
+    drawn = {
+      version: JUDGEMENT_VERSION,
+      bpm: judgement.bpm,
+      pxPerMs: Math.round(pxPerMs * 10_000) / 10_000,
+      windows: JUDGEMENT_WINDOWS,
+      found: countNotes(notes),
+      expected: judgement.expected,
+    };
+  }
   await giveWay();
   drawOver(picture, notesImage);
   await giveWay();
-  // Downloaded even for plain lanes, so its tag notices sdvx.in drawing proper ones.
-  const barLayer = await get(images.bar, "measure numbers");
-  const barDrawn = await decode(barLayer, "measure numbers");
-  let measures: number[] = [];
+  bar ??= await readBar();
+  const barLayer = bar.layer;
   if (!plain) {
-    const barImage = isOldLayer(barDrawn, notesImage)
-      ? fitOldLayer(barDrawn, notesImage)
-      : barDrawn;
-    sameSize(picture, barImage, "measure numbers");
-    measures = findMeasures(barImage, layout);
+    const barImage = fittedBar ?? fitBar(bar.drawn);
+    if (!fittedBar) measures = findMeasures(barImage, layout);
     await giveWay();
     drawOver(picture, barImage);
   }
@@ -293,6 +381,7 @@ export async function makePicture(
       measures,
       columns: layout.columns.length,
       ...(plain ? { plainLanes: true as const } : {}),
+      ...(drawn ? { judgement: drawn } : {}),
     },
     source: {
       ref,

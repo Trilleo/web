@@ -2,12 +2,14 @@
  * CHUNITHM's song catalog, pure: difficulties and constants, versions, readers for the
  * three sources (SEGA's song list, otoge-db, sdvx.in's chart pages), the merge that
  * makes one catalog from them by SEGA's IDs, and joining a chart's picture from
- * sdvx.in's layers (charts.ts). The site fetches and keeps it (apps/web/src/lib/chunithm/).
+ * sdvx.in's layers (charts.ts), and judgement ranges drawn on it
+ * (judgement.ts). The site fetches and keeps it (apps/web/src/lib/chunithm/).
  */
 export * from "./aliases";
 export * from "./catalog";
 export * from "./charts";
 export * from "./difficulties";
+export * from "./judgement";
 export * from "./score";
 export * from "./search";
 export * from "./sources/common";

@@ -1,4 +1,5 @@
 ---
+import { JUDGEMENT_WINDOWS } from "@trilleo/chunithm";
 import InfoLayout from "../layouts/InfoLayout.astro";
 import { CONTACT_RETENTION_DAYS } from "../lib/contact/store";
 import { AVATAR_MAX_BYTES } from "../lib/profile/avatar";
@@ -125,6 +126,23 @@ import { DEFAULT_SETTINGS } from "@trilleo/study";
     search finds the song by them. If you drew a chart and want it taken down,{" "}
     <a href="/contact/">write</a>
     and it’s withdrawn.
+  </p>
+  <h3>How are the CHUNITHM judgement ranges worked out?</h3>
+  <p>
+    Turn on “Judgement ranges” on a chart and the server draws a picture of its
+    own: it finds each note in sdvx.in’s picture and colours where it can be hit
+    for a Justice Critical (gold), a Justice (orange) or an Attack (green),
+    early below the note and late above it. SEGA doesn’t publish the windows, so
+    they’re players’ measurements: ±{JUDGEMENT_WINDOWS.normal.critical}, ±
+    {JUDGEMENT_WINDOWS.normal.justice} and ±{JUDGEMENT_WINDOWS.normal.attack} ms
+    for taps and the starts of holds and slides, and a Justice Critical anywhere
+    within ±{JUDGEMENT_WINDOWS.critical.attack} ms for ExTaps and flicks. When
+    two notes that overlap are close enough for their windows to meet, the
+    windows split halfway between them (marked by a white line), as players have
+    tested. sdvx.in draws every beat the same height, so the windows are turned
+    into pixels with the song’s listed BPM: where a song changes speed, the
+    ranges there are off. A note drawn under another may be missed and have no
+    range.
   </p>
   <h3>How does the CHUNITHM score calculator count?</h3>
   <p>

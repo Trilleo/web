@@ -518,4 +518,13 @@ export interface ChartManifest {
   columns: number;
   /** Drawn on our own plain lanes (`plainLanes`): no measure lines or numbers. */
   plainLanes?: true;
+  /** Judgement ranges drawn under the notes (judgement.ts): how they were measured. */
+  judgement?: {
+    bpm: number;
+    pxPerMs: number;
+    windows: Record<
+      "normal" | "critical",
+      Record<"critical" | "justice" | "attack", number>
+    >;
+  };
 }

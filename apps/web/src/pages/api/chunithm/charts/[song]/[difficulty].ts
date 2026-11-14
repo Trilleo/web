@@ -2,10 +2,11 @@ import type { APIRoute } from "astro";
 import { isDifficulty } from "@trilleo/chunithm";
 import { findChart } from "../../../../../lib/chunithm/admin";
 import {
+  isBuildVariant,
   kickBuilds,
   requestBuild,
   siteBuildDeps,
-  type Variant,
+  type BuildVariant,
 } from "../../../../../lib/chunithm/build";
 import { requireHumanJson } from "../../../../../lib/captcha/gate";
 import { parseId } from "../../../../../lib/comments/form";
@@ -14,8 +15,9 @@ import { getDb } from "../../../../../lib/db";
 export const prerender = false;
 
 /**
- * GET /api/chunithm/charts/<SEGA song ID>/<difficulty>[?variant=mirror]: a chart's
- * picture for the viewer. `ready` with its manifest (tiles bottom first, measures),
+ * GET /api/chunithm/charts/<SEGA song ID>/<difficulty>[?variant=mirror|judgement|
+ * judgement-mirror]: a chart's picture for the viewer (judgement: with judgement
+ * ranges drawn under the notes; unavailable "no-bpm" when the song's BPM is unknown). `ready` with its manifest (tiles bottom first, measures),
  * `queued` or `building` (ask again in a few seconds: asking started the build),
  * `failed` with why and when it's tried again, or `unavailable` with a reason.
  * Public: chart pictures are for everyone; new builds are limited per visitor and
@@ -25,8 +27,8 @@ export const GET: APIRoute = async (context) => {
   const { params, url } = context;
   const songId = parseId(params.song ?? "");
   const difficulty = params.difficulty ?? "";
-  const variant: Variant =
-    url.searchParams.get("variant") === "mirror" ? "mirror" : "normal";
+  const asked = url.searchParams.get("variant") ?? "normal";
+  const variant: BuildVariant = isBuildVariant(asked) ? asked : "normal";
   const noStore = { "Cache-Control": "no-store" };
   if (songId === null || !isDifficulty(difficulty))
     return Response.json(
