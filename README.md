@@ -162,10 +162,15 @@ Ctrl-C lets the charts in progress finish; a second Ctrl-C drops them. Running i
 again carries on where it stopped (`--limit`, `--delay`, `--out` and
 `--retry-failed` change what it does).
 
-The Hypixel SkyBlock tool (`/tools/skyblock/`) collects utilities for the game; so far
-Shards: every shard, searchable by name, attribute or effect, and a page for each
+The Hypixel SkyBlock tool (`/tools/skyblock/`) collects utilities for the game. Shards:
+every shard, searchable by name, attribute or effect, and a page for each
 (`/tools/skyblock/shards/<name>/`) with its attribute drawn as the game draws it, what each
-level costs, where to hunt it, and every fusion that makes it or uses it. The data is
+level costs, where to hunt it, and every fusion that makes it or uses it. The fusion
+calculator (`/tools/skyblock/calculator/`) works out the fastest way to make any shard
+from your fortune, attribute levels and hunting rates: the tree (choose other recipes),
+a checklist, a time breakdown, comparisons and exports for the SkyOcean, NoFrills and
+SkyHanni mods. It solves in a Web Worker on a port of SkyShards' engine
+(`packages/skyblock/src/calc/`). The data is
 SkyShards' (MIT): the server reads its GitHub repository every 6 hours, downloading only
 files that changed, and copies new shard icons into storage (`apps/web/src/lib/skyblock/`,
 watched at `/admin/skyblock/`). A copy is committed with the site, which `pnpm dev` and

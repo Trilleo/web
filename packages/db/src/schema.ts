@@ -3265,6 +3265,11 @@ export interface SbSyncSummary {
   iconsFailed: number;
   /** Icons still to copy after the pass. */
   iconsLeft: number;
+  /**
+   * SkyShards' calculator files that differ from the ones the site's rules were
+   * ported from (@trilleo/skyblock/calc's RULE_SOURCES); absent in older passes.
+   */
+  rulesChanged?: string[];
   errors: string[];
 }
 

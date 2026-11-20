@@ -7,6 +7,7 @@ import {
   sbSyncs,
   type DatabaseHandle,
 } from "@trilleo/db";
+import { RULE_SOURCES } from "@trilleo/skyblock/calc";
 import { sourceFiles } from "@trilleo/skyblock/testing";
 import { LocalDriver } from "@trilleo/storage/server";
 import { asc } from "drizzle-orm";
@@ -75,6 +76,8 @@ let repo: Map<string, Uint8Array>;
 let requests: string[];
 /** Paths that answer 503 (or a status) instead of the file. */
 let failing: Map<string, number>;
+/** SkyShards' calculator files in the tree: path → blob SHA (RULE_SOURCES unless changed). */
+let rules: Record<string, string>;
 
 const json = (value: unknown) =>
   new TextEncoder().encode(JSON.stringify(value));
@@ -108,11 +111,18 @@ const fakeFetch: typeof fetch = (input) => {
   )
     return respond(
       JSON.stringify({
-        tree: [...repo].map(([path, bytes]) => ({
-          path,
-          type: "blob",
-          sha: gitBlobSha(bytes),
-        })),
+        tree: [
+          ...[...repo].map(([path, bytes]) => ({
+            path,
+            type: "blob",
+            sha: gitBlobSha(bytes),
+          })),
+          ...Object.entries(rules).map(([path, sha]) => ({
+            path,
+            type: "blob",
+            sha,
+          })),
+        ],
         truncated: false,
       }),
     );
@@ -147,6 +157,7 @@ beforeEach(async () => {
   repo = new Map();
   requests = [];
   failing = new Map();
+  rules = { ...RULE_SOURCES };
   setFiles();
   repo.set(`${ICON_DIR}C1.png`, groveIcon);
   repo.set(`${ICON_DIR}R45.png`, icon(90));
@@ -289,6 +300,19 @@ describe("syncShards", () => {
     expect((await syncShards(handle.db, deps())).iconsFailed).toBe(0);
     clock = new Date(clock.getTime() + 25 * 60 * 60 * 1000);
     expect((await syncShards(handle.db, deps())).iconsFailed).toBe(1);
+  });
+
+  it("tells the admin once when SkyShards changes its calculator rules", async () => {
+    rules["src/services/minCostSolver.ts"] = "f".repeat(40);
+    expect((await syncShards(handle.db, deps())).rulesChanged).toEqual([
+      "src/services/minCostSolver.ts",
+    ]);
+    commit = "d".repeat(40);
+    await syncShards(handle.db, deps());
+    const alerts = await handle.db.select().from(adminAlerts);
+    expect(alerts.map((alert) => alert.summary)).toEqual([
+      "SkyBlock: SkyShards changed its calculator rules (src/services/minCostSolver.ts): check packages/skyblock/src/calc against them.",
+    ]);
   });
 
   it("does nothing with fetching off, and alerts after failures in a row", async () => {

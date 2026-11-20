@@ -87,8 +87,8 @@
   attribute levels (attributes.ts), attribute texts (text.ts: Minecraft colours, ranges,
   stat symbols from glyphs.ts as SVG), `readSources` (SkyShards' four files → a
   Dataset, checked), fusion rules in words (rules.ts), `ShardCatalog` (recipes both
-  ways, grouped) and the list's search (search.ts). `./testing` writes small source
-  files. Source-only.
+  ways, grouped) and the list's search (search.ts); `./calc` the fusion calculator's
+  engine (see Hypixel SkyBlock). `./testing` writes small source files. Source-only.
 - study/: study subjects as Markdown files (see Study below and study/README.md).
 - Blog content: Markdown posts in Postgres, written in the admin editor (/admin/posts).
 - The wiki (wiki.trilleo.net) is apps/web on a second host, not its own app: pages in
@@ -1573,8 +1573,7 @@ chunithm:bundle <list>` (scripts/chunithm-bundle.ts around lib/chunithm/bundler.
 
 - /tools/skyblock/ (apps/skyblock, @trilleo/tool-skyblock; status "in-progress"): a hub
   of utilities (`UTILITIES` in its meta: built ones linked, planned ones listed). Built
-  so far: Shards. Planned, in phases: the fusion calculator (time mode, a worker, tool
-  data), Bazaar prices (fetched and cached by our server from Hypixel's keyless public
+  so far: Shards and the fusion calculator. Planned, in phases: Bazaar prices (fetched and cached by our server from Hypixel's keyless public
   endpoint, never by browsers: coin mode, fusion profits, price charts), then a
   collection tracker, a hunting planner and the fusion-lines graph. No Hypixel API key:
   nothing that needs one (profile import) is built.
@@ -1619,6 +1618,37 @@ skyblock:snapshot` (scripts/skyblock-snapshot.ts on plain Node, like chunithm:bu
 - Attribute texts are drawn by @trilleo/skyblock's `segmentsHtml` (escapes everything;
   only its own spans and glyph SVGs), into `set:html`. Changing what it writes means
   updating its tests.
+- The fusion calculator's engine (@trilleo/skyblock/calc, pure) is a faithful port of
+  SkyShards' (shardData, fusionMath, minCostSolver, recipeTree, treeExport), odd corners
+  and float order included: it matched SkyShards' golden snapshots exactly (every
+  shard's cost and recipe in four setups, the trees, both loop cases) when ported, so
+  change its maths only on purpose. hunting.ts holds the rules SkyShards keeps in code
+  (no-fortune, wooden-bait and black-hole shards, Kuudra, the nine levelled attributes),
+  keyed by Hypixel ID; RULE_SOURCES records the SkyShards files and blob SHAs they came
+  from, each sync compares them (summary `rulesChanged`, a one-time "skyblock-update"
+  alert, a notice on /admin/skyblock/): then compare and update both. Recipes are kept
+  in SkyShards' order (by output, fewest made first): the solver keeps the first of
+  equally cheap recipes. graph.ts (effective rates: fortune, rarity pets, Frog, Python and
+  King Cobra on black-hole shards boosted by Sea Serpent and Tiamat, wooden bait,
+  Chameleon, Kraken from Kuudra; Crocodile scales reptile fusions), solver.ts (SPFA
+  relaxation with chosen recipes and Tarjan loops), plan.ts (trees, quantities, whole
+  laps of loops, hours), choices.ts (saved choices ↔ overrides; stale ones are dropped and
+  reported; alternatives), steps.ts (the checklist, with stable step IDs), exports.ts
+  (plain text, and SkyOcean/NoFrills/SkyHanni payloads; the browser gzips them with
+  CompressionStream), settings.ts (what's saved, `isSavedValue` the meta's check).
+- /tools/skyblock/calculator/[?shard=&qty=] (server-rendered for the signed-in setup;
+  each shard page links it with its max): `Calculator` (apps/skyblock) downloads the
+  Deck (/api/skyblock/deck.json: shards without texts plus the recipe rows, ~1 MB, ETag
+  = a hash of it, lib/skyblock/deck.ts) and solves in a Web Worker (calc/worker.ts,
+  `new URL` import; calc/client.ts falls back to the same host on the page, which the
+  tests use; only the newest plan request is solved). Sections: what to make (quick
+  amounts per level), fastest route (summary, time breakdown bar, pin to compare,
+  exports), fusion tree ("Change" opens the alternatives <dialog>: the cheapest
+  ALTERNATIVES_SHOWN plus the current), checklist, setup, own hunting rates, chosen
+  recipes. Saved as tool data (calc-settings after SAVE_DELAY_MS or when the page hides,
+  calc-overrides, calc-checklist for one target at a time); signed out in this browser.
+  Coin mode waits for Bazaar prices; inventory and multi-shard modes for the collection
+  tracker and planner.
 
 ## Mail
 

@@ -98,6 +98,14 @@ const detail = "mt-1 text-sm text-muted";
             copy committed with the site.
           </p>
         )}
+        {overview.rulesChanged.length > 0 && (
+          <p class="border-l-2 border-accent pl-4" data-testid="skyblock-rules">
+            SkyShards has changed its calculator since the fusion calculator was
+            ported from it ({overview.rulesChanged.join(", ")}). Compare those
+            files with packages/skyblock/src/calc, then update RULE_SOURCES
+            there.
+          </p>
+        )}
         <dl
           class="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-3 xl:grid-cols-5"
           data-testid="skyblock-counts"

@@ -19,6 +19,8 @@ export interface SkyblockOverview {
   /** Shards with no icon at all (pages show their rarity's letter). */
   withoutIcon: string[];
   syncs: SbSync[];
+  /** SkyShards' calculator files changed since the rules were ported (the last pass). */
+  rulesChanged: string[];
 }
 
 export async function skyblockOverview(
@@ -58,5 +60,8 @@ export async function skyblockOverview(
       .filter((shard) => !data.icons.has(shard.id))
       .map((shard) => shard.name),
     syncs,
+    rulesChanged:
+      syncs.find((sync) => sync.finishedAt && sync.summary?.commit)?.summary
+        ?.rulesChanged ?? [],
   };
 }

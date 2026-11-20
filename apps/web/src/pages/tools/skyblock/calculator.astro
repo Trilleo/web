@@ -1,0 +1,82 @@
+---
+/**
+ * The fusion calculator: /tools/skyblock/calculator/[?shard=<slug>&qty=<n>]. Rendered
+ * per visit, so signed-in people get their setup in the page; the app downloads the
+ * shard data (/api/skyblock/deck.json) and solves in a Web Worker.
+ */
+import { signInHref } from "@trilleo/tool-kit";
+import {
+  CALCULATOR_PATH,
+  Calculator,
+  SKYBLOCK_PATH,
+  meta,
+  type ShardOption,
+} from "@trilleo/tool-skyblock";
+import SkyblockLayout from "../../../components/skyblock/SkyblockLayout.astro";
+import { getDb } from "../../../lib/db";
+import { iconOf, shardData } from "../../../lib/skyblock/data";
+import { ogImagePath, toolCard } from "../../../lib/seo";
+import { getStorage } from "../../../lib/storage/config";
+import { listToolData } from "../../../lib/tools/store";
+
+export const prerender = false;
+
+// Who's signed in decides the setup shown, so no shared caching.
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const db = await getDb();
+const data = await shardData(db, getStorage());
+const shards: ShardOption[] = data.catalog.shards.map((shard) => ({
+  id: shard.id,
+  slug: shard.slug,
+  name: shard.name,
+  rarity: shard.rarity,
+  icon: iconOf(data, shard),
+  rate: shard.rate,
+}));
+const { user } = Astro.locals;
+const initialSaved = user
+  ? await listToolData<unknown>(db, user.id, meta.slug)
+  : undefined;
+const initialShard = Astro.url.searchParams.get("shard");
+const quantityParam = Number(Astro.url.searchParams.get("qty"));
+const initialQuantity =
+  Number.isInteger(quantityParam) && quantityParam > 0
+    ? quantityParam
+    : undefined;
+const shard = shards.find((s) => s.slug === initialShard);
+const description =
+  "The fastest way to make any Hypixel SkyBlock shard: hunting and fusing worked out from your fortune, attribute levels and rates.";
+---
+
+<SkyblockLayout
+  title={`${shard ? `${shard.name} · ` : ""}Fusion calculator · ${meta.name}`}
+  {description}
+  image={ogImagePath(`tools/${meta.slug}`, toolCard(meta))}
+  crumbs={[{ label: "Fusion calculator", path: CALCULATOR_PATH }]}
+  back={{ href: SKYBLOCK_PATH, label: "SkyBlock tools" }}
+>
+  <div class="grid-swiss gap-y-4 pb-8 md:pb-10">
+    <h1 class="type-headline col-span-4 md:col-span-6 xl:col-span-9">
+      Fusion calculator
+    </h1>
+    <p class="type-dek col-span-4 max-w-[47.5rem] text-muted md:col-span-6 xl:col-span-9">
+      {description}
+    </p>
+  </div>
+  <Calculator
+    client:load
+    signedIn={user !== null}
+    signInHref={signInHref(Astro.url.pathname + Astro.url.search)}
+    shards={shards}
+    initialSaved={initialSaved}
+    initialShard={initialShard}
+    initialQuantity={initialQuantity}
+  />
+  <noscript>
+    <p class="mt-6 border-l-2 border-accent pl-4">
+      The calculator needs JavaScript: it works the route out in your browser.
+      Each shard’s page lists its fusions without it.
+    </p>
+  </noscript>
+</SkyblockLayout>

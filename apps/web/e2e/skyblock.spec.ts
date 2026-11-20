@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { adminPage, hydrated } from "./support";
 
@@ -119,3 +120,113 @@ test("the admin's SkyBlock panel shows the data in use", async ({
   await expect(admin.getByText("Fetching is switched off here")).toBeVisible();
   await expect(admin.getByRole("button", { name: "Check now" })).toBeDisabled();
 });
+
+test("a shard's page opens the calculator, which works out the fastest route", async ({
+  page,
+}) => {
+  await page.goto("/tools/skyblock/shards/tiamat/");
+  await page.getByTestId("shard-calculate").click();
+  await expect(page).toHaveURL(
+    "/tools/skyblock/calculator/?shard=tiamat&qty=24",
+  );
+  await hydrated(page);
+  const summary = page.getByTestId("calc-summary");
+  await expect(summary).toContainText("Fusions");
+  await expect(page.getByTestId("calc-tree")).toContainText("24 Tiamat");
+  await expect(page.getByTestId("calc-checklist")).toContainText(
+    /0 of \d+ done/,
+  );
+  await expect(page.getByTestId("calc-breakdown")).toBeVisible();
+});
+
+test("the calculator follows the setup and keeps choices in this browser", async ({
+  page,
+}) => {
+  await page.goto("/tools/skyblock/calculator/?shard=tiamat&qty=24");
+  await hydrated(page);
+  const time = page.getByTestId("calc-summary").locator("dd").first();
+  await expect(time).not.toBeEmpty();
+  const before = await time.textContent();
+  await page.getByLabel("Hunting Fortune").fill("300");
+  await expect(time).not.toHaveText(before ?? "");
+
+  await page
+    .getByRole("button", { name: "Change how to get Crocodile" })
+    .first()
+    .click();
+  const dialog = page.getByTestId("calc-alternatives");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: /^Use / }).first().click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId("calc-chosen")).toContainText("Crocodile");
+  await page
+    .getByTestId("calc-checklist")
+    .getByRole("checkbox")
+    .first()
+    .check();
+
+  await page.reload();
+  await hydrated(page);
+  await expect(page.getByLabel("Hunting Fortune")).toHaveValue("300");
+  await expect(page.getByTestId("calc-chosen")).toContainText("Crocodile");
+  await expect(page.getByTestId("calc-checklist")).toContainText(
+    /1 of \d+ done/,
+  );
+});
+
+test("the calculator's data is versioned and revalidated", async ({
+  request,
+}) => {
+  const first = await request.get("/api/skyblock/deck.json");
+  expect(first.status()).toBe(200);
+  const etag = first.headers().etag ?? "";
+  const deck = (await first.json()) as { version: string; shards: unknown[] };
+  expect(etag).toBe(`"${deck.version}"`);
+  expect(deck.shards.length).toBeGreaterThan(300);
+  const again = await request.get("/api/skyblock/deck.json", {
+    headers: { "If-None-Match": etag },
+  });
+  expect(again.status()).toBe(304);
+});
+
+for (const colorScheme of ["light", "dark"] as const)
+  test(`the calculator's result and alternatives are accessible (${colorScheme})`, async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme });
+    await page.goto("/tools/skyblock/calculator/?shard=tiamat&qty=24");
+    await hydrated(page);
+    await expect(page.getByTestId("calc-tree")).toBeVisible();
+    const tags = [
+      "wcag2a",
+      "wcag2aa",
+      "wcag21a",
+      "wcag21aa",
+      "wcag22aa",
+      "best-practice",
+    ];
+    const result = await new AxeBuilder({ page }).withTags(tags).analyze();
+    expect(
+      result.violations.map(
+        (v) =>
+          `${v.id}: ${v.nodes
+            .map((n) => n.target.join(" "))
+            .slice(0, 3)
+            .join(", ")}`,
+      ),
+    ).toEqual([]);
+    await page
+      .getByRole("button", { name: "Change how to get Tiamat" })
+      .click();
+    await expect(
+      page
+        .getByTestId("calc-alternatives")
+        .getByRole("button", { name: /^Use / })
+        .first(),
+    ).toBeVisible();
+    const dialog = await new AxeBuilder({ page })
+      .withTags(tags)
+      .include("[data-testid=calc-alternatives]")
+      .analyze();
+    expect(dialog.violations.map((v) => v.id)).toEqual([]);
+  });

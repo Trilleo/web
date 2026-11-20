@@ -15,9 +15,16 @@ import {
   segmentsHtml,
   segmentsText,
   shardsToLevel,
+  shardsToMax,
   withoutBuffedBy,
 } from "@trilleo/skyblock";
-import { SHARDS_PATH, meta, shardPath } from "@trilleo/tool-skyblock";
+import {
+  SHARDS_PATH,
+  calculatorPath,
+  meta,
+  shardPath,
+} from "@trilleo/tool-skyblock/meta";
+import { buttonClasses } from "@trilleo/ui/classes";
 import ShardChip from "../../../../components/skyblock/ShardChip.astro";
 import SkyblockLayout from "../../../../components/skyblock/SkyblockLayout.astro";
 import { getDb } from "../../../../lib/db";
@@ -125,6 +132,13 @@ const scrollRegion = {
         </p>
         <h1 class="type-headline break-words">{shard.name}</h1>
         {attribute && <p class="type-dek text-muted">{attribute.title}</p>}
+        <a
+          href={calculatorPath(shard.slug, shardsToMax(shard.rarity))}
+          class={buttonClasses({ className: "self-start" })}
+          data-testid="shard-calculate"
+        >
+          Fastest way to max it
+        </a>
       </div>
     </div>
     <dl

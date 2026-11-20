@@ -23,6 +23,7 @@ const PAGES = [
   "/tools/skyblock/shards/",
   "/tools/skyblock/shards/grove/",
   "/tools/skyblock/shards/tiamat/",
+  "/tools/skyblock/calculator/?shard=tiamat&qty=24",
   "/games/",
   "/games/skygrid/",
   "/games/skygrid/leaderboard/",

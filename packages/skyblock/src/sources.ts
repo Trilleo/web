@@ -221,7 +221,9 @@ export function readSources(
   if (unknown > 50)
     problems.push(`${String(unknown)} recipes name unknown shards`);
   recipes.sort(
-    (a, b) => (a[0] ?? 0) - (b[0] ?? 0) || (b[1] ?? 0) - (a[1] ?? 0),
+    // By output, then fewest made first: the order SkyShards (and so the solver,
+    // which keeps the first of equally cheap recipes) sees them in.
+    (a, b) => (a[0] ?? 0) - (b[0] ?? 0) || (a[1] ?? 0) - (b[1] ?? 0),
   );
 
   if (problems.length > 0) throw new DataError(problems);

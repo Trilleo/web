@@ -1,3 +1,4 @@
+import { isSavedValue } from "@trilleo/skyblock/calc";
 import type { ToolMeta } from "@trilleo/tool-kit";
 
 /** Kept separate from the app, so the server can read it without loading React. */
@@ -5,14 +6,22 @@ export const meta: ToolMeta = {
   slug: "skyblock",
   name: "Hypixel SkyBlock",
   description:
-    "Utilities for Hypixel SkyBlock: every shard with its attribute, where to hunt it and what it fuses from and into.",
+    "Utilities for Hypixel SkyBlock: every shard and its fusions, and a calculator for the fastest way to make one.",
   status: "in-progress",
   icon: "skyblock",
+  // The fusion calculator's setup, chosen recipes and checklist (tool data).
+  isValidValue: isSavedValue,
 };
 
 /** Where the tool's pages live. */
 export const SKYBLOCK_PATH = "/tools/skyblock/";
 export const SHARDS_PATH = "/tools/skyblock/shards/";
+export const CALCULATOR_PATH = "/tools/skyblock/calculator/";
+
+/** The calculator, opened on a shard. */
+export function calculatorPath(slug: string, quantity?: number): string {
+  return `${CALCULATOR_PATH}?shard=${encodeURIComponent(slug)}${quantity ? `&qty=${String(quantity)}` : ""}`;
+}
 
 export function shardPath(slug: string): string {
   return `${SHARDS_PATH}${slug}/`;
@@ -36,8 +45,8 @@ export const UTILITIES: readonly Utility[] = [
   {
     name: "Fusion calculator",
     description:
-      "The fastest way to fuse a shard, from your hunting rates, fortune and attribute levels.",
-    href: null,
+      "The fastest way to make any shard: from your fortune, attribute levels and hunting rates, as a tree, a checklist and for your mods.",
+    href: CALCULATOR_PATH,
   },
   {
     name: "Fusion profits",

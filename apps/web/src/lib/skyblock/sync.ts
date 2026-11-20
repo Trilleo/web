@@ -17,6 +17,7 @@
  * FAILURES_TO_ALERT failures in a row alert the admin ("skyblock-update").
  */
 import { createHash, randomBytes } from "node:crypto";
+import { RULE_SOURCES } from "@trilleo/skyblock/calc";
 import {
   pairCount,
   readSources,
@@ -32,7 +33,7 @@ import {
 } from "@trilleo/db";
 import { PUBLIC_CACHE } from "@trilleo/storage";
 import type { StorageDriver } from "@trilleo/storage/server";
-import { desc, eq, isNotNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, lt, ne, sql } from "drizzle-orm";
 import { alertAdmin } from "../mail/alerts";
 import { getStorage } from "../storage/config";
 import { STATIC_ICONS, committedSnapshot, forgetData } from "./data";
@@ -176,6 +177,10 @@ export async function syncShards(
     return finish();
   }
   summary.commit = commit;
+  // The calculator's rules are code ported from SkyShards: say when theirs change.
+  summary.rulesChanged = Object.entries(RULE_SOURCES)
+    .filter(([path, sha]) => tree.get(path) !== sha)
+    .map(([path]) => path);
 
   // 2. The data, when its files changed.
   const current = await currentDataset(db);
@@ -410,6 +415,21 @@ async function alertIfNeeded(
     if (inARow === FAILURES_TO_ALERT && recent[0]?.id === runId)
       notes.push(
         `the shard data update has failed ${String(FAILURES_TO_ALERT)} times in a row: ${summary.errors[0] ?? "unknown error"}`,
+      );
+  }
+  const changedRules = summary.rulesChanged ?? [];
+  if (changedRules.length > 0) {
+    // Once per change: not again while the same files stay changed.
+    const [previous] = await db
+      .select({ summary: sbSyncs.summary })
+      .from(sbSyncs)
+      .where(and(isNotNull(sbSyncs.finishedAt), ne(sbSyncs.id, runId)))
+      .orderBy(desc(sbSyncs.id))
+      .limit(1);
+    const before = new Set(previous?.summary?.rulesChanged ?? []);
+    if (changedRules.some((path) => !before.has(path)))
+      notes.push(
+        `SkyShards changed its calculator rules (${changedRules.join(", ")}): check packages/skyblock/src/calc against them`,
       );
   }
   if (summary.newShards.length > 0)
