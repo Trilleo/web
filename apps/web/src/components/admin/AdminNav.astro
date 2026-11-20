@@ -1,5 +1,5 @@
 ---
-/** The admin's sections: the dashboard (comments, account), posts, files, Minecraft, the forum, the daily cryptic, the CHUNITHM catalog, the API, the human check, messages and mail. */
+/** The admin's sections: the dashboard (comments, account), posts, files, Minecraft, the forum, the daily cryptic, the CHUNITHM catalog, SkyBlock's shard data, the API, the human check, messages and mail. */
 interface Props {
   current:
     | "dashboard"
@@ -9,6 +9,7 @@ interface Props {
     | "forum"
     | "cryptic"
     | "chunithm"
+    | "skyblock"
     | "api"
     | "captcha"
     | "messages"
@@ -24,6 +25,7 @@ const items = [
   { key: "forum", label: "Forum", href: "/admin/forum/" },
   { key: "cryptic", label: "Cryptic", href: "/admin/cryptic/" },
   { key: "chunithm", label: "CHUNITHM", href: "/admin/chunithm/" },
+  { key: "skyblock", label: "SkyBlock", href: "/admin/skyblock/" },
   { key: "api", label: "API", href: "/admin/api/" },
   { key: "captcha", label: "Human check", href: "/admin/captcha/" },
   { key: "messages", label: "Messages", href: "/admin/messages/" },

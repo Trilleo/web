@@ -1,0 +1,87 @@
+---
+/**
+ * The frame around the SkyBlock tool's inner pages (the shard list, a shard): the
+ * site's layout, a breadcrumb through (02) Tools / Hypixel SkyBlock, a way back, and
+ * Hypixel's notice at the foot.
+ */
+import { meta } from "@trilleo/tool-skyblock/meta";
+import { ArrowLeftIcon } from "@trilleo/ui";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { HYPIXEL_NOTICE } from "../../lib/skyblock/public";
+import { breadcrumbJsonLd, type JsonLd } from "../../lib/seo";
+import { toolPath } from "../../lib/tools/registry";
+import Breadcrumb from "../Breadcrumb.astro";
+
+interface Props {
+  title: string;
+  description: string;
+  image: string;
+  /** Crumbs after "Hypixel SkyBlock"; the last is this page. */
+  crumbs: { label: string; path: string }[];
+  back: { href: string; label: string };
+  jsonLd?: JsonLd[];
+}
+
+const { title, description, image, crumbs, back, jsonLd = [] } = Astro.props;
+const home = toolPath(meta.slug);
+---
+
+<BaseLayout
+  {title}
+  {description}
+  {image}
+  jsonLd={[
+    ...jsonLd,
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Tools", path: "/tools/" },
+      { name: meta.name, path: home },
+      ...crumbs.map((crumb) => ({ name: crumb.label, path: crumb.path })),
+    ]),
+  ]}
+>
+  <!-- Three levels deep, the trail wraps on phones: the gaps keep links 24px apart. -->
+  <div class="grid-swiss px-page type-label gap-y-3 border-b border-hair py-3 xl:py-4">
+    <Breadcrumb
+      class="col-span-4 md:col-span-6 xl:col-span-9 [&_ol]:gap-y-3"
+      items={[
+        { label: "(02) Tools", href: "/tools/" },
+        { label: meta.name, href: home },
+        ...crumbs.map((crumb, i) =>
+          i === crumbs.length - 1
+            ? { label: crumb.label }
+            : { label: crumb.label, href: crumb.path },
+        ),
+      ]}
+    />
+    <a
+      href={back.href}
+      class="group col-span-4 inline-flex items-center gap-2 md:col-span-2 md:justify-self-end xl:col-span-3"
+    >
+      <ArrowLeftIcon
+        size={16}
+        className="transition-transform duration-(--tr-dur-base) ease-swiss group-hover:-translate-x-1"
+      />
+      <span class="link-wipe">{back.label}</span>
+    </a>
+  </div>
+
+  <section class="px-page pt-8 pb-24 md:pt-10 xl:pt-14 xl:pb-32">
+    <slot />
+    <p class="mt-16 max-w-[47.5rem] text-sm text-muted">
+      {HYPIXEL_NOTICE.replace(/SkyShards\.$/, "")}
+      <a href="https://skyshards.com/" class="underline" rel="noreferrer">
+        SkyShards
+      </a>{" "}
+      (
+      <a
+        href="https://github.com/Campionnn/SkyShards"
+        class="underline"
+        rel="noreferrer"
+      >
+        MIT
+      </a>
+      ), kept up to date from its repository.
+    </p>
+  </section>
+</BaseLayout>

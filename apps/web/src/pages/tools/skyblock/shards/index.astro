@@ -1,0 +1,75 @@
+---
+/**
+ * Every Hypixel SkyBlock shard: searched and filtered in the browser (ShardBrowser);
+ * without JavaScript, a plain index of every shard by rarity. Rendered from the
+ * current shard data (lib/skyblock/data.ts), the same for everyone.
+ */
+import { RARITIES, RARITY_LABELS } from "@trilleo/skyblock";
+import {
+  ShardBrowser,
+  SHARDS_PATH,
+  SKYBLOCK_PATH,
+  meta,
+  shardPath,
+} from "@trilleo/tool-skyblock";
+import SkyblockLayout from "../../../../components/skyblock/SkyblockLayout.astro";
+import { getDb } from "../../../../lib/db";
+import { shardData } from "../../../../lib/skyblock/data";
+import { shardSummaries } from "../../../../lib/skyblock/public";
+import { ogImagePath, toolCard } from "../../../../lib/seo";
+import { getStorage } from "../../../../lib/storage/config";
+
+export const prerender = false;
+
+const data = await shardData(await getDb(), getStorage());
+const shards = shardSummaries(data);
+const query = Astro.url.searchParams.get("q") ?? "";
+const image = ogImagePath(`tools/${meta.slug}`, toolCard(meta));
+const description = `All ${String(shards.length)} Hypixel SkyBlock shards: attributes, where to hunt them and every fusion, searchable by name or effect.`;
+---
+
+<SkyblockLayout
+  title={`Shards · ${meta.name}`}
+  {description}
+  {image}
+  crumbs={[{ label: "Shards", path: SHARDS_PATH }]}
+  back={{ href: SKYBLOCK_PATH, label: "SkyBlock tools" }}
+>
+  <div class="grid-swiss gap-y-4 pb-8 md:pb-10">
+    <h1 class="type-headline col-span-4 md:col-span-6 xl:col-span-9">Shards</h1>
+    <p class="type-dek col-span-4 max-w-[47.5rem] text-muted md:col-span-6 xl:col-span-9">
+      {description}
+    </p>
+  </div>
+  <ShardBrowser client:load shards={shards} initialQuery={query} />
+  <noscript>
+    <section
+      class="grid-swiss mt-10 gap-y-4 border-t border-ink pt-4"
+      aria-labelledby="index-title"
+    >
+      <h2 id="index-title" class="col-span-4 type-label md:col-span-2">
+        Every shard
+      </h2>
+      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-10">
+        <p class="text-muted">
+          Searching needs JavaScript; every shard is linked here.
+        </p>
+        {RARITIES.map((rarity) => (
+          <p>
+            <strong class="type-label">{RARITY_LABELS[rarity]}:</strong>{" "}
+            {shards
+              .filter((shard) => shard.rarity === rarity)
+              .map((shard, i) => (
+                <>
+                  {i > 0 && ", "}
+                  <a class="underline" href={shardPath(shard.slug)}>
+                    {shard.name}
+                  </a>
+                </>
+              ))}
+          </p>
+        ))}
+      </div>
+    </section>
+  </noscript>
+</SkyblockLayout>

@@ -173,6 +173,12 @@ const credits = [
     license: "GPL-2.0",
     href: "https://www.clamav.net",
   },
+  {
+    name: "SkyShards",
+    use: "Hypixel SkyBlock shard data (fusions, attributes, rates), kept up to date from its repository",
+    license: "MIT",
+    href: "https://github.com/Campionnn/SkyShards",
+  },
 ] as const;
 ---
 
@@ -190,7 +196,10 @@ const credits = [
     small WebGL renderer written for the site, in colours of its own rather than
     the game’s textures; the plugin menus on the wiki use pixel icons drawn for
     it the same way, and Hotfix is pixel art on a canvas, coloured from the
-    site's own tokens. The source is on <a href={GITHUB_URL}>GitHub</a>.
+    site's own tokens. The Hypixel SkyBlock tool shows Hypixel's own shard icons
+    and stat symbols, credited to Hypixel (it isn't affiliated with them), with
+    shard data from SkyShards, which the server reads from its repository. The
+    source is on <a href={GITHUB_URL}>GitHub</a>.
   </p>
 
   <h2 id="design">Design</h2>

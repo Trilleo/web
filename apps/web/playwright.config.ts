@@ -43,6 +43,8 @@ const e2eEnv = {
   CHUNITHM_SDVX_DELAY_MS: "0",
   // Specs start their builds themselves.
   CHUNITHM_PREBUILD: "off",
+  // SkyBlock's shards: the copy committed with the site, never GitHub.
+  SKYBLOCK_SYNC: "off",
   // The human check asks only browsers with a trilleo_check_test cookie (its level),
   // and puzzles carry their answers (e2e/human-check.spec.ts).
   CAPTCHA_TEST: "1",

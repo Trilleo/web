@@ -1,0 +1,443 @@
+---
+/**
+ * One Hypixel SkyBlock shard: /tools/skyblock/shards/<slug>/. Its facts, its
+ * attribute (as the game draws it) and what each level costs, where to hunt it, and
+ * its fusions both ways: the special fusion that makes it, ID and chameleon fusions,
+ * then every recipe grouped (long groups show their first PARTNERS_SHOWN shards).
+ * Rendered from the current shard data, the same for everyone; works without
+ * JavaScript.
+ */
+import {
+  MAX_ATTRIBUTE_LEVEL,
+  RARITY_CODES,
+  RARITY_LABELS,
+  SHARDS_PER_LEVEL,
+  segmentsHtml,
+  segmentsText,
+  shardsToLevel,
+  withoutBuffedBy,
+} from "@trilleo/skyblock";
+import { SHARDS_PATH, meta, shardPath } from "@trilleo/tool-skyblock";
+import ShardChip from "../../../../components/skyblock/ShardChip.astro";
+import SkyblockLayout from "../../../../components/skyblock/SkyblockLayout.astro";
+import { getDb } from "../../../../lib/db";
+import { shardData } from "../../../../lib/skyblock/data";
+import {
+  PARTNERS_SHOWN,
+  shardCard,
+  shardPage,
+} from "../../../../lib/skyblock/public";
+import { ogImagePath, truncate } from "../../../../lib/seo";
+import { getStorage } from "../../../../lib/storage/config";
+
+export const prerender = false;
+
+const slug = Astro.params.slug ?? "";
+const data = await shardData(await getDb(), getStorage());
+const page = shardPage(data, slug);
+if (!page) return Astro.rewrite("/404");
+const { shard } = page;
+
+const rarity = RARITY_LABELS[shard.rarity];
+const attribute = shard.attribute;
+const effect = attribute
+  ? segmentsText(withoutBuffedBy(attribute.description))
+  : "";
+const description = truncate(
+  `${shard.name} is a ${rarity} ${shard.category} shard in Hypixel SkyBlock${attribute ? ` granting ${attribute.title}: ${effect}` : ""}. Where to hunt it, what each level costs, and every fusion that makes it or uses it.`,
+);
+const image = ogImagePath(`skyblock/${shard.slug}`, shardCard(shard));
+const path = shardPath(shard.slug);
+const rate =
+  shard.rate > 0
+    ? `${shard.rate.toLocaleString("en", { maximumFractionDigits: 2 })} an hour`
+    : null;
+const facts: [string, string | null][] = [
+  ["Rarity", rarity],
+  ["Category", shard.category || null],
+  ["Families", shard.families.join(", ") || null],
+  ["Skill", shard.skill || null],
+  ["Fusion uses", `${String(shard.fuseAmount)} at a time`],
+  ["Hunting rate", rate],
+  ["Hypixel ID", shard.id],
+];
+const steps = SHARDS_PER_LEVEL[shard.rarity];
+const levels = Array.from({ length: MAX_ATTRIBUTE_LEVEL }, (_, i) => ({
+  level: i + 1,
+  shards: steps[i] ?? 0,
+  total: shardsToLevel(shard.rarity, i + 1),
+}));
+/** Outputs shown before the rest fold away. */
+const USES_SHOWN = 20;
+const shownUses = page.usedIn.slice(0, USES_SHOWN);
+const moreUses = page.usedIn.slice(USES_SHOWN);
+const row = "grid-swiss mt-10 gap-y-4 border-t border-ink pt-4 md:pt-5";
+const label = "col-span-4 type-label md:col-span-2";
+const body =
+  "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-7";
+const recipeLine = "flex flex-wrap items-center gap-x-2 gap-y-1.5";
+/**
+ * The levels table scrolls sideways on phones, so its box is a labelled region and a
+ * tab stop (axe: scrollable-region-focusable); jsx-a11y only knows interactive roles.
+ */
+const scrollRegion = {
+  role: "region",
+  "aria-label": "Shards per level",
+  tabindex: 0,
+} as const;
+---
+
+<SkyblockLayout
+  title={`${shard.name} · Shards · ${meta.name}`}
+  {description}
+  {image}
+  crumbs={[
+    { label: "Shards", path: SHARDS_PATH },
+    { label: shard.name, path },
+  ]}
+  back={{ href: SHARDS_PATH, label: "All shards" }}
+>
+  <div class="grid-swiss gap-y-6">
+    <div class="col-span-4 flex items-start gap-5 md:col-span-8 xl:col-span-9">
+      {page.self.icon ? (
+        <img
+          src={page.self.icon}
+          alt=""
+          width="96"
+          height="96"
+          class="size-20 shrink-0 object-contain md:size-24"
+          data-testid="shard-icon"
+        />
+      ) : (
+        <span
+          aria-hidden="true"
+          class={`mc-text mc-c-${RARITY_CODES[shard.rarity]} inline-grid size-20 shrink-0 place-items-center text-3xl md:size-24`}
+        >
+          {rarity[0]}
+        </span>
+      )}
+      <div class="flex min-w-0 flex-col gap-3">
+        <p class="type-label text-muted">
+          <span class={`mc-text mc-c-${RARITY_CODES[shard.rarity]}`}>
+            {rarity}
+          </span>
+          {shard.category && ` · ${shard.category}`} shard
+        </p>
+        <h1 class="type-headline break-words">{shard.name}</h1>
+        {attribute && <p class="type-dek text-muted">{attribute.title}</p>}
+      </div>
+    </div>
+    <dl
+      class="col-span-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 self-start text-sm md:col-span-8 xl:col-span-3"
+      data-testid="shard-facts"
+    >
+      {facts.flatMap(([name, value]) =>
+        value
+          ? [
+              <dt class="type-label text-muted">{name}</dt>,
+              <dd class="break-words">{value}</dd>,
+            ]
+          : [],
+      )}
+    </dl>
+  </div>
+
+  <section class={row} aria-labelledby="attribute-title">
+    <h2 id="attribute-title" class={label}>
+      <span class="text-muted">(01)</span> Attribute
+    </h2>
+    <div class={body}>
+      {attribute ? (
+        <>
+          <div
+            class="mc-tooltip mc-block sb-lore"
+            data-static
+            data-testid="shard-attribute"
+          >
+            <span class={`mc-line mc-c-${RARITY_CODES[shard.rarity]}`}>
+              {attribute.title}
+            </span>
+            <span
+              class="mc-line"
+              set:html={segmentsHtml(withoutBuffedBy(attribute.description))}
+            />
+          </div>
+          <p class="text-sm text-muted">
+            Values run from level 1 to level {MAX_ATTRIBUTE_LEVEL}. Each level
+            is bought with {shard.name} shards at the Hunting Box.
+          </p>
+          {attribute.howToHunt.length > 0 && (
+            <div class="flex flex-col gap-2">
+              <h3 class="type-label">How to hunt</h3>
+              <div
+                class="mc-tooltip mc-block sb-lore"
+                data-static
+                data-testid="shard-hunt"
+              >
+                {attribute.howToHunt.map((line) => (
+                  <span class="mc-line" set:html={segmentsHtml(line)} />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <p class="text-muted">
+          This shard’s attribute hasn’t been recorded yet.
+        </p>
+      )}
+    </div>
+  </section>
+
+  <section class={row} aria-labelledby="levels-title">
+    <h2 id="levels-title" class={label}>
+      <span class="text-muted">(02)</span> Levels
+    </h2>
+    <div class={body}>
+      <p>
+        {`Maxing ${attribute ? attribute.title : "its attribute"} takes `}
+        <strong>
+          {shardsToLevel(shard.rarity, MAX_ATTRIBUTE_LEVEL)} {shard.name} shards
+        </strong>
+        {` (every ${rarity} shard takes the same).`}
+      </p>
+      <!-- Scrolls sideways on phones: a labelled tab stop, so keyboards can scroll it. -->
+      <div
+        class="overflow-x-auto focus-visible:outline-2 focus-visible:outline-accent"
+        {...scrollRegion}
+      >
+        <table
+          class="w-full border-collapse text-left text-sm tabular-nums"
+          data-testid="shard-levels"
+        >
+          <thead>
+            <tr>
+              <th
+                scope="row"
+                class="type-label border-b border-ink py-2 pr-3 font-normal text-muted"
+              >
+                Level
+              </th>
+              {levels.map((step) => (
+                <th
+                  scope="col"
+                  class="border-b border-ink px-2 py-2 text-right font-medium"
+                >
+                  {step.level}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th
+                scope="row"
+                class="type-label border-b border-hair py-2 pr-3 font-normal text-muted"
+              >
+                Shards
+              </th>
+              {levels.map((step) => (
+                <td class="border-b border-hair px-2 py-2 text-right">
+                  {step.shards}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <th
+                scope="row"
+                class="type-label border-b border-hair py-2 pr-3 font-normal text-muted"
+              >
+                In all
+              </th>
+              {levels.map((step) => (
+                <td class="border-b border-hair px-2 py-2 text-right">
+                  {step.total}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class={row} aria-labelledby="made-title">
+    <h2 id="made-title" class={label}>
+      <span class="text-muted">(03)</span> Made from
+    </h2>
+    <div class={body} data-testid="shard-made-from">
+      {!shard.synthesized && page.madeFrom.length === 0 && (
+        <p class="text-muted">
+          {shard.name} can’t be fused: it’s only hunted or bought.
+        </p>
+      )}
+      {page.inputs && (
+        <div class="flex flex-col gap-2">
+          <h3 class="type-label">Special fusion</h3>
+          <p class={recipeLine}>
+            {page.inputs.map((side, i) => (
+              <>
+                {i > 0 && (
+                  <span aria-hidden="true" class="text-muted">
+                    +
+                  </span>
+                )}
+                {i > 0 && <span class="sr-only">plus</span>}
+                <span class="inline-flex flex-wrap items-center gap-x-1.5">
+                  {side.map((part, j) => (
+                    <>
+                      {j > 0 && <span class="text-muted">or</span>}
+                      {part.kind === "shard" ? (
+                        <ShardChip shard={part.shard} />
+                      ) : (
+                        <span>{part.text}</span>
+                      )}
+                    </>
+                  ))}
+                </span>
+              </>
+            ))}
+            <span aria-hidden="true" class="text-muted">
+              →
+            </span>
+            <span class="sr-only">makes</span>
+            <span>{page.madeFrom[0]?.quantity ?? 2} ×</span>
+            <ShardChip shard={page.self} current />
+          </p>
+        </div>
+      )}
+      {(page.idOrigin.length > 0 || page.chameleonOrigin.length > 0) && (
+        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+          {page.idOrigin.length > 0 && (
+            <>
+              <dt class="type-label text-muted">ID fusion of</dt>
+              <dd class={recipeLine}>
+                {page.idOrigin.map((link) => (
+                  <ShardChip shard={link} />
+                ))}
+              </dd>
+            </>
+          )}
+          {page.chameleonOrigin.length > 0 && (
+            <>
+              <dt class="type-label text-muted">Chameleon fusion of</dt>
+              <dd class={recipeLine}>
+                {page.chameleonOrigin.map((link) => (
+                  <ShardChip shard={link} />
+                ))}
+              </dd>
+            </>
+          )}
+        </dl>
+      )}
+      {page.madeFrom.map((made) => (
+        <details class="sb-details" open={made.groups.length <= 3}>
+          <summary class="type-label cursor-pointer">
+            Every recipe making {made.quantity} ·{" "}
+            {made.pairs.toLocaleString("en")}{" "}
+            {made.pairs === 1 ? "pair" : "pairs"}
+          </summary>
+          <ul class="mt-3 flex flex-col gap-3 text-sm">
+            {made.groups.map((group) => (
+              <li class={recipeLine}>
+                <ShardChip shard={group.with} />
+                <span class="text-muted">
+                  + {group.others.length + group.more > 1 ? "any of" : ""}
+                </span>
+                {group.others.map((other) => (
+                  <ShardChip shard={other} />
+                ))}
+                {group.more > 0 && (
+                  <span class="text-muted">and {group.more} more</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ))}
+    </div>
+  </section>
+
+  <section class={row} aria-labelledby="into-title">
+    <h2 id="into-title" class={label}>
+      <span class="text-muted">(04)</span> Fuses into
+    </h2>
+    <div class={body} data-testid="shard-used-in">
+      {(page.idResult || page.chameleonResult.length > 0) && (
+        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+          {page.idResult && (
+            <>
+              <dt class="type-label text-muted">ID fusion</dt>
+              <dd class={recipeLine}>
+                <ShardChip shard={page.idResult} />
+              </dd>
+            </>
+          )}
+          {page.chameleonResult.length > 0 && (
+            <>
+              <dt class="type-label text-muted">Chameleon fusion</dt>
+              <dd class={recipeLine}>
+                {page.chameleonResult.map((link) => (
+                  <ShardChip shard={link} />
+                ))}
+              </dd>
+            </>
+          )}
+        </dl>
+      )}
+      {page.usedIn.length === 0 ? (
+        <p class="text-muted">No recipe uses {shard.name}.</p>
+      ) : (
+        <>
+          <p class="text-sm text-muted">
+            {shard.name} goes into {page.usedIn.length}{" "}
+            {page.usedIn.length === 1 ? "shard" : "shards"} in{" "}
+            {page.usedInPairs.toLocaleString("en")} recipes, rarest first. Each
+            line is what it makes and the shards it can be fused with.
+          </p>
+          <ul class="flex flex-col gap-3 text-sm">
+            {shownUses.map((use) => (
+              <li class={recipeLine}>
+                <span>{use.quantity} ×</span>
+                <ShardChip shard={use.output} />
+                <span class="text-muted">with</span>
+                {use.partners.map((partner) => (
+                  <ShardChip shard={partner} />
+                ))}
+                {use.more > 0 && (
+                  <span class="text-muted">and {use.more} more</span>
+                )}
+              </li>
+            ))}
+          </ul>
+          {moreUses.length > 0 && (
+            <details class="sb-details">
+              <summary class="type-label cursor-pointer">
+                {moreUses.length} more
+              </summary>
+              <ul class="mt-3 flex flex-col gap-3 text-sm">
+                {moreUses.map((use) => (
+                  <li class={recipeLine}>
+                    <span>{use.quantity} ×</span>
+                    <ShardChip shard={use.output} />
+                    <span class="text-muted">with</span>
+                    {use.partners.map((partner) => (
+                      <ShardChip shard={partner} />
+                    ))}
+                    {use.more > 0 && (
+                      <span class="text-muted">and {use.more} more</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </>
+      )}
+      <p class="text-sm text-muted">
+        Groups longer than {PARTNERS_SHOWN} shards show their first{" "}
+        {PARTNERS_SHOWN}.
+      </p>
+    </div>
+  </section>
+</SkyblockLayout>

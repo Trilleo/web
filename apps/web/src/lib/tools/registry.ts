@@ -6,6 +6,7 @@ import { meta as inspect } from "@trilleo/tool-inspect/meta";
 import { meta as notes } from "@trilleo/tool-notes/meta";
 import { meta as preview } from "@trilleo/tool-preview/meta";
 import { meta as qr } from "@trilleo/tool-qr/meta";
+import { meta as skyblock } from "@trilleo/tool-skyblock/meta";
 import type { ToolListing } from "../listings";
 
 /**
@@ -20,6 +21,7 @@ export const TOOLS: readonly ToolMeta[] = [
   qr,
   color,
   chunithm,
+  skyblock,
 ];
 
 export function toolPath(slug: string): string {

@@ -23,3 +23,6 @@ packages/study/src/katex.css
 
 # Saved copies of sdvx.in pages and scripts: kept byte for byte.
 packages/chunithm/src/fixtures/
+
+# SkyBlock shard data, written by apps/web/scripts/skyblock-snapshot.ts (one line, 1 MB).
+apps/web/src/lib/skyblock/snapshot.json

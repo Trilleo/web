@@ -1,6 +1,7 @@
 /**
- * A small PNG decoder for sdvx.in's chart layers, on Node's zlib: 8-bit, not
- * interlaced, RGBA, RGB, grey (with or without alpha) or palette. Anything else, or
+ * A small PNG decoder for sdvx.in's chart layers (and SkyBlock's shard icons), on
+ * Node's zlib: not interlaced, 8-bit RGBA, RGB, grey (with or without alpha) or
+ * palette, and 1-, 2- or 4-bit grey or palette. Anything else, or
  * anything over PNG_LIMITS, is refused with a PngError rather than guessed at. Native
  * image libraries can't go in the server bundle, and this is all the charts need.
  */
@@ -52,6 +53,7 @@ export async function decodePng(bytes: Uint8Array): Promise<RgbaImage> {
   let width = 0;
   let height = 0;
   let colorType = -1;
+  let depth = 8;
   let palette: Uint8Array | null = null;
   let paletteAlpha: Uint8Array | null = null;
   const idat: Uint8Array[] = [];
@@ -70,13 +72,16 @@ export async function decodePng(bytes: Uint8Array): Promise<RgbaImage> {
       );
       width = header.getUint32(0);
       height = header.getUint32(4);
-      const depth = data[8];
+      depth = data[8] ?? 0;
       colorType = data[9] ?? -1;
       const interlace = data[12];
-      if (depth !== 8)
-        throw new PngError(`Bit depth ${String(depth)} isn't supported.`);
       if (!(colorType in CHANNELS))
         throw new PngError(`Colour type ${String(colorType)} isn't supported.`);
+      // Fewer bits a pixel only for one-channel images (grey, palette), as PNG allows.
+      const lowDepth =
+        (colorType === 0 || colorType === 3) && [1, 2, 4].includes(depth);
+      if (depth !== 8 && !lowDepth)
+        throw new PngError(`Bit depth ${String(depth)} isn't supported.`);
       if (interlace !== 0)
         throw new PngError("Interlaced PNGs aren't supported.");
       if (
@@ -99,8 +104,10 @@ export async function decodePng(bytes: Uint8Array): Promise<RgbaImage> {
   }
   if (width === 0) throw new PngError("No header.");
   if (colorType === 3 && !palette) throw new PngError("No palette.");
-  const channels = CHANNELS[colorType] ?? 4;
-  const stride = width * channels;
+  let channels = CHANNELS[colorType] ?? 4;
+  // Below 8 bits, rows pack pixels into bytes and filters step a byte at a time.
+  const stride = depth < 8 ? Math.ceil((width * depth) / 8) : width * channels;
+  const step = depth < 8 ? 1 : channels;
   let raw: Buffer;
   try {
     raw = await inflateAsync(Buffer.concat(idat), {
@@ -121,10 +128,9 @@ export async function decodePng(bytes: Uint8Array): Promise<RgbaImage> {
     const out = y * stride;
     for (let i = 0; i < stride; i++) {
       const x = raw[src + i] ?? 0;
-      const a = i >= channels ? (rows[out + i - channels] ?? 0) : 0;
+      const a = i >= step ? (rows[out + i - step] ?? 0) : 0;
       const b = y > 0 ? (rows[out - stride + i] ?? 0) : 0;
-      const c =
-        i >= channels && y > 0 ? (rows[out - stride + i - channels] ?? 0) : 0;
+      const c = i >= step && y > 0 ? (rows[out - stride + i - step] ?? 0) : 0;
       let value: number;
       switch (filter) {
         case 0:
@@ -155,13 +161,29 @@ export async function decodePng(bytes: Uint8Array): Promise<RgbaImage> {
   }
 
   if (colorType === 6) return { width, height, data: rows };
+  let pixels = rows;
+  if (depth < 8) {
+    // One byte a pixel; grey stretched to 0–255 (palette indexes stay as they are).
+    const mask = (1 << depth) - 1;
+    const scale = colorType === 0 ? 255 / mask : 1;
+    pixels = new Uint8Array(width * height);
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++) {
+        const bit = x * depth;
+        const byte = rows[y * stride + (bit >> 3)] ?? 0;
+        pixels[y * width + x] = Math.round(
+          ((byte >> (8 - depth - (bit & 7))) & mask) * scale,
+        );
+      }
+    channels = 1;
+  }
   const data = new Uint8Array(width * height * 4);
-  for (let i = 0, o = 0; i < rows.length; i += channels, o += 4) {
-    const v = rows[i] ?? 0;
+  for (let i = 0, o = 0; i < pixels.length; i += channels, o += 4) {
+    const v = pixels[i] ?? 0;
     if (colorType === 2) {
       data[o] = v;
-      data[o + 1] = rows[i + 1] ?? 0;
-      data[o + 2] = rows[i + 2] ?? 0;
+      data[o + 1] = pixels[i + 1] ?? 0;
+      data[o + 2] = pixels[i + 2] ?? 0;
       data[o + 3] = 255;
     } else if (colorType === 3) {
       data[o] = palette?.[v * 3] ?? 0;
@@ -172,7 +194,7 @@ export async function decodePng(bytes: Uint8Array): Promise<RgbaImage> {
       data[o] = v;
       data[o + 1] = v;
       data[o + 2] = v;
-      data[o + 3] = colorType === 4 ? (rows[i + 1] ?? 0) : 255;
+      data[o + 3] = colorType === 4 ? (pixels[i + 1] ?? 0) : 255;
     }
   }
   return { width, height, data };
@@ -208,4 +230,48 @@ export function encodePng(image: RgbaImage): Uint8Array {
     chunk("IEND", new Uint8Array(0)),
   ];
   return new Uint8Array(Buffer.concat(parts));
+}
+
+/**
+ * An image at most `side` pixels wide and high: each new pixel the average of the
+ * block of old ones it covers. Smaller ones are left alone (never enlarged).
+ */
+export function shrinkTo(image: RgbaImage, side: number): RgbaImage {
+  const { width, height, data } = image;
+  if (width <= side && height <= side) return image;
+  const scale = Math.max(width, height) / side;
+  const w = Math.max(1, Math.round(width / scale));
+  const h = Math.max(1, Math.round(height / scale));
+  const out = new Uint8Array(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    const y0 = Math.floor((y * height) / h);
+    const y1 = Math.max(y0 + 1, Math.floor(((y + 1) * height) / h));
+    for (let x = 0; x < w; x++) {
+      const x0 = Math.floor((x * width) / w);
+      const x1 = Math.max(x0 + 1, Math.floor(((x + 1) * width) / w));
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let a = 0;
+      for (let sy = y0; sy < y1; sy++)
+        for (let sx = x0; sx < x1; sx++) {
+          const i = (sy * width + sx) * 4;
+          // Weighted by alpha, so clear pixels don't darken the edges.
+          const alpha = data[i + 3] ?? 0;
+          r += (data[i] ?? 0) * alpha;
+          g += (data[i + 1] ?? 0) * alpha;
+          b += (data[i + 2] ?? 0) * alpha;
+          a += alpha;
+        }
+      const o = (y * w + x) * 4;
+      const n = (y1 - y0) * (x1 - x0);
+      if (a > 0) {
+        out[o] = Math.round(r / a);
+        out[o + 1] = Math.round(g / a);
+        out[o + 2] = Math.round(b / a);
+      }
+      out[o + 3] = Math.round(a / n);
+    }
+  }
+  return { width: w, height: h, data: out };
 }

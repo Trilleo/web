@@ -29,7 +29,8 @@
 - apps/<tool-name> (@trilleo/tool-<name>): each tool in its own source-only
   package, exporting its details (`./meta`) and a React app that apps/web mounts
   at /tools/<name>/. Tools: apps/notes, apps/convert, apps/inspect (File info),
-  apps/preview, apps/qr, apps/color, apps/chunithm (CHUNITHM charts).
+  apps/preview, apps/qr, apps/color, apps/chunithm (CHUNITHM charts), apps/skyblock
+  (Hypixel SkyBlock).
 - apps/<game-name> (@trilleo/game-<name>): each game in its own source-only
   package, like tools (`.` the React app, `./meta` its `GameMeta`), mounted at
   /games/<name>/. Games: apps/skygrid, apps/hotfix.
@@ -82,6 +83,12 @@
   the notes in a notes layer and draws their judgement ranges; score.ts, scores, ranks and
   play rating. `./testing` draws test charts (and notes, `drawNote`).
   Source-only.
+- packages/skyblock (@trilleo/skyblock): Hypixel SkyBlock's shards, pure: rarities and
+  attribute levels (attributes.ts), attribute texts (text.ts: Minecraft colours, ranges,
+  stat symbols from glyphs.ts as SVG), `readSources` (SkyShards' four files → a
+  Dataset, checked), fusion rules in words (rules.ts), `ShardCatalog` (recipes both
+  ways, grouped) and the list's search (search.ts). `./testing` writes small source
+  files. Source-only.
 - study/: study subjects as Markdown files (see Study below and study/README.md).
 - Blog content: Markdown posts in Postgres, written in the admin editor (/admin/posts).
 - The wiki (wiki.trilleo.net) is apps/web on a second host, not its own app: pages in
@@ -1410,8 +1417,8 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   is only logged.
 - Decoding and encoding are webp.ts (@jsquash/webp: its decoder for the layers, its
   SIMD encoder for tiles at quality 90, both wasm files inlined with `?inline`;
-  `lossless` for tests); png.ts (hand-written, on node:zlib: 8-bit, not interlaced)
-  decodes jackets. A Master chart is about 4 s and 2 MB.
+  `lossless` for tests); png.ts (hand-written, on node:zlib: not interlaced; 8-bit, or
+  1–4-bit grey or palette, which some SkyBlock icons are) decodes jackets. A Master chart is about 4 s and 2 MB.
 - Built ahead (lib/chunithm/prebuild.ts, `startChunithmPrebuild` with the other
   timers): every in-game Master and Ultima chart with a ref and no normal build,
   newest songs first, one per PREBUILD.everyMs tick, only while no visitor's build is
@@ -1561,6 +1568,57 @@ chunithm:bundle <list>` (scripts/chunithm-bundle.ts around lib/chunithm/bundler.
   that song's waiting suggestions (`intent` on the same POST route; 403 for anyone else). Suggestions are in the
   account export (`chunithm.aliasSuggestions`) and go
   with the account; approved names stay, `suggestedBy` set null.
+
+## Hypixel SkyBlock
+
+- /tools/skyblock/ (apps/skyblock, @trilleo/tool-skyblock; status "in-progress"): a hub
+  of utilities (`UTILITIES` in its meta: built ones linked, planned ones listed). Built
+  so far: Shards. Planned, in phases: the fusion calculator (time mode, a worker, tool
+  data), Bazaar prices (fetched and cached by our server from Hypixel's keyless public
+  endpoint, never by browsers: coin mode, fusion profits, price charts), then a
+  collection tracker, a hunting planner and the fusion-lines graph. No Hypixel API key:
+  nothing that needs one (profile import) is built.
+- Data: SkyShards' repository (github.com/Campionnn/SkyShards, MIT): fusion-data.json,
+  fusion-properties.json, desc.json, rates.json and public/shardIcons/<key>.png.
+  Pure rules in packages/skyblock; the rest in apps/web/src/lib/skyblock/ (source.ts
+  GitHub, read.ts, sync.ts, data.ts, icon-files.ts, public.ts, admin.ts), tables sb_*.
+- Shards are keyed by SkyShards' key ("C1") inside a Dataset (its recipes use them),
+  by Hypixel's ID ("SHARD_GROVE") for icons and across versions, and addressed by a
+  slug of the name (/tools/skyblock/shards/<slug>/). A Dataset keeps recipes compactly:
+  rows of [output, quantity, a0, b0, …] as indexes into `shards` (131k pairs, ~1.2 MB).
+- Sync (sync.ts, `startSkyblockSync` with the other timers, or any request): every
+  SYNC_EVERY_MS asks GitHub for the newest commit and its tree; only when a data file's
+  blob SHA differs from the kept version's are the four files read (raw, at that commit,
+  three tries each: GitHub is flaky from the mainland). All or nothing (readSources'
+  DataError), a list under MIN_SHARE_KEPT of the current shards is refused, and the same
+  data (by hash) adds no row. sb_datasets keeps the last few versions (newest = current).
+  Then icons SkyShards added or changed (by blob SHA against static-icons.json and
+  sb_icons) are copied into storage (`skyblock/shards/`, WebP, ICONS_PER_PASS a pass,
+  failures after ICON_RETRY_MS). Alerts ("skyblock-update"): new or departed shards and
+  FAILURES_TO_ALERT failures in a row. /admin/skyblock/ shows it, with "Check now".
+  SKYBLOCK_SYNC=off (e2e) never fetches; SKYBLOCK_REPO/_GITHUB_API/_RAW_URL point elsewhere.
+- The committed copy: src/lib/skyblock/snapshot.json (loaded as `?raw`: TypeScript would
+  otherwise type 1 MB of JSON), static-icons.json and public/tools/skyblock/shard-icons/
+  (by Hypixel ID, 96px WebP), all written by `pnpm --filter @trilleo/web
+skyblock:snapshot` (scripts/skyblock-snapshot.ts on plain Node, like chunithm:bundle;
+  keep what it imports free of the database and storage). Pages use it until a version
+  is kept; the snapshot records the files' SHAs, so the first pass downloads nothing
+  when it's current. Prettier ignores snapshot.json.
+- data.ts `shardData` holds the current ShardCatalog in memory (rechecked every
+  RECHECK_MS; `forgetData` after a pass) with icon addresses (storage copies over
+  committed files; none: the rarity's letter on the game's panel).
+- Pages (server-rendered, the same for everyone): /tools/skyblock/shards/ (ShardBrowser,
+  `client:load`, with a noscript index of every shard) and /tools/skyblock/shards/<slug>/
+  (facts; the attribute and how to hunt it in an `mc-tooltip` panel, so Hypixel's
+  colours read in both themes; the levels table; the special fusion's rules in words,
+  ID and chameleon fusions, every recipe grouped by `groupPairs`, long groups showing
+  PARTNERS_SHOWN shards). SkyblockLayout gives them the breadcrumb and Hypixel's notice
+  (HYPIXEL_NOTICE: not affiliated; icons and stat symbols are Hypixel's, data
+  SkyShards'). Also /sitemap-skyblock.xml (in robots.txt) and share cards
+  /og/skyblock/<slug>.png. Styles in styles/skyblock.css (`sb-*`).
+- Attribute texts are drawn by @trilleo/skyblock's `segmentsHtml` (escapes everything;
+  only its own spans and glyph SVGs), into `set:html`. Changing what it writes means
+  updating its tests.
 
 ## Mail
 

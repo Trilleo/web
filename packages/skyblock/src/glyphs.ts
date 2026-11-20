@@ -1,0 +1,577 @@
+/**
+ * Hypixel SkyBlock's stat symbols (the private-use characters in attribute texts,
+ * e.g. U+E010 for Health) as pixel paths over a w×h grid, drawn in currentColor so
+ * they take the text's colour. Hypixel's artwork, from SkyShards' glyph map
+ * (github.com/Campionnn/SkyShards, src/data/glyphMap.ts, generated from the resource
+ * pack's bitmap font); credited on the colophon. Characters without one show as
+ * they are.
+ */
+export interface Glyph {
+  w: number;
+  h: number;
+  /** Runs of set pixels, one rect per run: an SVG path over a w×h viewBox. */
+  path: string;
+}
+
+export const GLYPHS: Readonly<Record<string, Glyph>> = {
+  "\ue000": {
+    w: 7,
+    h: 7,
+    path: "M1 0h2v1h-2zM4 0h2v1h-2zM0 1h7v1h-7zM0 2h3v1h-3zM4 2h3v1h-3zM0 3h2v1h-2zM3 3h1v1h-1zM5 3h2v1h-2zM1 4h5v1h-5zM2 5h3v1h-3zM3 6h1v1h-1z",
+  },
+  "\ue001": {
+    w: 7,
+    h: 7,
+    path: "M1 0h1v1h-1zM3 0h1v1h-1zM5 0h2v1h-2zM0 1h1v1h-1zM2 1h1v1h-1zM4 1h3v1h-3zM1 2h1v1h-1zM3 2h3v1h-3zM1 3h4v1h-4zM2 4h2v1h-2zM1 5h1v1h-1zM3 5h2v1h-2zM0 6h1v1h-1z",
+  },
+  "\ue002": {
+    w: 7,
+    h: 7,
+    path: "M0 0h2v1h-2zM5 0h2v1h-2zM0 1h3v1h-3zM4 1h3v1h-3zM0 2h3v1h-3zM4 2h3v1h-3zM0 3h3v1h-3zM4 3h3v1h-3zM2 4h1v1h-1zM4 4h1v1h-1zM0 5h2v1h-2zM5 5h2v1h-2zM2 6h3v1h-3z",
+  },
+  "\ue003": {
+    w: 7,
+    h: 7,
+    path: "M1 0h2v1h-2zM4 0h2v1h-2zM0 1h3v1h-3zM4 1h3v1h-3zM0 2h3v1h-3zM4 2h3v1h-3zM0 3h3v1h-3zM4 3h3v1h-3zM0 4h3v1h-3zM4 4h3v1h-3zM2 6h3v1h-3z",
+  },
+  "\ue004": {
+    w: 7,
+    h: 7,
+    path: "M1 0h5v1h-5zM0 1h3v1h-3zM4 1h3v1h-3zM0 2h2v1h-2zM5 2h2v1h-2zM0 3h3v1h-3zM4 3h3v1h-3zM0 4h7v1h-7zM2 6h3v1h-3z",
+  },
+  "\ue005": {
+    w: 7,
+    h: 7,
+    path: "M3 0h1v1h-1zM3 1h1v1h-1zM1 2h5v1h-5zM2 3h3v1h-3zM0 4h1v1h-1zM3 4h1v1h-1zM6 4h1v1h-1zM1 5h1v1h-1zM5 5h1v1h-1zM0 6h7v1h-7z",
+  },
+  "\ue006": {
+    w: 7,
+    h: 7,
+    path: "M1 0h1v1h-1zM3 0h1v1h-1zM5 0h1v1h-1zM0 1h2v1h-2zM3 1h1v1h-1zM5 1h2v1h-2zM2 2h3v1h-3zM0 3h7v1h-7zM2 4h3v1h-3zM0 5h2v1h-2zM3 5h1v1h-1zM5 5h2v1h-2zM1 6h1v1h-1zM3 6h1v1h-1zM5 6h1v1h-1z",
+  },
+  "\ue007": {
+    w: 7,
+    h: 7,
+    path: "M0 0h1v1h-1zM6 0h1v1h-1zM1 1h2v1h-2zM4 1h2v1h-2zM1 2h5v1h-5zM2 3h3v1h-3zM1 4h5v1h-5zM1 5h2v1h-2zM4 5h2v1h-2zM0 6h1v1h-1zM6 6h1v1h-1z",
+  },
+  "\ue008": {
+    w: 7,
+    h: 7,
+    path: "M0 0h7v1h-7zM0 1h7v1h-7zM0 2h7v1h-7zM0 3h7v1h-7zM0 4h7v1h-7zM1 5h5v1h-5zM2 6h3v1h-3z",
+  },
+  "\ue009": {
+    w: 7,
+    h: 7,
+    path: "M3 0h1v1h-1zM2 1h1v1h-1zM4 1h1v1h-1zM3 2h1v1h-1zM3 3h1v1h-1zM0 4h2v1h-2zM3 4h1v1h-1zM5 4h2v1h-2zM0 5h1v1h-1zM3 5h1v1h-1zM6 5h1v1h-1zM1 6h2v1h-2zM4 6h2v1h-2z",
+  },
+  "\ue00a": {
+    w: 7,
+    h: 7,
+    path: "M1 0h5v1h-5zM0 1h7v1h-7zM0 2h2v1h-2zM3 2h1v1h-1zM5 2h2v1h-2zM0 3h1v1h-1zM3 3h1v1h-1zM6 3h1v1h-1zM1 4h2v1h-2zM4 4h2v1h-2zM0 5h7v1h-7zM0 6h1v1h-1zM2 6h1v1h-1zM4 6h1v1h-1zM6 6h1v1h-1z",
+  },
+  "\ue00b": {
+    w: 7,
+    h: 7,
+    path: "M0 0h1v1h-1zM3 0h1v1h-1zM6 0h1v1h-1zM0 1h2v1h-2zM3 1h1v1h-1zM5 1h2v1h-2zM0 2h2v1h-2zM3 2h1v1h-1zM5 2h2v1h-2zM0 3h2v1h-2zM3 3h1v1h-1zM5 3h2v1h-2zM1 4h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM1 5h1v1h-1zM3 5h1v1h-1zM5 5h1v1h-1zM3 6h1v1h-1z",
+  },
+  "\ue00c": {
+    w: 7,
+    h: 7,
+    path: "M0 0h1v1h-1zM2 0h1v1h-1zM4 0h1v1h-1zM6 0h1v1h-1zM1 1h1v1h-1zM3 1h1v1h-1zM5 1h2v1h-2zM2 2h1v1h-1zM4 2h1v1h-1zM6 2h1v1h-1zM3 3h1v1h-1zM6 3h1v1h-1zM1 4h2v1h-2zM6 4h1v1h-1zM1 5h2v1h-2zM4 5h1v1h-1zM6 5h1v1h-1zM0 6h1v1h-1zM5 6h1v1h-1z",
+  },
+  "\ue00d": {
+    w: 7,
+    h: 7,
+    path: "M0 0h6v1h-6zM0 1h6v1h-6zM0 2h6v1h-6zM1 4h3v1h-3zM5 4h2v1h-2zM1 5h3v1h-3zM6 5h1v1h-1zM2 6h3v1h-3z",
+  },
+  "\ue00e": {
+    w: 7,
+    h: 7,
+    path: "M1 0h5v1h-5zM0 2h1v1h-1zM2 2h1v1h-1zM4 2h1v1h-1zM6 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM4 3h1v1h-1zM6 3h1v1h-1zM0 4h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM1 6h5v1h-5z",
+  },
+  "\ue00f": {
+    w: 7,
+    h: 7,
+    path: "M6 0h1v1h-1zM5 1h2v1h-2zM1 2h2v1h-2zM6 2h1v1h-1zM2 3h2v1h-2zM5 3h2v1h-2zM1 4h1v1h-1zM3 4h1v1h-1zM6 4h1v1h-1zM0 5h1v1h-1zM5 5h2v1h-2zM6 6h1v1h-1z",
+  },
+  "\ue010": {
+    w: 7,
+    h: 7,
+    path: "M1 0h2v1h-2zM4 0h2v1h-2zM0 1h7v1h-7zM0 2h7v1h-7zM0 3h7v1h-7zM1 4h5v1h-5zM2 5h3v1h-3zM3 6h1v1h-1z",
+  },
+  "\ue011": {
+    w: 7,
+    h: 7,
+    path: "M1 0h2v1h-2zM4 0h2v1h-2zM0 1h7v1h-7zM0 2h3v1h-3zM4 2h3v1h-3zM0 3h2v1h-2zM5 3h2v1h-2zM1 4h2v1h-2zM4 4h2v1h-2zM2 5h3v1h-3zM3 6h1v1h-1z",
+  },
+  "\ue012": {
+    w: 7,
+    h: 7,
+    path: "M2 0h1v1h-1zM2 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM1 3h1v1h-1zM3 3h1v1h-1zM5 3h2v1h-2zM0 4h1v1h-1zM2 4h3v1h-3zM6 4h1v1h-1zM0 5h7v1h-7zM1 6h5v1h-5z",
+  },
+  "\ue013": {
+    w: 7,
+    h: 7,
+    path: "M2 0h3v1h-3zM2 1h3v1h-3zM0 2h2v1h-2zM5 2h2v1h-2zM0 3h2v1h-2zM3 3h1v1h-1zM5 3h2v1h-2zM1 4h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM3 5h1v1h-1zM2 6h3v1h-3z",
+  },
+  "\ue014": {
+    w: 7,
+    h: 7,
+    path: "M2 0h3v1h-3zM2 1h3v1h-3zM0 2h7v1h-7zM0 3h7v1h-7zM0 4h7v1h-7zM2 5h3v1h-3zM2 6h3v1h-3z",
+  },
+  "\ue015": {
+    w: 7,
+    h: 7,
+    path: "M1 0h5v1h-5zM0 1h7v1h-7zM0 2h1v1h-1zM2 2h2v1h-2zM6 2h1v1h-1zM1 3h1v1h-1zM3 3h1v1h-1zM0 4h1v1h-1zM2 4h2v1h-2zM1 5h1v1h-1zM3 5h1v1h-1zM0 6h1v1h-1zM3 6h1v1h-1z",
+  },
+  "\ue016": {
+    w: 7,
+    h: 7,
+    path: "M4 0h3v1h-3zM5 1h2v1h-2zM1 2h2v1h-2zM6 2h1v1h-1zM2 3h2v1h-2zM6 3h1v1h-1zM1 4h1v1h-1zM3 4h1v1h-1zM6 4h1v1h-1zM0 5h1v1h-1zM5 5h2v1h-2zM4 6h3v1h-3z",
+  },
+  "\ue017": {
+    w: 7,
+    h: 7,
+    path: "M1 0h5v1h-5zM0 1h3v1h-3zM4 1h3v1h-3zM0 2h2v1h-2zM3 2h1v1h-1zM5 2h2v1h-2zM0 3h7v1h-7zM0 4h3v1h-3zM4 4h3v1h-3zM2 6h3v1h-3z",
+  },
+  "\ue018": {
+    w: 7,
+    h: 7,
+    path: "M2 0h3v1h-3zM0 1h1v1h-1zM6 1h1v1h-1zM1 2h2v1h-2zM4 2h2v1h-2zM1 3h2v1h-2zM4 3h2v1h-2zM1 4h2v1h-2zM4 4h2v1h-2zM1 5h2v1h-2zM4 5h2v1h-2zM0 6h1v1h-1zM2 6h1v1h-1zM4 6h1v1h-1zM6 6h1v1h-1z",
+  },
+  "\ue019": {
+    w: 7,
+    h: 7,
+    path: "M2 0h3v1h-3zM0 1h1v1h-1zM6 1h1v1h-1zM1 2h5v1h-5zM1 3h2v1h-2zM4 3h2v1h-2zM1 4h1v1h-1zM5 4h1v1h-1zM1 5h2v1h-2zM4 5h2v1h-2zM0 6h1v1h-1zM2 6h3v1h-3zM6 6h1v1h-1z",
+  },
+  "\ue01a": {
+    w: 7,
+    h: 7,
+    path: "M3 0h1v1h-1zM3 1h1v1h-1zM0 2h7v1h-7zM1 3h5v1h-5zM2 4h3v1h-3zM1 5h2v1h-2zM4 5h2v1h-2zM1 6h1v1h-1zM5 6h1v1h-1z",
+  },
+  "\ue01b": {
+    w: 7,
+    h: 7,
+    path: "M1 0h2v1h-2zM0 1h1v1h-1zM3 1h1v1h-1zM6 1h1v1h-1zM0 2h1v1h-1zM3 2h1v1h-1zM1 3h2v1h-2zM5 4h1v1h-1zM4 5h1v1h-1zM6 5h1v1h-1zM0 6h1v1h-1zM5 6h1v1h-1z",
+  },
+  "\ue01c": {
+    w: 7,
+    h: 7,
+    path: "M3 0h1v1h-1zM2 1h1v1h-1zM4 1h1v1h-1zM1 2h2v1h-2zM5 2h1v1h-1zM0 3h1v1h-1zM3 3h2v1h-2zM6 3h1v1h-1zM1 4h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM2 5h1v1h-1zM4 5h1v1h-1zM3 6h1v1h-1z",
+  },
+  "\ue01d": {
+    w: 7,
+    h: 7,
+    path: "M3 0h1v1h-1zM3 1h1v1h-1zM1 2h2v1h-2zM4 2h2v1h-2zM0 3h3v1h-3zM4 3h3v1h-3zM0 4h3v1h-3zM4 4h3v1h-3zM0 5h3v1h-3zM4 5h3v1h-3zM0 6h3v1h-3zM4 6h3v1h-3z",
+  },
+  "\ue01e": {
+    w: 7,
+    h: 7,
+    path: "M5 0h2v1h-2zM4 1h1v1h-1zM6 1h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM1 3h2v1h-2zM4 3h1v1h-1zM3 4h1v1h-1zM1 5h1v1h-1zM3 5h2v1h-2zM0 6h1v1h-1z",
+  },
+  "\ue01f": {
+    w: 7,
+    h: 7,
+    path: "M1 0h2v1h-2zM4 0h2v1h-2zM0 1h1v1h-1zM3 1h1v1h-1zM6 1h1v1h-1zM0 2h1v1h-1zM3 2h1v1h-1zM6 2h1v1h-1zM0 3h1v1h-1zM3 3h1v1h-1zM6 3h1v1h-1zM1 4h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM2 5h3v1h-3zM3 6h1v1h-1z",
+  },
+  "\ue020": {
+    w: 7,
+    h: 7,
+    path: "M1 0h5v1h-5zM1 1h1v1h-1zM5 1h1v1h-1zM2 2h1v1h-1zM4 2h1v1h-1zM3 3h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM1 5h1v1h-1zM5 5h1v1h-1zM1 6h5v1h-5z",
+  },
+  "\ue021": {
+    w: 7,
+    h: 7,
+    path: "M3 0h1v1h-1zM2 1h2v1h-2zM6 1h1v1h-1zM0 2h5v1h-5zM6 2h1v1h-1zM0 3h1v1h-1zM2 3h4v1h-4zM0 4h5v1h-5zM6 4h1v1h-1zM3 5h1v1h-1zM4 6h1v1h-1z",
+  },
+  "\ue022": {
+    w: 7,
+    h: 7,
+    path: "M0 0h5v1h-5zM0 1h2v1h-2zM3 1h3v1h-3zM2 2h5v1h-5zM0 3h3v1h-3zM4 3h3v1h-3zM3 4h4v1h-4zM2 5h3v1h-3zM6 5h1v1h-1zM5 6h2v1h-2z",
+  },
+  "\ue023": {
+    w: 7,
+    h: 7,
+    path: "M1 0h2v1h-2zM0 1h1v1h-1zM0 2h5v1h-5zM1 3h5v1h-5zM2 4h5v1h-5zM6 5h1v1h-1zM4 6h2v1h-2z",
+  },
+  "\ue024": {
+    w: 7,
+    h: 7,
+    path: "M2 0h3v1h-3zM1 1h5v1h-5zM0 2h7v1h-7zM0 3h2v1h-2zM5 3h2v1h-2zM0 4h1v1h-1zM1 5h1v1h-1z",
+  },
+  "\ue025": {
+    w: 7,
+    h: 7,
+    path: "M1 0h5v1h-5zM0 1h7v1h-7zM0 2h2v1h-2zM5 2h2v1h-2zM3 3h1v1h-1zM0 4h2v1h-2zM3 4h1v1h-1zM5 4h2v1h-2zM0 5h2v1h-2zM5 5h2v1h-2zM0 6h7v1h-7z",
+  },
+  "\ue026": {
+    w: 7,
+    h: 7,
+    path: "M5 0h2v1h-2zM4 1h3v1h-3zM1 2h1v1h-1zM3 2h3v1h-3zM1 3h1v1h-1zM3 3h2v1h-2zM1 4h1v1h-1zM0 5h5v1h-5zM0 6h2v1h-2z",
+  },
+  "\ue027": {
+    w: 7,
+    h: 7,
+    path: "M0 0h7v1h-7zM0 1h7v1h-7zM0 2h2v1h-2zM5 2h2v1h-2zM0 3h3v1h-3zM4 3h3v1h-3zM0 4h3v1h-3zM4 4h3v1h-3zM1 5h5v1h-5zM2 6h3v1h-3z",
+  },
+  "\ue028": {
+    w: 7,
+    h: 7,
+    path: "M1 0h2v1h-2zM4 0h2v1h-2zM2 1h3v1h-3zM0 2h1v1h-1zM3 2h1v1h-1zM6 2h1v1h-1zM0 3h2v1h-2zM5 3h2v1h-2zM1 4h2v1h-2zM4 4h2v1h-2zM2 5h3v1h-3zM3 6h1v1h-1z",
+  },
+  "\ue029": {
+    w: 7,
+    h: 7,
+    path: "M3 0h1v1h-1zM3 1h1v1h-1zM2 2h3v1h-3zM0 3h7v1h-7zM2 4h3v1h-3zM3 5h1v1h-1zM3 6h1v1h-1z",
+  },
+  "\ue02a": {
+    w: 7,
+    h: 7,
+    path: "M1 0h5v1h-5zM2 1h3v1h-3zM0 2h7v1h-7zM0 3h1v1h-1zM2 3h3v1h-3zM6 3h1v1h-1zM1 4h5v1h-5zM3 5h1v1h-1zM2 6h3v1h-3z",
+  },
+  "\ue02b": {
+    w: 7,
+    h: 7,
+    path: "M3 0h1v1h-1zM1 1h1v1h-1zM5 1h1v1h-1zM2 2h3v1h-3zM0 3h1v1h-1zM2 3h1v1h-1zM4 3h1v1h-1zM6 3h1v1h-1zM2 4h3v1h-3zM1 5h1v1h-1zM5 5h1v1h-1zM3 6h1v1h-1z",
+  },
+  "\ue02c": {
+    w: 7,
+    h: 7,
+    path: "M2 0h4v1h-4zM2 1h3v1h-3zM1 2h3v1h-3zM0 3h7v1h-7zM4 4h2v1h-2zM3 5h2v1h-2zM3 6h1v1h-1z",
+  },
+  "\ue02d": {
+    w: 7,
+    h: 7,
+    path: "M0 0h1v1h-1zM1 1h2v1h-2zM6 1h1v1h-1zM1 2h1v1h-1zM3 2h3v1h-3zM2 3h1v1h-1zM4 3h1v1h-1zM6 3h1v1h-1zM2 4h2v1h-2zM5 4h1v1h-1zM2 5h1v1h-1zM4 5h1v1h-1zM6 5h1v1h-1zM1 6h1v1h-1zM3 6h1v1h-1zM5 6h1v1h-1z",
+  },
+  "\ue02e": {
+    w: 7,
+    h: 7,
+    path: "M1 0h2v1h-2zM4 0h2v1h-2zM0 1h3v1h-3zM4 1h3v1h-3zM0 2h3v1h-3zM4 2h3v1h-3zM2 3h1v1h-1zM4 3h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM2 5h1v1h-1zM4 5h1v1h-1zM1 6h2v1h-2zM4 6h2v1h-2z",
+  },
+  "\ue050": {
+    w: 7,
+    h: 7,
+    path: "M5 0h2v1h-2zM4 1h3v1h-3zM1 2h1v1h-1zM3 2h3v1h-3zM1 3h4v1h-4zM2 4h2v1h-2zM1 5h1v1h-1zM3 5h2v1h-2zM0 6h1v1h-1z",
+  },
+  "\ue051": {
+    w: 7,
+    h: 7,
+    path: "M1 0h5v1h-5zM1 1h3v1h-3zM5 1h2v1h-2zM2 2h1v1h-1zM6 2h1v1h-1zM2 3h1v1h-1zM3 4h1v1h-1zM3 5h1v1h-1zM3 6h1v1h-1z",
+  },
+  "\ue052": {
+    w: 7,
+    h: 7,
+    path: "M6 0h1v1h-1zM5 1h2v1h-2zM4 2h1v1h-1zM6 2h1v1h-1zM3 3h1v1h-1zM6 3h1v1h-1zM1 4h2v1h-2zM6 4h1v1h-1zM1 5h2v1h-2zM4 5h1v1h-1zM6 5h1v1h-1zM0 6h1v1h-1zM5 6h1v1h-1z",
+  },
+  "\ue053": {
+    w: 7,
+    h: 7,
+    path: "M1 0h5v1h-5zM0 1h7v1h-7zM0 2h1v1h-1zM3 2h1v1h-1zM6 2h1v1h-1zM3 3h1v1h-1zM3 4h1v1h-1zM3 5h1v1h-1zM3 6h1v1h-1z",
+  },
+  "\ue054": {
+    w: 7,
+    h: 7,
+    path: "M3 0h1v1h-1zM0 1h6v1h-6zM0 2h5v1h-5zM0 3h2v1h-2zM3 3h1v1h-1zM0 4h1v1h-1zM3 4h1v1h-1zM3 5h1v1h-1zM3 6h1v1h-1z",
+  },
+  "\ue055": {
+    w: 7,
+    h: 7,
+    path: "M0 0h2v1h-2zM5 0h2v1h-2zM1 1h2v1h-2zM4 1h2v1h-2zM2 2h3v1h-3zM0 4h7v1h-7zM0 5h7v1h-7zM0 6h7v1h-7z",
+  },
+  "\ue056": {
+    w: 7,
+    h: 7,
+    path: "M1 0h5v1h-5zM2 1h3v1h-3zM2 2h3v1h-3zM1 3h5v1h-5zM0 4h7v1h-7zM0 5h7v1h-7zM1 6h5v1h-5z",
+  },
+  "\ue057": {
+    w: 7,
+    h: 7,
+    path: "M0 0h2v1h-2zM3 0h1v1h-1zM0 1h6v1h-6zM0 2h2v1h-2zM3 2h1v1h-1zM6 2h1v1h-1zM3 3h1v1h-1zM3 4h1v1h-1zM3 5h1v1h-1zM3 6h1v1h-1z",
+  },
+  "\ue058": {
+    w: 7,
+    h: 7,
+    path: "M1 0h6v1h-6zM1 1h2v1h-2zM5 1h2v1h-2zM0 2h2v1h-2zM3 2h4v1h-4zM0 3h1v1h-1zM6 3h1v1h-1zM0 4h4v1h-4zM5 4h2v1h-2zM0 5h2v1h-2zM4 5h2v1h-2zM0 6h6v1h-6z",
+  },
+  "\ue059": {
+    w: 7,
+    h: 7,
+    path: "M4 0h2v1h-2zM4 1h3v1h-3zM3 2h4v1h-4zM2 3h3v1h-3zM0 4h4v1h-4zM0 5h3v1h-3zM1 6h2v1h-2z",
+  },
+  "\ue05a": {
+    w: 7,
+    h: 7,
+    path: "M2 0h3v1h-3zM2 1h3v1h-3zM0 2h7v1h-7zM2 3h3v1h-3zM2 4h3v1h-3zM2 5h1v1h-1zM4 5h1v1h-1zM2 6h1v1h-1zM4 6h1v1h-1z",
+  },
+  "\ue05b": {
+    w: 7,
+    h: 7,
+    path: "M1 0h5v1h-5zM0 1h1v1h-1zM6 1h1v1h-1zM1 2h5v1h-5zM0 3h1v1h-1zM1 4h3v1h-3zM4 5h1v1h-1zM3 6h1v1h-1z",
+  },
+  "\ue060": {
+    w: 7,
+    h: 7,
+    path: "M3 0h1v1h-1zM2 1h2v1h-2zM1 2h6v1h-6zM0 3h7v1h-7zM1 4h6v1h-6zM2 5h2v1h-2zM3 6h1v1h-1z",
+  },
+  "\ue061": {
+    w: 7,
+    h: 7,
+    path: "M3 0h1v1h-1zM3 1h2v1h-2zM0 2h6v1h-6zM0 3h7v1h-7zM0 4h6v1h-6zM3 5h2v1h-2zM3 6h1v1h-1z",
+  },
+  "\ue062": {
+    w: 7,
+    h: 7,
+    path: "M3 0h1v1h-1zM2 1h3v1h-3zM1 2h5v1h-5zM0 3h7v1h-7zM2 4h3v1h-3zM2 5h3v1h-3zM2 6h3v1h-3z",
+  },
+  "\ue063": {
+    w: 7,
+    h: 7,
+    path: "M2 0h3v1h-3zM2 1h3v1h-3zM2 2h3v1h-3zM0 3h7v1h-7zM1 4h5v1h-5zM2 5h3v1h-3zM3 6h1v1h-1z",
+  },
+  "\u2714": {
+    w: 7,
+    h: 7,
+    path: "M6 0h1v1h-1zM5 1h2v1h-2zM0 2h1v1h-1zM4 2h3v1h-3zM0 3h2v1h-2zM3 3h3v1h-3zM0 4h5v1h-5zM1 5h3v1h-3zM2 6h1v1h-1z",
+  },
+  "\u2716": {
+    w: 7,
+    h: 7,
+    path: "M0 0h2v1h-2zM5 0h2v1h-2zM0 1h3v1h-3zM4 1h3v1h-3zM1 2h5v1h-5zM2 3h3v1h-3zM1 4h5v1h-5zM0 5h3v1h-3zM4 5h3v1h-3zM0 6h2v1h-2zM5 6h2v1h-2z",
+  },
+  "\ue066": {
+    w: 7,
+    h: 7,
+    path: "M1 0h5v1h-5zM1 1h1v1h-1zM5 1h1v1h-1zM0 2h7v1h-7zM0 3h7v1h-7zM0 4h2v1h-2zM5 4h2v1h-2zM0 5h3v1h-3zM4 5h3v1h-3zM0 6h7v1h-7z",
+  },
+  "\ue067": {
+    w: 7,
+    h: 7,
+    path: "M2 0h3v1h-3zM1 1h5v1h-5zM1 2h2v1h-2zM4 2h2v1h-2zM1 3h5v1h-5zM2 4h3v1h-3zM2 5h3v1h-3zM3 6h1v1h-1z",
+  },
+  "\ue068": {
+    w: 7,
+    h: 7,
+    path: "M3 0h1v1h-1zM2 1h3v1h-3zM1 2h2v1h-2zM4 2h2v1h-2zM0 3h2v1h-2zM3 3h1v1h-1zM5 3h2v1h-2zM2 4h3v1h-3zM1 5h2v1h-2zM4 5h2v1h-2zM0 6h2v1h-2zM5 6h2v1h-2z",
+  },
+  "\ue070": {
+    w: 7,
+    h: 7,
+    path: "M4 0h3v1h-3zM0 1h3v1h-3zM4 1h2v1h-2zM0 2h6v1h-6zM1 3h4v1h-4zM2 4h3v1h-3zM3 5h1v1h-1zM2 6h1v1h-1z",
+  },
+  "\ue071": {
+    w: 7,
+    h: 7,
+    path: "M1 0h2v1h-2zM4 0h2v1h-2zM0 1h1v1h-1zM2 1h1v1h-1zM4 1h1v1h-1zM6 1h1v1h-1zM0 2h1v1h-1zM2 2h3v1h-3zM6 2h1v1h-1zM0 3h7v1h-7zM0 4h2v1h-2zM3 4h1v1h-1zM5 4h2v1h-2zM1 5h2v1h-2zM4 5h2v1h-2zM2 6h3v1h-3z",
+  },
+  "\ue072": {
+    w: 7,
+    h: 7,
+    path: "M3 0h1v1h-1zM2 1h2v1h-2zM6 1h1v1h-1zM0 2h5v1h-5zM6 2h1v1h-1zM0 3h1v1h-1zM2 3h4v1h-4zM0 4h5v1h-5zM6 4h1v1h-1zM3 5h1v1h-1zM4 6h1v1h-1z",
+  },
+  "\ue073": {
+    w: 7,
+    h: 7,
+    path: "M1 0h1v1h-1zM3 0h1v1h-1zM5 0h1v1h-1zM2 1h3v1h-3zM0 2h2v1h-2zM5 2h2v1h-2zM3 3h1v1h-1zM0 4h2v1h-2zM5 4h2v1h-2zM2 5h3v1h-3zM1 6h1v1h-1zM3 6h1v1h-1zM5 6h1v1h-1z",
+  },
+  "\ue074": {
+    w: 7,
+    h: 7,
+    path: "M0 0h1v1h-1zM2 0h1v1h-1zM4 0h1v1h-1zM6 0h1v1h-1zM0 1h1v1h-1zM2 1h3v1h-3zM6 1h1v1h-1zM1 2h5v1h-5zM3 3h1v1h-1zM1 4h5v1h-5zM0 5h1v1h-1zM2 5h3v1h-3zM6 5h1v1h-1zM0 6h1v1h-1zM3 6h1v1h-1zM6 6h1v1h-1z",
+  },
+  "\ue075": {
+    w: 7,
+    h: 7,
+    path: "M0 0h7v1h-7zM0 2h1v1h-1zM2 2h3v1h-3zM6 2h1v1h-1zM2 3h3v1h-3zM2 4h3v1h-3zM2 5h3v1h-3zM2 6h3v1h-3z",
+  },
+  "\ue076": {
+    w: 7,
+    h: 7,
+    path: "M0 0h7v1h-7zM0 1h1v1h-1zM3 1h4v1h-4zM0 2h1v1h-1zM3 2h1v1h-1zM6 2h1v1h-1zM0 3h4v1h-4zM6 3h1v1h-1zM0 4h7v1h-7zM0 5h3v1h-3zM4 5h3v1h-3zM0 6h7v1h-7z",
+  },
+  "\ue077": {
+    w: 7,
+    h: 7,
+    path: "M3 0h3v1h-3zM2 1h1v1h-1zM6 1h1v1h-1zM2 2h1v1h-1zM6 2h1v1h-1zM2 3h1v1h-1zM6 3h1v1h-1zM3 4h3v1h-3zM1 5h1v1h-1zM0 6h1v1h-1z",
+  },
+  "\ue078": {
+    w: 7,
+    h: 7,
+    path: "M0 0h7v1h-7zM0 1h7v1h-7zM3 2h1v1h-1zM0 3h7v1h-7zM0 4h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM0 6h7v1h-7z",
+  },
+  "\ue079": {
+    w: 7,
+    h: 7,
+    path: "M0 0h2v1h-2zM3 0h4v1h-4zM0 1h1v1h-1zM6 1h1v1h-1zM0 2h1v1h-1zM3 2h2v1h-2zM6 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM4 3h2v1h-2zM2 4h3v1h-3zM6 4h1v1h-1zM0 5h1v1h-1zM0 6h4v1h-4zM5 6h2v1h-2z",
+  },
+  "\ue07a": {
+    w: 7,
+    h: 7,
+    path: "M1 0h1v1h-1zM3 0h1v1h-1zM5 0h1v1h-1zM0 1h2v1h-2zM3 1h1v1h-1zM5 1h2v1h-2zM2 2h3v1h-3zM0 3h7v1h-7zM2 4h3v1h-3zM0 5h2v1h-2zM3 5h1v1h-1zM5 5h2v1h-2zM1 6h1v1h-1zM3 6h1v1h-1zM5 6h1v1h-1z",
+  },
+  "\ue07b": {
+    w: 7,
+    h: 7,
+    path: "M2 0h3v1h-3zM2 1h3v1h-3zM0 2h7v1h-7zM2 3h3v1h-3zM2 4h3v1h-3zM2 5h1v1h-1zM4 5h1v1h-1zM2 6h1v1h-1zM4 6h1v1h-1z",
+  },
+  "\ue07c": {
+    w: 7,
+    h: 7,
+    path: "M2 0h1v1h-1zM2 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM1 3h1v1h-1zM3 3h1v1h-1zM5 3h2v1h-2zM0 4h1v1h-1zM2 4h3v1h-3zM6 4h1v1h-1zM0 5h7v1h-7zM1 6h5v1h-5z",
+  },
+  "\ue07d": {
+    w: 7,
+    h: 7,
+    path: "M1 0h2v1h-2zM4 0h2v1h-2zM0 1h1v1h-1zM3 1h1v1h-1zM2 2h3v1h-3zM6 2h1v1h-1zM2 3h3v1h-3zM1 4h5v1h-5zM0 5h7v1h-7zM0 6h7v1h-7z",
+  },
+  "\ue07e": {
+    w: 7,
+    h: 7,
+    path: "M0 0h2v1h-2zM1 1h4v1h-4zM0 2h6v1h-6zM1 3h2v1h-2zM5 3h2v1h-2zM1 4h6v1h-6zM1 5h2v1h-2zM5 5h2v1h-2zM2 6h2v1h-2zM6 6h1v1h-1z",
+  },
+  "\ue07f": {
+    w: 7,
+    h: 7,
+    path: "M2 0h3v1h-3zM0 1h1v1h-1zM6 1h1v1h-1zM1 2h2v1h-2zM4 2h2v1h-2zM1 3h2v1h-2zM4 3h2v1h-2zM1 4h2v1h-2zM4 4h2v1h-2zM1 5h2v1h-2zM4 5h2v1h-2zM0 6h1v1h-1zM2 6h1v1h-1zM4 6h1v1h-1zM6 6h1v1h-1z",
+  },
+  "\ue080": {
+    w: 7,
+    h: 7,
+    path: "M0 0h7v1h-7zM0 1h7v1h-7zM0 2h7v1h-7zM0 3h7v1h-7zM0 4h7v1h-7zM1 5h5v1h-5zM2 6h3v1h-3z",
+  },
+  "\ue081": {
+    w: 7,
+    h: 7,
+    path: "M0 0h7v1h-7zM0 1h7v1h-7zM0 2h1v1h-1zM3 2h1v1h-1zM6 2h1v1h-1zM0 3h3v1h-3zM4 3h3v1h-3zM1 4h5v1h-5zM0 5h1v1h-1zM6 5h1v1h-1zM1 6h5v1h-5z",
+  },
+  "\ue082": {
+    w: 7,
+    h: 7,
+    path: "M1 0h5v1h-5zM0 1h7v1h-7zM0 2h2v1h-2zM3 2h1v1h-1zM5 2h2v1h-2zM0 3h1v1h-1zM3 3h1v1h-1zM6 3h1v1h-1zM1 4h2v1h-2zM4 4h2v1h-2zM0 5h7v1h-7zM0 6h1v1h-1zM2 6h1v1h-1zM4 6h1v1h-1zM6 6h1v1h-1z",
+  },
+  "\ue083": {
+    w: 7,
+    h: 7,
+    path: "M3 0h1v1h-1zM3 1h1v1h-1zM1 2h5v1h-5zM2 3h3v1h-3zM0 4h1v1h-1zM3 4h1v1h-1zM6 4h1v1h-1zM1 5h1v1h-1zM5 5h1v1h-1zM0 6h7v1h-7z",
+  },
+  "\ue084": {
+    w: 7,
+    h: 7,
+    path: "M0 0h2v1h-2zM4 0h3v1h-3zM3 1h4v1h-4zM0 2h7v1h-7zM0 3h1v1h-1zM3 3h1v1h-1zM6 3h1v1h-1zM0 4h7v1h-7zM0 5h2v1h-2zM5 5h2v1h-2zM0 6h7v1h-7z",
+  },
+  "\ue085": {
+    w: 7,
+    h: 7,
+    path: "M0 0h7v1h-7zM1 1h5v1h-5zM0 2h7v1h-7zM0 3h1v1h-1zM3 3h1v1h-1zM6 3h1v1h-1zM1 4h5v1h-5zM0 5h1v1h-1zM6 5h1v1h-1zM0 6h7v1h-7z",
+  },
+  "\ue086": {
+    w: 7,
+    h: 7,
+    path: "M3 0h4v1h-4zM1 1h2v1h-2zM5 1h2v1h-2zM0 2h1v1h-1zM2 2h1v1h-1zM4 2h1v1h-1zM6 2h1v1h-1zM0 3h1v1h-1zM3 3h1v1h-1zM6 3h1v1h-1zM0 4h1v1h-1zM2 4h1v1h-1zM4 4h2v1h-2zM1 5h1v1h-1zM5 5h1v1h-1zM0 6h1v1h-1zM2 6h3v1h-3z",
+  },
+  "\ue087": {
+    w: 7,
+    h: 7,
+    path: "M1 0h5v1h-5zM0 1h1v1h-1zM6 1h1v1h-1zM1 2h5v1h-5zM0 3h1v1h-1zM1 4h3v1h-3zM4 5h1v1h-1zM3 6h1v1h-1z",
+  },
+  "\ue088": {
+    w: 7,
+    h: 7,
+    path: "M1 0h2v1h-2zM4 0h2v1h-2zM1 2h2v1h-2zM4 2h2v1h-2zM1 3h2v1h-2zM4 3h2v1h-2zM1 4h2v1h-2zM4 4h2v1h-2zM0 5h3v1h-3zM4 5h3v1h-3zM0 6h2v1h-2zM5 6h2v1h-2z",
+  },
+  "\u12de": {
+    w: 3,
+    h: 7,
+    path: "M2 0h1v1h-1zM0 1h1v1h-1zM2 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM0 3h3v1h-3zM0 4h1v1h-1zM2 4h1v1h-1zM0 5h1v1h-1zM2 5h1v1h-1zM0 6h1v1h-1z",
+  },
+  "\ue090": {
+    w: 7,
+    h: 7,
+    path: "M0 0h2v1h-2zM5 0h2v1h-2zM0 1h3v1h-3zM4 1h3v1h-3zM1 2h2v1h-2zM4 2h2v1h-2zM3 4h1v1h-1zM2 5h3v1h-3zM1 6h5v1h-5z",
+  },
+  "\ue091": {
+    w: 7,
+    h: 7,
+    path: "M1 0h5v1h-5zM0 1h7v1h-7zM0 2h1v1h-1zM2 2h3v1h-3zM6 2h1v1h-1zM0 3h1v1h-1zM3 3h1v1h-1zM6 3h1v1h-1zM0 4h7v1h-7zM2 5h3v1h-3zM2 6h3v1h-3z",
+  },
+  "\ue092": {
+    w: 7,
+    h: 7,
+    path: "M0 0h1v1h-1zM3 0h2v1h-2zM6 0h1v1h-1zM2 1h4v1h-4zM2 2h4v1h-4zM0 3h1v1h-1zM1 4h2v1h-2zM4 4h3v1h-3zM1 5h2v1h-2zM4 5h3v1h-3zM2 6h4v1h-4z",
+  },
+  "\ue093": {
+    w: 7,
+    h: 7,
+    path: "M1 0h2v1h-2zM4 0h2v1h-2zM0 1h3v1h-3zM4 1h3v1h-3zM0 2h2v1h-2zM5 2h2v1h-2zM3 3h1v1h-1zM0 4h2v1h-2zM5 4h2v1h-2zM0 5h3v1h-3zM4 5h3v1h-3zM1 6h2v1h-2zM4 6h2v1h-2z",
+  },
+  "\ue094": {
+    w: 7,
+    h: 7,
+    path: "M0 1h1v1h-1zM4 1h2v1h-2zM1 2h3v1h-3zM6 2h1v1h-1zM0 4h1v1h-1zM3 4h3v1h-3zM1 5h2v1h-2zM6 5h1v1h-1z",
+  },
+  "\ue095": {
+    w: 7,
+    h: 7,
+    path: "M0 0h1v1h-1zM2 0h2v1h-2zM6 0h1v1h-1zM0 1h2v1h-2zM3 1h2v1h-2zM4 2h2v1h-2zM0 3h7v1h-7zM1 4h2v1h-2zM2 5h2v1h-2zM5 5h2v1h-2zM0 6h1v1h-1zM3 6h2v1h-2zM6 6h1v1h-1z",
+  },
+  "\ue096": {
+    w: 7,
+    h: 7,
+    path: "M1 0h3v1h-3zM0 1h1v1h-1zM2 1h2v1h-2zM5 1h1v1h-1zM6 2h1v1h-1zM1 3h3v1h-3zM5 3h2v1h-2zM0 4h7v1h-7zM0 5h7v1h-7zM1 6h5v1h-5z",
+  },
+  "\ue097": {
+    w: 7,
+    h: 7,
+    path: "M0 0h3v1h-3zM4 0h3v1h-3zM1 1h2v1h-2zM5 1h2v1h-2zM0 2h2v1h-2zM4 2h2v1h-2zM0 3h3v1h-3zM4 3h3v1h-3zM1 4h2v1h-2zM5 4h2v1h-2zM1 6h5v1h-5z",
+  },
+  "\ue098": {
+    w: 7,
+    h: 7,
+    path: "M2 0h3v1h-3zM0 1h1v1h-1zM5 1h2v1h-2zM1 2h3v1h-3zM3 4h3v1h-3zM0 5h2v1h-2zM6 5h1v1h-1zM2 6h3v1h-3z",
+  },
+  "\ue099": {
+    w: 7,
+    h: 7,
+    path: "M1 0h4v1h-4zM0 1h3v1h-3zM5 1h1v1h-1zM0 2h2v1h-2zM0 3h2v1h-2zM0 4h2v1h-2zM0 5h3v1h-3zM5 5h1v1h-1zM1 6h4v1h-4z",
+  },
+  "\ue09a": {
+    w: 7,
+    h: 7,
+    path: "M4 0h1v1h-1zM0 1h1v1h-1zM2 1h1v1h-1zM4 1h1v1h-1zM6 1h1v1h-1zM0 2h1v1h-1zM6 2h1v1h-1zM2 3h3v1h-3zM1 4h5v1h-5zM3 5h1v1h-1zM2 6h2v1h-2z",
+  },
+  "\ue09b": {
+    w: 7,
+    h: 7,
+    path: "M0 0h1v1h-1zM2 0h2v1h-2zM5 0h1v1h-1zM1 1h3v1h-3zM1 2h2v1h-2zM4 2h2v1h-2zM4 3h3v1h-3zM1 4h2v1h-2zM5 4h2v1h-2zM0 5h3v1h-3zM0 6h2v1h-2zM5 6h1v1h-1z",
+  },
+  "\ue09c": {
+    w: 7,
+    h: 7,
+    path: "M3 0h3v1h-3zM1 1h6v1h-6zM0 2h7v1h-7zM0 3h7v1h-7zM0 4h2v1h-2zM3 4h3v1h-3zM0 5h1v1h-1zM1 6h1v1h-1z",
+  },
+  "\ue09d": {
+    w: 7,
+    h: 7,
+    path: "M0 0h1v1h-1zM3 0h3v1h-3zM0 1h7v1h-7zM1 2h3v1h-3zM6 2h1v1h-1zM0 4h1v1h-1zM3 4h3v1h-3zM0 5h7v1h-7zM1 6h3v1h-3zM6 6h1v1h-1z",
+  },
+  "\ue09e": {
+    w: 7,
+    h: 7,
+    path: "M1 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM2 1h1v1h-1zM4 1h1v1h-1zM6 1h1v1h-1zM1 2h5v1h-5zM2 3h1v1h-1zM4 3h1v1h-1zM1 4h5v1h-5zM0 5h1v1h-1zM2 5h1v1h-1zM4 5h1v1h-1zM6 5h1v1h-1zM1 6h1v1h-1zM5 6h1v1h-1z",
+  },
+  "\ue09f": {
+    w: 7,
+    h: 7,
+    path: "M0 0h1v1h-1zM2 0h1v1h-1zM4 0h1v1h-1zM6 0h1v1h-1zM0 2h1v1h-1zM2 2h3v1h-3zM6 2h1v1h-1zM2 3h3v1h-3zM0 4h1v1h-1zM2 4h3v1h-3zM6 4h1v1h-1zM0 6h1v1h-1zM2 6h1v1h-1zM4 6h1v1h-1zM6 6h1v1h-1z",
+  },
+  "\ue100": {
+    w: 7,
+    h: 7,
+    path: "M4 0h2v1h-2zM2 1h3v1h-3zM1 2h3v1h-3zM0 3h7v1h-7zM3 4h3v1h-3zM2 5h3v1h-3zM1 6h2v1h-2z",
+  },
+  "\ue101": {
+    w: 7,
+    h: 7,
+    path: "M4 0h1v1h-1zM6 0h1v1h-1zM0 1h1v1h-1zM2 1h1v1h-1zM4 1h1v1h-1zM0 2h1v1h-1zM6 2h1v1h-1zM2 3h3v1h-3zM1 4h5v1h-5zM1 5h5v1h-5zM3 6h1v1h-1z",
+  },
+};

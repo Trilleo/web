@@ -1,0 +1,1302 @@
+{
+  "SHARD_ABYSSAL_LANTERN": {
+    "file": "abyssal_lantern.webp",
+    "sha": "bcbe43e130c62916d66e19b9ab84e30f2c8862ea"
+  },
+  "SHARD_ABYSSAL_MINER": {
+    "file": "abyssal_miner.webp",
+    "sha": "87a6dfe02eef535dc7f6f641185a705912780c19"
+  },
+  "SHARD_AERO": {
+    "file": "aero.webp",
+    "sha": "185e4c3e85be8a110892c55a94dc6a9b55a9eb2b"
+  },
+  "SHARD_ALLIGATOR": {
+    "file": "alligator.webp",
+    "sha": "34505acdab62c80272258064a2aec28ad169a5e1"
+  },
+  "SHARD_ANANKE": {
+    "file": "ananke.webp",
+    "sha": "ea2d5cad722b9d917f46996c0e473a172ba4c4cb"
+  },
+  "SHARD_ANT": {
+    "file": "ant.webp",
+    "sha": "a7a3eef95520468af156e642b771f7a20b1170db"
+  },
+  "SHARD_ANTEATER": {
+    "file": "anteater.webp",
+    "sha": "fa8276beff7a83b702694a298583087271c0445a"
+  },
+  "SHARD_APEX_DRAGON": {
+    "file": "apex_dragon.webp",
+    "sha": "52fe829c63319276ba1f6db6911f49c2f1390478"
+  },
+  "SHARD_ARACHNE": {
+    "file": "arachne.webp",
+    "sha": "dcdff710f2089c3b987f7c35b050992160ea2044"
+  },
+  "SHARD_AREITA": {
+    "file": "areita.webp",
+    "sha": "0bbbb9366374a1e3c797bfc548df3d9f6066f01d"
+  },
+  "SHARD_AZURE": {
+    "file": "azure.webp",
+    "sha": "154b9e15a3f06da13f201ce0187e646dcdaf6954"
+  },
+  "SHARD_BADGER": {
+    "file": "badger.webp",
+    "sha": "04fb065d604905bb72035b6e9993eab1a678ddc1"
+  },
+  "SHARD_BAL": {
+    "file": "bal.webp",
+    "sha": "510fb41268d92c0944608da079a019461519f8af"
+  },
+  "SHARD_BAMBLOOM": {
+    "file": "bambloom.webp",
+    "sha": "b92a8c1bec2f8c46bfa9281775ccd0a02a819e79"
+  },
+  "SHARD_BAMBULEAF": {
+    "file": "bambuleaf.webp",
+    "sha": "3352244a4bde7456582cd8ade1c6743e0b50233d"
+  },
+  "SHARD_BARBARIAN_DUKE_X": {
+    "file": "barbarian_duke_x.webp",
+    "sha": "e14ba05651007feae29b1ac90a08a9ac04dc76c0"
+  },
+  "SHARD_BASILISK": {
+    "file": "basilisk.webp",
+    "sha": "647d426dd6deec44054f5bd0170f4e2289a67545"
+  },
+  "SHARD_BAYOU_SLUDGE": {
+    "file": "bayou_sludge.webp",
+    "sha": "abac96a850e95d51ac24555f7ae42a575b5f4b92"
+  },
+  "SHARD_BEACONMITE": {
+    "file": "beaconmite.webp",
+    "sha": "7dc9189c42a663ea3bf06eb968192e2226519f46"
+  },
+  "SHARD_BEEHEEMOTH": {
+    "file": "beeheemoth.webp",
+    "sha": "3c2e862bf5cdffddd1a70fb03d41a3f8d9cb5ddd"
+  },
+  "SHARD_BEZAL": {
+    "file": "bezal.webp",
+    "sha": "f6f34b18fdccfdac8b7659d08c2e68ac0b2c9a2b"
+  },
+  "SHARD_BILLYGOAT": {
+    "file": "billygoat.webp",
+    "sha": "9800d57a24e3baef46c667cdb536ec19097b2ba6"
+  },
+  "SHARD_BIRRIES": {
+    "file": "birries.webp",
+    "sha": "895d6013665b8e5a071232a02572f615af9b77d8"
+  },
+  "SHARD_BITBUG": {
+    "file": "bitbug.webp",
+    "sha": "9434f69b892832be5bbbf0fce5fc591846d1d3be"
+  },
+  "SHARD_BLACK_WIDOW": {
+    "file": "black_widow.webp",
+    "sha": "03acdda50a036a0b1326b0ab10cc053bfd2e0c6c"
+  },
+  "SHARD_BLIZZARD": {
+    "file": "blizzard.webp",
+    "sha": "b4d09de9e52c3bbe193a817f1732905812bb2628"
+  },
+  "SHARD_BLOODBAT": {
+    "file": "bloodbat.webp",
+    "sha": "bebfe370f4c005d73401f0f025c545c4aa2727bf"
+  },
+  "SHARD_BLUE_CRAB": {
+    "file": "blue_crab.webp",
+    "sha": "6364206d56152e589627115ca5ed00061ae02772"
+  },
+  "SHARD_BLUE_JAY": {
+    "file": "blue_jay.webp",
+    "sha": "b77d2e15e828ea9d21787bbdc2cf40db100f4606"
+  },
+  "SHARD_BLUEBIRD": {
+    "file": "bluebird.webp",
+    "sha": "54a0f755baccdefa13595902248c1911d9f7cf1a"
+  },
+  "SHARD_BOLT": {
+    "file": "bolt.webp",
+    "sha": "d5fdce06f0aa9929839970142e11f857ff43594b"
+  },
+  "SHARD_BONZO": {
+    "file": "bonzo.webp",
+    "sha": "0ad54275aa462e7c48e044c23d8eaad37dec533c"
+  },
+  "SHARD_BOREAL_OWL": {
+    "file": "boreal_owl.webp",
+    "sha": "ec64ada2d925304c5bf7085121969004803a55f7"
+  },
+  "SHARD_BRAMBLE": {
+    "file": "bramble.webp",
+    "sha": "cc3877fd523a9907db47cd48aa5eea802d5c9864"
+  },
+  "SHARD_BRINELING": {
+    "file": "brineling.webp",
+    "sha": "fa0d6a6746be57193a6c931a0f418b31b672adc4"
+  },
+  "SHARD_BRUISER": {
+    "file": "bruiser.webp",
+    "sha": "a9f63e685ce9c01b40d7305f82bf80efa88e9f1d"
+  },
+  "SHARD_BULLFROG": {
+    "file": "bullfrog.webp",
+    "sha": "06f340bb87c521f6923574d1a5797c77ef67806e"
+  },
+  "SHARD_BUNBUN": {
+    "file": "bunbun.webp",
+    "sha": "757d36da9acaea99e694b6045a7d05296ea39bee"
+  },
+  "SHARD_BURNINGSOUL": {
+    "file": "burningsoul.webp",
+    "sha": "3f6a4dc896de405592ddec6415fab342291f9060"
+  },
+  "SHARD_CAIMAN": {
+    "file": "caiman.webp",
+    "sha": "1d3e39eedcced9189032be577f1f9adebccaf413"
+  },
+  "SHARD_CARROT_KING": {
+    "file": "carrot_king.webp",
+    "sha": "f475a96dd0fdf7f777afa1eda3a48c9ca425845c"
+  },
+  "SHARD_CASCADE": {
+    "file": "cascade.webp",
+    "sha": "1a64e0e11ac9b187da9deb361e7694fc06a08541"
+  },
+  "SHARD_CAVERNFISH": {
+    "file": "cavernfish.webp",
+    "sha": "56d93f81e1d0b05aad95142349c32e648384ea6e"
+  },
+  "SHARD_CAVERNSHADE": {
+    "file": "cavernshade.webp",
+    "sha": "3264f09770f97450c2d5c552b17a851a55de841e"
+  },
+  "SHARD_CHAMELEON": {
+    "file": "chameleon.webp",
+    "sha": "9fd85e2acd4cd1836a05293dc774aa266cdc951a"
+  },
+  "SHARD_CHEEKY_TIKI": {
+    "file": "cheeky_tiki.webp",
+    "sha": "0bd81bc5c353571ff8f0145e8737b504f3873dba"
+  },
+  "SHARD_CHILL": {
+    "file": "chill.webp",
+    "sha": "2665b4692e2bc0916f4d5bcc4bafb4d51c4abd33"
+  },
+  "SHARD_CHOCOBUN": {
+    "file": "chocobun.webp",
+    "sha": "f5d1280332a027a130895c166f25d0453ab27881"
+  },
+  "SHARD_CHUCKWALLA": {
+    "file": "chuckwalla.webp",
+    "sha": "4a7003e29988cb3eee3da7e6811f877c8ad2327d"
+  },
+  "SHARD_CINDER_BAT": {
+    "file": "cinder_bat.webp",
+    "sha": "2c09cb9ce049cab35dff138f7a7e558b095422f9"
+  },
+  "SHARD_COCOALEECH": {
+    "file": "cocoaleech.webp",
+    "sha": "59731fd92631721e4ddbc67bd2fccbf88aa770e4"
+  },
+  "SHARD_COD": {
+    "file": "cod.webp",
+    "sha": "fe5a7eb29101e0c75372bbc414edbd939db74c17"
+  },
+  "SHARD_CONDOR": {
+    "file": "condor.webp",
+    "sha": "ba4dc598d7d8731ff5c51e1d09829c19d9247562"
+  },
+  "SHARD_CORALOT": {
+    "file": "coralot.webp",
+    "sha": "e3c128ef31fcbe88b711286169b483e9b726d426"
+  },
+  "SHARD_CRETAN_BULL": {
+    "file": "cretan_bull.webp",
+    "sha": "82365665782b29cf8ea66f63340b42d6a1ed56fc"
+  },
+  "SHARD_CRICKET": {
+    "file": "cricket.webp",
+    "sha": "ba6f698aedaca50a10faa2db0a55a03a0c1f0d02"
+  },
+  "SHARD_CROCODILE": {
+    "file": "crocodile.webp",
+    "sha": "2f0aa7a1ce1e9eaca84d194ab4559f627009d484"
+  },
+  "SHARD_CROPEETLE": {
+    "file": "cropeetle.webp",
+    "sha": "3e7620618680621a3b3bb488dfb0ca6d4fadacd2"
+  },
+  "SHARD_CROW": {
+    "file": "crow.webp",
+    "sha": "729c94833eeac11ac33c249613110df81c3d87bb"
+  },
+  "SHARD_CRYO": {
+    "file": "cryo.webp",
+    "sha": "2a2b2fc64882bcf88f7e73509ca1e442289d0a2b"
+  },
+  "SHARD_CUBOA": {
+    "file": "cuboa.webp",
+    "sha": "24a301fe3c77c14c927af13e527fc95e209f4246"
+  },
+  "SHARD_DAEMON": {
+    "file": "daemon.webp",
+    "sha": "f39ebeac17067c3c2cdbf60d7d5d66b7c76827bc"
+  },
+  "SHARD_DIVE_GHAST": {
+    "file": "dive_ghast.webp",
+    "sha": "064e9a35b817c8eb625da68399c4479c01d8820e"
+  },
+  "SHARD_DODO": {
+    "file": "dodo.webp",
+    "sha": "7458abb2d957b713153811897f100144666eec2d"
+  },
+  "SHARD_DOOMSPIRAL": {
+    "file": "doomspiral.webp",
+    "sha": "e453f6349006fe44f53f7337ecace177779b544d"
+  },
+  "SHARD_DRACONIC": {
+    "file": "draconic.webp",
+    "sha": "1490c7dd218bfc81f5d4035ecba39614703a0a1e"
+  },
+  "SHARD_DRAGONFLY": {
+    "file": "dragonfly.webp",
+    "sha": "2f2a1dd2b12885df78fbf6faccb05730a67096d3"
+  },
+  "SHARD_DREADWING": {
+    "file": "dreadwing.webp",
+    "sha": "a2e25db154dca2234a9f8c73409ef67647aad19c"
+  },
+  "SHARD_DRIFTLING": {
+    "file": "driftling.webp",
+    "sha": "ecb18e9b700c7321f454f85681494ed63aeba10b"
+  },
+  "SHARD_DROWNED": {
+    "file": "drowned.webp",
+    "sha": "a41401f6bc6aab9a3d79c1acf9a871d56e2d3de5"
+  },
+  "SHARD_DRYBARK": {
+    "file": "drybark.webp",
+    "sha": "5c4e9a6b489a03a39aca18403f2fbf580f31a168"
+  },
+  "SHARD_DUMPSTER_DIVER": {
+    "file": "dumpster_diver.webp",
+    "sha": "8b96871a59b158938cf36f9fd90909cfc37ee5f0"
+  },
+  "SHARD_DUNG_BEETLE": {
+    "file": "dung_beetle.webp",
+    "sha": "2cc2bec82593bea87b9b608900d00bae5d213cab"
+  },
+  "SHARD_DUPLICO": {
+    "file": "duplico.webp",
+    "sha": "395636dbc22789608d2979f8fa872421acf2bd6b"
+  },
+  "SHARD_DUSTYBIT": {
+    "file": "dustybit.webp",
+    "sha": "61ddf77893caf4b8080b13169365e1d936068223"
+  },
+  "SHARD_EEL": {
+    "file": "eel.webp",
+    "sha": "a07bc36fe612c0001072058decaf146a5207b839"
+  },
+  "SHARD_EMBER": {
+    "file": "ember.webp",
+    "sha": "719579858b8ee516687bac732584abbf91808706"
+  },
+  "SHARD_ENDSTONE_PROTECTOR": {
+    "file": "endstone_protector.webp",
+    "sha": "4ea27bcea4056c3c1c4ff9444241738b6dddb920"
+  },
+  "SHARD_ENT": {
+    "file": "ent.webp",
+    "sha": "06296f84b415effd2197e0d6386583dcb9f13d20"
+  },
+  "SHARD_ETHERDRAKE": {
+    "file": "etherdrake.webp",
+    "sha": "3e87b524b6612b3f0878a604b7becc0cd73aa53a"
+  },
+  "SHARD_FALCON": {
+    "file": "falcon.webp",
+    "sha": "6f01da1a3b7efbd52f92fd70ddc2a5d4c0351969"
+  },
+  "SHARD_FENLORD": {
+    "file": "fenlord.webp",
+    "sha": "5990d6c32126aa5540b4ce33ab9a07f38defc6dd"
+  },
+  "SHARD_FIRE_EEL": {
+    "file": "fire_eel.webp",
+    "sha": "eb5a5ce914dc06b2c537d6390a29024c3f6628fd"
+  },
+  "SHARD_FIREFLY": {
+    "file": "firefly.webp",
+    "sha": "2562ebff993d1b06074e3b1cc4218e30881f2c1e"
+  },
+  "SHARD_FIREFOX": {
+    "file": "firefox.webp",
+    "sha": "bedb98b1824a9ce3f668664f1298c63be503a716"
+  },
+  "SHARD_FLAMING_SPIDER": {
+    "file": "flaming_spider.webp",
+    "sha": "2c15087703d0a4df665c453bf83961589d31ce8f"
+  },
+  "SHARD_FLARE": {
+    "file": "flare.webp",
+    "sha": "087c54acdfb7a5598e0c517798e984d8dc17037b"
+  },
+  "SHARD_FLASH": {
+    "file": "flash.webp",
+    "sha": "3bbce62f9b1ca2ab48f833d5c95bc534584a1a76"
+  },
+  "SHARD_FLIP_FLOPPER": {
+    "file": "flip_flopper.webp",
+    "sha": "8669a23d6388dd9374a81afc9dc0a11978a3f881"
+  },
+  "SHARD_FLITTER": {
+    "file": "flitter.webp",
+    "sha": "dd0960d8b810bdfec1e79c833a35e7ea1c613ae2"
+  },
+  "SHARD_FLORA": {
+    "file": "flora.webp",
+    "sha": "1f7e9030b1e96869bd95beac35654a555fafb33b"
+  },
+  "SHARD_FLUFFLING": {
+    "file": "fluffling.webp",
+    "sha": "6eb8d6e7bc34d90514bfca8001f5233df8b1a2d7"
+  },
+  "SHARD_FLY": {
+    "file": "fly.webp",
+    "sha": "0f6ff13aea1ba67d86f66ba0e72d7dad4762f63a"
+  },
+  "SHARD_FOLF": {
+    "file": "folf.webp",
+    "sha": "480600af9450e1992b454ee30b0a63c6badad7b4"
+  },
+  "SHARD_FOXTROT": {
+    "file": "foxtrot.webp",
+    "sha": "55ad1a1e3c68047ace4c6ed5c8f3d8084fcbaddb"
+  },
+  "SHARD_FUNGLOOM": {
+    "file": "fungloom.webp",
+    "sha": "a588a0ca98d4ae5479f6b8c351d14f9080da0718"
+  },
+  "SHARD_GALAXY_FISH": {
+    "file": "galaxy_fish.webp",
+    "sha": "8cb20d367dabec27579190cd8d99d672d900e100"
+  },
+  "SHARD_GAZER": {
+    "file": "gazer.webp",
+    "sha": "102db1171f7c10cab38d7bbaca90e70a46d82580"
+  },
+  "SHARD_GECKO": {
+    "file": "gecko.webp",
+    "sha": "5d39b113c433eab030b8eeebb07ebb8afb5f2e22"
+  },
+  "SHARD_GEMZIE": {
+    "file": "gemzie.webp",
+    "sha": "3d4748dee11b07b94588ad42b797c3f7ba92c3fd"
+  },
+  "SHARD_GHOST": {
+    "file": "ghost.webp",
+    "sha": "875f1ff0f59ca18b98050df149aed2e0708c72c1"
+  },
+  "SHARD_GHOST_CRAB": {
+    "file": "ghost_crab.webp",
+    "sha": "e857d9bb1b86a351e2cfafc70293bd104e25804e"
+  },
+  "SHARD_GIANT_ISOPOD": {
+    "file": "giant_isopod.webp",
+    "sha": "dd8b332d7dc26fe0a042943021ed5458bf5c15b4"
+  },
+  "SHARD_GIANT_WATER_BUG": {
+    "file": "giant_water_bug.webp",
+    "sha": "f301bf9a36ce7f740d4c62149c1402be52635e8f"
+  },
+  "SHARD_GIMMIEGOLD": {
+    "file": "gimmiegold.webp",
+    "sha": "1585335615d2d787bb0700b9bf090e7d5b7d3a63"
+  },
+  "SHARD_GLACITE_WALKER": {
+    "file": "glacite_walker.webp",
+    "sha": "b76c797cdfde62ccd22a14c4867ec1ee8c27e5ed"
+  },
+  "SHARD_GOLDEN_GHOUL": {
+    "file": "golden_ghoul.webp",
+    "sha": "9d7feaa1f51b40b1d6fc5bb48a7b8373aec672c0"
+  },
+  "SHARD_GOLDFIN": {
+    "file": "goldfin.webp",
+    "sha": "01be68f18722a465e1913614c6dbe403493e6ebe"
+  },
+  "SHARD_GOLDOLOT": {
+    "file": "goldolot.webp",
+    "sha": "42879fc40585c88dee36dee0802afd914f24da4c"
+  },
+  "SHARD_GRIZZLY_BEAR": {
+    "file": "grizzly_bear.webp",
+    "sha": "d30c43914afbceb71e5eab331d17a90ed5e0bcd2"
+  },
+  "SHARD_GROUNDHOG": {
+    "file": "groundhog.webp",
+    "sha": "1c094a6cbe1408c8836aa215c73ba7e70f7617ec"
+  },
+  "SHARD_GROVE": {
+    "file": "grove.webp",
+    "sha": "328ef9eecb924ea1d68d6b92180e4bd047a4ef90"
+  },
+  "SHARD_HAGGARD": {
+    "file": "haggard.webp",
+    "sha": "a17c6f26fcf344dcebb6ba63b5ddc5fd14df53ca"
+  },
+  "SHARD_HARPY": {
+    "file": "harpy.webp",
+    "sha": "683c33754dbf36f68c210a56a254da3896269378"
+  },
+  "SHARD_HAWK": {
+    "file": "hawk.webp",
+    "sha": "3212788a74f8ff14c8c2d7645b5f0d8df097aa34"
+  },
+  "SHARD_HELLWISP": {
+    "file": "hellwisp.webp",
+    "sha": "0f4c5e5e21e10cfcb74a6c5508799f501aca9536"
+  },
+  "SHARD_HERON": {
+    "file": "heron.webp",
+    "sha": "665f4b419d0a8bd35fdfb3370e5f731a9ae26759"
+  },
+  "SHARD_HEWVER": {
+    "file": "hewver.webp",
+    "sha": "362679ee8c2dc929914a21bc4327a489ac3b857a"
+  },
+  "SHARD_HIDEONBOX": {
+    "file": "hideonbox.webp",
+    "sha": "be34dccebdf55b6cec0af203ba79f6400b4c731e"
+  },
+  "SHARD_HIDEONCAVE": {
+    "file": "hideoncave.webp",
+    "sha": "76d58540f410a372555ad7facdf1eeaf08a7a4dc"
+  },
+  "SHARD_HIDEONDRA": {
+    "file": "hideondra.webp",
+    "sha": "77ce65cf8f59db41b5e38a7446f1c4f9859b536d"
+  },
+  "SHARD_HIDEONFLOOR": {
+    "file": "hideonfloor.webp",
+    "sha": "2045fb92e782d060f29a41d07b5ce89243463d6a"
+  },
+  "SHARD_HIDEONGEON": {
+    "file": "hideongeon.webp",
+    "sha": "295cbde278e961d00ce2be63c444af83dead2f96"
+  },
+  "SHARD_HIDEONGIFT": {
+    "file": "hideongift.webp",
+    "sha": "f1bdde67782777981c4e48d6dc661ba2e0dfa257"
+  },
+  "SHARD_HIDEONLEAF": {
+    "file": "hideonleaf.webp",
+    "sha": "62f51392f9b7b5774f24bb212443c790a8faece6"
+  },
+  "SHARD_HIDEONRING": {
+    "file": "hideonring.webp",
+    "sha": "14b035eb695dfc7498761a1916fa85bda292f543"
+  },
+  "SHARD_HIDEONSACK": {
+    "file": "hideonsack.webp",
+    "sha": "1de8578652255eca4631f053751438d09bf4530d"
+  },
+  "SHARD_HIDEONSUN": {
+    "file": "hideonsun.webp",
+    "sha": "0947c21dd4046fb55c6a48da107ca6b9dfc11527"
+  },
+  "SHARD_HIDEONWALL": {
+    "file": "hideonwall.webp",
+    "sha": "df031ac421e7691fc68148ce3b58fea7112fdbbf"
+  },
+  "SHARD_HIDEYHO": {
+    "file": "hideyho.webp",
+    "sha": "961e329745eb78253381f649a571361ebefd5686"
+  },
+  "SHARD_HIVETHIEF": {
+    "file": "hivethief.webp",
+    "sha": "8bddfd9b2f67f20d6a241fb05e8285b9d0a15cf7"
+  },
+  "SHARD_HONEY_BADGER": {
+    "file": "honey_badger.webp",
+    "sha": "d51a185ef19f8abb908d7ea287d214a562bdb7f0"
+  },
+  "SHARD_HONEYBUG": {
+    "file": "honeybug.webp",
+    "sha": "1a302bbe80e22e338d0033693638c5c7c3632a9e"
+  },
+  "SHARD_HONEYBUZZ": {
+    "file": "honeybuzz.webp",
+    "sha": "a6aa39bb1c010f590d33689d4416c06f8525cb33"
+  },
+  "SHARD_HONEYHOG": {
+    "file": "honeyhog.webp",
+    "sha": "aadc09f23f65e717f7c848f5204aca0932d2ada1"
+  },
+  "SHARD_HONEYMITE": {
+    "file": "honeymite.webp",
+    "sha": "e268796980a42b82f539c39543577e099617408c"
+  },
+  "SHARD_HOWLING_SPIRIT": {
+    "file": "howling_spirit.webp",
+    "sha": "bd25c8194428e4b49bd6ee6f90ec026e09dd3541"
+  },
+  "SHARD_HUMMINGBIRD": {
+    "file": "hummingbird.webp",
+    "sha": "9fdd58b9c68531d8b5a43d3b7f6e9b2f85edc7a2"
+  },
+  "SHARD_IGUANA": {
+    "file": "iguana.webp",
+    "sha": "70223206311265a0066de0c87b7403140bac30f8"
+  },
+  "SHARD_INFERNO_KOI": {
+    "file": "inferno_koi.webp",
+    "sha": "f64509d5d26e724b47949352632956c02b00cdff"
+  },
+  "SHARD_INVISIBUG": {
+    "file": "invisibug.webp",
+    "sha": "191d11a2669bb62d2cf520c93103dc8ae2a9fd23"
+  },
+  "SHARD_JORMUNG": {
+    "file": "jormung.webp",
+    "sha": "1f8bf527d089fc2e6751fb465a8c8b2abc860776"
+  },
+  "SHARD_JOYDIVE": {
+    "file": "joydive.webp",
+    "sha": "1b722897a10f98f614211f7cc57b79a0e5349bc4"
+  },
+  "SHARD_JUNE_BUG": {
+    "file": "june_bug.webp",
+    "sha": "157792438bd78581e05444533d7dd339200749af"
+  },
+  "SHARD_KADA_KNIGHT": {
+    "file": "kada_knight.webp",
+    "sha": "442e3f6ff37ef9a73cefd5e6f72b8150c6cd7b5c"
+  },
+  "SHARD_KEELED_SLUG": {
+    "file": "keeled_slug.webp",
+    "sha": "3ecbadeeb3490f13162588222b9b1186f5c61d20"
+  },
+  "SHARD_KING_COBRA": {
+    "file": "king_cobra.webp",
+    "sha": "4ef0074f6d6d8874b04459c1ef4c2435487d2f1c"
+  },
+  "SHARD_KING_MINOS": {
+    "file": "king_minos.webp",
+    "sha": "23d7c41d1e284881e3801bc7089827a56f9f91f7"
+  },
+  "SHARD_KIWI": {
+    "file": "kiwi.webp",
+    "sha": "036f6d0f899168440d5917cdca6e691f959d7d5e"
+  },
+  "SHARD_KOMODO_DRAGON": {
+    "file": "komodo_dragon.webp",
+    "sha": "2e81b86da8fc73f6dc4af6e19d44f6eb0d30d172"
+  },
+  "SHARD_KRAKEN": {
+    "file": "kraken.webp",
+    "sha": "4cad0e618294e17432fb9a176b163ae95905273d"
+  },
+  "SHARD_LADYBUG": {
+    "file": "ladybug.webp",
+    "sha": "dd2c1760612ccef9c86515c9ac8e4ce0deb5677e"
+  },
+  "SHARD_LAPIS_CREEPER": {
+    "file": "lapis_creeper.webp",
+    "sha": "e4c53351d3dfcf1537d4c5bfbae90a4a0b44ea74"
+  },
+  "SHARD_LAPIS_SKELETON": {
+    "file": "lapis_skeleton.webp",
+    "sha": "6947736e92476b5b8d2056d3f3c30782f9c52a8a"
+  },
+  "SHARD_LAPIS_ZOMBIE": {
+    "file": "lapis_zombie.webp",
+    "sha": "6eec8ee86e2d91e20f90acaa042df02fdaeea24d"
+  },
+  "SHARD_LAVA_FLAME": {
+    "file": "lava_flame.webp",
+    "sha": "ec9292dae4b095409fd5bfa240367f64d7025c5e"
+  },
+  "SHARD_LAVA_LEECH": {
+    "file": "lava_leech.webp",
+    "sha": "71a2a678f4e687f5e113d1a4775bf7d2c59d45c4"
+  },
+  "SHARD_LEATHERBACK": {
+    "file": "leatherback.webp",
+    "sha": "99fdd072111597eb602923cf2bae394110dc3e99"
+  },
+  "SHARD_LEVIATHAN": {
+    "file": "leviathan.webp",
+    "sha": "17c2b1ba293eca79895aaf7553eb37bc017ab60e"
+  },
+  "SHARD_LITTERBUG": {
+    "file": "litterbug.webp",
+    "sha": "5fd4df85f9997f8276f1bffa05e83b8a08e569aa"
+  },
+  "SHARD_LITTLEFOOT": {
+    "file": "littlefoot.webp",
+    "sha": "990ca46b72886ba9bca2c5ad218387755b6b054e"
+  },
+  "SHARD_LIZARD_KING": {
+    "file": "lizard_king.webp",
+    "sha": "cb321f5b1eb7f5b04c690ad87786b54d73590097"
+  },
+  "SHARD_LOCUST": {
+    "file": "locust.webp",
+    "sha": "8f4dcf2f7ed3a41485916fb9bd1331a9180aa37c"
+  },
+  "SHARD_LORD_JAWBUS": {
+    "file": "lord_jawbus.webp",
+    "sha": "2e6c7d2ce4fedcb10d5d605e86fa007918d5d449"
+  },
+  "SHARD_LOTUM": {
+    "file": "lotum.webp",
+    "sha": "29fbff91c67434bcf49ddca409cd75ee38a2abe4"
+  },
+  "SHARD_LOTUS_FISH": {
+    "file": "lotus_fish.webp",
+    "sha": "28c335e1fc35015790cfb08ac14bbb1b71d5c651"
+  },
+  "SHARD_LUMISQUID": {
+    "file": "lumisquid.webp",
+    "sha": "49b72b4054fb2aa9c843548312c03a3e0b49107b"
+  },
+  "SHARD_LUNAR_MOTH": {
+    "file": "lunar_moth.webp",
+    "sha": "5f03432bcc49d01077264772b47f0a25c721c32b"
+  },
+  "SHARD_MACAW": {
+    "file": "macaw.webp",
+    "sha": "f321fcd46a17ab84dcc2d9bd96f1924d52f447e3"
+  },
+  "SHARD_MAGGOT": {
+    "file": "maggot.webp",
+    "sha": "e5c8c1f6a14289dcfeb8917d39a3c640593c3e02"
+  },
+  "SHARD_MAGMA_SLUG": {
+    "file": "magma_slug.webp",
+    "sha": "46be062f38599d54b3f8d7794e19f59e2b50a4b4"
+  },
+  "SHARD_MANTIS_SHRIMP": {
+    "file": "mantis_shrimp.webp",
+    "sha": "ca76a763e029920be4b8082b21b426d18d000e52"
+  },
+  "SHARD_MATCHO": {
+    "file": "matcho.webp",
+    "sha": "97f577c3f698dd24113f06cb4013c11a4b53156b"
+  },
+  "SHARD_MEGALITH": {
+    "file": "megalith.webp",
+    "sha": "a21691216b7349afa56018ef64fd0b41edbe2df0"
+  },
+  "SHARD_MIMIC": {
+    "file": "mimic.webp",
+    "sha": "4622559d82bfb67570adea4b4d0146fa7d66887d"
+  },
+  "SHARD_MINER_ZOMBIE": {
+    "file": "miner_zombie.webp",
+    "sha": "71edf759a289ca828224a92141fc2f10a4089894"
+  },
+  "SHARD_MINOS_HUNTER": {
+    "file": "minos_hunter.webp",
+    "sha": "017042568b87b82605dd20d6457756ce7147bf51"
+  },
+  "SHARD_MINOTAUR": {
+    "file": "minotaur.webp",
+    "sha": "2e0515417e80decb8f11cf81e3a88b7310c97841"
+  },
+  "SHARD_MIST": {
+    "file": "mist.webp",
+    "sha": "fd2ca4a324857370b53cf61bee91c40388a91c61"
+  },
+  "SHARD_MITE": {
+    "file": "mite.webp",
+    "sha": "e7086f46c85bf693f711e4140380678a9db63be1"
+  },
+  "SHARD_MOCHIBEAR": {
+    "file": "mochibear.webp",
+    "sha": "639bafd7c3b3556556954dbcd07b8be32f3881e8"
+  },
+  "SHARD_MOLTENFISH": {
+    "file": "moltenfish.webp",
+    "sha": "d5f322749563c90e8c4e40e5bebe56b75f6edb9e"
+  },
+  "SHARD_MOLTHORN": {
+    "file": "molthorn.webp",
+    "sha": "f92fb03cbb9946215e1cabbb8a6ce823f8d7da6a"
+  },
+  "SHARD_MORAY_EEL": {
+    "file": "moray_eel.webp",
+    "sha": "9ae340978772a50dcf001a564217f585fa92a3d5"
+  },
+  "SHARD_MOSQUITO": {
+    "file": "mosquito.webp",
+    "sha": "799f673c4d5fd74e1861ebc8957a3a0010d6f8af"
+  },
+  "SHARD_MOSSYBIT": {
+    "file": "mossybit.webp",
+    "sha": "c2af5a331ddd60dfa85b08b53a20503d8ea704bd"
+  },
+  "SHARD_MOTH": {
+    "file": "moth.webp",
+    "sha": "f3965b05fdcb7fab06732c769337e6ba579d8bf4"
+  },
+  "SHARD_MOUNTAIN_GOAT": {
+    "file": "mountain_goat.webp",
+    "sha": "910f0a1402e115de9ca916fc15c6d71b9ff844f6"
+  },
+  "SHARD_MUDWORM": {
+    "file": "mudworm.webp",
+    "sha": "36ebc370c4469c1dc0210877515c0f464dc0aab4"
+  },
+  "SHARD_MURDERWING": {
+    "file": "murderwing.webp",
+    "sha": "e117084e871187cb0c69746d92dd96535379cd5a"
+  },
+  "SHARD_MURKBAT": {
+    "file": "murkbat.webp",
+    "sha": "246d59c567d757ee0210b08af9de29282d65145e"
+  },
+  "SHARD_NAGA": {
+    "file": "naga.webp",
+    "sha": "43baafea52dd1f7db9e58accbc188f6de3eed7b4"
+  },
+  "SHARD_NESSIE": {
+    "file": "nessie.webp",
+    "sha": "558b596142145aef33336ecc37f090b3db4de36b"
+  },
+  "SHARD_NEWT": {
+    "file": "newt.webp",
+    "sha": "c26cc328eb2cb41fa4cbb8800f78760a9f377585"
+  },
+  "SHARD_NIGHT_SQUID": {
+    "file": "night_squid.webp",
+    "sha": "49b72b4054fb2aa9c843548312c03a3e0b49107b"
+  },
+  "SHARD_NILBOG": {
+    "file": "nilbog.webp",
+    "sha": "52e8cc5934021c5ad486d60b35e35706bb8ff144"
+  },
+  "SHARD_NOZZLENOSE": {
+    "file": "nozzlenose.webp",
+    "sha": "d57beb6de43f263e73c743567b64c4943ea91619"
+  },
+  "SHARD_OBSIDIAN_DEFENDER": {
+    "file": "obsidian_defender.webp",
+    "sha": "ebb93dcd9c67b8af34c57165fcffc729a528a7c5"
+  },
+  "SHARD_OSEDAX": {
+    "file": "osedax.webp",
+    "sha": "30d8f2ffe4b625f87552b4b98471d8a030b354c5"
+  },
+  "SHARD_PACKRAT_SKULL": {
+    "file": "packrat_skull.webp",
+    "sha": "e4670dcadc1c94a9926e0ecc01e14853b8ee6540"
+  },
+  "SHARD_PANDARAI": {
+    "file": "pandarai.webp",
+    "sha": "5d801bb5b615db2297ef01b6e3f0c8682801f6d6"
+  },
+  "SHARD_PANGOLIN": {
+    "file": "pangolin.webp",
+    "sha": "2c1010c6017c2cf8b51cf35b310ec826bf86b4b3"
+  },
+  "SHARD_PARAGON": {
+    "file": "paragon.webp",
+    "sha": "6edd3ed4d38d4690073749313a6f641b6d42c807"
+  },
+  "SHARD_PARAKEET": {
+    "file": "parakeet.webp",
+    "sha": "c10688999b7a2fb10c078e304a278da273cfe2b0"
+  },
+  "SHARD_PARCHED": {
+    "file": "parched.webp",
+    "sha": "baf0b36be7df0d1c0e71cf2b0983195b769dc485"
+  },
+  "SHARD_PEST": {
+    "file": "pest.webp",
+    "sha": "64254c5cbc67f886d792a34f6a23496f178123a7"
+  },
+  "SHARD_PHANFLARE": {
+    "file": "phanflare.webp",
+    "sha": "11527603aef25c77fe2d785d96ee36aa2d6c146c"
+  },
+  "SHARD_PHANPYRE": {
+    "file": "phanpyre.webp",
+    "sha": "dfc665156485b5109c9e37f5fa915f4e9b84a95c"
+  },
+  "SHARD_PIRANHA": {
+    "file": "piranha.webp",
+    "sha": "b596a4411db48c8a22d6c4d8ca7445ad5cd0f680"
+  },
+  "SHARD_POLARIS": {
+    "file": "polaris.webp",
+    "sha": "4f8d48675dab7e806eeca4a13932036ee57eb08a"
+  },
+  "SHARD_POLLENDART": {
+    "file": "pollendart.webp",
+    "sha": "1bf6c86481987e19cbde6320c3c228edfcc8824d"
+  },
+  "SHARD_POWER_DRAGON": {
+    "file": "power_dragon.webp",
+    "sha": "c3bbe14759c7087f016bb5e98fa514fb52430464"
+  },
+  "SHARD_PRAYING_MANTIS": {
+    "file": "praying_mantis.webp",
+    "sha": "d658ec10059bb67c3f990a8454d9616e794c21ec"
+  },
+  "SHARD_PRIMORDIAL": {
+    "file": "primordial.webp",
+    "sha": "52224cd9343c59aecc066972a97c3f5ec3b79f5e"
+  },
+  "SHARD_PRINCE": {
+    "file": "prince.webp",
+    "sha": "7509e038e2c02a899f06a392fed7a85378b33a2c"
+  },
+  "SHARD_PUCK": {
+    "file": "puck.webp",
+    "sha": "8648b34ba48d83e680bff18f71874a39c27fd329"
+  },
+  "SHARD_PYTHON": {
+    "file": "python.webp",
+    "sha": "df1e406598ec517008e704c13e95064d028f3aa4"
+  },
+  "SHARD_QUAKE": {
+    "file": "quake.webp",
+    "sha": "47b07093074ea86dacf27ef9b64db8cb18ba3751"
+  },
+  "SHARD_QUARTZFANG": {
+    "file": "quartzfang.webp",
+    "sha": "c78282154110837683139dc70bca1c2d3170b867"
+  },
+  "SHARD_QUEEN_ANT": {
+    "file": "queen_ant.webp",
+    "sha": "c2eac0d5271f7d2f7a51557b91b495796c30da8e"
+  },
+  "SHARD_QUEEN_BEE": {
+    "file": "queen_bee.webp",
+    "sha": "00de12b33e611a198f327becaf14c92b23b4e9ec"
+  },
+  "SHARD_QUEEN_SNAKE": {
+    "file": "queen_snake.webp",
+    "sha": "4f1d200456a9e72ad31017222b09677063d9b0fd"
+  },
+  "SHARD_RABBIT_CAT": {
+    "file": "rabbit_cat.webp",
+    "sha": "6e5fcc48bde4ecb47afbc33340a54e2ccd2ce829"
+  },
+  "SHARD_RABBIT_GODFATHER": {
+    "file": "rabbit_godfather.webp",
+    "sha": "244cf664ae35e8dbe297b925929ea1f06e978125"
+  },
+  "SHARD_RABBIT_GODMOTHER": {
+    "file": "rabbit_godmother.webp",
+    "sha": "953b2c2ccbff2e62b9e86f8ac14d0e48a520f969"
+  },
+  "SHARD_RABBIT_MAFIOSO": {
+    "file": "rabbit_mafioso.webp",
+    "sha": "d151552086aadd9d51b4656405c749bc7e0e61bb"
+  },
+  "SHARD_RABBIT_NEIGHBOR": {
+    "file": "rabbit_neighbor.webp",
+    "sha": "c2f70cbee7fca54a4f6b8a618d16174d8a320eda"
+  },
+  "SHARD_RAIN_SLIME": {
+    "file": "rain_slime.webp",
+    "sha": "8fe97b78f2ec96cd6566dc5156593619b77b6e98"
+  },
+  "SHARD_RAINBUG": {
+    "file": "rainbug.webp",
+    "sha": "6a38d3f7bf2b9e305f98ed1f54a7c765c2ba8d40"
+  },
+  "SHARD_RANA": {
+    "file": "rana.webp",
+    "sha": "eb5a108375a2e6cc93840b61a45345cca96438fb"
+  },
+  "SHARD_RAT": {
+    "file": "rat.webp",
+    "sha": "26104804db98c08bd035a933dcc327aa00ceec77"
+  },
+  "SHARD_RED_PANDA": {
+    "file": "red_panda.webp",
+    "sha": "07a19d655ee84e357b260ef5bc519c5b54e6cfd2"
+  },
+  "SHARD_REVENANT": {
+    "file": "revenant.webp",
+    "sha": "b35a1ecef8b2d10486f5c7e5952b0c11dc62fee7"
+  },
+  "SHARD_ROCKMITE": {
+    "file": "rockmite.webp",
+    "sha": "4ec56bba5ed339543f120d00cf7cc0a003ab4ae2"
+  },
+  "SHARD_SALAMANDER": {
+    "file": "salamander.webp",
+    "sha": "a2c40ca4d314723cb6aeae20d5ac192f5f512cfc"
+  },
+  "SHARD_SALMON": {
+    "file": "salmon.webp",
+    "sha": "de14806110880c4776caa54ea50e1a2da197c16b"
+  },
+  "SHARD_SCARF": {
+    "file": "scarf.webp",
+    "sha": "f9796c89210f834d7cdfa7d3c1fe6c1e757815ad"
+  },
+  "SHARD_SCATHA": {
+    "file": "scatha.webp",
+    "sha": "0071fc00d9fa6c6409224b82529aba59a8fd2485"
+  },
+  "SHARD_SCRAPPY": {
+    "file": "scrappy.webp",
+    "sha": "25e6cdc8f6e48a650b953000d6f6f1a284e1f9e6"
+  },
+  "SHARD_SEA_ARCHER": {
+    "file": "sea_archer.webp",
+    "sha": "b3316ca69e6514d42b478f36427995a979397ac5"
+  },
+  "SHARD_SEA_EMPEROR": {
+    "file": "sea_emperor.webp",
+    "sha": "585ff436d60345472fa8680f30b16c0ac8531dd3"
+  },
+  "SHARD_SEA_SERPENT": {
+    "file": "sea_serpent.webp",
+    "sha": "b1df1cce2bdd9c66bff1a6fb6697490534f083af"
+  },
+  "SHARD_SEA_SHINE": {
+    "file": "sea_shine.webp",
+    "sha": "79e5c7375429885b8c06eacc47e6644f3d9ad384"
+  },
+  "SHARD_SEA_WITCH": {
+    "file": "sea_witch.webp",
+    "sha": "04d64fb4c3eaac34c6b6daaa84fe28783ba82a2d"
+  },
+  "SHARD_SEAGULL": {
+    "file": "seagull.webp",
+    "sha": "7a6b7335a4e5ada780b73632f49e27c72055971f"
+  },
+  "SHARD_SEER": {
+    "file": "seer.webp",
+    "sha": "0b09bdb104e3b5d81c346852887efc2e2aade3e2"
+  },
+  "SHARD_SEPIALOT": {
+    "file": "sepialot.webp",
+    "sha": "54b95183d6baf0ca028dd52e08de683728f0748f"
+  },
+  "SHARD_SHELLWISE": {
+    "file": "shellwise.webp",
+    "sha": "3ad5a23b11d538b0a663f2276426b4caf282f4aa"
+  },
+  "SHARD_SHINYFISH": {
+    "file": "shinyfish.webp",
+    "sha": "bbd087648d5ac4bd4a3f7a02ee26e157bf87d184"
+  },
+  "SHARD_SHRIEKY_TIKI": {
+    "file": "shrieky_tiki.webp",
+    "sha": "f7afa5662fd80643b24ae46c08280c9952719143"
+  },
+  "SHARD_SHUDDERSQUID": {
+    "file": "shuddersquid.webp",
+    "sha": "e77af6e687ab50a770e83e73922b2ce0c579d108"
+  },
+  "SHARD_SHYWORM": {
+    "file": "shyworm.webp",
+    "sha": "d75c2f788d1e40069799ffa8c98c61b5184fb373"
+  },
+  "SHARD_SILENTDEPTH": {
+    "file": "silentdepth.webp",
+    "sha": "02a808bbcd67d94b5b438a302cb982bf158a9ca3"
+  },
+  "SHARD_SILKBREEZE": {
+    "file": "silkbreeze.webp",
+    "sha": "684796cb6c13efa16482e22395e7eef546d93d41"
+  },
+  "SHARD_SKELETOR": {
+    "file": "skeletor.webp",
+    "sha": "fac9c7787bb2754d4903f845a94b762b7994aa62"
+  },
+  "SHARD_SNEAKY_TIKI": {
+    "file": "sneaky_tiki.webp",
+    "sha": "1b9ecc8a0863a0824ad8147df0cc6f2e0f8d5bd2"
+  },
+  "SHARD_SNOOZLE": {
+    "file": "snoozle.webp",
+    "sha": "e51ddaf143ca1dab46a24792d0b99293aa79276b"
+  },
+  "SHARD_SNOWFIN": {
+    "file": "snowfin.webp",
+    "sha": "e1f481bf192e990d8e4c9b780414802df85d1665"
+  },
+  "SHARD_SOLAR": {
+    "file": "solar.webp",
+    "sha": "cbf87553746614e8f4eadb0899782673f4763f0e"
+  },
+  "SHARD_SOLSNATCHER": {
+    "file": "solsnatcher.webp",
+    "sha": "744a6cb5e835c5de3b3ba9e14542459e815c317e"
+  },
+  "SHARD_SOUL_OF_THE_ALPHA": {
+    "file": "soul_of_the_alpha.webp",
+    "sha": "5e44fe49f2b1118aa6d5fb48eb0db987f5d33334"
+  },
+  "SHARD_SPARROW": {
+    "file": "sparrow.webp",
+    "sha": "cbe692fe9051f40f23b1f888281999c94147c707"
+  },
+  "SHARD_SPECIAL_ZEALOT": {
+    "file": "special_zealot.webp",
+    "sha": "a9f63e685ce9c01b40d7305f82bf80efa88e9f1d"
+  },
+  "SHARD_SPHINX": {
+    "file": "sphinx.webp",
+    "sha": "f1c9e98e345bed2887ca1c748a81c9fbcd3f0380"
+  },
+  "SHARD_SPIKE": {
+    "file": "spike.webp",
+    "sha": "b96804891d86a93178b6deb2a8aacbecd59ec200"
+  },
+  "SHARD_SPRAWL": {
+    "file": "sprawl.webp",
+    "sha": "75f399c4fa2cb128f46e5ddc89e6d31d7cf8173d"
+  },
+  "SHARD_STAG_BEETLE": {
+    "file": "stag_beetle.webp",
+    "sha": "965d232fb1793595e2ccf4fe70dcb27b92e99241"
+  },
+  "SHARD_STALAGMIGHT": {
+    "file": "stalagmight.webp",
+    "sha": "99a2123127d9ff5baad998c48b47bc745ca3ce16"
+  },
+  "SHARD_STAR_SENTRY": {
+    "file": "star_sentry.webp",
+    "sha": "6df20a046948612bc228da6ecc69bab995c6723b"
+  },
+  "SHARD_STARBORN": {
+    "file": "starborn.webp",
+    "sha": "33633ffea89c46df62bffc1210b09f01bc2c9b7e"
+  },
+  "SHARD_STINGRAY": {
+    "file": "stingray.webp",
+    "sha": "338a7c7a868f892581ca92e69e71ba2f60bacf94"
+  },
+  "SHARD_STONEWORM": {
+    "file": "stoneworm.webp",
+    "sha": "186a5211e047228428f17361842c7e3ab65e3c24"
+  },
+  "SHARD_STRIDER_SURFER": {
+    "file": "strider_surfer.webp",
+    "sha": "5d69343d25feb5d26664cf39f36c98dada24150e"
+  },
+  "SHARD_STRONGARM": {
+    "file": "strongarm.webp",
+    "sha": "e57bb7e0dc9bc9e31639ef7a74f6eeb63a2d3ec1"
+  },
+  "SHARD_SUN_FISH": {
+    "file": "sun_fish.webp",
+    "sha": "719579858b8ee516687bac732584abbf91808706"
+  },
+  "SHARD_SYCOPHANT": {
+    "file": "sycophant.webp",
+    "sha": "199d88b70b9db593263464404af5bd6ec638700d"
+  },
+  "SHARD_SYLVAN": {
+    "file": "sylvan.webp",
+    "sha": "b59849f9868031f38845427a0200374966fdea30"
+  },
+  "SHARD_TADGANG": {
+    "file": "tadgang.webp",
+    "sha": "b9e7d83c452f92ecb7434d3c0709458c16ee53f7"
+  },
+  "SHARD_TANK_ZOMBIE": {
+    "file": "tank_zombie.webp",
+    "sha": "e96487e808f3968aa78d37216bbefae56aaed60c"
+  },
+  "SHARD_TAURUS": {
+    "file": "taurus.webp",
+    "sha": "147c6c0388f3521c3fc1c5106b598d8c6b7c417a"
+  },
+  "SHARD_TEMPEST": {
+    "file": "tempest.webp",
+    "sha": "de8f226792a14b5e3ac1faafc07b7297d1c0c27a"
+  },
+  "SHARD_TENEBRIS": {
+    "file": "tenebris.webp",
+    "sha": "36f48977450b91ba732855a37d946d9a027dce77"
+  },
+  "SHARD_TEPID": {
+    "file": "tepid.webp",
+    "sha": "79187554802ea4e0912f576903e32e14d287f9c0"
+  },
+  "SHARD_TERMITE": {
+    "file": "termite.webp",
+    "sha": "bcf75423a3fa60bb048808cc8bbc97fb5933cef9"
+  },
+  "SHARD_TERRA": {
+    "file": "terra.webp",
+    "sha": "479a83ca0e2bceaaa94693716f2c17a10b079bbc"
+  },
+  "SHARD_TEWTIL": {
+    "file": "tewtil.webp",
+    "sha": "263c24f0a9cae066b40e4358c2e6a27a6f7bacff"
+  },
+  "SHARD_THORN": {
+    "file": "thorn.webp",
+    "sha": "cca068f70f3085febf8719a66c52599591686af8"
+  },
+  "SHARD_THUNDER": {
+    "file": "thunder.webp",
+    "sha": "500bc2449b3f55433092685296a84922914183d3"
+  },
+  "SHARD_THYST": {
+    "file": "thyst.webp",
+    "sha": "aa0a92654de56eebd9b23ab16b63099d5243b566"
+  },
+  "SHARD_TIAMAT": {
+    "file": "tiamat.webp",
+    "sha": "c607fb2fff190216b1d633a1fb3ddd22c5789e22"
+  },
+  "SHARD_TIDE": {
+    "file": "tide.webp",
+    "sha": "2c97cbc95e8b39f82f0d1a29d679dbe68520ddb4"
+  },
+  "SHARD_TIMESTALK_CLONE": {
+    "file": "timestalk_clone.webp",
+    "sha": "891b3b631a2a1ac7c46e25782140fe1107c04a36"
+  },
+  "SHARD_TIMIL": {
+    "file": "timil.webp",
+    "sha": "28c335e1fc35015790cfb08ac14bbb1b71d5c651"
+  },
+  "SHARD_TITANOBOA": {
+    "file": "titanoboa.webp",
+    "sha": "d127d7855af35cd78457173864522583f9f70d79"
+  },
+  "SHARD_TOAD": {
+    "file": "toad.webp",
+    "sha": "1d2ae9e5ee3a1c457dca1464a7dce5446edd03a2"
+  },
+  "SHARD_TORRID": {
+    "file": "torrid.webp",
+    "sha": "383c6b100aee448a99e59ed9e7583f6e6d024b0a"
+  },
+  "SHARD_TORTOISE": {
+    "file": "tortoise.webp",
+    "sha": "177f9f5669a09856b2f5fbca1a39164a84bec843"
+  },
+  "SHARD_TOUCAN": {
+    "file": "toucan.webp",
+    "sha": "c08ec897a5f8468cabaa6d156bc396550e9c07b8"
+  },
+  "SHARD_TREASURE_HOARDER": {
+    "file": "treasure_hoarder.webp",
+    "sha": "c4cb10d1a32020b8a6b0151f42f386c5fe278226"
+  },
+  "SHARD_TREEFROG": {
+    "file": "treefrog.webp",
+    "sha": "00b09ce7cd996733d700d6e34ef1c9fff5d08e44"
+  },
+  "SHARD_TROGLOBYTE": {
+    "file": "troglobyte.webp",
+    "sha": "c65a5dcb156c878362c86c90468a5590888ec6d6"
+  },
+  "SHARD_TROODON": {
+    "file": "troodon.webp",
+    "sha": "5fa3904dcf08487f0dab9b2497fea19b2647fe0b"
+  },
+  "SHARD_VERDANT": {
+    "file": "verdant.webp",
+    "sha": "7f1a715d6537dab4f89fef4915e0973d99243204"
+  },
+  "SHARD_VIPER": {
+    "file": "viper.webp",
+    "sha": "57be30a749fadb1d4a9ba3205252031bec307a45"
+  },
+  "SHARD_VORACIOUS_SPIDER": {
+    "file": "voracious_spider.webp",
+    "sha": "5fa357587aab1fb31b98bd0a003ced3e32f0a986"
+  },
+  "SHARD_VULTURE": {
+    "file": "vulture.webp",
+    "sha": "c3addb23e2cbd361731f436ddf75a852ed1fcac4"
+  },
+  "SHARD_WARTYBUG": {
+    "file": "wartybug.webp",
+    "sha": "44d10c08ae5f74c7671b00a173bcfebca23d73a1"
+  },
+  "SHARD_WATER_HYDRA": {
+    "file": "water_hydra.webp",
+    "sha": "e77cb3835168b59018dce7e4512db5660aa3814f"
+  },
+  "SHARD_WATER_SNAKE": {
+    "file": "water_snake.webp",
+    "sha": "3038f15c2ed7a621797a5aa6af19b462d9084833"
+  },
+  "SHARD_WETWING": {
+    "file": "wetwing.webp",
+    "sha": "2c97cbc95e8b39f82f0d1a29d679dbe68520ddb4"
+  },
+  "SHARD_WIKI_TIKI": {
+    "file": "wiki_tiki.webp",
+    "sha": "994bb93f99b01d21ede8549b4b1d1c2d364564e5"
+  },
+  "SHARD_WILD_HOG": {
+    "file": "wild_hog.webp",
+    "sha": "f9fe49a6d3cda3d1d4c212ac0c7d35c781f8e88a"
+  },
+  "SHARD_WITHER": {
+    "file": "wither.webp",
+    "sha": "5cd4d4543c00ec58be8240db1eee24bc4a1e03a5"
+  },
+  "SHARD_WITHER_SPECTER": {
+    "file": "wither_specter.webp",
+    "sha": "ee6eb2c428486b34c709348b7b94aee736d45a41"
+  },
+  "SHARD_WOLVERINE": {
+    "file": "wolverine.webp",
+    "sha": "1d0cfb2d8dd71e789deb507f2f8952d502d3bda2"
+  },
+  "SHARD_WOODCHUCKER": {
+    "file": "woodchucker.webp",
+    "sha": "dcffc1d350e034a75e16c4c992bd59f6ea28ca07"
+  },
+  "SHARD_WOODLOUSE": {
+    "file": "woodlouse.webp",
+    "sha": "181d68885443e0f2d0d2710b77226a117054bfa2"
+  },
+  "SHARD_WOODPECKER": {
+    "file": "woodpecker.webp",
+    "sha": "9fed746644fff2d3ab95dc5a066a05a058e1c67f"
+  },
+  "SHARD_WUMPA": {
+    "file": "wumpa.webp",
+    "sha": "e0ff31f317ea7409664c4e7b97867745dae89e84"
+  },
+  "SHARD_WYVERN": {
+    "file": "wyvern.webp",
+    "sha": "bf09ad7b374561f51ecbc1d3252b32154ec9b9fa"
+  },
+  "SHARD_XYZ": {
+    "file": "xyz.webp",
+    "sha": "9d9c3f8eee0cc55bd4588cb72838eafc59dae1a2"
+  },
+  "SHARD_YOG": {
+    "file": "yog.webp",
+    "sha": "46be062f38599d54b3f8d7794e19f59e2b50a4b4"
+  },
+  "SHARD_ZEALOT": {
+    "file": "zealot.webp",
+    "sha": "43666e41d1a341c571f8c66b43b608c1dd49530d"
+  },
+  "SHARD_ZOMBIE_SOLDIER": {
+    "file": "zombie_soldier.webp",
+    "sha": "c3f2c140378de6e961f225d244b1d196e6b9ea96"
+  },
+  "SHARD_ZOMBUDDY": {
+    "file": "zombuddy.webp",
+    "sha": "3378a29cee4a9dfca497e06b496cdee33c75b45f"
+  }
+}

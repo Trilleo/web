@@ -1,0 +1,26 @@
+/*
+ * The Hypixel SkyBlock tool (apps/skyblock, src/pages/tools/skyblock/). Attribute
+ * texts sit on the game's dark tooltip panel (wiki-minecraft.css's mc-* classes),
+ * so Hypixel's colours read in both themes.
+ */
+
+/* Stat symbols (U+E0xx in Hypixel's font), drawn as pixel SVGs one em high. */
+.sb-glyph {
+  display: inline-block;
+  height: 1em;
+  vertical-align: -0.125em;
+}
+
+/* The game scrambles obfuscated text; here it simply isn't shown. */
+.sb-obfuscated {
+  visibility: hidden;
+}
+
+.sb-lore {
+  max-width: 40rem;
+}
+
+.sb-details > summary {
+  list-style-position: outside;
+  margin-left: 1rem;
+}

@@ -1,7 +1,7 @@
 /**
  * Which card each share image URL draws: /og/site.png, /og/posts/<slug>.png,
  * /og/tools/<slug>.png, /og/games/<slug>.png, /og/minecraft.png,
- * /og/minecraft/<slug>.png, /og/study.png, /og/study/<subject>.png, /og/forum.png and
+ * /og/minecraft/<slug>.png, /og/skyblock/<shard>.png, /og/study.png, /og/study/<subject>.png, /og/forum.png and
  * /og/forum/<topic id>.png (public topics only). The pages link them through ogImagePath, with the same
  * card, so the `v` in their URLs matches.
  */
@@ -18,6 +18,8 @@ import {
 } from "../seo";
 import { findGame } from "../games/registry";
 import { findTool } from "../tools/registry";
+import { shardData } from "../skyblock/data";
+import { shardCard } from "../skyblock/public";
 import { findSubject } from "@trilleo/study";
 import { can } from "@trilleo/forum";
 import { FORUM_CARD, topicCard } from "../forum/seo";
@@ -56,6 +58,11 @@ export async function resolveCard(
 
   const [kind, slug, ...rest] = path.split("/");
   if (!slug || rest.length > 0) return undefined;
+  if (kind === "skyblock") {
+    const data = await shardData(await database(), null);
+    const shard = data.catalog.bySlugOf(slug);
+    return shard ? resolved(shardCard(shard)) : undefined;
+  }
   if (kind === "tools") {
     const tool = findTool(slug);
     return tool && tool.status !== "planned"

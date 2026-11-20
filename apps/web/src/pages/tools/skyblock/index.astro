@@ -1,0 +1,62 @@
+---
+/**
+ * The Hypixel SkyBlock tool's front page: its utilities (the built ones linked, the
+ * planned ones listed). Prerendered: it holds no data of its own.
+ */
+import { UTILITIES, meta } from "@trilleo/tool-skyblock";
+import { ArrowRightIcon } from "@trilleo/ui";
+import ToolLayout from "../../../components/tools/ToolLayout.astro";
+import { HYPIXEL_NOTICE } from "../../../lib/skyblock/public";
+---
+
+<ToolLayout meta={meta}>
+  <section
+    aria-labelledby="utilities-title"
+    class="grid-swiss gap-y-4 border-t border-ink pt-4 md:pt-5"
+  >
+    <h2 id="utilities-title" class="col-span-4 type-label md:col-span-2">
+      <span class="text-muted">(01)</span> Utilities
+    </h2>
+    <ul
+      class="col-span-4 grid grid-cols-1 gap-px border border-hair bg-hair md:col-span-6 md:grid-cols-2 xl:col-span-10"
+      data-testid="skyblock-utilities"
+    >
+      {UTILITIES.map((utility) => (
+        <li
+          class:list={[
+            "relative flex flex-col gap-2 bg-paper p-5",
+            utility.href && "group hover:bg-chip",
+          ]}
+        >
+          <h3 class="type-row flex items-center justify-between gap-3 font-medium">
+            {utility.href ? (
+              <a
+                href={utility.href}
+                class="after:absolute after:inset-0 after:content-['']"
+              >
+                <span class="link-wipe">{utility.name}</span>
+              </a>
+            ) : (
+              <span>{utility.name}</span>
+            )}
+            {utility.href ? (
+              <ArrowRightIcon
+                size={18}
+                className="transition-transform duration-(--tr-dur-base) ease-swiss group-hover:translate-x-1"
+              />
+            ) : (
+              <span class="type-label text-muted">Planned</span>
+            )}
+          </h3>
+          <p class:list={["text-sm", !utility.href && "text-muted"]}>
+            {utility.description}
+          </p>
+        </li>
+      ))}
+    </ul>
+  </section>
+  <p class="mt-12 max-w-[47.5rem] text-sm text-muted">
+    {HYPIXEL_NOTICE} Nothing here asks for your Minecraft account or a Hypixel
+    API key.
+  </p>
+</ToolLayout>

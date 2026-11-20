@@ -29,6 +29,7 @@ COPY apps/inspect/package.json apps/inspect/
 COPY apps/notes/package.json apps/notes/
 COPY apps/preview/package.json apps/preview/
 COPY apps/qr/package.json apps/qr/
+COPY apps/skyblock/package.json apps/skyblock/
 COPY apps/hotfix/package.json apps/hotfix/
 COPY apps/skygrid/package.json apps/skygrid/
 COPY packages/captcha/package.json packages/captcha/
@@ -38,6 +39,7 @@ COPY packages/db/package.json packages/db/
 COPY packages/forum/package.json packages/forum/
 COPY packages/mail/package.json packages/mail/
 COPY packages/mc-files/package.json packages/mc-files/
+COPY packages/skyblock/package.json packages/skyblock/
 COPY packages/storage/package.json packages/storage/
 COPY packages/study/package.json packages/study/
 COPY packages/tool-kit/package.json packages/tool-kit/

@@ -288,6 +288,13 @@
       "when": 1793246766710,
       "tag": "0040_human-check",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1795174479954,
+      "tag": "0041_skyblock-shards",
+      "breakpoints": true
     }
   ]
 }

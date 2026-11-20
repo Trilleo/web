@@ -3217,6 +3217,66 @@ export const chuniPrebuild = pgTable("chuni_prebuild", {
 });
 
 /**
+ * Hypixel SkyBlock's shard data, one row per version read from SkyShards' repository
+ * (apps/web/src/lib/skyblock/sync.ts); the newest is the current one. `data` is
+ * @trilleo/skyblock's Dataset (shards, compact recipes), checked when it was read.
+ * Without a row, the copy committed with the site is used.
+ */
+export const sbDatasets = pgTable("sb_datasets", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  /** The SkyShards commit it was read from. */
+  commit: text("commit").notNull(),
+  /** Git's blob SHAs of the four files it was read from, by path (to skip unchanged ones). */
+  files: jsonb("files").$type<Record<string, string>>().notNull(),
+  /** SHA-256 of `data` as JSON: a pass that reads the same data keeps the old row. */
+  hash: text("hash").notNull(),
+  shards: integer("shards").notNull(),
+  pairs: integer("pairs").notNull(),
+  // The Dataset type lives in @trilleo/skyblock, which this package doesn't depend on.
+  data: jsonb("data").$type<unknown>().notNull(),
+  readAt: timestamp("read_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Shard icons copied into storage (WebP, `skyblock/shards/`), by Hypixel's item ID.
+ * Icons committed with the site need no row unless SkyShards changes one; `sourceSha`
+ * is the git blob SHA of the PNG copied, so a changed icon is copied again.
+ */
+export const sbIcons = pgTable("sb_icons", {
+  shardId: text("shard_id").primaryKey(),
+  /** The storage key; null when the last copy failed. */
+  key: text("key"),
+  sourceSha: text("source_sha").notNull(),
+  error: text("error"),
+  checkedAt: timestamp("checked_at", { withTimezone: true }).notNull(),
+});
+
+/** What a SkyBlock data pass did (sb_syncs.summary). */
+export interface SbSyncSummary {
+  commit: string | null;
+  /** A new version of the data was kept. */
+  changed: boolean;
+  shards: number;
+  pairs: number;
+  /** Names of shards that weren't in the previous version, and that left it. */
+  newShards: string[];
+  removedShards: string[];
+  iconsCopied: number;
+  iconsFailed: number;
+  /** Icons still to copy after the pass. */
+  iconsLeft: number;
+  errors: string[];
+}
+
+export const sbSyncs = pgTable("sb_syncs", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+  ok: boolean("ok").notNull().default(false),
+  summary: jsonb("summary").$type<SbSyncSummary>(),
+});
+
+/**
  * The human check's mode (one row, id 1): "normal", "raised" or "attack", until a
  * time or (null) until changed. `setBy` is "admin", or "auto" when a flood raised it.
  */
@@ -3343,3 +3403,6 @@ export type ChuniBuild = typeof chuniBuilds.$inferSelect;
 export type ChuniImport = typeof chuniImports.$inferSelect;
 export type ChuniAlias = typeof chuniAliases.$inferSelect;
 export type ChuniAliasSuggestion = typeof chuniAliasSuggestions.$inferSelect;
+export type SbDataset = typeof sbDatasets.$inferSelect;
+export type SbIcon = typeof sbIcons.$inferSelect;
+export type SbSync = typeof sbSyncs.$inferSelect;

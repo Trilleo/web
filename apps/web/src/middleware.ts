@@ -25,6 +25,10 @@ import {
   crossOriginForbidden,
   isForbiddenCrossOrigin,
 } from "./lib/origin-check";
+import {
+  skyblockSyncInBackground,
+  startSkyblockSync,
+} from "./lib/skyblock/sync";
 import { storageDeps } from "./lib/storage/deps";
 import { maintainInBackground } from "./lib/storage/maintenance";
 import {
@@ -49,6 +53,8 @@ function startTimers(): void {
   startChunithmSync(getDb);
   // CHUNITHM charts built ahead (Master, Ultima) while no one is opening charts.
   startChunithmPrebuild();
+  // SkyBlock's shard data from SkyShards' repository: a pass whenever one is due.
+  startSkyblockSync(getDb);
 }
 
 /** Work any request may start (each at most every few minutes, in the background). */
@@ -67,6 +73,8 @@ function backgroundWork(): void {
   chunithmSyncInBackground(getDb);
   // CHUNITHM chart pictures waiting to be built (a few minutes apart at most).
   chunithmBuildsInBackground();
+  // SkyBlock's shard data (also on its own timer).
+  skyblockSyncInBackground(getDb);
   // The human check's counts, and its watch for floods (every minute at most).
   flushChecksInBackground(getDb, checker);
 }

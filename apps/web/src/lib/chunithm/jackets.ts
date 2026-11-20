@@ -10,7 +10,7 @@
  * tried again after JACKET_RETRY_DAYS. The tool's lists ask for the missing jackets of
  * the songs they show (`wantJackets`, from POST /api/chunithm/jackets).
  */
-import { sdvxJacketSources, type RgbaImage } from "@trilleo/chunithm";
+import { sdvxJacketSources } from "@trilleo/chunithm";
 import { chuniCharts, chuniSongs, type Database } from "@trilleo/db";
 import { PUBLIC_CACHE } from "@trilleo/storage";
 import type { StorageDriver } from "@trilleo/storage/server";
@@ -27,7 +27,10 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
-import { decodePng, isPng } from "./png";
+import { decodePng, isPng, shrinkTo } from "./png";
+
+// Kept here too for the tests and callers that knew it from here.
+export { shrinkTo };
 import { JACKET_DOWNLOAD, download } from "./sources";
 import { forgetIndex } from "./viewer";
 import { encodeWebp } from "./webp";
@@ -190,50 +193,6 @@ async function copyOne(
     );
     return null;
   }
-}
-
-/**
- * An image at most `side` pixels wide and high: each new pixel the average of the
- * block of old ones it covers. Smaller ones are left alone (never enlarged).
- */
-export function shrinkTo(image: RgbaImage, side: number): RgbaImage {
-  const { width, height, data } = image;
-  if (width <= side && height <= side) return image;
-  const scale = Math.max(width, height) / side;
-  const w = Math.max(1, Math.round(width / scale));
-  const h = Math.max(1, Math.round(height / scale));
-  const out = new Uint8Array(w * h * 4);
-  for (let y = 0; y < h; y++) {
-    const y0 = Math.floor((y * height) / h);
-    const y1 = Math.max(y0 + 1, Math.floor(((y + 1) * height) / h));
-    for (let x = 0; x < w; x++) {
-      const x0 = Math.floor((x * width) / w);
-      const x1 = Math.max(x0 + 1, Math.floor(((x + 1) * width) / w));
-      let r = 0;
-      let g = 0;
-      let b = 0;
-      let a = 0;
-      for (let sy = y0; sy < y1; sy++)
-        for (let sx = x0; sx < x1; sx++) {
-          const i = (sy * width + sx) * 4;
-          // Weighted by alpha, so clear pixels don't darken the edges.
-          const alpha = data[i + 3] ?? 0;
-          r += (data[i] ?? 0) * alpha;
-          g += (data[i + 1] ?? 0) * alpha;
-          b += (data[i + 2] ?? 0) * alpha;
-          a += alpha;
-        }
-      const o = (y * w + x) * 4;
-      const n = (y1 - y0) * (x1 - x0);
-      if (a > 0) {
-        out[o] = Math.round(r / a);
-        out[o + 1] = Math.round(g / a);
-        out[o + 2] = Math.round(b / a);
-      }
-      out[o + 3] = Math.round(a / n);
-    }
-  }
-  return { width: w, height: h, data: out };
 }
 
 const copying = new Set<number>();

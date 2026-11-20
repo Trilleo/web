@@ -67,6 +67,12 @@ GitHub and the server.
    (`f/`, purpose `chunithm-import`, up to 512 MB each) and their bytes are deleted
    once imported.
 
+   Hypixel SkyBlock shard icons that SkyShards adds or changes after the site was built
+   are copied under `skyblock/shards/` (public WebP, a few KB each, tracked in
+   `sb_icons`); the icons committed with the site are served as files and need none.
+   Deleting them is harmless: until the next pass copies them again, those shards show
+   their committed icon or their rarity's letter.
+
 ### 2. An IAM user for the app
 
 The app gets keys that can only touch objects in this bucket.

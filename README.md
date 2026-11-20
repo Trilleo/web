@@ -43,6 +43,7 @@ apps/inspect        @trilleo/tool-inspect: File info (/tools/inspect/)
 apps/preview        @trilleo/tool-preview: Preview, documents from links or files (/tools/preview/)
 apps/qr             @trilleo/tool-qr: QR codes (/tools/qr/)
 apps/color          @trilleo/tool-color: colors (/tools/color/)
+apps/skyblock       @trilleo/tool-skyblock: Hypixel SkyBlock utilities (/tools/skyblock/)
 apps/skygrid        @trilleo/game-skygrid: Skygrid, a text-drawn Skyblock-style game (/games/skygrid/)
 apps/hotfix         @trilleo/game-hotfix: Hotfix, a pixel-art endless runner (/games/hotfix/)
 packages/ui         @trilleo/ui: shared React components + Tailwind theme (theme.css)
@@ -61,6 +62,8 @@ packages/study      @trilleo/study: the study section's engine (content loader, 
                     renderer with KaTeX, quizzes, circuits, React widgets)
 packages/captcha    @trilleo/captcha: the human check (levels, proof-of-work, the grid
                     puzzle, and the browser side: humanFetch and the puzzle dialog)
+packages/skyblock   @trilleo/skyblock: Hypixel SkyBlock's shards (reading SkyShards' data,
+                    attribute texts, fusion rules, the recipe index, search)
 study/              Study subjects: Markdown lessons, one folder per subject (see study/README.md)
 deploy/             Caddy config, server compose file, deploy and backup scripts, runbooks
 Dockerfile          Production images: `web` (Caddy + static site) and `app` (Node server)
@@ -158,6 +161,23 @@ time. A block at the bottom shows each chart in progress and the layer coming in
 Ctrl-C lets the charts in progress finish; a second Ctrl-C drops them. Running it
 again carries on where it stopped (`--limit`, `--delay`, `--out` and
 `--retry-failed` change what it does).
+
+The Hypixel SkyBlock tool (`/tools/skyblock/`) collects utilities for the game; so far
+Shards: every shard, searchable by name, attribute or effect, and a page for each
+(`/tools/skyblock/shards/<name>/`) with its attribute drawn as the game draws it, what each
+level costs, where to hunt it, and every fusion that makes it or uses it. The data is
+SkyShards' (MIT): the server reads its GitHub repository every 6 hours, downloading only
+files that changed, and copies new shard icons into storage (`apps/web/src/lib/skyblock/`,
+watched at `/admin/skyblock/`). A copy is committed with the site, which `pnpm dev` and
+e2e use until a pass keeps a newer one; refresh it now and then with
+
+```bash
+pnpm --filter @trilleo/web skyblock:snapshot
+```
+
+It rewrites `apps/web/src/lib/skyblock/snapshot.json` and the icons in
+`apps/web/public/tools/skyblock/shard-icons/`. Set `SKYBLOCK_SYNC=off` in `apps/web/.env`
+to keep `pnpm dev` from asking GitHub.
 
 The study section (`/study/`) is built from the Markdown in `study/`: each subject is a
 folder of numbered units and lessons, with maths, numbered definitions and formulas,

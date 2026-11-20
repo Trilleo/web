@@ -9,6 +9,7 @@ export type ToolIcon =
   | "qr"
   | "color"
   | "chunithm"
+  | "skyblock"
   | "island"
   | "robot";
 

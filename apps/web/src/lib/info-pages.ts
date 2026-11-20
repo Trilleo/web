@@ -395,6 +395,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "site",
     changes: [
       {
+        date: "2026-11-20",
+        note: "The Hypixel SkyBlock tool: Hypixel's shard icons and SkyShards' data.",
+      },
+      {
         date: "2026-10-23",
         note: "The API and its docs (api.trilleo.net).",
       },

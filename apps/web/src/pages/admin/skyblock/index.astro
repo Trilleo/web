@@ -1,0 +1,253 @@
+---
+/**
+ * Hypixel SkyBlock's shard data: the version in use (from SkyShards' repository, or
+ * the copy committed with the site), icons copied and failed, and recent passes, with
+ * "Check now" (a POST to this page with `intent=sync`).
+ */
+import AdminNav from "../../../components/admin/AdminNav.astro";
+import { primaryButton } from "../../../components/admin/files/styles";
+import DisplayTitle from "../../../components/DisplayTitle.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { requireAdmin } from "../../../lib/auth/guard";
+import { noStoreRedirect } from "../../../lib/auth/redirect";
+import { field } from "../../../lib/comments/form";
+import { getDb } from "../../../lib/db";
+import { skyblockOverview } from "../../../lib/skyblock/admin";
+import { SOURCE_REPO, skyblockSource } from "../../../lib/skyblock/source";
+import {
+  ICONS_PER_PASS,
+  SYNC_EVERY_MS,
+  startSync,
+  syncRunning,
+} from "../../../lib/skyblock/sync";
+import { getStorage } from "../../../lib/storage/config";
+import { toast, toastError } from "../../../lib/toast";
+
+export const prerender = false;
+
+const admin = requireAdmin(Astro);
+if (admin instanceof Response) return admin;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+let error: string | null = null;
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  if (field(form, "intent") === "sync") {
+    const done = startSync(getDb) ? "syncing" : "busy";
+    return noStoreRedirect(`/admin/skyblock/?done=${done}`, 303);
+  }
+  error = "Unknown action.";
+}
+
+const DONE: Record<string, string> = {
+  syncing: "Checking SkyShards now. Reload in a minute to see what it found.",
+  busy: "A check is already running.",
+};
+const doneParam = Astro.url.searchParams.get("done");
+if (doneParam && doneParam in DONE) toast(Astro, DONE[doneParam]);
+toastError(Astro, error);
+
+const storage = getStorage();
+const overview = await skyblockOverview(db, storage);
+const source = skyblockSource();
+const running = syncRunning();
+const repo = source?.repo ?? SOURCE_REPO;
+const hours = SYNC_EVERY_MS / (60 * 60 * 1000);
+
+const when = (date: Date | null | undefined) =>
+  date
+    ? date.toLocaleString("en-GB", {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "UTC",
+      }) + " UTC"
+    : "—";
+const row =
+  "grid-swiss mt-7 gap-y-5 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6";
+const label = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body =
+  "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
+const table = "w-full border-collapse text-left text-sm";
+const th = "type-label border-b border-ink py-2 pr-4 font-normal text-muted";
+const td = "border-b border-hair py-2 pr-4 align-top";
+const detail = "mt-1 text-sm text-muted";
+---
+
+<BaseLayout title="SkyBlock · Admin" noindex>
+  <section
+    aria-labelledby="admin-skyblock-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <AdminNav current="skyblock" />
+
+    <DisplayTitle id="admin-skyblock-title" fit={5.2}>
+      SkyBlock
+    </DisplayTitle>
+
+    <div class={row}>
+      <p class={label}>Shard data</p>
+      <div class={body}>
+        {!source && (
+          <p class="border-l-2 border-hair pl-4 text-muted">
+            Fetching is switched off here (SKYBLOCK_SYNC=off): pages use the
+            copy committed with the site.
+          </p>
+        )}
+        <dl
+          class="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-3 xl:grid-cols-5"
+          data-testid="skyblock-counts"
+        >
+          <div class="min-w-0">
+            <dt class="type-label text-muted">Shards</dt>
+            <dd class="type-lead">{overview.shards}</dd>
+            <dd class={detail}>{overview.withAttribute} with attribute text</dd>
+          </div>
+          <div class="min-w-0">
+            <dt class="type-label text-muted">Recipes</dt>
+            <dd class="type-lead">{overview.pairs.toLocaleString("en")}</dd>
+            <dd class={detail}>input pairs</dd>
+          </div>
+          <div class="min-w-0">
+            <dt class="type-label text-muted">Version</dt>
+            <dd class="type-lead">
+              <a
+                class="underline"
+                href={`https://github.com/${repo}/commit/${overview.commit}`}
+                rel="noreferrer"
+              >
+                {overview.commit.slice(0, 7)}
+              </a>
+            </dd>
+            <dd class={detail}>
+              {overview.readAt
+                ? `read ${when(overview.readAt)}`
+                : "the copy committed with the site"}
+            </dd>
+          </div>
+          <div class="min-w-0">
+            <dt class="type-label text-muted">Icons</dt>
+            <dd class="type-lead">
+              {overview.shards - overview.withoutIcon.length}
+            </dd>
+            <dd class={detail}>
+              {overview.iconsCommitted} committed · {overview.iconsCopied}{" "}
+              copied
+              {overview.iconsFailed.length > 0 &&
+                ` · ${String(overview.iconsFailed.length)} failed`}
+            </dd>
+          </div>
+        </dl>
+        <p class="text-muted">
+          Checks run every {hours} hours by themselves, reading
+          <a
+            class="underline"
+            href={`https://github.com/${repo}`}
+            rel="noreferrer"
+          >
+            {repo}
+          </a>{" "}
+          on GitHub. Only files that changed are downloaded; new or changed
+          icons are copied {ICONS_PER_PASS} a pass, failed ones again a day
+          later.
+        </p>
+        {overview.withoutIcon.length > 0 && (
+          <p class="text-sm">
+            Without an icon: {overview.withoutIcon.join(", ")}.
+          </p>
+        )}
+        <form method="post">
+          <input type="hidden" name="intent" value="sync" />
+          <button
+            type="submit"
+            class={primaryButton}
+            disabled={!source || running}
+          >
+            {running ? "Checking…" : "Check now"}
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class={row}>
+      <p class={label}>Recent checks</p>
+      <div class={`${body} overflow-x-auto`}>
+        {overview.syncs.length === 0 ? (
+          <p class="text-muted">None yet.</p>
+        ) : (
+          <table class={table}>
+            <thead>
+              <tr>
+                <th class={th} scope="col">
+                  Started
+                </th>
+                <th class={th} scope="col">
+                  Result
+                </th>
+                <th class={th} scope="col">
+                  New shards
+                </th>
+                <th class={th} scope="col">
+                  Icons
+                </th>
+                <th class={th} scope="col">
+                  Problems
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {overview.syncs.map((sync) => (
+                <tr>
+                  <td class={td}>{when(sync.startedAt)}</td>
+                  <td class={td}>
+                    {!sync.finishedAt
+                      ? running && sync.id === overview.syncs[0]?.id
+                        ? "Running"
+                        : "Interrupted"
+                      : !sync.ok
+                        ? "Not applied"
+                        : sync.summary?.changed
+                          ? "New version"
+                          : "No change"}
+                  </td>
+                  <td class={td}>
+                    {sync.summary?.newShards.length
+                      ? sync.summary.newShards.join(", ")
+                      : "—"}
+                  </td>
+                  <td class={td}>
+                    {sync.summary
+                      ? `${String(sync.summary.iconsCopied)} copied${sync.summary.iconsFailed ? `, ${String(sync.summary.iconsFailed)} failed` : ""}`
+                      : "—"}
+                  </td>
+                  <td class={`${td} break-words`}>
+                    {sync.summary?.errors.length
+                      ? sync.summary.errors.join(" · ")
+                      : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+
+    {overview.iconsFailed.length > 0 && (
+      <div class={row}>
+        <p class={label}>Icons that failed</p>
+        <ul class={`${body} text-sm`}>
+          {overview.iconsFailed.map((icon) => (
+            <li>
+              {icon.shardId}: {icon.error ?? "unknown"} ({when(icon.checkedAt)})
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+  </section>
+</BaseLayout>

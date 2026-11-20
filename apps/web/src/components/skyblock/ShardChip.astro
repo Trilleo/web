@@ -1,0 +1,45 @@
+---
+/** A shard as a small link: its icon and name (or its rarity's letter without an icon). */
+import { RARITY_CODES, RARITY_LABELS } from "@trilleo/skyblock";
+import type { ShardLink } from "../../lib/skyblock/public";
+
+interface Props {
+  shard: ShardLink;
+  /** Not a link (the page's own shard). */
+  current?: boolean;
+}
+
+const { shard, current = false } = Astro.props;
+const Tag = current ? "span" : "a";
+---
+
+<Tag
+  href={current ? undefined : shard.href}
+  class:list={[
+    "sb-chip inline-flex items-center gap-1.5 align-middle",
+    !current && "group",
+  ]}
+  aria-current={current ? "page" : undefined}
+>
+  {shard.icon ? (
+    <img
+      src={shard.icon}
+      alt=""
+      width="24"
+      height="24"
+      loading="lazy"
+      decoding="async"
+      class="size-6 object-contain"
+    />
+  ) : (
+    <span
+      aria-hidden="true"
+      class={`mc-text mc-c-${RARITY_CODES[shard.rarity]} inline-grid size-6 place-items-center`}
+    >
+      {RARITY_LABELS[shard.rarity][0]}
+    </span>
+  )}
+  <span class:list={[!current && "link-wipe", current && "font-medium"]}>
+    {shard.name}
+  </span>
+</Tag>

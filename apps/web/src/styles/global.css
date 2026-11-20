@@ -5,6 +5,7 @@
 @import "./forum.css";
 @import "./wiki.css";
 @import "./wiki-minecraft.css";
+@import "./skyblock.css";
 @import "./study.css";
 @import "./check.css";
 
@@ -17,8 +18,10 @@
 @source "../../../notes/src";
 @source "../../../preview/src";
 @source "../../../qr/src";
+@source "../../../skyblock/src";
 @source "../../../skygrid/src";
 @source "../../../../packages/captcha/src";
+@source "../../../../packages/skyblock/src";
 @source "../../../../packages/storage/src";
 @source "../../../../packages/study/src";
 @source "../../../../packages/wiki/src";
