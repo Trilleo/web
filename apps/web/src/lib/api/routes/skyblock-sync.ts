@@ -325,7 +325,9 @@ export const syncSkyblockProfile = defineRoute({
       ),
     ),
     capturedAt: t.optional(
-      t.dateTime("When the game was read, if not just now."),
+      t.dateTime(
+        "When the game was read, if not just now (a mod that syncs later, say). The progress chart dates the sync by it; a time in the future counts as now.",
+      ),
     ),
     syncKey: t.optional(
       t.string({

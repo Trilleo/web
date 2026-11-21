@@ -1664,7 +1664,10 @@ skyblock:snapshot` (scripts/skyblock-snapshot.ts on plain Node, like chunithm:bu
   `keep` stay, unknown IDs are skipped and reported. Each sync is logged with its
   changes, the progress after it (`collectionProgress`) and its answer, which a
   repeated `syncKey` gets again (`duplicate: true`); SYNC_LOG_LIMITS purge it. The
-  collection page shows the latest (SyncSummary.astro). The API's SkyBlock sync guide
+  collection page shows the latest (SyncSummary.astro) and, from two days of syncs,
+  a progress chart (ProgressChart.astro: total attribute levels a point a UTC day,
+  `progressHistory`/`dailyProgress`, dated by `capturedAt`, which is capped at now and
+  the log's reach, with a table). The API's SkyBlock sync guide
   (/docs/skyblock-sync/) is what a mod's author reads.
 - The fusion calculator's engine (@trilleo/skyblock/calc, pure) is a faithful port of
   SkyShards' (shardData, fusionMath, minCostSolver, recipeTree, treeExport), odd corners

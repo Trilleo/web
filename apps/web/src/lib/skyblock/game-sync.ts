@@ -399,7 +399,16 @@ export async function syncProfile(
       .values({
         profileId: profile.id,
         at: now,
-        capturedAt: request.capturedAt ?? now,
+        // Never in the future (a clock that's off), never before the log's reach.
+        capturedAt: new Date(
+          Math.min(
+            now.getTime(),
+            Math.max(
+              request.capturedAt?.getTime() ?? now.getTime(),
+              now.getTime() - SYNC_LOG_LIMITS.days * 86_400_000,
+            ),
+          ),
+        ),
         source: request.source,
         mode: request.mode,
         syncKey: request.syncKey ?? null,
@@ -518,4 +527,44 @@ export async function syncLogExport(db: Database, userId: string) {
     .where(eq(sbProfiles.userId, userId))
     .orderBy(desc(sbSyncLog.at));
   return rows;
+}
+
+export interface ProgressPoint {
+  /** The UTC day, "2026-11-21". */
+  day: string;
+  /** The last sync that day. */
+  at: Date;
+  progress: CollectionProgress;
+}
+
+/** One point per UTC day (that day's last sync), oldest first. Pure. */
+export function dailyProgress(
+  rows: readonly { at: Date; progress: CollectionProgress }[],
+): ProgressPoint[] {
+  const byDay = new Map<string, ProgressPoint>();
+  for (const row of rows) {
+    const day = row.at.toISOString().slice(0, 10);
+    const seen = byDay.get(day);
+    if (!seen || seen.at.getTime() <= row.at.getTime())
+      byDay.set(day, { day, at: row.at, progress: row.progress });
+  }
+  return [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day));
+}
+
+/** A profile's progress over the kept log, a point a day, by when the game was read. */
+export async function progressHistory(
+  db: Database,
+  profileId: number,
+): Promise<ProgressPoint[]> {
+  const rows = await db
+    .select({ at: sbSyncLog.capturedAt, progress: sbSyncLog.progress })
+    .from(sbSyncLog)
+    .where(eq(sbSyncLog.profileId, profileId))
+    .orderBy(asc(sbSyncLog.capturedAt));
+  return dailyProgress(
+    rows.map((row) => ({
+      at: row.at,
+      progress: row.progress as CollectionProgress,
+    })),
+  );
 }

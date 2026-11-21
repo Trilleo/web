@@ -1,0 +1,135 @@
+---
+/**
+ * A SkyBlock profile's progress over time, from its syncs (lib/skyblock/game-sync.ts
+ * `progressHistory`: a point a UTC day): all attribute levels added up (the accent
+ * line), with attributes maxed and shards left to max in the caption and the table.
+ * Needs two days or more; the table is there for screen readers and anyone who wants
+ * the numbers.
+ */
+import type { ProgressPoint } from "../../lib/skyblock/game-sync";
+
+interface Props {
+  points: readonly ProgressPoint[];
+}
+
+const { points } = Astro.props;
+const WIDTH = 600;
+const HEIGHT = 140;
+const PAD = 4;
+const first = points[0];
+const last = points.at(-1);
+const levels = points.map((point) => point.progress.levels);
+const low = Math.min(...levels);
+const high = Math.max(...levels);
+const span = high - low || 1;
+const start = first ? Date.parse(first.day) : 0;
+const end = last ? Date.parse(last.day) : start;
+const x = (day: string) =>
+  end === start
+    ? WIDTH / 2
+    : ((Date.parse(day) - start) / (end - start)) * WIDTH;
+const y = (value: number) =>
+  PAD + (1 - (value - low) / span) * (HEIGHT - 2 * PAD);
+const path = points
+  .map(
+    (point, i) =>
+      `${i === 0 ? "M" : "L"}${x(point.day).toFixed(1)} ${y(point.progress.levels).toFixed(1)}`,
+  )
+  .join("");
+const n = (value: number) => value.toLocaleString("en");
+const dayLabel = (day: string) =>
+  new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+const gained = first && last ? last.progress.levels - first.progress.levels : 0;
+const maxedGained =
+  first && last ? last.progress.maxed - first.progress.maxed : 0;
+const label =
+  first && last
+    ? `Attribute levels from ${dayLabel(first.day)} to ${dayLabel(last.day)}: ${n(first.progress.levels)} to ${n(last.progress.levels)}`
+    : "";
+---
+
+{first && last && points.length >= 2 && (
+  <figure
+    class="col-span-4 flex flex-col gap-2 md:col-span-6 xl:col-span-9"
+    data-testid="progress-chart"
+  >
+    <p class="type-label text-muted">Progress from your syncs</p>
+    <svg
+      viewBox={`0 0 ${String(WIDTH)} ${String(HEIGHT)}`}
+      class="h-36 w-full max-w-2xl overflow-visible"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+    >
+      <line
+        x1="0"
+        x2={WIDTH}
+        y1={HEIGHT - 0.5}
+        y2={HEIGHT - 0.5}
+        stroke="var(--tr-hair)"
+        stroke-width="1"
+      />
+      <path
+        d={path}
+        fill="none"
+        stroke="var(--tr-accent)"
+        stroke-width="2"
+        vector-effect="non-scaling-stroke"
+      />
+    </svg>
+    <figcaption class="flex max-w-2xl flex-col gap-1">
+      <span class="type-label flex justify-between text-muted">
+        <span>{dayLabel(first.day)}</span>
+        <span>
+          {n(low)}–{n(high)} levels
+        </span>
+        <span>{dayLabel(last.day)}</span>
+      </span>
+      <span class="text-sm">
+        {gained >= 0 ? "+" : ""}
+        {n(gained)} attribute levels and {maxedGained >= 0 ? "+" : ""}
+        {n(maxedGained)} maxed since {dayLabel(first.day)}; now{" "}
+        {n(last.progress.maxed)} of {n(last.progress.shards)} maxed, with{" "}
+        {n(last.progress.leftToMax)} shards left to fuse.
+      </span>
+    </figcaption>
+    <details class="max-w-2xl">
+      <summary class="type-label cursor-pointer text-muted">
+        Show as a table
+      </summary>
+      <table class="mt-2 w-full text-sm">
+        <caption class="sr-only">Progress by day, from your syncs</caption>
+        <thead>
+          <tr class="type-label text-muted">
+            <th scope="col" class="text-left font-normal">
+              Day (UTC)
+            </th>
+            <th scope="col" class="text-right font-normal">
+              Levels
+            </th>
+            <th scope="col" class="text-right font-normal">
+              Maxed
+            </th>
+            <th scope="col" class="text-right font-normal">
+              Left to fuse
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {[...points].reverse().map((point) => (
+            <tr class="border-t border-hair">
+              <td>{dayLabel(point.day)}</td>
+              <td class="text-right">{n(point.progress.levels)}</td>
+              <td class="text-right">{n(point.progress.maxed)}</td>
+              <td class="text-right">{n(point.progress.leftToMax)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </details>
+  </figure>
+)}

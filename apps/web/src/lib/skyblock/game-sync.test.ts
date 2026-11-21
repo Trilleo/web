@@ -12,7 +12,9 @@ import { listToolData, putToolData } from "../tools/store";
 import { meta } from "@trilleo/tool-skyblock/meta";
 import {
   SYNC_LOG_LIMITS,
+  dailyProgress,
   profileCollection,
+  progressHistory,
   purgeSyncLog,
   recentSyncs,
   syncProfile,
@@ -218,5 +220,52 @@ describe("syncs from the game", () => {
     );
     const left = await handle.db.select().from(sbSyncLog);
     expect(left.map((row) => row.syncKey)).toEqual(["b"]);
+  });
+});
+
+describe("progress over time", () => {
+  const p = (levels: number) => ({
+    maxed: 0,
+    levels,
+    leftToMax: 100 - levels,
+    shards: 2,
+  });
+
+  it("keeps each day's last sync", () => {
+    expect(
+      dailyProgress([
+        { at: new Date("2026-11-20T23:00:00Z"), progress: p(5) },
+        { at: new Date("2026-11-21T09:00:00Z"), progress: p(8) },
+        { at: new Date("2026-11-21T01:00:00Z"), progress: p(6) },
+      ]).map((point) => [point.day, point.progress.levels]),
+    ).toEqual([
+      ["2026-11-20", 5],
+      ["2026-11-21", 8],
+    ]);
+  });
+
+  it("reads a profile's history from its syncs, by when the game was read", async () => {
+    const first = await sync(
+      { capturedAt: new Date(T0.getTime() - 86_400_000) },
+      T0,
+    );
+    await sync(
+      { mode: "merge", levels: [{ id: "SHARD_TIAMAT", level: 2 }] },
+      later(1),
+    );
+    // A clock in the future counts as now.
+    await sync(
+      {
+        mode: "merge",
+        levels: [{ id: "SHARD_TIAMAT", level: 3 }],
+        capturedAt: new Date(T0.getTime() + 7 * 86_400_000),
+      },
+      later(2),
+    );
+    const history = await progressHistory(handle.db, first.profile.id);
+    expect(history.map((point) => [point.day, point.progress.levels])).toEqual([
+      ["2026-11-20", 4],
+      ["2026-11-21", 7],
+    ]);
   });
 });

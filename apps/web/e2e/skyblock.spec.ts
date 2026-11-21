@@ -508,6 +508,19 @@ test("a mod's sync fills the collection, and the page says so", async ({
       await page.getByTestId("new-token").locator("[data-token]").textContent()
     )?.trim() ?? "";
 
+  // Read in the game yesterday, synced now: the chart dates it yesterday.
+  const earlier = await request.post(
+    "/api/v1/skyblock/me/profiles/1f2e3d4c-5b6a-7980-1a2b-3c4d5e6f7a8b/sync",
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      data: {
+        name: "Apple",
+        levels: [{ id: "SHARD_TIAMAT", level: 5 }],
+        capturedAt: new Date(Date.now() - 86_400_000).toISOString(),
+      },
+    },
+  );
+  expect(earlier.status()).toBe(200);
   const synced = await request.post(
     "/api/v1/skyblock/me/profiles/1f2e3d4c-5b6a-7980-1a2b-3c4d5e6f7a8b/sync",
     {
@@ -533,7 +546,10 @@ test("a mod's sync fills the collection, and the page says so", async ({
   );
   await page.locator("[data-sync-summary] summary").click();
   await expect(page.locator("[data-sync-summary]")).toContainText(
-    "Tiamat 0 → 7",
+    "Tiamat 5 → 7",
+  );
+  await expect(page.getByTestId("progress-chart")).toContainText(
+    "+2 attribute levels",
   );
   await page.getByLabel("Find a shard").fill("tiamat");
   await expect(
