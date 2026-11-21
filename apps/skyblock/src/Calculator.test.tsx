@@ -254,20 +254,18 @@ describe("Calculator", () => {
     // 4 Grove: 2 fusions of 5 Phanpyre (100) + 2 Bogged (50).
     await waitFor(() => {
       expect(
-        within(screen.getByTestId("calc-summary")).getByText("1,200 coins"),
+        within(screen.getByTestId("calc-summary")).getByText("1,200"),
       ).toBeTruthy();
     });
     const box = screen.getByTestId("calc-summary");
     expect(within(box).getByText("Sell instantly")).toBeTruthy();
-    expect(
-      within(box).getByText(/Profit 380 coins, after 1.25% tax/),
-    ).toBeTruthy();
+    expect(within(box).getByText(/Profit 380, after 1.25% tax/)).toBeTruthy();
     expect(screen.getByTestId("calc-prices")).toBeTruthy();
     expect(screen.getByTestId("calc-tree").textContent).toContain("Buy");
     fireEvent.click(screen.getByLabelText("Instant buy"));
     await waitFor(() => {
       expect(
-        within(screen.getByTestId("calc-summary")).getByText("1,440 coins"),
+        within(screen.getByTestId("calc-summary")).getByText("1,440"),
       ).toBeTruthy();
     });
   });

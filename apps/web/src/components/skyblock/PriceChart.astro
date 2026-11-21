@@ -67,7 +67,7 @@ const stamp = (date: Date) =>
     class="h-40 w-full max-w-2xl overflow-visible"
     preserveAspectRatio="none"
     role="img"
-    aria-label={`${label}: from ${coins(low)} to ${coins(high)} coins`}
+    aria-label={`${label}: from ${coins(low)} to ${coins(high)}`}
   >
     <line
       x1="0"
@@ -97,7 +97,7 @@ const stamp = (date: Date) =>
     <span class="type-label flex justify-between text-muted">
       <span>{points[0] && stamp(points[0].hour)}</span>
       <span>
-        {coins(low)}–{coins(high)} coins
+        {coins(low)}–{coins(high)}
       </span>
       <span>{points.at(-1) && stamp(points.at(-1)!.hour)} UTC</span>
     </span>

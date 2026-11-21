@@ -295,7 +295,7 @@ test("a shard's page shows its Bazaar prices and what maxing costs", async ({
   await page.goto("/tools/skyblock/shards/tiamat/");
   const bazaar = page.getByTestId("shard-bazaar");
   await expect(bazaar).toContainText("Instant buy");
-  await expect(page.getByTestId("shard-cost-to-max")).toContainText("coins");
+  await expect(page.getByTestId("shard-cost-to-max")).toContainText(/\d/);
   await expect(page.getByTestId("shard-chart-waiting")).toBeVisible();
   await bazaar.getByRole("link", { name: "30 days" }).click();
   await expect(page).toHaveURL(/range=30d/);
@@ -317,7 +317,7 @@ test("the calculator counts coins once there are prices", async ({
   });
   await expect(coins).toBeEnabled();
   await page.getByText("Coins (buy from the Bazaar)").click();
-  await expect(page.getByTestId("calc-summary")).toContainText("coins");
+  await expect(page.getByTestId("calc-summary")).toContainText("Cost");
   await expect(page.getByTestId("calc-prices")).toBeVisible();
   await expect(page.getByTestId("calc-tree")).toContainText("Buy");
 });

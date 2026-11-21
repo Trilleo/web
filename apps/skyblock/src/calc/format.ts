@@ -49,10 +49,10 @@ export function formatCoins(coins: number): string {
   const sign = coins < 0 ? "−" : "";
   const scaled = (n: number, unit: string) =>
     `${sign}${n.toLocaleString("en", { maximumFractionDigits: n < 10 ? 2 : n < 100 ? 1 : 0 })}${unit}`;
-  if (abs >= 1e9) return `${scaled(abs / 1e9, "B")} coins`;
-  if (abs >= 1e6) return `${scaled(abs / 1e6, "M")} coins`;
-  if (abs >= 1e4) return `${scaled(abs / 1e3, "k")} coins`;
-  return `${sign}${abs.toLocaleString("en", { maximumFractionDigits: abs < 10 ? 2 : 0 })} coins`;
+  if (abs >= 1e9) return scaled(abs / 1e9, "B");
+  if (abs >= 1e6) return scaled(abs / 1e6, "M");
+  if (abs >= 1e4) return scaled(abs / 1e3, "k");
+  return `${sign}${abs.toLocaleString("en", { maximumFractionDigits: abs < 10 ? 2 : 0 })}`;
 }
 
 /** A cost in the plan's own unit: hours, or coins in coin mode. */

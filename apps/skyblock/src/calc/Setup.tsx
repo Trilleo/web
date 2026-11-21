@@ -289,7 +289,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
                 <option value="none">I don’t run Kuudra</option>
                 {KUUDRA_TIERS.map((tier) => (
                   <option key={tier} value={tier}>
-                    {`Tier ${tier.slice(1)} (key ${KUUDRA[tier].keyCost.toLocaleString("en")} coins)`}
+                    {`Tier ${tier.slice(1)} (key ${KUUDRA[tier].keyCost.toLocaleString("en")})`}
                   </option>
                 ))}
               </select>

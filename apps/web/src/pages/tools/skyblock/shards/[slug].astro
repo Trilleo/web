@@ -87,7 +87,7 @@ const toMax = shardsToMax(shard.rarity);
 const priceText = (value: number | null) =>
   value === null
     ? "—"
-    : `${value.toLocaleString("en", { maximumFractionDigits: value < 100 ? 1 : 0 })} coins`;
+    : `${value.toLocaleString("en", { maximumFractionDigits: value < 100 ? 1 : 0 })}`;
 const steps = SHARDS_PER_LEVEL[shard.rarity];
 const levels = Array.from({ length: MAX_ATTRIBUTE_LEVEL }, (_, i) => ({
   level: i + 1,
