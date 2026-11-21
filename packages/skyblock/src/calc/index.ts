@@ -18,3 +18,4 @@ export * from "./prices";
 export * from "./settings";
 export * from "./solver";
 export * from "./steps";
+export * from "./sync";

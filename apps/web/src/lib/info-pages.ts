@@ -91,6 +91,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       },
       {
         date: "2026-11-21",
+        note: "Syncs from the game into a SkyBlock profile: what's logged and how long it's kept.",
+      },
+      {
+        date: "2026-11-21",
         note: "The SkyBlock collection (attribute levels and shards you hold) and the hunting planner's list, kept as tool data.",
       },
       {

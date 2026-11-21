@@ -181,7 +181,8 @@ in order. Fusion lines (`/tools/skyblock/lines/`) draw where a shard's line come
 leads, from the fusions most of its recipes share, and the guide
 (`/tools/skyblock/guide/`) explains shards, hunting and fusing. Signed in, each SkyBlock
 profile keeps its own collection, setup and plans (`/tools/skyblock/profiles/`, picked at
-the top of those pages).
+the top of those pages), and a mod can sync each one's attribute levels and Hunting Box
+from the game through the API (the docs' SkyBlock sync guide).
 Fusion profits (`/tools/skyblock/profits/`) lists shards that sell for more than their
 cheapest route costs, and the shards whose prices moved most. Prices come from Hypixel's
 public Bazaar endpoint (no key), fetched by the server every 5 minutes and kept hourly for

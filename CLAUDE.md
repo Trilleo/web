@@ -1184,7 +1184,7 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   rewrites (and starts the usual background work).
 - Groups: System, Site (site, tools, games), Posts (posts, tags), Minecraft, Study,
   SkyBlock (all public, cached a few minutes), Account (device links and personal
-  tokens) and Daily cryptic (key and scopes). Public
+  tokens), SkyBlock sync (personal tokens) and Daily cryptic (key and scopes). Public
   routes answer from the same lib/ code the pages use, so they show only what the
   pages show; lists page with `items` + `nextCursor` (opaque base64url cursors).
 - Routes are declared once with `defineRoute` (lib/api/registry.ts): method, path
@@ -1652,6 +1652,20 @@ skyblock:snapshot` (scripts/skyblock-snapshot.ts on plain Node, like chunithm:bu
   never the last, and its tool data goes with it). Hypixel's profile ID, Minecraft
   UUID, game mode and last sync are columns the API's sync will fill. Signed out, the
   browser keeps one set. In the export (`skyblock.profiles`); deleted with the account.
+- Syncs from the game (lib/skyblock/game-sync.ts, sb_sync_log; rules in
+  @trilleo/skyblock/calc's sync.ts): a mod sends a profile's attribute levels and
+  Hunting Box with a personal token (scope `skyblock:sync`) to the API's SkyBlock sync
+  group (lib/api/routes/skyblock-sync.ts: list profiles, PUT one, sync, read its
+  collection, list its syncs), by Hypixel's profile ID. The first sync from a profile
+  makes it, or takes over a site-made profile with the same name, or the account's
+  only profile if it has no Hypixel ID (`findOrMake`, under a row lock); a sync never
+  changes the active profile. `applySync`: the game wins for each list it sends
+  ("replace" the part, or "merge" the shards listed, 0 removing), lists left out and
+  `keep` stay, unknown IDs are skipped and reported. Each sync is logged with its
+  changes, the progress after it (`collectionProgress`) and its answer, which a
+  repeated `syncKey` gets again (`duplicate: true`); SYNC_LOG_LIMITS purge it. The
+  collection page shows the latest (SyncSummary.astro). The API's SkyBlock sync guide
+  (/docs/skyblock-sync/) is what a mod's author reads.
 - The fusion calculator's engine (@trilleo/skyblock/calc, pure) is a faithful port of
   SkyShards' (shardData, fusionMath, minCostSolver, recipeTree, treeExport), odd corners
   and float order included: it matched SkyShards' golden snapshots exactly (every

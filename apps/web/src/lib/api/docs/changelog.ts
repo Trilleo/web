@@ -13,6 +13,13 @@ export const API_CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: "2026-11-21",
     changes: [
+      "SkyBlock sync, with a personal token (scope `skyblock:sync`): `GET /v1/skyblock/me/profiles`, `PUT /v1/skyblock/me/profiles/{profileId}`, `POST /v1/skyblock/me/profiles/{profileId}/sync`, `GET /v1/skyblock/me/profiles/{profileId}/collection` and `GET /v1/skyblock/me/profiles/{profileId}/syncs`. See the SkyBlock sync guide.",
+      "Error code `profile_limit` (409): the account can't have another SkyBlock profile.",
+    ],
+  },
+  {
+    date: "2026-11-21",
+    changes: [
       "Personal tokens (`trlu_…`): act for one person's account, within the scopes they allowed. Get one by linking a device (`POST /v1/auth/device`, then poll `POST /v1/auth/device/token`) or have the person make one on their Apps page. See the Personal tokens guide.",
       "The Account group: `GET /v1/account` (whose token it is) and `DELETE /v1/account/token` (revoke it). Personal-token scope `skyblock:sync`, for the SkyBlock sync routes to come.",
       "Error codes `token_required`, `account_blocked`, and the device flow's `authorization_pending`, `slow_down`, `access_denied` and `expired_token`.",

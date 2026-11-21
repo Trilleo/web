@@ -491,3 +491,58 @@ test("signed in, each SkyBlock profile keeps its own collection", async ({
       .getByLabel("Tiamat: level"),
   ).toHaveValue("3");
 });
+
+test("a mod's sync fills the collection, and the page says so", async ({
+  page,
+  request,
+}) => {
+  const me = freshLogin("syncer");
+  await page.goto("/account/apps/");
+  await page.getByRole("link", { name: "Sign in with GitHub" }).click();
+  await continueAs(page, me);
+  await expect(page).toHaveURL("/account/apps/");
+  await page.getByLabel("Name").fill("SkyBlock mod");
+  await page.getByRole("button", { name: "Make token" }).click();
+  const token =
+    (
+      await page.getByTestId("new-token").locator("[data-token]").textContent()
+    )?.trim() ?? "";
+
+  const synced = await request.post(
+    "/api/v1/skyblock/me/profiles/1f2e3d4c-5b6a-7980-1a2b-3c4d5e6f7a8b/sync",
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      data: {
+        name: "Apple",
+        levels: [{ id: "SHARD_TIAMAT", level: 7 }],
+        held: [{ id: "SHARD_GROVE", count: 12 }],
+      },
+    },
+  );
+  expect(synced.status()).toBe(200);
+  const answer = (await synced.json()) as {
+    profile: { name: string; active: boolean };
+  };
+  // The account had no profile yet: this one is it, and it's shown.
+  expect(answer.profile).toMatchObject({ name: "Apple", active: true });
+
+  await page.goto("/tools/skyblock/collection/");
+  await hydrated(page);
+  await expect(page.locator("[data-sync-summary]")).toContainText(
+    "Synced from the game by SkyBlock mod",
+  );
+  await page.locator("[data-sync-summary] summary").click();
+  await expect(page.locator("[data-sync-summary]")).toContainText(
+    "Tiamat 0 → 7",
+  );
+  await page.getByLabel("Find a shard").fill("tiamat");
+  await expect(
+    page
+      .locator('[data-testid="collection-row"][data-shard="SHARD_TIAMAT"]')
+      .getByLabel("Tiamat: level"),
+  ).toHaveValue("7");
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze();
+  expect(violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+});

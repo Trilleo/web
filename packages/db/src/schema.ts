@@ -3425,6 +3425,41 @@ export const sbProfiles = pgTable(
 );
 
 /**
+ * Each sync from the game into a SkyBlock profile (the API's sync route): what came
+ * in and what it changed, for the collection page's "recent syncs" and progress over
+ * time. `syncKey` (the program's own ID for the sync) makes resending harmless: a
+ * second sync with the same key answers `answer` again. Purged after a while
+ * (SYNC_LOG_LIMITS in apps/web/src/lib/skyblock/sync-log.ts).
+ */
+export const sbSyncLog = pgTable(
+  "sb_sync_log",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    profileId: integer("profile_id")
+      .notNull()
+      .references(() => sbProfiles.id, { onDelete: "cascade" }),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+    /** When the game was read, as the program said (else `at`). */
+    capturedAt: timestamp("captured_at", { withTimezone: true }).notNull(),
+    /** The token's name (the program), or what it called itself. */
+    source: text("source").notNull(),
+    /** "replace" or "merge". */
+    mode: text("mode").notNull(),
+    syncKey: text("sync_key"),
+    /** { levels: [{ id, from, to }], held: [...], unknownIds: [] } */
+    changes: jsonb("changes").notNull(),
+    /** Progress after the sync: maxed, levels, leftToMax, shards. */
+    progress: jsonb("progress").notNull(),
+    /** The API's answer, sent again for a repeated syncKey. */
+    answer: jsonb("answer").notNull(),
+  },
+  (table) => [
+    index("sb_sync_log_profile_idx").on(table.profileId, table.at),
+    uniqueIndex("sb_sync_log_key_idx").on(table.profileId, table.syncKey),
+  ],
+);
+
+/**
  * The human check's mode (one row, id 1): "normal", "raised" or "attack", until a
  * time or (null) until changed. `setBy` is "admin", or "auto" when a flood raised it.
  */
@@ -3559,3 +3594,4 @@ export type SbSync = typeof sbSyncs.$inferSelect;
 export type SbBazaar = typeof sbBazaar.$inferSelect;
 export type SbPriceHistory = typeof sbPriceHistory.$inferSelect;
 export type SbProfile = typeof sbProfiles.$inferSelect;
+export type SbSyncLogRow = typeof sbSyncLog.$inferSelect;

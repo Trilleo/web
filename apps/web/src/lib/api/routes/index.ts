@@ -32,6 +32,13 @@ import {
   getSkyblockPrices,
   listSkyblockShards,
 } from "./skyblock";
+import {
+  getSkyblockCollection,
+  listSkyblockProfiles,
+  listSkyblockSyncs,
+  putSkyblockProfile,
+  syncSkyblockProfile,
+} from "./skyblock-sync";
 import { getStudySubject, listStudySubjects } from "./study";
 import { getMe, getMyUsage, getStatus } from "./system";
 
@@ -57,6 +64,11 @@ export const ROUTES: readonly Route[] = [
   finishDevice,
   getAccount,
   revokeOwnToken,
+  listSkyblockProfiles,
+  putSkyblockProfile,
+  syncSkyblockProfile,
+  getSkyblockCollection,
+  listSkyblockSyncs,
   getCrypticToday,
   getCrypticDay,
   listCrypticArchive,

@@ -52,6 +52,11 @@ export const API_GROUPS = {
     intro:
       "Acting for one account with its personal token, and linking a device to get that token (see Personal tokens). Made for programs like game mods that sync someone's progress to their account.",
   },
+  "skyblock-sync": {
+    title: "SkyBlock sync",
+    intro:
+      "Someone's Hypixel SkyBlock profiles and shard collection, read and updated with their personal token (scope `skyblock:sync`): what a mod sends after reading attribute levels and the Hunting Box in game. See the SkyBlock sync guide.",
+  },
   cryptic: {
     title: "Daily cryptic",
     intro:

@@ -5,6 +5,7 @@
  * fortune bonuses, taxes, counts), so they follow when those change; what it says
  * about the game in words is kept true by hand. The same for everyone.
  */
+import { apiOrigin } from "../../../lib/api/host";
 import {
   MAX_ATTRIBUTE_LEVEL,
   PROFILE_LIMITS,
@@ -295,7 +296,13 @@ const scrollRegion = {
         SkyBlock profiles: add them on the <a href={PROFILES_PATH}>profiles</a>{" "}
         page (up to {PROFILE_LIMITS.perUser}, starting empty or with another
         profile’s setup), and pick one at the top of the collection, calculator
-        and planner. Signed out, this browser keeps one.
+        and planner. Signed out, this browser keeps one. A mod can keep them up
+        to date from the game, sending your attribute levels and Hunting Box per
+        profile (for mod authors: the API’s{" "}
+        <a href={`${apiOrigin(Astro.url)}/docs/skyblock-sync/`}>
+          SkyBlock sync
+        </a>{" "}
+        guide); the collection page shows the latest syncs.
       </p>
       <h3>Fusion profits</h3>
       <p>

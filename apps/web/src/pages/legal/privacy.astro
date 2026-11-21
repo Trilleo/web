@@ -1,5 +1,6 @@
 ---
 import { DEVICE_LIMITS } from "../../lib/api/limits";
+import { SYNC_LOG_LIMITS } from "../../lib/skyblock/game-sync";
 import { CHECK_LIMITS } from "../../lib/captcha/checker";
 import { BUILD_LIMITS } from "../../lib/chunithm/limits";
 import { AVATAR_MAX_BYTES } from "../../lib/profile/avatar";
@@ -254,8 +255,9 @@ const ticketHours = TICKET_LIMITS.maxAgeMs / 3_600_000;
           checklist, your SkyBlock collection (attribute levels and shards you
           hold) and the hunting planner’s list, one set per SkyBlock profile you
           add, each with its name and, once synced from the game, its Hypixel
-          profile ID, Minecraft UUID and game mode) and game saves, Bazaar
-          orders and trades
+          profile ID, Minecraft UUID and game mode, and a log of each sync from
+          the game: when, from which program, and what changed) and game saves,
+          Bazaar orders and trades
         </td>
         <td>You use a tool or play while signed in</td>
         <td>
@@ -625,6 +627,10 @@ const ticketHours = TICKET_LIMITS.maxAgeMs / 3_600_000;
       stop the same file being uploaded again.
     </li>
     <li>Contact messages: at most {CONTACT_RETENTION_DAYS} days.</li>
+    <li>
+      SkyBlock syncs from the game: {SYNC_LOG_LIMITS.days} days (at most the
+      latest {SYNC_LOG_LIMITS.perProfile} per profile).
+    </li>
     <li>
       The security log: {SECURITY_LOG_DAYS} days. Passkeys and personal tokens:
       until you remove or revoke them, or delete your account (a revoked token’s

@@ -12,6 +12,7 @@ import {
   errorsMarkdown,
   overviewMarkdown,
   personalTokensMarkdown,
+  skyblockSyncMarkdown,
   rateLimitsMarkdown,
   versioningMarkdown,
 } from "./guides";
@@ -46,6 +47,14 @@ const GUIDES: readonly DocPage[] = [
       "Acting for one person's account: linking a device (for game mods and other installed programs), tokens made by hand, scopes and unlinking.",
     section: "guide",
     markdown: (context) => personalTokensMarkdown(context),
+  },
+  {
+    path: "/docs/skyblock-sync/",
+    title: "SkyBlock sync",
+    description:
+      "For mods: sending someone's Hypixel SkyBlock attribute levels and Hunting Box to their collection on the site, per profile.",
+    section: "guide",
+    markdown: (context) => skyblockSyncMarkdown(context),
   },
   {
     path: "/docs/conventions/",

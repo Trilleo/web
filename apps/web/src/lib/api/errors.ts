@@ -99,6 +99,11 @@ export const ERROR_CODES = {
     description:
       "The guess hasn't got the answer's number of letters, so it wasn't counted as a try. `details.letters` is how many the answer has, `details.got` how many the guess had (only letters count).",
   },
+  profile_limit: {
+    status: 409,
+    description:
+      "SkyBlock sync: the account already has as many SkyBlock profiles as it may (`details.limit`), so a new one can't be made. The person can delete one on the site's profiles page.",
+  },
   prices_unavailable: {
     status: 503,
     description:

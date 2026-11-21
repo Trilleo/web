@@ -14,6 +14,8 @@ import {
 import ProfileSwitcher from "../../../components/skyblock/ProfileSwitcher.astro";
 import SkyblockLayout from "../../../components/skyblock/SkyblockLayout.astro";
 import { pageData } from "../../../lib/skyblock/profiles";
+import { recentSyncs } from "../../../lib/skyblock/game-sync";
+import SyncSummary from "../../../components/skyblock/SyncSummary.astro";
 import { getDb } from "../../../lib/db";
 import { shardData } from "../../../lib/skyblock/data";
 import { collectionShards } from "../../../lib/skyblock/public";
@@ -30,6 +32,9 @@ const data = await shardData(db, getStorage());
 const shards = collectionShards(data);
 const { user } = Astro.locals;
 const { profiles, initialSaved, prefix } = await pageData(db, user);
+const syncs = profiles?.active.lastSyncedAt
+  ? await recentSyncs(db, profiles.active.id)
+  : [];
 const description =
   "Your Hypixel SkyBlock shards: each attribute's level and the shards you hold, with what's left to max. The calculator and hunting planner use it.";
 ---
@@ -53,6 +58,7 @@ const description =
       back={Astro.url.pathname + Astro.url.search}
       signInHref={signInHref(Astro.url.pathname + Astro.url.search)}
     />
+    {profiles && <SyncSummary profile={profiles.active} syncs={syncs} />}
   </div>
   <Collection
     client:load

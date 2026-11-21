@@ -1,0 +1,77 @@
+---
+/**
+ * The active profile's latest syncs from the game (lib/skyblock/game-sync.ts), under
+ * the collection page's heading: when and from what, and what each changed. Nothing
+ * when the profile was never synced.
+ */
+import type { SbProfile } from "@trilleo/db";
+import type { SyncSummary as Sync } from "../../lib/skyblock/game-sync";
+
+interface Props {
+  profile: SbProfile;
+  syncs: Sync[];
+}
+
+const { profile, syncs } = Astro.props;
+const latest = syncs[0];
+const dateTime = new Intl.DateTimeFormat("en-GB", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "UTC",
+});
+const changeText = (change: { name: string; from: number; to: number }) =>
+  `${change.name} ${String(change.from)} → ${String(change.to)}`;
+const summary = (sync: Sync) => {
+  const parts: string[] = [];
+  if (sync.levels.length > 0)
+    parts.push(
+      `${String(sync.levels.length)} ${sync.levels.length === 1 ? "level" : "levels"}`,
+    );
+  if (sync.held.length > 0) parts.push(`${String(sync.held.length)} held`);
+  return parts.length === 0 ? "no changes" : `${parts.join(", ")} changed`;
+};
+---
+
+{profile.lastSyncedAt && latest && (
+  <details
+    class="col-span-4 border-l-2 border-accent pl-4 md:col-span-6 xl:col-span-9"
+    data-sync-summary
+  >
+    <summary class="cursor-pointer">
+      Synced from the game by {latest.source},{" "}
+      <time datetime={latest.at.toISOString()}>
+        {dateTime.format(latest.at)} UTC
+      </time>
+      : {summary(latest)}.
+    </summary>
+    <ol class="mt-3 flex flex-col gap-3 text-sm">
+      {syncs.map((sync) => (
+        <li class="flex flex-col gap-1">
+          <span class="type-label text-muted">
+            <time datetime={sync.at.toISOString()}>
+              {dateTime.format(sync.at)} UTC
+            </time>
+            {" · "}
+            {sync.source} · {sync.progress.maxed} maxed
+          </span>
+          <span>
+            {sync.levels.length === 0 && sync.held.length === 0
+              ? "No changes."
+              : [
+                  ...sync.levels.map(changeText),
+                  ...sync.held.map((change) => `${changeText(change)} held`),
+                ].join(", ")}
+          </span>
+          {sync.unknownIds.length > 0 && (
+            <span class="text-muted">
+              Not on the site yet: {sync.unknownIds.join(", ")}.
+            </span>
+          )}
+        </li>
+      ))}
+    </ol>
+    <p class="mt-3 text-sm text-muted">
+      Changes made here stay until the next sync sends that shard again.
+    </p>
+  </details>
+)}

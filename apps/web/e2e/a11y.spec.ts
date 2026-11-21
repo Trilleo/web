@@ -91,6 +91,8 @@ const PAGES = [
   "api:/docs/webhooks/",
   "api:/docs/personal-tokens/",
   "api:/reference/account/",
+  "api:/docs/skyblock-sync/",
+  "api:/reference/skyblock-sync/",
   "api:/reference/system/",
   "api:/reference/cryptic/",
   "api:/reference/minecraft/",

@@ -162,6 +162,7 @@ describe("openDatabase", () => {
       "sb_icons",
       "sb_price_history",
       "sb_profiles",
+      "sb_sync_log",
       "sb_syncs",
       "security_events",
       "sessions",
