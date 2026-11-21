@@ -2,11 +2,12 @@ import {
   KUUDRA,
   KUUDRA_TIERS,
   LEVEL_SHARDS,
+  BAZAAR_TAXES,
   LIMITS,
   type CalcSettings,
   type KuudraTier,
 } from "@trilleo/skyblock/calc";
-import { Field, fieldClasses } from "@trilleo/ui";
+import { Choice, Field, fieldClasses } from "@trilleo/ui";
 import { useId } from "react";
 import type { ShardOption } from "./types";
 
@@ -100,15 +101,87 @@ function Toggle({
 export interface SetupProps {
   settings: CalcSettings;
   shards: ShardOption[];
+  /** When the server last fetched Bazaar prices (ISO); null: none yet. */
+  pricesAt: string | null;
   onChange: (change: Partial<CalcSettings>) => void;
 }
 
 /** Everything about the player that changes the result. */
-export function Setup({ settings, shards, onChange }: SetupProps) {
+export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
   const nameOf = (id: string) =>
     shards.find((shard) => shard.id === id)?.name ?? id;
   return (
     <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-3">
+        <Choice
+          legend="Count the cost in"
+          value={settings.mode}
+          options={[
+            { value: "time", label: "Hours (hunt everything)" },
+            {
+              value: "coins",
+              label: "Coins (buy from the Bazaar)",
+              disabled: pricesAt === null && settings.mode !== "coins",
+            },
+          ]}
+          onChange={(mode) => {
+            onChange({ mode });
+          }}
+        />
+        <p className="text-sm text-muted" data-testid="calc-prices-at">
+          {pricesAt
+            ? `Bazaar prices from ${new Date(pricesAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}, fetched by this site every 5 minutes.`
+            : "Bazaar prices haven't loaded yet, so coins can't be counted."}
+        </p>
+      </div>
+
+      {settings.mode === "coins" && (
+        <div
+          className="grid grid-cols-1 gap-4 md:grid-cols-3"
+          data-testid="calc-coin-setup"
+        >
+          <Toggle
+            label="Instant buy"
+            hint="Pay the lowest sell offer now, rather than the top buy order (cheaper, but you wait)."
+            checked={settings.instantBuy}
+            onChange={(instantBuy) => {
+              onChange({ instantBuy });
+            }}
+          />
+          <NumberField
+            label="Coins per fusion"
+            hint="What each fusion costs you, counted in the total. 0 to leave it out."
+            value={settings.fusionCoins}
+            min={0}
+            max={LIMITS.coins}
+            onChange={(value) => {
+              onChange({ fusionCoins: value ?? 0 });
+            }}
+          />
+          <Field
+            label="Bazaar tax"
+            hint="On what you sell: less with the Bazaar Flipper upgrades."
+          >
+            {(props) => (
+              <select
+                {...props}
+                value={settings.tax}
+                onChange={(event) => {
+                  onChange({ tax: Number(event.target.value) });
+                }}
+                className={`${fieldClasses} h-11 px-2`}
+              >
+                {BAZAAR_TAXES.map((tax) => (
+                  <option key={tax} value={tax}>
+                    {`${String(tax)}%`}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <NumberField
           label="Hunting Fortune"

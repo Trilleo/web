@@ -41,3 +41,21 @@ export async function gzipBase64(
     binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
   return prefix + btoa(binary);
 }
+
+/** Coins as the game writes them: "850", "12.4k", "3.21M", "1.05B". */
+export function formatCoins(coins: number): string {
+  if (!Number.isFinite(coins)) return "can’t be done";
+  const abs = Math.abs(coins);
+  const sign = coins < 0 ? "−" : "";
+  const scaled = (n: number, unit: string) =>
+    `${sign}${n.toLocaleString("en", { maximumFractionDigits: n < 10 ? 2 : n < 100 ? 1 : 0 })}${unit}`;
+  if (abs >= 1e9) return `${scaled(abs / 1e9, "B")} coins`;
+  if (abs >= 1e6) return `${scaled(abs / 1e6, "M")} coins`;
+  if (abs >= 1e4) return `${scaled(abs / 1e3, "k")} coins`;
+  return `${sign}${abs.toLocaleString("en", { maximumFractionDigits: abs < 10 ? 2 : 0 })} coins`;
+}
+
+/** A cost in the plan's own unit: hours, or coins in coin mode. */
+export function formatCost(value: number, mode: "time" | "coins"): string {
+  return mode === "coins" ? formatCoins(value) : formatHours(value);
+}

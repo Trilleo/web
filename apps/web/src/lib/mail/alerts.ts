@@ -46,6 +46,7 @@ export const ALERT_KINDS = {
   "chunithm-update": "CHUNITHM catalog",
   "chunithm-alias": "CHUNITHM name suggested",
   "skyblock-update": "SkyBlock shard data",
+  "skyblock-prices": "SkyBlock prices not loading",
   "captcha-flood": "Bots at the human check",
 } as const;
 export type AlertKind = keyof typeof ALERT_KINDS;

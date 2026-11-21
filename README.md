@@ -169,7 +169,12 @@ level costs, where to hunt it, and every fusion that makes it or uses it. The fu
 calculator (`/tools/skyblock/calculator/`) works out the fastest way to make any shard
 from your fortune, attribute levels and hunting rates: the tree (choose other recipes),
 a checklist, a time breakdown, comparisons and exports for the SkyOcean, NoFrills and
-SkyHanni mods. It solves in a Web Worker on a port of SkyShards' engine
+SkyHanni mods. It counts in hours (hunting everything) or coins (buying from the Bazaar).
+Fusion profits (`/tools/skyblock/profits/`) lists shards that sell for more than their
+cheapest route costs, and the shards whose prices moved most. Prices come from Hypixel's
+public Bazaar endpoint (no key), fetched by the server every 5 minutes and kept hourly for
+90 days (`apps/web/src/lib/skyblock/bazaar.ts`); shard pages chart them, and the API serves
+them (`/v1/skyblock/prices`). `SKYBLOCK_BAZAAR=off` keeps `pnpm dev` from fetching. It solves in a Web Worker on a port of SkyShards' engine
 (`packages/skyblock/src/calc/`). The data is
 SkyShards' (MIT): the server reads its GitHub repository every 6 hours, downloading only
 files that changed, and copies new shard icons into storage (`apps/web/src/lib/skyblock/`,

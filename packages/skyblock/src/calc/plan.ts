@@ -50,12 +50,12 @@ export interface Plan {
   /** Every fusion, loops included. */
   crafts: number;
   /** Hours spent fusing (crafts × the setting). */
-  fusionHours: number;
+  fusionCost: number;
   /** Shards to hunt, by index, and how many. */
   hunt: Map<number, number>;
-  /** Hunting plus fusing, in hours. */
-  hours: number;
-  hoursPerShard: number;
+  /** Hunting (or buying) plus fusing: hours, or coins in coin mode. */
+  cost: number;
+  costPerShard: number;
 }
 
 const INTEGER_EPSILON = 1e-12;
@@ -278,11 +278,11 @@ export function treeStats(node: PlanNode): {
 }
 
 /** Hours to hunt these shards. */
-export function huntingHours(graph: Graph, hunt: Map<number, number>): number {
-  let hours = 0;
+export function directTotal(graph: Graph, hunt: Map<number, number>): number {
+  let total = 0;
   for (const [shard, quantity] of hunt)
-    hours += directCost(graph, shard) * quantity;
-  return hours;
+    total += directCost(graph, shard) * quantity;
+  return total;
 }
 
 /** The whole plan for `quantity` of `target`, from solved choices. */
@@ -298,7 +298,7 @@ export function planFrom(
   const tree = buildTree(graph, target, solved.choice, cycles, settings);
   assignQuantities(graph, tree, quantity, { total: 0 }, mult.crocodile);
   const { crafts, hunt } = treeStats(tree);
-  const fusionHours = crafts * mult.fusionHours;
+  const fusionCost = crafts * mult.fusionCost;
   const last = solved.choice[target];
   const produced = last
     ? snapToInteger(
@@ -306,17 +306,17 @@ export function planFrom(
           effectiveOutput(last, mult.crocodile),
       )
     : quantity;
-  const hours = huntingHours(graph, hunt) + fusionHours;
+  const cost = directTotal(graph, hunt) + fusionCost;
   return {
     target,
     quantity,
     produced,
     tree,
     crafts,
-    fusionHours,
+    fusionCost,
     hunt,
-    hours,
-    hoursPerShard: hours / produced,
+    cost,
+    costPerShard: cost / produced,
   };
 }
 

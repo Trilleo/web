@@ -24,6 +24,7 @@ import {
   type ModFormat,
   type Overrides,
   type PlanNode,
+  type PriceTable,
   type Solved,
 } from "@trilleo/skyblock/calc";
 import type { Rarity } from "@trilleo/skyblock";
@@ -55,7 +56,7 @@ export interface RecipeView {
 }
 
 export type NodeView =
-  | { kind: "hunt"; shard: string; quantity: number; hours: number }
+  | { kind: "hunt"; shard: string; quantity: number; cost: number }
   | {
       kind: "fuse";
       shard: string;
@@ -97,16 +98,20 @@ export type StepView =
 
 export interface PlanView {
   version: string;
+  /** "time": costs in hours; "coins": in coins. */
+  mode: CalcSettings["mode"];
+  /** The target's Bazaar prices (coin mode), to show what it sells for. */
+  market: { ask: number | null; bid: number | null } | null;
   target: string;
   quantity: number;
   produced: number;
   crafts: number;
-  fusionHours: number;
-  hours: number;
-  hoursPerShard: number;
+  fusionCost: number;
+  cost: number;
+  costPerShard: number;
   tree: NodeView;
   /** What to hunt, longest first. */
-  hunt: { shard: string; quantity: number; hours: number }[];
+  hunt: { shard: string; quantity: number; cost: number }[];
   steps: StepView[];
   /** Saved choices the data no longer has. */
   stale: ChosenRecipe[];
@@ -122,7 +127,7 @@ export interface AlternativesView {
   total: number;
   options: {
     recipe: RecipeView | null;
-    hoursPerShard: number;
+    costPerShard: number;
     current: boolean;
   }[];
   shards: Record<string, ShardInfo>;
@@ -141,21 +146,40 @@ export class CalcEngine {
     stale: ChosenRecipe[];
   } | null = null;
 
+  /** The Bazaar's prices, for coin mode, and when they were fetched. */
+  private prices: PriceTable | null = null;
+  private pricesAt = "";
+
   constructor(private deck: Deck) {}
+
+  setPrices(prices: PriceTable | null, fetchedAt: string): void {
+    this.prices = prices;
+    this.pricesAt = fetchedAt;
+  }
 
   get version(): string {
     return this.deck.version;
   }
 
   private graph(settings: CalcSettings): Graph {
-    const key = JSON.stringify(settings);
+    const key = JSON.stringify([
+      settings,
+      settings.mode === "coins" ? this.pricesAt : "",
+    ]);
     if (this.graphMemo?.key !== key)
-      this.graphMemo = { key, graph: buildGraph(this.deck, settings) };
+      this.graphMemo = {
+        key,
+        graph: buildGraph(this.deck, settings, this.prices),
+      };
     return this.graphMemo.graph;
   }
 
   private solved(graph: Graph, settings: CalcSettings, chosen: ChosenRecipe[]) {
-    const key = JSON.stringify([settings, chosen]);
+    const key = JSON.stringify([
+      settings,
+      chosen,
+      settings.mode === "coins" ? this.pricesAt : "",
+    ]);
     if (this.solvedMemo?.key !== key) {
       const { overrides, stale } = toOverrides(graph, chosen);
       const solved = solve(graph, settings, overrides);
@@ -219,7 +243,7 @@ export class CalcEngine {
           kind: "hunt",
           shard: id(node.shard),
           quantity: node.quantity,
-          hours: directCost(graph, node.shard) * node.quantity,
+          cost: directCost(graph, node.shard) * node.quantity,
         };
       if (node.kind === "fuse")
         return {
@@ -250,9 +274,9 @@ export class CalcEngine {
       .map(([index, quantity]) => ({
         shard: id(index),
         quantity,
-        hours: directCost(graph, index) * quantity,
+        cost: directCost(graph, index) * quantity,
       }))
-      .sort((a, b) => b.hours - a.hours);
+      .sort((a, b) => b.cost - a.cost);
     const steps: StepView[] = fusionSteps(graph, result).map((step) =>
       step.kind === "fuse"
         ? {
@@ -277,13 +301,20 @@ export class CalcEngine {
     );
     return {
       version: this.deck.version,
+      mode: request.settings.mode,
+      market: this.prices?.[request.target]
+        ? {
+            ask: this.prices[request.target]?.ask ?? null,
+            bid: this.prices[request.target]?.bid ?? null,
+          }
+        : null,
       target: request.target,
       quantity: request.quantity,
       produced: result.produced,
       crafts: result.crafts,
-      fusionHours: result.fusionHours,
-      hours: result.hours,
-      hoursPerShard: result.hoursPerShard,
+      fusionCost: result.fusionCost,
+      cost: result.cost,
+      costPerShard: result.costPerShard,
       tree,
       hunt,
       steps,
@@ -322,7 +353,7 @@ export class CalcEngine {
       shard: shardId,
       total: recipes.length,
       options: [...shown, ...(hunting ? [hunting] : [])]
-        .sort((a, b) => a.hoursPerShard - b.hoursPerShard)
+        .sort((a, b) => a.costPerShard - b.costPerShard)
         .map((option) => ({
           recipe: option.recipe
             ? {
@@ -332,7 +363,7 @@ export class CalcEngine {
                 reptile: option.recipe.reptile,
               }
             : null,
-          hoursPerShard: option.hoursPerShard,
+          costPerShard: option.costPerShard,
           current: option.current,
         })),
       shards,

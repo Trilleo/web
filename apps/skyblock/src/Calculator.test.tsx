@@ -29,8 +29,34 @@ const shards: ShardOption[] = dataset.shards.map((shard) => {
     rate: shard.rate,
   };
 });
-const deckFetch: typeof fetch = () =>
-  Promise.resolve(new Response(JSON.stringify(deck)));
+/** Prices the fake server answers with (null: it has none yet). */
+let bazaar: Record<
+  string,
+  {
+    ask: number | null;
+    bid: number | null;
+    boughtWeek: number;
+    soldWeek: number;
+  }
+> | null = null;
+const deckFetch: typeof fetch = (input) => {
+  const url =
+    typeof input === "string"
+      ? input
+      : input instanceof URL
+        ? input.href
+        : input.url;
+  if (url.includes("prices"))
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          fetchedAt: bazaar ? "2026-11-21T08:00:00.000Z" : null,
+          prices: bazaar,
+        }),
+      ),
+    );
+  return Promise.resolve(new Response(JSON.stringify(deck)));
+};
 const STORE = "trilleo:tool:skyblock";
 
 const stored = () =>
@@ -57,6 +83,7 @@ function renderCalculator(
 }
 
 beforeEach(() => {
+  bazaar = null;
   localStorage.clear();
   window.history.replaceState(null, "", "/tools/skyblock/calculator/");
 });
@@ -207,5 +234,53 @@ describe("Calculator", () => {
     );
     renderCalculator();
     expect(await screen.findByTestId("calc-impossible")).toBeTruthy();
+  });
+
+  it("counts coins from the Bazaar, with what the shards sell for", async () => {
+    bazaar = {
+      SHARD_PHANPYRE: { ask: 120, bid: 100, boughtWeek: 9, soldWeek: 9 },
+      SHARD_SEA_ARCHER: { ask: 60, bid: 50, boughtWeek: 9, soldWeek: 9 },
+      SHARD_GROVE: { ask: 450, bid: 400, boughtWeek: 9, soldWeek: 9 },
+    };
+    renderCalculator();
+    await summary();
+    const coins = await screen.findByRole("radio", {
+      name: "Coins (buy from the Bazaar)",
+    });
+    await waitFor(() => {
+      expect((coins as HTMLInputElement).disabled).toBe(false);
+    });
+    fireEvent.click(coins);
+    // 4 Grove: 2 fusions of 5 Phanpyre (100) + 2 Bogged (50).
+    await waitFor(() => {
+      expect(
+        within(screen.getByTestId("calc-summary")).getByText("1,200 coins"),
+      ).toBeTruthy();
+    });
+    const box = screen.getByTestId("calc-summary");
+    expect(within(box).getByText("Sell instantly")).toBeTruthy();
+    expect(
+      within(box).getByText(/Profit 380 coins, after 1.25% tax/),
+    ).toBeTruthy();
+    expect(screen.getByTestId("calc-prices")).toBeTruthy();
+    expect(screen.getByTestId("calc-tree").textContent).toContain("Buy");
+    fireEvent.click(screen.getByLabelText("Instant buy"));
+    await waitFor(() => {
+      expect(
+        within(screen.getByTestId("calc-summary")).getByText("1,440 coins"),
+      ).toBeTruthy();
+    });
+  });
+
+  it("keeps coins off until there are prices", async () => {
+    renderCalculator();
+    await summary();
+    const coins = screen.getByRole("radio", {
+      name: "Coins (buy from the Bazaar)",
+    });
+    expect((coins as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByTestId("calc-prices-at").textContent).toMatch(
+      /haven.t loaded/,
+    );
   });
 });

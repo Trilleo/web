@@ -11,6 +11,13 @@ export interface ChangelogEntry {
 
 export const API_CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: "2026-11-21",
+    changes: [
+      "Hypixel SkyBlock, no key needed: `GET /v1/skyblock/shards`, `/v1/skyblock/prices` (the Bazaar's latest, fetched by the site every 5 minutes) and `/v1/skyblock/shards/{slug}/prices` (hourly history, `range` 24h, 7d, 30d or 90d).",
+      "Error code `prices_unavailable` (503): the site hasn't got the Bazaar's prices yet.",
+    ],
+  },
+  {
     date: "2026-10-23",
     changes: [
       "Public read routes, no key needed: `GET /v1/site`, `/v1/tools`, `/v1/games`, `/v1/posts`, `/v1/posts/{slug}`, `/v1/tags`, `/v1/study/subjects`, `/v1/study/subjects/{slug}`.",

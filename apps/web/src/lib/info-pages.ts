@@ -404,7 +404,7 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-11-20",
-        note: "The Hypixel SkyBlock tool: Hypixel's shard icons and SkyShards' data.",
+        note: "The Hypixel SkyBlock tool: Hypixel's shard icons, SkyShards' data and Hypixel's Bazaar prices.",
       },
       {
         date: "2026-10-23",

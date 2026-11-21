@@ -6,7 +6,7 @@ export const meta: ToolMeta = {
   slug: "skyblock",
   name: "Hypixel SkyBlock",
   description:
-    "Utilities for Hypixel SkyBlock: every shard and its fusions, and a calculator for the fastest way to make one.",
+    "Utilities for Hypixel SkyBlock: every shard and its fusions, a calculator for the fastest or cheapest way to make one, and Bazaar profits.",
   status: "in-progress",
   icon: "skyblock",
   // The fusion calculator's setup, chosen recipes and checklist (tool data).
@@ -17,6 +17,7 @@ export const meta: ToolMeta = {
 export const SKYBLOCK_PATH = "/tools/skyblock/";
 export const SHARDS_PATH = "/tools/skyblock/shards/";
 export const CALCULATOR_PATH = "/tools/skyblock/calculator/";
+export const PROFITS_PATH = "/tools/skyblock/profits/";
 
 /** The calculator, opened on a shard. */
 export function calculatorPath(slug: string, quantity?: number): string {
@@ -51,8 +52,8 @@ export const UTILITIES: readonly Utility[] = [
   {
     name: "Fusion profits",
     description:
-      "Fusions that sell for more on the Bazaar than their shards cost.",
-    href: null,
+      "Fusions that sell for more on the Bazaar than their shards cost, and the shards whose prices moved most.",
+    href: PROFITS_PATH,
   },
   {
     name: "Collection",

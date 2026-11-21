@@ -3,12 +3,15 @@
  * otherwise the same host on this thread. Requests are answered in order; a plan asked
  * for while another runs replaces it, so only the newest settings are solved.
  */
+import type { PriceTable } from "@trilleo/skyblock/calc";
 import type { AlternativesView, PlanRequest, PlanView } from "./engine";
 import { CalcHost } from "./host";
 import type { WorkerRequest, WorkerResponse } from "./protocol";
 
 /** Where the calculator's data comes from (src/pages/api/skyblock/deck.json.ts). */
 export const DECK_URL = "/api/skyblock/deck.json";
+/** The Bazaar prices the server keeps (src/pages/api/skyblock/prices.json.ts). */
+export const PRICES_URL = "/api/skyblock/prices.json";
 
 interface Pending {
   resolve: (response: WorkerResponse) => void;
@@ -77,6 +80,20 @@ export class CalcClient {
   async load(url = DECK_URL): Promise<string> {
     return CalcClient.unwrap(await this.send({ type: "load", url }), "load")
       .version;
+  }
+
+  /**
+   * Loads the Bazaar prices into the engine; resolves to them and when the server
+   * fetched them (null: none yet).
+   */
+  async loadPrices(
+    url = PRICES_URL,
+  ): Promise<{ fetchedAt: string | null; prices: PriceTable | null }> {
+    const { fetchedAt, prices } = CalcClient.unwrap(
+      await this.send({ type: "prices", url }),
+      "prices",
+    );
+    return { fetchedAt, prices };
   }
 
   /**

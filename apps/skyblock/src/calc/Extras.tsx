@@ -6,7 +6,7 @@ import {
 } from "@trilleo/skyblock/calc";
 import { useEffect, useState } from "react";
 import type { PlanView } from "./engine";
-import { formatHours, formatNumber, gzipBase64 } from "./format";
+import { formatCost, formatNumber, gzipBase64 } from "./format";
 import { ShardName } from "./PlanTree";
 
 /** Shards shown in the breakdown before the rest are summed as "Other". */
@@ -14,29 +14,29 @@ const BREAKDOWN_SHOWN = 5;
 /** Ink strengths for the bar's hunting parts (the accent is fusing). */
 const SHADES = ["bg-ink", "bg-ink/70", "bg-ink/50", "bg-ink/35", "bg-ink/20"];
 
-/** Where the hours go: the shards that take longest to hunt, then fusing. */
+/** Where the time (or coins) goes: the dearest shards to get, then fusing. */
 export function Breakdown({ plan }: { plan: PlanView }) {
-  if (!(plan.hours > 0) || !Number.isFinite(plan.hours)) return null;
+  if (!(plan.cost > 0) || !Number.isFinite(plan.cost)) return null;
   const top = plan.hunt.slice(0, BREAKDOWN_SHOWN);
   const rest = plan.hunt
     .slice(BREAKDOWN_SHOWN)
-    .reduce((sum, item) => sum + item.hours, 0);
+    .reduce((sum, item) => sum + item.cost, 0);
   const parts = [
     ...top.map((item, i) => ({
       key: item.shard,
       label: plan.shards[item.shard]?.name ?? item.shard,
-      hours: item.hours,
+      cost: item.cost,
       shade: SHADES[i] ?? "bg-ink/20",
     })),
     ...(rest > 0
-      ? [{ key: "other", label: "Other shards", hours: rest, shade: "bg-chip" }]
+      ? [{ key: "other", label: "Other shards", cost: rest, shade: "bg-chip" }]
       : []),
-    ...(plan.fusionHours > 0
+    ...(plan.fusionCost > 0
       ? [
           {
             key: "fusing",
             label: "Fusing",
-            hours: plan.fusionHours,
+            cost: plan.fusionCost,
             shade: "bg-accent",
           },
         ]
@@ -52,7 +52,7 @@ export function Breakdown({ plan }: { plan: PlanView }) {
           <div
             key={part.key}
             className={part.shade}
-            style={{ width: `${String((part.hours / plan.hours) * 100)}%` }}
+            style={{ width: `${String((part.cost / plan.cost) * 100)}%` }}
           />
         ))}
       </div>
@@ -65,8 +65,8 @@ export function Breakdown({ plan }: { plan: PlanView }) {
             />
             <span className="min-w-0 flex-1">{part.label}</span>
             <span className="text-muted tabular-nums">
-              {formatHours(part.hours)} ·{" "}
-              {formatNumber((part.hours / plan.hours) * 100, 0)}%
+              {formatCost(part.cost, plan.mode)} ·{" "}
+              {formatNumber((part.cost / plan.cost) * 100, 0)}%
             </span>
           </li>
         ))}
@@ -91,7 +91,9 @@ export function Checklist({ plan, done, onToggle, onClear }: ChecklistProps) {
       id: huntId(item.shard),
       content: (
         <>
-          <span className="type-label text-muted">Hunt</span>{" "}
+          <span className="type-label text-muted">
+            {plan.mode === "coins" ? "Buy" : "Hunt"}
+          </span>{" "}
           <ShardName shard={plan.shards[item.shard]} quantity={item.quantity} />
         </>
       ),
@@ -181,11 +183,15 @@ export function Compare({
   onUnpin: () => void;
 }) {
   const rows: [string, string, string][] = [
-    ["Time", formatHours(pinned.hours), formatHours(plan.hours)],
+    [
+      plan.mode === "coins" ? "Cost" : "Time",
+      formatCost(pinned.cost, pinned.mode),
+      formatCost(plan.cost, plan.mode),
+    ],
     [
       "Per shard",
-      formatHours(pinned.hoursPerShard),
-      formatHours(plan.hoursPerShard),
+      formatCost(pinned.costPerShard, pinned.mode),
+      formatCost(plan.costPerShard, plan.mode),
     ],
     ["Fusions", formatNumber(pinned.crafts), formatNumber(plan.crafts)],
     [
@@ -263,7 +269,7 @@ export function Compare({
                   scope="row"
                   className="border-b border-hair py-2 pr-4 font-normal"
                 >
-                  Hunt {name(row.id)}
+                  {plan.mode === "coins" ? "Buy" : "Hunt"} {name(row.id)}
                 </th>
                 <td className="border-b border-hair py-2 pr-4 tabular-nums">
                   {formatNumber(row.before)}

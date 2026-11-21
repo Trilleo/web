@@ -1,0 +1,385 @@
+---
+/**
+ * Fusion profits: /tools/skyblock/profits/[?buy=&sell=&tax=&sort=&min=]. Each shard
+ * whose cheapest coin route is a fusion, against what it sells for after tax
+ * (lib/skyblock/profits.ts), and the shards whose prices moved most in a day and a
+ * week. A GET form, so it works without JavaScript; the same for everyone.
+ */
+import { BAZAAR_TAXES } from "@trilleo/skyblock/calc";
+import {
+  PROFITS_PATH,
+  SKYBLOCK_PATH,
+  calculatorPath,
+  meta,
+  shardPath,
+} from "@trilleo/tool-skyblock/meta";
+import { fieldClasses } from "@trilleo/ui/classes";
+import SkyblockLayout from "../../../components/skyblock/SkyblockLayout.astro";
+import { getDb } from "../../../lib/db";
+import { currentPrices } from "../../../lib/skyblock/bazaar";
+import { shardData } from "../../../lib/skyblock/data";
+import {
+  DEFAULT_PROFIT_OPTIONS,
+  MOVER_MIN_VOLUME,
+  fusionProfits,
+  movers,
+  type ProfitRow,
+} from "../../../lib/skyblock/profits";
+import { ogImagePath, toolCard } from "../../../lib/seo";
+import { getStorage } from "../../../lib/storage/config";
+
+export const prerender = false;
+
+/** Rows shown (the rest are counted). */
+const ROWS_SHOWN = 100;
+const SORTS = {
+  profit: { label: "Profit a shard", by: (r: ProfitRow) => r.profit },
+  margin: { label: "Margin", by: (r: ProfitRow) => r.margin },
+  batch: { label: "Profit a batch", by: (r: ProfitRow) => r.batch.profit },
+  volume: { label: "Weekly volume", by: (r: ProfitRow) => r.volume },
+} as const;
+type Sort = keyof typeof SORTS;
+const MIN_VOLUMES = [0, 100, 1000, 10000];
+
+const params = Astro.url.searchParams;
+const options = {
+  instantBuy: params.get("buy") === "instant",
+  instantSell: params.get("sell") === "instant",
+  tax:
+    BAZAAR_TAXES.find((tax) => String(tax) === params.get("tax")) ??
+    DEFAULT_PROFIT_OPTIONS.tax,
+};
+const sortParam = params.get("sort");
+const sort: Sort =
+  sortParam && sortParam in SORTS ? (sortParam as Sort) : "profit";
+const minVolume = MIN_VOLUMES.find((n) => String(n) === params.get("min")) ?? 0;
+
+const db = await getDb();
+const data = await shardData(db, getStorage());
+const prices = await currentPrices(db);
+const all = prices ? fusionProfits(data, prices, options) : [];
+const rows = all
+  .filter((row) => row.volume >= minVolume)
+  .sort((a, b) => SORTS[sort].by(b) - SORTS[sort].by(a));
+const DAY_MS = 24 * 60 * 60 * 1000;
+const moves = prices
+  ? [
+      { label: "Last 24 hours", ...(await movers(db, data, prices, DAY_MS)) },
+      { label: "Last 7 days", ...(await movers(db, data, prices, 7 * DAY_MS)) },
+    ]
+  : [];
+const filtered = params.size > 0;
+
+const coins = (value: number) =>
+  `${value.toLocaleString("en", { maximumFractionDigits: value < 100 ? 1 : 0 })}`;
+const percent = (value: number) =>
+  `${value > 0 ? "+" : ""}${(value * 100).toLocaleString("en", { maximumFractionDigits: 1 })}%`;
+const when = (date: Date) =>
+  date.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+  }) + " UTC";
+const description =
+  "Hypixel SkyBlock shards worth fusing to sell: each one's cheapest route from the Bazaar against its price after tax, and the shards whose prices moved most.";
+/**
+ * The table scrolls sideways on phones, so its box is a labelled region and a tab stop
+ * (axe: scrollable-region-focusable); jsx-a11y only knows interactive roles.
+ */
+const scrollRegion = {
+  role: "region",
+  "aria-label": "Profitable fusions",
+  tabindex: 0,
+} as const;
+const row = "grid-swiss mt-10 gap-y-4 border-t border-ink pt-4 md:pt-5";
+const label = "col-span-4 type-label md:col-span-2";
+const body =
+  "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
+const th = "type-label border-b border-ink py-2 pr-4 font-normal text-muted";
+const td = "border-b border-hair py-2 pr-4 align-middle tabular-nums";
+const select = `${fieldClasses} h-11 px-2`;
+---
+
+<SkyblockLayout
+  title={`Fusion profits · ${meta.name}`}
+  {description}
+  image={ogImagePath(`tools/${meta.slug}`, toolCard(meta))}
+  crumbs={[{ label: "Fusion profits", path: PROFITS_PATH }]}
+  back={{ href: SKYBLOCK_PATH, label: "SkyBlock tools" }}
+  noindex={filtered}
+>
+  <div class="grid-swiss gap-y-4 pb-8 md:pb-10">
+    <h1 class="type-headline col-span-4 md:col-span-6 xl:col-span-9">
+      Fusion profits
+    </h1>
+    <p class="type-dek col-span-4 max-w-[47.5rem] text-muted md:col-span-6 xl:col-span-9">
+      {description}
+    </p>
+  </div>
+
+  {!prices ? (
+    <p class="border-l-2 border-accent pl-4" data-testid="profits-no-prices">
+      The Bazaar’s prices haven’t loaded yet. This site fetches them every 5
+      minutes; try again shortly.
+    </p>
+  ) : (
+    <>
+      <section class={row} aria-labelledby="options-title">
+        <h2 id="options-title" class={label}>
+          <span class="text-muted">(01)</span> How you trade
+        </h2>
+        <form method="get" class={`${body} gap-4`} data-testid="profits-form">
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
+            <label class="flex flex-col gap-1.5">
+              <span class="type-label">Buy inputs with</span>
+              <select name="buy" class={select}>
+                <option value="order" selected={!options.instantBuy}>
+                  Buy orders
+                </option>
+                <option value="instant" selected={options.instantBuy}>
+                  Instant buy
+                </option>
+              </select>
+            </label>
+            <label class="flex flex-col gap-1.5">
+              <span class="type-label">Sell with</span>
+              <select name="sell" class={select}>
+                <option value="offer" selected={!options.instantSell}>
+                  Sell offers
+                </option>
+                <option value="instant" selected={options.instantSell}>
+                  Instant sell
+                </option>
+              </select>
+            </label>
+            <label class="flex flex-col gap-1.5">
+              <span class="type-label">Bazaar tax</span>
+              <select name="tax" class={select}>
+                {BAZAAR_TAXES.map((tax) => (
+                  <option value={String(tax)} selected={tax === options.tax}>
+                    {`${String(tax)}%`}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label class="flex flex-col gap-1.5">
+              <span class="type-label">Sort by</span>
+              <select name="sort" class={select}>
+                {Object.entries(SORTS).map(([key, value]) => (
+                  <option value={key} selected={key === sort}>
+                    {value.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label class="flex flex-col gap-1.5">
+              <span class="type-label">Traded a week</span>
+              <select name="min" class={select}>
+                {MIN_VOLUMES.map((n) => (
+                  <option value={String(n)} selected={n === minVolume}>
+                    {n === 0 ? "Any" : `${n.toLocaleString("en")} or more`}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div class="flex flex-wrap items-center gap-4">
+            <button
+              type="submit"
+              class="press border border-ink bg-ink px-4 py-2 type-label text-paper hover:bg-paper hover:text-ink"
+            >
+              Show
+            </button>
+            <p class="text-sm text-muted">
+              Prices from {when(prices.fetchedAt)}. Buy orders and sell offers
+              pay better than instant trades, but you wait for them to fill.
+            </p>
+          </div>
+        </form>
+      </section>
+
+      <section class={row} aria-labelledby="profits-title">
+        <h2 id="profits-title" class={label}>
+          <span class="text-muted">(02)</span> Worth fusing
+        </h2>
+        <div class={body}>
+          {rows.length === 0 ? (
+            <p class="text-muted" data-testid="profits-empty">
+              No fusion sells for more than it costs with these settings.
+            </p>
+          ) : (
+            <>
+              <p class="text-sm text-muted">
+                {rows.length} {rows.length === 1 ? "shard" : "shards"} make a
+                profit. Cost is the cheapest route: buying inputs and fusing,
+                deeper fusions included. A batch is one run of the last fusion.
+              </p>
+              <div class="overflow-x-auto" {...scrollRegion}>
+                <table
+                  class="w-full min-w-[44rem] border-collapse text-left text-sm"
+                  data-testid="profits-table"
+                >
+                  <thead>
+                    <tr>
+                      <th scope="col" class={th}>
+                        Shard
+                      </th>
+                      <th scope="col" class={`${th} text-right`}>
+                        Costs
+                      </th>
+                      <th scope="col" class={`${th} text-right`}>
+                        Sells for
+                      </th>
+                      <th scope="col" class={`${th} text-right`}>
+                        Profit
+                      </th>
+                      <th scope="col" class={`${th} text-right`}>
+                        Margin
+                      </th>
+                      <th scope="col" class={`${th} text-right`}>
+                        Batch
+                      </th>
+                      <th scope="col" class={`${th} text-right`}>
+                        A week
+                      </th>
+                      <th scope="col" class={th}>
+                        <span class="sr-only">Route</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.slice(0, ROWS_SHOWN).map((item) => (
+                      <tr>
+                        <th scope="row" class={`${td} font-normal`}>
+                          <a
+                            href={shardPath(item.slug)}
+                            class="group inline-flex items-center gap-2"
+                          >
+                            {item.icon && (
+                              <img
+                                src={item.icon}
+                                alt=""
+                                width="24"
+                                height="24"
+                                loading="lazy"
+                                class="size-6 object-contain"
+                              />
+                            )}
+                            <span class="link-wipe">{item.name}</span>
+                          </a>
+                        </th>
+                        <td class={`${td} text-right`}>{coins(item.cost)}</td>
+                        <td class={`${td} text-right`}>{coins(item.sells)}</td>
+                        <td class={`${td} text-right font-medium`}>
+                          {coins(item.profit)}
+                        </td>
+                        <td class={`${td} text-right`}>
+                          {percent(item.margin)}
+                        </td>
+                        <td class={`${td} text-right`}>
+                          {coins(item.batch.profit)}
+                          <span class="block text-xs text-muted">
+                            {item.batch.produced} from {item.batch.fusions}{" "}
+                            {item.batch.fusions === 1 ? "fusion" : "fusions"}
+                          </span>
+                        </td>
+                        <td class={`${td} text-right`}>
+                          {item.volume.toLocaleString("en")}
+                        </td>
+                        <td class={td}>
+                          <a
+                            class="type-label underline"
+                            href={`${calculatorPath(item.slug, item.batch.produced)}&mode=coins`}
+                            aria-label={`Route for ${item.name}`}
+                          >
+                            Route
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {rows.length > ROWS_SHOWN && (
+                <p class="text-sm text-muted">
+                  The first {ROWS_SHOWN} of {rows.length}.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </section>
+
+      <section class={row} aria-labelledby="movers-title">
+        <h2 id="movers-title" class={label}>
+          <span class="text-muted">(03)</span> Movers
+        </h2>
+        <div class={`${body} gap-8`} data-testid="profits-movers">
+          <p class="text-sm text-muted">
+            The lowest sell offer now against the hour’s median then, for shards
+            traded {MOVER_MIN_VOLUME} times a week or more.
+          </p>
+          {moves.map((move) => (
+            <div class="flex flex-col gap-3">
+              <h3 class="type-label">{move.label}</h3>
+              {move.up.length === 0 && move.down.length === 0 ? (
+                <p class="text-sm text-muted">Not enough price history yet.</p>
+              ) : (
+                <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  {(
+                    [
+                      ["Up", move.up],
+                      ["Down", move.down],
+                    ] as const
+                  ).map(([title, list]) => (
+                    <div>
+                      <h4 class="mb-2 text-sm text-muted">{title}</h4>
+                      {list.length === 0 ? (
+                        <p class="text-sm text-muted">None.</p>
+                      ) : (
+                        <ul class="flex flex-col text-sm">
+                          {list.map((mover) => (
+                            <li class="flex items-center justify-between gap-3 border-b border-hair py-2">
+                              <a
+                                href={shardPath(mover.slug)}
+                                class="group inline-flex min-w-0 items-center gap-2"
+                              >
+                                {mover.icon && (
+                                  <img
+                                    src={mover.icon}
+                                    alt=""
+                                    width="24"
+                                    height="24"
+                                    loading="lazy"
+                                    class="size-6 object-contain"
+                                  />
+                                )}
+                                <span class="link-wipe truncate">
+                                  {mover.name}
+                                </span>
+                              </a>
+                              <span class="shrink-0 tabular-nums">
+                                <span class="font-medium">
+                                  {percent(mover.change)}
+                                </span>{" "}
+                                <span class="text-muted">
+                                  {coins(mover.then)} → {coins(mover.now)}
+                                </span>
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+    </>
+  )}
+</SkyblockLayout>

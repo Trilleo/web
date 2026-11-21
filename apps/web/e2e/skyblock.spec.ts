@@ -119,6 +119,9 @@ test("the admin's SkyBlock panel shows the data in use", async ({
   );
   await expect(admin.getByText("Fetching is switched off here")).toBeVisible();
   await expect(admin.getByRole("button", { name: "Check now" })).toBeDisabled();
+  await expect(admin.getByTestId("skyblock-bazaar")).toContainText(
+    "shards on the Bazaar",
+  );
 });
 
 test("a shard's page opens the calculator, which works out the fastest route", async ({
@@ -230,3 +233,105 @@ for (const colorScheme of ["light", "dark"] as const)
       .analyze();
     expect(dialog.violations.map((v) => v.id)).toEqual([]);
   });
+
+/** Waits for the site's first fetch of the (fake) Bazaar. */
+async function pricesReady(
+  request: import("@playwright/test").APIRequestContext,
+) {
+  await expect(async () => {
+    const body = (await (
+      await request.get("/api/skyblock/prices.json")
+    ).json()) as {
+      prices: unknown;
+    };
+    expect(body.prices).not.toBeNull();
+  }).toPass({ timeout: 30_000 });
+}
+
+test("the profits page lists fusions worth doing, and its options are links", async ({
+  page,
+  request,
+}) => {
+  await pricesReady(request);
+  await page.goto("/tools/skyblock/profits/");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Fusion profits" }),
+  ).toBeVisible();
+  const table = page.getByTestId("profits-table");
+  await expect(table.locator("tbody tr").first()).toBeVisible();
+  await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
+  await page.getByLabel("Sell with").selectOption("instant");
+  await page.getByLabel("Sort by").selectOption("margin");
+  await page.getByRole("button", { name: "Show" }).click();
+  await expect(page).toHaveURL(/sell=instant/);
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+    "content",
+    "noindex",
+  );
+  await expect(page.getByTestId("profits-movers")).toContainText(
+    "Not enough price history yet",
+  );
+  // A route opens the calculator in coin mode.
+  await page
+    .getByTestId("profits-table")
+    .getByRole("link", { name: /^Route for / })
+    .first()
+    .click();
+  await expect(page).toHaveURL(
+    /\/tools\/skyblock\/calculator\/\?shard=.*&mode=coins/,
+  );
+  await hydrated(page);
+  await expect(page.getByTestId("calc-summary")).toContainText("Cost");
+  await expect(page.getByTestId("calc-summary")).toContainText(
+    "Sell instantly",
+  );
+});
+
+test("a shard's page shows its Bazaar prices and what maxing costs", async ({
+  page,
+  request,
+}) => {
+  await pricesReady(request);
+  await page.goto("/tools/skyblock/shards/tiamat/");
+  const bazaar = page.getByTestId("shard-bazaar");
+  await expect(bazaar).toContainText("Instant buy");
+  await expect(page.getByTestId("shard-cost-to-max")).toContainText("coins");
+  await expect(page.getByTestId("shard-chart-waiting")).toBeVisible();
+  await bazaar.getByRole("link", { name: "30 days" }).click();
+  await expect(page).toHaveURL(/range=30d/);
+  await expect(bazaar.getByText("30 days", { exact: true })).toHaveAttribute(
+    "aria-current",
+    "true",
+  );
+});
+
+test("the calculator counts coins once there are prices", async ({
+  page,
+  request,
+}) => {
+  await pricesReady(request);
+  await page.goto("/tools/skyblock/calculator/?shard=grove&qty=2");
+  await hydrated(page);
+  const coins = page.getByRole("radio", {
+    name: "Coins (buy from the Bazaar)",
+  });
+  await expect(coins).toBeEnabled();
+  await page.getByText("Coins (buy from the Bazaar)").click();
+  await expect(page.getByTestId("calc-summary")).toContainText("coins");
+  await expect(page.getByTestId("calc-prices")).toBeVisible();
+  await expect(page.getByTestId("calc-tree")).toContainText("Buy");
+});
+
+test("the API serves shard prices", async ({ request }) => {
+  await pricesReady(request);
+  const response = await request.get("/api/v1/skyblock/prices");
+  expect(response.status()).toBe(200);
+  const body = (await response.json()) as { items: { id: string }[] };
+  expect(body.items.length).toBeGreaterThan(300);
+  const history = await request.get(
+    "/api/v1/skyblock/shards/tiamat/prices?range=24h",
+  );
+  expect(((await history.json()) as { points: unknown[] }).points.length).toBe(
+    1,
+  );
+});

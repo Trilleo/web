@@ -25,7 +25,26 @@ export interface CalcSettings {
   fusionSeconds: number;
   /** Own hunting rates (shards an hour, before fortune), by Hypixel ID. */
   rates: Record<string, number>;
+  /** Hours (hunting everything) or coins (buying from the Bazaar). */
+  mode: CalcMode;
+  /** Coin mode: pay the lowest sell offer (instant buy) rather than the top buy order. */
+  instantBuy: boolean;
+  /** Coin mode: coins each fusion costs (counted in the total). */
+  fusionCoins: number;
+  /** Own prices (coins a shard), by Hypixel ID, over the Bazaar's. */
+  prices: Record<string, number>;
+  /** Bazaar tax on selling, in percent (BAZAAR_TAXES). */
+  tax: number;
 }
+
+export const CALC_MODES = ["time", "coins"] as const;
+export type CalcMode = (typeof CALC_MODES)[number];
+
+/**
+ * The Bazaar's tax on what you sell, in percent: 1.25, or less with the Bazaar Flipper
+ * account upgrades.
+ */
+export const BAZAAR_TAXES = [1.25, 1.125, 1] as const;
 
 /** A recipe chosen by hand for a shard (null: hunt it), by Hypixel IDs. */
 export interface ChosenRecipe {
@@ -52,6 +71,9 @@ export const LIMITS = {
   overrides: 400,
   quantity: 100_000,
   checklistSteps: 2000,
+  /** Coins (a shard, or a fusion). */
+  coins: 1e12,
+  prices: 400,
 };
 
 export const DEFAULT_SETTINGS: CalcSettings = {
@@ -67,6 +89,11 @@ export const DEFAULT_SETTINGS: CalcSettings = {
   coinsPerHour: null,
   fusionSeconds: 0,
   rates: {},
+  mode: "time",
+  instantBuy: false,
+  fusionCoins: 0,
+  prices: {},
+  tax: 1.25,
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -85,10 +112,16 @@ export function isShardId(value: unknown): value is string {
 }
 
 export function isCalcSettings(value: unknown): value is CalcSettings {
-  if (!isRecord(value) || !isRecord(value.levels) || !isRecord(value.rates))
+  if (
+    !isRecord(value) ||
+    !isRecord(value.levels) ||
+    !isRecord(value.rates) ||
+    !isRecord(value.prices)
+  )
     return false;
   const levels = value.levels;
   const rates = Object.entries(value.rates);
+  const prices = Object.entries(value.prices);
   return (
     inRange(value.hunterFortune, 0, LIMITS.hunterFortune) &&
     Object.keys(levels).length === LEVEL_SHARDS.length &&
@@ -110,6 +143,14 @@ export function isCalcSettings(value: unknown): value is CalcSettings {
     rates.every(
       ([id, rate]) => isShardId(id) && inRange(rate, 0, LIMITS.rate),
     ) &&
+    (CALC_MODES as readonly unknown[]).includes(value.mode) &&
+    typeof value.instantBuy === "boolean" &&
+    inRange(value.fusionCoins, 0, LIMITS.coins) &&
+    prices.length <= LIMITS.prices &&
+    prices.every(
+      ([id, price]) => isShardId(id) && inRange(price, 0, LIMITS.coins),
+    ) &&
+    (BAZAAR_TAXES as readonly unknown[]).includes(value.tax) &&
     Object.keys(value).length === Object.keys(DEFAULT_SETTINGS).length
   );
 }

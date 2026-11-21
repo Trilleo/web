@@ -19,7 +19,9 @@ import {
 } from "./graph";
 import type { CalcSettings } from "./settings";
 
+/** How much cheaper a recipe must be to win: hours, or coins in coin mode (SkyShards'). */
 export const TOLERANCE = 1e-10;
+export const COIN_TOLERANCE = 1e-2;
 /** A starting cost for loops of chosen recipes with no finite way in. */
 const CYCLE_SEED_COST = 1e10;
 
@@ -54,6 +56,7 @@ export function solve(
         }
       : settings,
   );
+  const tolerance = graph.mode === "coins" ? COIN_TOLERANCE : TOLERANCE;
   const cost = new Float64Array(n);
   const choice: (GraphRecipe | null)[] = new Array<GraphRecipe | null>(n).fill(
     null,
@@ -63,7 +66,7 @@ export function solve(
   const unitCost = (recipe: GraphRecipe): number =>
     ((cost[recipe.a] ?? Infinity) * (fuse[recipe.a] ?? 1) +
       (cost[recipe.b] ?? Infinity) * (fuse[recipe.b] ?? 1) +
-      mult.fusionHours) /
+      mult.fusionCost) /
     effectiveOutput(recipe, mult.crocodile);
 
   // Which shards use each shard.
@@ -113,10 +116,10 @@ export function solve(
       const chosen = overrides.get(shard) ?? null;
       if (chosen === null) {
         const hunt = directCost(graph, shard);
-        if (Math.abs(hunt - current) > TOLERANCE) update(shard, hunt, null);
+        if (Math.abs(hunt - current) > tolerance) update(shard, hunt, null);
       } else {
         const value = unitCost(chosen);
-        if (value < current - TOLERANCE || !sameRecipe(chosen, currentRecipe))
+        if (value < current - tolerance || !sameRecipe(chosen, currentRecipe))
           update(shard, value, chosen);
       }
       continue;
@@ -125,12 +128,12 @@ export function solve(
     let bestRecipe = currentRecipe;
     for (const recipe of graph.recipes[shard] ?? []) {
       const value = unitCost(recipe);
-      if (value < best - TOLERANCE) {
+      if (value < best - tolerance) {
         best = value;
         bestRecipe = recipe;
       }
     }
-    if (best < current - TOLERANCE || bestRecipe !== currentRecipe)
+    if (best < current - tolerance || bestRecipe !== currentRecipe)
       update(shard, best, bestRecipe);
   }
   return { cost, choice };

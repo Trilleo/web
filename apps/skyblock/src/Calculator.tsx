@@ -10,6 +10,9 @@ import {
   type CalcSettings,
   type Checklist as ChecklistValue,
   type ChosenRecipe,
+  type PriceTable,
+  afterTax,
+  buyPrice,
 } from "@trilleo/skyblock/calc";
 import {
   useToolItems,
@@ -34,15 +37,41 @@ import type {
   RecipeView,
 } from "./calc/engine";
 import { Breakdown, Checklist, Compare, Exports } from "./calc/Extras";
-import { formatHours, formatNumber } from "./calc/format";
+import { formatCoins, formatCost, formatNumber } from "./calc/format";
 import { PlanTree } from "./calc/PlanTree";
-import { Rates } from "./calc/Rates";
+import { Prices, Rates } from "./calc/Rates";
 import { Setup } from "./calc/Setup";
 import type { ShardOption } from "./calc/types";
 import { meta } from "./meta";
 import { ShardIcon } from "./ShardBrowser";
 
 export type { ShardOption } from "./calc/types";
+
+/** How often the page asks for new Bazaar prices (the server fetches every 5 minutes). */
+export const PRICES_REFRESH_MS = 5 * 60 * 1000;
+
+/** What the shards a plan makes sell for (after tax), and the profit, both ways. */
+function saleRows(
+  plan: PlanView,
+  tax: number,
+): { label: string; value: string; note: string }[] {
+  const rows: { label: string; value: string; note: string }[] = [];
+  const ways = [
+    ["Sell instantly", plan.market?.bid ?? null],
+    ["Sell offer", plan.market?.ask ?? null],
+  ] as const;
+  for (const [label, price] of ways) {
+    if (price === null) continue;
+    const sells = afterTax(price, tax) * plan.produced;
+    const profit = sells - plan.cost;
+    rows.push({
+      label,
+      value: formatCoins(sells),
+      note: `${profit >= 0 ? "Profit" : "Loss"} ${formatCoins(Math.abs(profit))}, after ${String(tax)}% tax`,
+    });
+  }
+  return rows;
+}
 
 /** After a change, how long before settings are saved (typing a number is many changes). */
 export const SAVE_DELAY_MS = 600;
@@ -56,6 +85,8 @@ export interface CalculatorProps {
   /** From ?shard= (a slug) and ?qty=. */
   initialShard?: string | null;
   initialQuantity?: number;
+  /** From ?mode=coins (the profits page's routes): count in coins, over the saved setup. */
+  initialMode?: CalcSettings["mode"];
   /** Tests pass their own engine. */
   client?: CalcClient;
 }
@@ -70,16 +101,21 @@ export function Calculator({
   initialSaved,
   initialShard = null,
   initialQuantity,
+  initialMode,
   client: givenClient,
 }: CalculatorProps) {
+  const withMode = (loaded: CalcSettings): CalcSettings =>
+    initialMode ? { ...loaded, mode: initialMode } : loaded;
   const storage = useToolStorage<unknown>(meta.slug, signedIn);
   const saved = useToolItems(storage, initialSaved);
   const savedValue = (key: string) =>
     saved.items.find((item) => item.key === key)?.value;
 
   const [settings, setSettings] = useState<CalcSettings>(() =>
-    readSettings(
-      initialSaved?.find((item) => item.key === SAVED_KEYS.settings)?.value,
+    withMode(
+      readSettings(
+        initialSaved?.find((item) => item.key === SAVED_KEYS.settings)?.value,
+      ),
     ),
   );
   /** The newest settings, for changes made before React re-renders. */
@@ -92,7 +128,7 @@ export function Calculator({
   useEffect(() => {
     if (saved.loading || adopted.current) return;
     adopted.current = true;
-    const loaded = readSettings(savedValue(SAVED_KEYS.settings));
+    const loaded = withMode(readSettings(savedValue(SAVED_KEYS.settings)));
     latestSettings.current = loaded;
     setSettings(loaded);
     const overrides = savedValue(SAVED_KEYS.overrides);
@@ -188,9 +224,38 @@ export function Calculator({
     };
   }, [givenClient]);
 
+  // Bazaar prices (for coin mode), loaded once the data is in and again every
+  // PRICES_REFRESH_MS; the plan is worked out again when they change.
+  const [market, setMarket] = useState<{
+    fetchedAt: string | null;
+    prices: PriceTable | null;
+  }>({ fetchedAt: null, prices: null });
+  useEffect(() => {
+    if (status !== "ready" || !client.current) return;
+    const engine = client.current;
+    let cancelled = false;
+    const refresh = () => {
+      engine.loadPrices().then(
+        (loaded) => {
+          if (!cancelled) setMarket(loaded);
+        },
+        () => {
+          // No prices: coin mode stays off; hours still work.
+        },
+      );
+    };
+    refresh();
+    const timer = setInterval(refresh, PRICES_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [status]);
+
   const request: PlanRequest | null = useMemo(
     () => (target ? { settings, chosen, target: target.id, quantity } : null),
-    [settings, chosen, target, quantity],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- market.fetchedAt asks for a new plan when prices change.
+    [settings, chosen, target, quantity, market.fetchedAt],
   );
   const [plan, setPlan] = useState<PlanView | null>(null);
   const [calculating, setCalculating] = useState(false);
@@ -371,7 +436,10 @@ export function Calculator({
         </div>
       </ToolSection>
 
-      <ToolSection number="02" title="Fastest route">
+      <ToolSection
+        number="02"
+        title={settings.mode === "coins" ? "Cheapest route" : "Fastest route"}
+      >
         <div
           className="flex flex-col gap-6"
           aria-busy={calculating || status === "loading"}
@@ -396,14 +464,14 @@ export function Calculator({
           )}
           {plan && plan.target === target?.id && (
             <>
-              {!Number.isFinite(plan.hours) ? (
+              {!Number.isFinite(plan.cost) ? (
                 <p
                   className="border-l-2 border-accent pl-3"
                   data-testid="calc-impossible"
                 >
-                  {target.name} can’t be made with this setup: something it
-                  needs can’t be hunted or fused. Check your hunting rates and
-                  Kuudra below.
+                  {plan.mode === "coins"
+                    ? `${target.name} can’t be bought or fused from what’s on the Bazaar. Set your own prices below, or count in hours.`
+                    : `${target.name} can’t be made with this setup: something it needs can’t be hunted or fused. Check your hunting rates and Kuudra below.`}
                 </p>
               ) : (
                 <dl
@@ -411,13 +479,17 @@ export function Calculator({
                   data-testid="calc-summary"
                 >
                   <div>
-                    <dt className="type-label text-muted">Time</dt>
-                    <dd className="type-lead">{formatHours(plan.hours)}</dd>
+                    <dt className="type-label text-muted">
+                      {plan.mode === "coins" ? "Cost" : "Time"}
+                    </dt>
+                    <dd className="type-lead">
+                      {formatCost(plan.cost, plan.mode)}
+                    </dd>
                   </div>
                   <div>
                     <dt className="type-label text-muted">Per shard</dt>
                     <dd className="type-lead">
-                      {formatHours(plan.hoursPerShard)}
+                      {formatCost(plan.costPerShard, plan.mode)}
                     </dd>
                   </div>
                   <div>
@@ -428,6 +500,14 @@ export function Calculator({
                     <dt className="type-label text-muted">You get</dt>
                     <dd className="type-lead">{formatNumber(plan.produced)}</dd>
                   </div>
+                  {plan.mode === "coins" &&
+                    saleRows(plan, settings.tax).map((row) => (
+                      <div key={row.label}>
+                        <dt className="type-label text-muted">{row.label}</dt>
+                        <dd className="type-lead">{row.value}</dd>
+                        <dd className="mt-1 text-sm text-muted">{row.note}</dd>
+                      </div>
+                    ))}
                 </dl>
               )}
               <p className="text-sm text-muted" aria-live="polite">
@@ -435,7 +515,7 @@ export function Calculator({
                   ? "Working it out again…"
                   : "With your setup and rates below; change them and this follows."}
               </p>
-              {Number.isFinite(plan.hours) && <Breakdown plan={plan} />}
+              {Number.isFinite(plan.cost) && <Breakdown plan={plan} />}
               {plan.stale.length > 0 && (
                 <p className="border-l-2 border-accent pl-3 text-sm">
                   {plan.stale.length === 1
@@ -470,7 +550,7 @@ export function Calculator({
         </div>
       </ToolSection>
 
-      {plan && plan.target === target?.id && Number.isFinite(plan.hours) && (
+      {plan && plan.target === target?.id && Number.isFinite(plan.cost) && (
         <>
           <ToolSection number="03" title="Fusion tree">
             <div className="flex flex-col gap-4">
@@ -509,6 +589,7 @@ export function Calculator({
             key={formKey}
             settings={settings}
             shards={shards}
+            pricesAt={market.fetchedAt}
             onChange={updateSettings}
           />
           <p className="text-sm text-muted">
@@ -528,15 +609,30 @@ export function Calculator({
         </div>
       </ToolSection>
 
-      <ToolSection number="06" title="Your hunting rates">
-        <Rates
-          settings={settings}
-          shards={shards}
-          onChange={(rates) => {
-            updateSettings({ rates });
-          }}
-        />
-      </ToolSection>
+      {settings.mode === "coins" ? (
+        <ToolSection number="06" title="Your prices">
+          <Prices
+            settings={settings}
+            shards={shards}
+            market={(id) =>
+              buyPrice(id, { ...settings, prices: {} }, market.prices)
+            }
+            onChange={(prices) => {
+              updateSettings({ prices });
+            }}
+          />
+        </ToolSection>
+      ) : (
+        <ToolSection number="06" title="Your hunting rates">
+          <Rates
+            settings={settings}
+            shards={shards}
+            onChange={(rates) => {
+              updateSettings({ rates });
+            }}
+          />
+        </ToolSection>
+      )}
 
       <ToolSection number="07" title="Recipes you chose">
         {chosen.length === 0 ? (
@@ -590,6 +686,7 @@ export function Calculator({
         <Alternatives
           view={alternatives}
           name={nameOf(changing)}
+          mode={settings.mode}
           onPick={(recipe) => {
             pick(changing, recipe);
           }}

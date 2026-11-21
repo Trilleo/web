@@ -72,6 +72,9 @@ const description =
     initialSaved={initialSaved}
     initialShard={initialShard}
     initialQuantity={initialQuantity}
+    initialMode={
+      Astro.url.searchParams.get("mode") === "coins" ? "coins" : undefined
+    }
   />
   <noscript>
     <p class="mt-6 border-l-2 border-accent pl-4">

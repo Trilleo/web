@@ -3282,6 +3282,48 @@ export const sbSyncs = pgTable("sb_syncs", {
 });
 
 /**
+ * The latest Bazaar prices of SkyBlock's shards (one row, id 1), fetched from Hypixel's
+ * public endpoint (apps/web/src/lib/skyblock/bazaar.ts). `prices` is @trilleo/skyblock's
+ * PriceTable (by Hypixel ID: ask, bid, weekly volumes). The last failure is kept for
+ * /admin/skyblock/.
+ */
+export const sbBazaar = pgTable("sb_bazaar", {
+  id: integer("id").primaryKey(),
+  /** When we fetched them, and when Hypixel says they were last updated. */
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull(),
+  hypixelAt: timestamp("hypixel_at", { withTimezone: true }).notNull(),
+  // The PriceTable type lives in @trilleo/skyblock, which this package doesn't depend on.
+  prices: jsonb("prices").$type<unknown>().notNull(),
+  shards: integer("shards").notNull(),
+  /** Failed fetches since the last good one, and the last one's reason. */
+  failures: integer("failures").notNull().default(0),
+  lastError: text("last_error"),
+  lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
+});
+
+/**
+ * Each shard's prices through an hour (UTC, the hour's start): every fetch's ask and bid
+ * appended (null where there was none), so charts take the hour's median. Purged after
+ * PRICE_HISTORY_DAYS.
+ */
+export const sbPriceHistory = pgTable(
+  "sb_price_history",
+  {
+    shardId: text("shard_id").notNull(),
+    hour: timestamp("hour", { withTimezone: true }).notNull(),
+    asks: jsonb("asks").$type<(number | null)[]>().notNull(),
+    bids: jsonb("bids").$type<(number | null)[]>().notNull(),
+    /** Hypixel's weekly volumes at the hour's last fetch. */
+    boughtWeek: integer("bought_week").notNull(),
+    soldWeek: integer("sold_week").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.shardId, table.hour] }),
+    index("sb_price_history_hour").on(table.hour),
+  ],
+);
+
+/**
  * The human check's mode (one row, id 1): "normal", "raised" or "attack", until a
  * time or (null) until changed. `setBy` is "admin", or "auto" when a flood raised it.
  */
@@ -3411,3 +3453,5 @@ export type ChuniAliasSuggestion = typeof chuniAliasSuggestions.$inferSelect;
 export type SbDataset = typeof sbDatasets.$inferSelect;
 export type SbIcon = typeof sbIcons.$inferSelect;
 export type SbSync = typeof sbSyncs.$inferSelect;
+export type SbBazaar = typeof sbBazaar.$inferSelect;
+export type SbPriceHistory = typeof sbPriceHistory.$inferSelect;

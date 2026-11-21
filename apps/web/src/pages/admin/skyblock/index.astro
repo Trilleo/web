@@ -13,6 +13,12 @@ import { noStoreRedirect } from "../../../lib/auth/redirect";
 import { field } from "../../../lib/comments/form";
 import { getDb } from "../../../lib/db";
 import { skyblockOverview } from "../../../lib/skyblock/admin";
+import {
+  PRICE_HISTORY_DAYS,
+  REFRESH_MS,
+  bazaarStatus,
+  bazaarUrl,
+} from "../../../lib/skyblock/bazaar";
 import { SOURCE_REPO, skyblockSource } from "../../../lib/skyblock/source";
 import {
   ICONS_PER_PASS,
@@ -52,6 +58,8 @@ toastError(Astro, error);
 
 const storage = getStorage();
 const overview = await skyblockOverview(db, storage);
+const bazaar = await bazaarStatus(db);
+const bazaarOn = bazaarUrl() !== null;
 const source = skyblockSource();
 const running = syncRunning();
 const repo = source?.repo ?? SOURCE_REPO;
@@ -178,6 +186,38 @@ const detail = "mt-1 text-sm text-muted";
             {running ? "Checking…" : "Check now"}
           </button>
         </form>
+      </div>
+    </div>
+
+    <div class={row}>
+      <p class={label}>Bazaar prices</p>
+      <div class={body} data-testid="skyblock-bazaar">
+        {!bazaarOn && (
+          <p class="border-l-2 border-hair pl-4 text-muted">
+            Fetching is switched off here (SKYBLOCK_BAZAAR=off).
+          </p>
+        )}
+        <dl class="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-3">
+          <div class="min-w-0">
+            <dt class="type-label text-muted">Last fetch</dt>
+            <dd class="type-lead">{when(bazaar.fetchedAt)}</dd>
+            <dd class={detail}>{bazaar.shards} shards on the Bazaar</dd>
+          </div>
+          <div class="min-w-0">
+            <dt class="type-label text-muted">Failures since</dt>
+            <dd class="type-lead">{bazaar.failures}</dd>
+            <dd class={detail}>
+              {bazaar.lastError
+                ? `last: ${bazaar.lastError} (${when(bazaar.lastErrorAt)})`
+                : "none"}
+            </dd>
+          </div>
+        </dl>
+        <p class="text-muted">
+          Fetched from Hypixel’s public Bazaar endpoint every{" "}
+          {REFRESH_MS / 60000} minutes; hourly history is kept{" "}
+          {PRICE_HISTORY_DAYS} days.
+        </p>
       </div>
     </div>
 

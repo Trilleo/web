@@ -5,6 +5,7 @@ export { PAGE_SIZE, RarityTag, ShardBrowser, ShardIcon } from "./ShardBrowser";
 export type { ShardBrowserProps } from "./ShardBrowser";
 export {
   CALCULATOR_PATH,
+  PROFITS_PATH,
   SHARDS_PATH,
   SKYBLOCK_PATH,
   UTILITIES,

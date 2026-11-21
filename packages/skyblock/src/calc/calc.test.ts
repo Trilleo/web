@@ -3,7 +3,11 @@ import { readSources } from "../sources";
 import { sourceFiles } from "../testing";
 import {
   DEFAULT_SETTINGS,
+  afterTax,
   alternatives,
+  buyPrice,
+  isPriceTable,
+  sellPrice,
   buildGraph,
   chosenOf,
   craftsFor,
@@ -144,11 +148,11 @@ describe("solve and plan", () => {
     });
     expect(result.crafts).toBe(3);
     expect(result.produced).toBe(6);
-    expect(result.fusionHours).toBeCloseTo(0.03);
+    expect(result.fusionCost).toBeCloseTo(0.03);
     expect(result.hunt.get(at(g, "C4"))).toBe(15);
     expect(result.hunt.get(at(g, "U1"))).toBe(6);
-    expect(result.hours).toBeCloseTo(15 / 216 + 6 / 60 + 0.03);
-    expect(result.hoursPerShard).toBeCloseTo(result.hours / 6);
+    expect(result.cost).toBeCloseTo(15 / 216 + 6 / 60 + 0.03);
+    expect(result.costPerShard).toBeCloseTo(result.cost / 6);
     expect(planText(g, result)).toBe(
       [
         "5 Grove: 3 fusions",
@@ -237,7 +241,7 @@ describe("helpers", () => {
     expect(options).toHaveLength(3);
     expect(options[0]?.current).toBe(true);
     expect(options.at(-1)?.recipe).toBeNull();
-    expect(options.at(-1)?.hoursPerShard).toBe(Infinity);
+    expect(options.at(-1)?.costPerShard).toBe(Infinity);
   });
 
   it("gives fusions stable IDs, deepest first", () => {
@@ -285,5 +289,78 @@ describe("helpers", () => {
       reptile: true,
     });
     expect(deck.shards.find((s) => s.key === "C1")?.reptile).toBe(false);
+  });
+});
+
+describe("coin mode", () => {
+  const table = {
+    SHARD_PHANPYRE: { ask: 120, bid: 100, boughtWeek: 10, soldWeek: 10 },
+    SHARD_SEA_ARCHER: { ask: 60, bid: 50, boughtWeek: 10, soldWeek: 10 },
+    SHARD_CROCODILE: { ask: 1000, bid: 900, boughtWeek: 1, soldWeek: 1 },
+    SHARD_GROVE: { ask: null, bid: 400, boughtWeek: 1, soldWeek: 1 },
+  };
+  const coins: CalcSettings = {
+    ...DEFAULT_SETTINGS,
+    mode: "coins",
+    fusionCoins: 10,
+  };
+
+  it("prices shards from buy orders, or instantly, or by hand", () => {
+    expect(buyPrice("SHARD_PHANPYRE", coins, table)).toBe(100);
+    expect(
+      buyPrice("SHARD_PHANPYRE", { ...coins, instantBuy: true }, table),
+    ).toBe(120);
+    expect(
+      buyPrice(
+        "SHARD_PHANPYRE",
+        { ...coins, prices: { SHARD_PHANPYRE: 7 } },
+        table,
+      ),
+    ).toBe(7);
+    expect(buyPrice("SHARD_TIAMAT", coins, table)).toBeNull();
+    expect(sellPrice(table.SHARD_GROVE, true)).toBe(400);
+    expect(sellPrice(table.SHARD_GROVE, false)).toBeNull();
+    expect(afterTax(1000, 1.25)).toBe(987.5);
+  });
+
+  it("buys or fuses, whichever costs fewer coins", () => {
+    const g = buildGraph(deck, coins, table);
+    expect(g.mode).toBe("coins");
+    const grove = at(g, "C1");
+    // Fusing (5 × 100 + 2 × 50 + 10 coins, for 2) beats buying at 400 each.
+    const { plan: result } = plan(g, grove, 2, coins);
+    expect(result.cost).toBe(5 * 100 + 2 * 50 + 10);
+    expect(result.costPerShard).toBe(305);
+    expect(result.fusionCost).toBe(10);
+    // Shards without a price can't be bought; Tiamat needs Tiamat.
+    expect(plan(g, at(g, "L6"), 1, coins).plan.cost).toBe(Infinity);
+  });
+
+  it("checks the new settings", () => {
+    expect(isCalcSettings({ ...DEFAULT_SETTINGS, mode: "gold" })).toBe(false);
+    expect(isCalcSettings({ ...DEFAULT_SETTINGS, tax: 2 })).toBe(false);
+    expect(
+      isCalcSettings({ ...DEFAULT_SETTINGS, prices: { SHARD_GROVE: -1 } }),
+    ).toBe(false);
+    expect(
+      isCalcSettings({ ...DEFAULT_SETTINGS, tax: 1.125, mode: "coins" }),
+    ).toBe(true);
+    // A save from before coin mode still reads.
+    const newer = new Set([
+      "mode",
+      "instantBuy",
+      "fusionCoins",
+      "prices",
+      "tax",
+    ]);
+    const older = Object.fromEntries(
+      Object.entries(DEFAULT_SETTINGS).filter(([key]) => !newer.has(key)),
+    );
+    expect(readSettings({ ...older, hunterFortune: 50 })).toEqual({
+      ...DEFAULT_SETTINGS,
+      hunterFortune: 50,
+    });
+    expect(isPriceTable(table)).toBe(true);
+    expect(isPriceTable({ SHARD_X: { ask: "1" } })).toBe(false);
   });
 });

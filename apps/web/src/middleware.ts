@@ -25,6 +25,7 @@ import {
   crossOriginForbidden,
   isForbiddenCrossOrigin,
 } from "./lib/origin-check";
+import { bazaarInBackground, startSkyblockBazaar } from "./lib/skyblock/bazaar";
 import {
   skyblockSyncInBackground,
   startSkyblockSync,
@@ -55,6 +56,8 @@ function startTimers(): void {
   startChunithmPrebuild();
   // SkyBlock's shard data from SkyShards' repository: a pass whenever one is due.
   startSkyblockSync(getDb);
+  // SkyBlock's Bazaar prices: a fetch every 5 minutes.
+  startSkyblockBazaar(getDb);
 }
 
 /** Work any request may start (each at most every few minutes, in the background). */
@@ -75,6 +78,8 @@ function backgroundWork(): void {
   chunithmBuildsInBackground();
   // SkyBlock's shard data (also on its own timer).
   skyblockSyncInBackground(getDb);
+  // SkyBlock's Bazaar prices (also on their own timer).
+  bazaarInBackground(getDb);
   // The human check's counts, and its watch for floods (every minute at most).
   flushChecksInBackground(getDb, checker);
 }

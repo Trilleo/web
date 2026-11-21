@@ -1,11 +1,13 @@
 import { useEffect, useRef } from "react";
 import type { AlternativesView, RecipeView } from "./engine";
-import { formatHours, formatNumber } from "./format";
+import { formatCost, formatNumber } from "./format";
 
 export interface AlternativesProps {
   /** null while loading. */
   view: AlternativesView | null;
   name: string;
+  /** "time" or "coins": how costs read. */
+  mode: "time" | "coins";
   onPick: (recipe: RecipeView | null) => void;
   onClose: () => void;
 }
@@ -17,6 +19,7 @@ export interface AlternativesProps {
 export function Alternatives({
   view,
   name,
+  mode,
   onPick,
   onClose,
 }: AlternativesProps) {
@@ -29,7 +32,7 @@ export function Alternatives({
     };
   }, []);
   const best = view?.options.find((option) =>
-    Number.isFinite(option.hoursPerShard),
+    Number.isFinite(option.costPerShard),
   );
   return (
     <dialog
@@ -45,8 +48,8 @@ export function Alternatives({
             Ways to get {name}
           </h2>
           <p className="text-sm text-muted">
-            Hours per shard with your setup. Picking one keeps it until you go
-            back to the cheapest.
+            {mode === "coins" ? "Coins" : "Time"} per shard with your setup.
+            Picking one keeps it until you go back to the cheapest.
           </p>
         </div>
         <button
@@ -69,12 +72,14 @@ export function Alternatives({
                 const b = recipe ? view.shards[recipe.b] : undefined;
                 const label = recipe
                   ? `${String(a?.fuse ?? 1)} ${a?.name ?? "?"} + ${String(b?.fuse ?? 1)} ${b?.name ?? "?"} → ${String(recipe.quantity)}${recipe.reptile ? " (reptile)" : ""}`
-                  : "Hunt it";
+                  : mode === "coins"
+                    ? "Buy it"
+                    : "Hunt it";
                 const slower =
                   best &&
                   option !== best &&
-                  Number.isFinite(option.hoursPerShard)
-                    ? (option.hoursPerShard / best.hoursPerShard - 1) * 100
+                  Number.isFinite(option.costPerShard)
+                    ? (option.costPerShard / best.costPerShard - 1) * 100
                     : null;
                 const extra =
                   slower === null
@@ -90,8 +95,8 @@ export function Alternatives({
                     <span className="min-w-0">
                       {label}
                       <span className="block text-muted">
-                        {Number.isFinite(option.hoursPerShard)
-                          ? `${formatHours(option.hoursPerShard)} a shard${extra}`
+                        {Number.isFinite(option.costPerShard)
+                          ? `${formatCost(option.costPerShard, mode)} a shard${extra}`
                           : "can’t be done"}
                       </span>
                     </span>
@@ -100,7 +105,7 @@ export function Alternatives({
                     ) : (
                       <button
                         type="button"
-                        disabled={!Number.isFinite(option.hoursPerShard)}
+                        disabled={!Number.isFinite(option.costPerShard)}
                         className="press border border-ink px-3 py-1.5 type-label hover:bg-chip disabled:cursor-not-allowed disabled:opacity-40"
                         aria-label={`Use ${label}`}
                         onClick={() => {

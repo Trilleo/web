@@ -295,6 +295,13 @@
       "when": 1795174479954,
       "tag": "0041_skyblock-shards",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1795182324035,
+      "tag": "0042_skyblock-prices",
+      "breakpoints": true
     }
   ]
 }

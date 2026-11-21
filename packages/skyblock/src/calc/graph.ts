@@ -16,6 +16,7 @@ import {
   WOODEN_BAIT,
   kuudraRate,
 } from "./hunting";
+import { buyPrice, type PriceTable } from "./prices";
 import type { CalcSettings } from "./settings";
 
 export interface DeckShard {
@@ -80,6 +81,13 @@ export interface Graph {
   shards: DeckShard[];
   /** Effective rate per shard index: shards an hour with this setup (0: can't). */
   rates: Float64Array;
+  /** "time" or "coins": what costs are in. */
+  mode: CalcSettings["mode"];
+  /**
+   * What one shard costs got directly, per index: hours to hunt it, or coins to buy it
+   * in coin mode. Infinity: it can't be had that way.
+   */
+  unitCost: Float64Array;
   /** Recipes making each shard index. */
   recipes: GraphRecipe[][];
   /** Shard index by Hypixel ID. */
@@ -92,8 +100,8 @@ export interface Multipliers {
   crocodile: number;
   python: number;
   kingCobra: number;
-  /** Hours each fusion adds. */
-  fusionHours: number;
+  /** What each fusion adds: hours, or coins in coin mode. */
+  fusionCost: number;
 }
 
 export function multipliers(settings: CalcSettings): Multipliers {
@@ -106,7 +114,10 @@ export function multipliers(settings: CalcSettings): Multipliers {
     crocodile: 1 + (2 * levels.crocodile) / 100,
     python: ((5 * levels.python) / 100) * seaSerpent,
     kingCobra: (levels.kingCobra / 100) * seaSerpent,
-    fusionHours: settings.fusionSeconds / 3600,
+    fusionCost:
+      settings.mode === "coins"
+        ? settings.fusionCoins
+        : settings.fusionSeconds / 3600,
   };
 }
 
@@ -176,14 +187,41 @@ function recipesOf(deck: Deck): GraphRecipe[][] {
   return recipes;
 }
 
-export function buildGraph(deck: Deck, settings: CalcSettings): Graph {
+/**
+ * A shard's price in coin mode. As in SkyShards, hunting settings don't apply (no
+ * fortune or pets, and "No Chameleon" only stops hunting it: it can still be bought).
+ * Infinity when it has no price.
+ */
+export function coinCost(
+  shard: DeckShard,
+  settings: CalcSettings,
+  prices: PriceTable | null,
+): number {
+  const price = buyPrice(shard.id, settings, prices);
+  return price !== null && price > 0 ? price : Infinity;
+}
+
+/** `prices`: the Bazaar's, for coin mode (null: own prices only). */
+export function buildGraph(
+  deck: Deck,
+  settings: CalcSettings,
+  prices: PriceTable | null = null,
+): Graph {
   const mult = multipliers(settings);
+  const rates = Float64Array.from(deck.shards, (shard) =>
+    effectiveRate(shard, settings, mult),
+  );
   return {
     deck,
     shards: deck.shards,
-    rates: Float64Array.from(deck.shards, (shard) =>
-      effectiveRate(shard, settings, mult),
-    ),
+    rates,
+    mode: settings.mode,
+    unitCost:
+      settings.mode === "coins"
+        ? Float64Array.from(deck.shards, (shard) =>
+            coinCost(shard, settings, prices),
+          )
+        : rates.map((rate) => (rate > 0 ? 1 / rate : Infinity)),
     recipes: recipesOf(deck),
     index: new Map(deck.shards.map((shard, i) => [shard.id, i])),
   };
@@ -197,10 +235,9 @@ export function effectiveOutput(
   return recipe.reptile ? recipe.quantity * crocodile : recipe.quantity;
 }
 
-/** Hours to hunt one shard (Infinity when it can't be hunted). */
+/** One shard got directly: hours to hunt it, or its price (Infinity: it can't be). */
 export function directCost(graph: Graph, shard: number): number {
-  const rate = graph.rates[shard] ?? 0;
-  return rate > 0 ? 1 / rate : Infinity;
+  return graph.unitCost[shard] ?? Infinity;
 }
 
 /** Same inputs (either order), quantity and reptile flag. */

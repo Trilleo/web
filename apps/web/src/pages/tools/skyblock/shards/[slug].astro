@@ -25,9 +25,17 @@ import {
   shardPath,
 } from "@trilleo/tool-skyblock/meta";
 import { buttonClasses } from "@trilleo/ui/classes";
+import PriceChart from "../../../../components/skyblock/PriceChart.astro";
 import ShardChip from "../../../../components/skyblock/ShardChip.astro";
 import SkyblockLayout from "../../../../components/skyblock/SkyblockLayout.astro";
 import { getDb } from "../../../../lib/db";
+import {
+  PRICE_RANGES,
+  currentPrices,
+  isPriceRange,
+  priceHistory,
+  type PriceRange,
+} from "../../../../lib/skyblock/bazaar";
 import { shardData } from "../../../../lib/skyblock/data";
 import {
   PARTNERS_SHOWN,
@@ -40,7 +48,8 @@ import { getStorage } from "../../../../lib/storage/config";
 export const prerender = false;
 
 const slug = Astro.params.slug ?? "";
-const data = await shardData(await getDb(), getStorage());
+const db = await getDb();
+const data = await shardData(db, getStorage());
 const page = shardPage(data, slug);
 if (!page) return Astro.rewrite("/404");
 const { shard } = page;
@@ -68,6 +77,17 @@ const facts: [string, string | null][] = [
   ["Hunting rate", rate],
   ["Hypixel ID", shard.id],
 ];
+// The Bazaar: today's prices and the chart over a range (?range=, links: no JS).
+const current = await currentPrices(db);
+const price = current?.prices[shard.id] ?? null;
+const rangeParam = Astro.url.searchParams.get("range");
+const range: PriceRange = isPriceRange(rangeParam) ? rangeParam : "7d";
+const history = price ? await priceHistory(db, shard.id, range) : [];
+const toMax = shardsToMax(shard.rarity);
+const priceText = (value: number | null) =>
+  value === null
+    ? "—"
+    : `${value.toLocaleString("en", { maximumFractionDigits: value < 100 ? 1 : 0 })} coins`;
 const steps = SHARDS_PER_LEVEL[shard.rarity];
 const levels = Array.from({ length: MAX_ATTRIBUTE_LEVEL }, (_, i) => ({
   level: i + 1,
@@ -275,9 +295,97 @@ const scrollRegion = {
     </div>
   </section>
 
+  <section class={row} aria-labelledby="bazaar-title" id="bazaar">
+    <h2 id="bazaar-title" class={label}>
+      <span class="text-muted">(03)</span> Bazaar
+    </h2>
+    <div class={body} data-testid="shard-bazaar">
+      {!price ? (
+        <p class="text-muted">
+          {current
+            ? `${shard.name} isn’t sold on the Bazaar.`
+            : "The Bazaar’s prices haven’t loaded yet."}
+        </p>
+      ) : (
+        <>
+          <dl class="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
+            <div>
+              <dt class="type-label text-muted">Instant buy</dt>
+              <dd class="type-row">{priceText(price.ask)}</dd>
+            </div>
+            <div>
+              <dt class="type-label text-muted">Instant sell</dt>
+              <dd class="type-row">{priceText(price.bid)}</dd>
+            </div>
+            <div>
+              <dt class="type-label text-muted">Bought a week</dt>
+              <dd class="type-row">{price.boughtWeek.toLocaleString("en")}</dd>
+            </div>
+            <div>
+              <dt class="type-label text-muted">Sold a week</dt>
+              <dd class="type-row">{price.soldWeek.toLocaleString("en")}</dd>
+            </div>
+          </dl>
+          <p>
+            {`Maxing ${attribute ? attribute.title : "its attribute"} with bought shards: `}
+            <strong data-testid="shard-cost-to-max">
+              {priceText(
+                price.bid !== null
+                  ? price.bid * toMax
+                  : price.ask !== null
+                    ? price.ask * toMax
+                    : null,
+              )}
+            </strong>
+            {` (${String(toMax)} at ${price.bid !== null ? "the top buy order" : "the lowest sell offer"}). `}
+            <a
+              class="underline"
+              href={`${calculatorPath(shard.slug, toMax)}&mode=coins`}
+            >
+              Cheaper by fusing?
+            </a>
+          </p>
+          <nav aria-label="Price range" class="flex flex-wrap gap-2">
+            {Object.entries(PRICE_RANGES).map(([key, value]) =>
+              key === range ? (
+                <span
+                  aria-current="true"
+                  class="border border-ink bg-ink px-3 py-1.5 type-label text-paper"
+                >
+                  {value.label}
+                </span>
+              ) : (
+                <a
+                  href={`?range=${key}#bazaar`}
+                  class="border border-ink px-3 py-1.5 type-label hover:bg-chip"
+                >
+                  {value.label}
+                </a>
+              ),
+            )}
+          </nav>
+          {history.length < 2 ? (
+            <p class="text-sm text-muted" data-testid="shard-chart-waiting">
+              Prices are kept by the hour: the chart fills in as they come.
+            </p>
+          ) : (
+            <PriceChart
+              points={history}
+              label={`${shard.name}’s Bazaar prices over ${PRICE_RANGES[range].label}`}
+            />
+          )}
+          <p class="text-sm text-muted">
+            From Hypixel’s Bazaar, fetched by this site every 5 minutes; the
+            chart shows each hour’s median.
+          </p>
+        </>
+      )}
+    </div>
+  </section>
+
   <section class={row} aria-labelledby="made-title">
     <h2 id="made-title" class={label}>
-      <span class="text-muted">(03)</span> Made from
+      <span class="text-muted">(04)</span> Made from
     </h2>
     <div class={body} data-testid="shard-made-from">
       {!shard.synthesized && page.madeFrom.length === 0 && (
@@ -374,7 +482,7 @@ const scrollRegion = {
 
   <section class={row} aria-labelledby="into-title">
     <h2 id="into-title" class={label}>
-      <span class="text-muted">(04)</span> Fuses into
+      <span class="text-muted">(05)</span> Fuses into
     </h2>
     <div class={body} data-testid="shard-used-in">
       {(page.idResult || page.chameleonResult.length > 0) && (

@@ -3,7 +3,11 @@
  * alternatives through a CalcEngine. The same code runs in the worker and, where
  * there's no Worker, on the page itself.
  */
-import type { Deck } from "@trilleo/skyblock/calc";
+import {
+  isPriceTable,
+  type Deck,
+  type PriceTable,
+} from "@trilleo/skyblock/calc";
 import { CalcEngine } from "./engine";
 import type { WorkerRequest, WorkerResponse } from "./protocol";
 
@@ -19,6 +23,8 @@ function isDeck(value: unknown): value is Deck {
 
 export class CalcHost {
   private engine: CalcEngine | null = null;
+  /** Prices that arrived before the deck. */
+  private prices: { table: PriceTable | null; fetchedAt: string } | null = null;
 
   constructor(
     private fetcher: typeof fetch = (input, init) => fetch(input, init),
@@ -35,7 +41,34 @@ export class CalcHost {
         const deck: unknown = await response.json();
         if (!isDeck(deck)) throw new Error("The shard data didn't read.");
         this.engine = new CalcEngine(deck);
+        if (this.prices)
+          this.engine.setPrices(this.prices.table, this.prices.fetchedAt);
         return { id: message.id, type: "load", version: deck.version };
+      }
+      if (message.type === "prices") {
+        const response = await this.fetcher(message.url, { cache: "no-cache" });
+        if (!response.ok)
+          throw new Error(
+            `The prices didn't load (HTTP ${String(response.status)}).`,
+          );
+        const body: unknown = await response.json();
+        const record =
+          typeof body === "object" && body !== null
+            ? (body as Record<string, unknown>)
+            : {};
+        const table = record.prices === null ? null : record.prices;
+        if (table !== null && !isPriceTable(table))
+          throw new Error("The prices didn't read.");
+        const fetchedAt =
+          typeof record.fetchedAt === "string" ? record.fetchedAt : null;
+        this.prices = { table, fetchedAt: fetchedAt ?? "" };
+        this.engine?.setPrices(table, fetchedAt ?? "");
+        return {
+          id: message.id,
+          type: "prices",
+          fetchedAt: table ? fetchedAt : null,
+          prices: table,
+        };
       }
       if (!this.engine) throw new Error("The shard data hasn't loaded yet.");
       if (message.type === "plan")

@@ -67,6 +67,11 @@ export const ERROR_CODES = {
     description:
       "The guess hasn't got the answer's number of letters, so it wasn't counted as a try. `details.letters` is how many the answer has, `details.got` how many the guess had (only letters count).",
   },
+  prices_unavailable: {
+    status: 503,
+    description:
+      "The site hasn't got Hypixel's Bazaar prices yet (it fetches them every few minutes, and Hypixel may not be answering). Try again in a few minutes.",
+  },
   method_not_allowed: {
     status: 405,
     description:

@@ -149,7 +149,7 @@ export function planText(graph: Graph, plan: Plan): string {
     const pad = "  ".repeat(depth);
     if (node.kind === "hunt") {
       lines.push(
-        `${pad}Hunt ${formatNumber(node.quantity)} ${name(node.shard)}`,
+        `${pad}${graph.mode === "coins" ? "Buy" : "Hunt"} ${formatNumber(node.quantity)} ${name(node.shard)}`,
       );
     } else if (node.kind === "fuse") {
       const fuse = (index: number) => graph.shards[index]?.fuse ?? 1;

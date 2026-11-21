@@ -21,6 +21,11 @@ import {
 } from "./minecraft";
 import { getPost, listPosts, listTags } from "./posts";
 import { getSite, listGames, listTools } from "./site";
+import {
+  getSkyblockPriceHistory,
+  getSkyblockPrices,
+  listSkyblockShards,
+} from "./skyblock";
 import { getStudySubject, listStudySubjects } from "./study";
 import { getMe, getMyUsage, getStatus } from "./system";
 
@@ -39,6 +44,9 @@ export const ROUTES: readonly Route[] = [
   getMinecraftLatest,
   listStudySubjects,
   getStudySubject,
+  listSkyblockShards,
+  getSkyblockPrices,
+  getSkyblockPriceHistory,
   getCrypticToday,
   getCrypticDay,
   listCrypticArchive,

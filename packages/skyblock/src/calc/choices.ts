@@ -82,7 +82,7 @@ export interface Alternative {
   /** null: hunt it. */
   recipe: GraphRecipe | null;
   /** Hours per shard this way, with today's prices of its inputs. */
-  hoursPerShard: number;
+  costPerShard: number;
   current: boolean;
 }
 
@@ -111,18 +111,18 @@ export function alternatives(
     const total =
       pricedOrInfinity(solved.cost[recipe.a]) * fuse(recipe.a) +
       pricedOrInfinity(solved.cost[recipe.b]) * fuse(recipe.b) +
-      mult.fusionHours;
+      mult.fusionCost;
     options.push({
       recipe,
-      hoursPerShard: total / effectiveOutput(recipe, mult.crocodile),
+      costPerShard: total / effectiveOutput(recipe, mult.crocodile),
       current: sameRecipe(recipe, current),
     });
   }
   if (withHunting)
     options.push({
       recipe: null,
-      hoursPerShard: directCost(graph, shard),
+      costPerShard: directCost(graph, shard),
       current: current === null,
     });
-  return options.sort((a, b) => a.hoursPerShard - b.hoursPerShard);
+  return options.sort((a, b) => a.costPerShard - b.costPerShard);
 }

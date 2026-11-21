@@ -39,6 +39,11 @@ export const API_GROUPS = {
     title: "Study",
     intro: "The study section's subjects and lessons. Public: no key needed.",
   },
+  skyblock: {
+    title: "SkyBlock",
+    intro:
+      "Hypixel SkyBlock's shards (from SkyShards' data) and their Bazaar prices, which the site fetches from Hypixel every 5 minutes and keeps hourly for 90 days. Public: no key needed.",
+  },
   cryptic: {
     title: "Daily cryptic",
     intro:

@@ -1180,8 +1180,8 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   (and is exempt from the same-origin check: the API goes by keys, never cookies).
   Locally it's api.localhost:<port>. The API host has no sessions; the middleware only
   rewrites (and starts the usual background work).
-- Groups: System, Site (site, tools, games), Posts (posts, tags), Minecraft, Study
-  (all public, cached a few minutes), and Daily cryptic (key and scopes). Public
+- Groups: System, Site (site, tools, games), Posts (posts, tags), Minecraft, Study,
+  SkyBlock (all public, cached a few minutes), and Daily cryptic (key and scopes). Public
   routes answer from the same lib/ code the pages use, so they show only what the
   pages show; lists page with `items` + `nextCursor` (opaque base64url cursors).
 - Routes are declared once with `defineRoute` (lib/api/registry.ts): method, path
@@ -1573,9 +1573,8 @@ chunithm:bundle <list>` (scripts/chunithm-bundle.ts around lib/chunithm/bundler.
 
 - /tools/skyblock/ (apps/skyblock, @trilleo/tool-skyblock; status "in-progress"): a hub
   of utilities (`UTILITIES` in its meta: built ones linked, planned ones listed). Built
-  so far: Shards and the fusion calculator. Planned, in phases: Bazaar prices (fetched and cached by our server from Hypixel's keyless public
-  endpoint, never by browsers: coin mode, fusion profits, price charts), then a
-  collection tracker, a hunting planner and the fusion-lines graph. No Hypixel API key:
+  so far: Shards, the fusion calculator (hours or coins) and Fusion profits. Planned:
+  a collection tracker, a hunting planner and the fusion-lines graph. No Hypixel API key:
   nothing that needs one (profile import) is built.
 - Data: SkyShards' repository (github.com/Campionnn/SkyShards, MIT): fusion-data.json,
   fusion-properties.json, desc.json, rates.json and public/shardIcons/<key>.png.
@@ -1647,8 +1646,36 @@ skyblock:snapshot` (scripts/skyblock-snapshot.ts on plain Node, like chunithm:bu
   ALTERNATIVES_SHOWN plus the current), checklist, setup, own hunting rates, chosen
   recipes. Saved as tool data (calc-settings after SAVE_DELAY_MS or when the page hides,
   calc-overrides, calc-checklist for one target at a time); signed out in this browser.
-  Coin mode waits for Bazaar prices; inventory and multi-shard modes for the collection
-  tracker and planner.
+  Coin mode (settings `mode`, `instantBuy`, `fusionCoins`, own `prices`, `tax`:
+  BAZAAR_TAXES) prices shards from the Bazaar (the bid as a buy order, or the ask with
+  instant buy), as SkyShards' coin mode does (no fortune; the coin tolerance; it matched
+  SkyShards' coin golden too): the page loads /api/skyblock/prices.json into the worker
+  (calc/host.ts, "prices" message) every PRICES_REFRESH_MS, the coins option stays off
+  until there are prices, plans carry `mode` and the target's `market` (what the
+  shards sell for instantly or by offer, after tax, and the profit), and "Your prices"
+  replaces "Your hunting rates". ?mode=coins opens it in coins over the saved setup.
+  Inventory and multi-shard modes wait for the collection tracker and planner.
+- Bazaar prices (lib/skyblock/bazaar.ts; sb_bazaar one row, sb_price_history): the
+  server fetches Hypixel's keyless public endpoint every REFRESH_MS (`startSkyblockBazaar`
+  with the other timers, or any request), never browsers: the shards' ask (buy_summary's
+  first, the lowest sell offer) and bid (sell_summary's first, the top buy order) and
+  weekly volumes (`readBazaar`; fewer than MIN_SHARD_PRODUCTS shards is refused). Each
+  fetch replaces the latest and appends its samples to the hour's history row (jsonb
+  arrays, so pages show the hour's median), purged after PRICE_HISTORY_DAYS.
+  FAILURES_TO_ALERT failures in a row alert ("skyblock-prices"). `currentPrices` is
+  cached CACHE_MS. SKYBLOCK_BAZAAR=off never fetches; SKYBLOCK_BAZAAR_URL points
+  elsewhere (e2e: e2e/fake-skyblock.ts, priced from the snapshot's rates).
+- /tools/skyblock/profits/ (GET form: buy orders or instant, sell offers or instant, tax,
+  sort, weekly volume; noindex when filtered): lib/skyblock/profits.ts `fusionProfits`
+  solves coin mode on the server (memoised per price fetch and options) and lists shards
+  whose cheapest route is a fusion and that sell for more after tax (profit, margin, a
+  batch: one run of the last fusion, volume; "Route" opens the calculator in coins), and
+  `movers` (the ask now against the hourly median a day and a week ago, at least
+  MOVER_MIN_VOLUME a week). Shard pages have a Bazaar section (#bazaar: prices, volumes,
+  cost to max at the bid, PriceChart.astro over ?range=24h|7d|30d|90d once two hours
+  exist). /admin/skyblock/ shows the last fetch and failures. The API's SkyBlock group
+  (lib/api/routes/skyblock.ts): `/v1/skyblock/shards`, `/v1/skyblock/prices`
+  (`prices_unavailable` 503 before the first fetch), `/v1/skyblock/shards/{slug}/prices`.
 
 ## Mail
 

@@ -1,5 +1,5 @@
 import type { NodeView, PlanView, ShardInfo } from "./engine";
-import { formatHours, formatNumber } from "./format";
+import { formatCost, formatNumber } from "./format";
 import { ShardIcon } from "../ShardBrowser";
 import { shardPath } from "../meta";
 
@@ -52,9 +52,13 @@ function Node({
     return (
       <li className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="type-label text-muted">Hunt</span>
+          <span className="type-label text-muted">
+            {plan.mode === "coins" ? "Buy" : "Hunt"}
+          </span>
           <ShardName shard={shard} quantity={node.quantity} />
-          <span className="text-sm text-muted">{formatHours(node.hours)}</span>
+          <span className="text-sm text-muted">
+            {formatCost(node.cost, plan.mode)}
+          </span>
           {!root && (
             <button
               type="button"

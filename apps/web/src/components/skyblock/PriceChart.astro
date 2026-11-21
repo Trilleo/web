@@ -1,0 +1,151 @@
+---
+/**
+ * A shard's Bazaar prices over time: the lowest sell offer (the accent line) and the
+ * top buy order (ink, dashed), hourly medians. Gaps where nobody was selling or buying
+ * break the line (it needs two hours or more). The same numbers are in a table under it, for screen readers and
+ * anyone who wants them.
+ */
+import type { PricePoint } from "../../lib/skyblock/bazaar";
+
+interface Props {
+  points: readonly PricePoint[];
+  /** e.g. "Tiamat's Bazaar prices over 7 days". */
+  label: string;
+}
+
+const { points, label } = Astro.props;
+const WIDTH = 600;
+const HEIGHT = 160;
+const PAD = 4;
+const values = points.flatMap((p) =>
+  [p.ask, p.bid].filter((v): v is number => v !== null),
+);
+const low = Math.min(...values);
+const high = Math.max(...values);
+const span = high - low || Math.max(1, high * 0.1);
+const first = points[0]?.hour.getTime() ?? 0;
+const last = points.at(-1)?.hour.getTime() ?? first;
+const x = (date: Date) =>
+  last === first
+    ? WIDTH / 2
+    : ((date.getTime() - first) / (last - first)) * WIDTH;
+const y = (value: number) =>
+  PAD +
+  (1 - (value - (high === low ? low - span / 2 : low)) / span) *
+    (HEIGHT - 2 * PAD);
+
+/** An SVG path through the points, starting afresh after each gap. */
+function line(key: "ask" | "bid"): string {
+  let path = "";
+  let drawing = false;
+  for (const point of points) {
+    const value = point[key];
+    if (value === null) {
+      drawing = false;
+      continue;
+    }
+    path += `${drawing ? "L" : "M"}${x(point.hour).toFixed(1)} ${y(value).toFixed(1)}`;
+    drawing = true;
+  }
+  return path;
+}
+const coins = (value: number) =>
+  value.toLocaleString("en", { maximumFractionDigits: value < 100 ? 1 : 0 });
+const stamp = (date: Date) =>
+  date.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+  });
+---
+
+<figure class="flex flex-col gap-2" data-testid="price-chart">
+  <svg
+    viewBox={`0 0 ${String(WIDTH)} ${String(HEIGHT)}`}
+    class="h-40 w-full max-w-2xl overflow-visible"
+    preserveAspectRatio="none"
+    role="img"
+    aria-label={`${label}: from ${coins(low)} to ${coins(high)} coins`}
+  >
+    <line
+      x1="0"
+      x2={WIDTH}
+      y1={HEIGHT - 0.5}
+      y2={HEIGHT - 0.5}
+      stroke="var(--tr-hair)"
+      stroke-width="1"
+    />
+    <path
+      d={line("bid")}
+      fill="none"
+      stroke="var(--tr-ink)"
+      stroke-width="1.5"
+      stroke-dasharray="4 3"
+      vector-effect="non-scaling-stroke"
+    />
+    <path
+      d={line("ask")}
+      fill="none"
+      stroke="var(--tr-accent)"
+      stroke-width="2"
+      vector-effect="non-scaling-stroke"
+    />
+  </svg>
+  <figcaption class="flex max-w-2xl flex-col gap-1">
+    <span class="type-label flex justify-between text-muted">
+      <span>{points[0] && stamp(points[0].hour)}</span>
+      <span>
+        {coins(low)}–{coins(high)} coins
+      </span>
+      <span>{points.at(-1) && stamp(points.at(-1)!.hour)} UTC</span>
+    </span>
+    <span class="flex flex-wrap gap-x-5 text-sm">
+      <span class="inline-flex items-center gap-2">
+        <span
+          aria-hidden="true"
+          class="inline-block h-0.5 w-5 bg-accent"
+        ></span>
+        Lowest sell offer (instant buy)
+      </span>
+      <span class="inline-flex items-center gap-2">
+        <span
+          aria-hidden="true"
+          class="inline-block w-5 border-t-2 border-dashed border-ink"
+        ></span>
+        Top buy order (instant sell)
+      </span>
+    </span>
+  </figcaption>
+  <details class="max-w-2xl">
+    <summary class="type-label cursor-pointer text-muted">
+      Show as a table
+    </summary>
+    <table class="mt-2 w-full text-sm">
+      <caption class="sr-only">{label}, hourly medians</caption>
+      <thead>
+        <tr class="type-label text-muted">
+          <th scope="col" class="text-left font-normal">
+            Hour (UTC)
+          </th>
+          <th scope="col" class="text-right font-normal">
+            Sell offer
+          </th>
+          <th scope="col" class="text-right font-normal">
+            Buy order
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {[...points].reverse().map((p) => (
+          <tr class="border-t border-hair">
+            <td>{stamp(p.hour)}</td>
+            <td class="text-right">{p.ask === null ? "—" : coins(p.ask)}</td>
+            <td class="text-right">{p.bid === null ? "—" : coins(p.bid)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </details>
+</figure>
