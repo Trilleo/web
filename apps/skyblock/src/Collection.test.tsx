@@ -11,6 +11,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  COLLECTION_PAGE_SIZE,
   Collection,
   COLLECTION_SAVE_DELAY_MS,
   collectionTotals,
@@ -164,5 +165,25 @@ describe("Collection", () => {
       held: 3,
       kinds: 1,
     });
+  });
+});
+
+describe("Collection with many shards", () => {
+  it("shows them a page at a time, starting over when the filters change", () => {
+    const many: CollectionShard[] = readSources(sourceFiles({ extra: 70 }), {
+      minShards: 1,
+    }).shards.map((shard) => ({ ...summarize(shard, null), id: shard.id }));
+    render(<Collection signedIn={false} signInHref="/sign-in" shards={many} />);
+    expect(screen.getAllByTestId("collection-row")).toHaveLength(
+      COLLECTION_PAGE_SIZE,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Show more/ }));
+    expect(screen.getAllByTestId("collection-row")).toHaveLength(many.length);
+    fireEvent.change(screen.getByLabelText("Rarity"), {
+      target: { value: "epic" },
+    });
+    expect(screen.getAllByTestId("collection-row")).toHaveLength(
+      COLLECTION_PAGE_SIZE,
+    );
   });
 });

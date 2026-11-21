@@ -357,6 +357,8 @@ test("the collection keeps levels and held shards in this browser", async ({
   await page.waitForTimeout(900);
   await page.reload();
   await hydrated(page);
+  // Rows come 60 at a time; Tiamat is further down, so find it again.
+  await page.getByLabel("Find a shard").fill("tiamat");
   await expect(
     page
       .locator('[data-testid="collection-row"][data-shard="SHARD_TIAMAT"]')

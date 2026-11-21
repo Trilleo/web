@@ -1669,7 +1669,8 @@ skyblock:snapshot` (scripts/skyblock-snapshot.ts on plain Node, like chunithm:bu
 - The Collection (/tools/skyblock/collection/, apps/skyblock's Collection.tsx; tool
   data key "collection", collection.ts: `levels` 1–10 and `held` counts by Hypixel ID,
   only non-zero ones, plus `keep`, shards plans mustn't use): totals, filters, a row per
-  shard (level, held, keep, what's left to max with a calculator link), and a JSON
+  shard (level, held, keep, what's left to max with a calculator link), COLLECTION_PAGE_SIZE
+  rows at a time (hundreds of rows of fields are slow to draw, and axe timed out on them), and a JSON
   copy to download and load (`COLLECTION_FILE_FORMAT`). The calculator offers "Left to
   max", picks that quantity for a new target, and can fill its setup's levels from it.
 - The hunting planner (/tools/skyblock/planner/, Planner.tsx; tool data key "planner":

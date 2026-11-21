@@ -41,6 +41,9 @@ export interface CollectionProps {
   initialSaved?: StoredItem<unknown>[];
 }
 
+/** Rows shown at first, and added by "Show more". */
+export const COLLECTION_PAGE_SIZE = 60;
+
 /** After a change, how long before the collection is saved (typing is many changes). */
 export const COLLECTION_SAVE_DELAY_MS = 600;
 
@@ -161,6 +164,14 @@ export function Collection({
   const [category, setCategory] = useState("");
   const [family, setFamily] = useState("");
   const [show, setShow] = useState<Show>("all");
+  // Rows shown: COLLECTION_PAGE_SIZE more at a time, back to the first page whenever
+  // the filters change (hundreds of rows of fields at once are slow to draw and read).
+  const filterKey = JSON.stringify([query, rarity, category, family, show]);
+  const [paging, setPaging] = useState({
+    key: filterKey,
+    shown: COLLECTION_PAGE_SIZE,
+  });
+  const shown = paging.key === filterKey ? paging.shown : COLLECTION_PAGE_SIZE;
   const options = useMemo(() => filterOptions(shards), [shards]);
   const byKey = useMemo(
     () => new Map(shards.map((shard) => [shard.key, shard])),
@@ -463,7 +474,7 @@ export function Collection({
                 <span className="w-[3.75rem]" />
                 <span className="text-right">To max</span>
               </li>
-              {results.map((shard) => (
+              {results.slice(0, shown).map((shard) => (
                 <ShardRow
                   key={shard.id}
                   shard={shard}
@@ -476,6 +487,21 @@ export function Collection({
                 />
               ))}
             </ul>
+          )}
+          {results.length > shown && (
+            <div>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setPaging({
+                    key: filterKey,
+                    shown: shown + COLLECTION_PAGE_SIZE,
+                  });
+                }}
+              >
+                Show more ({results.length - shown} left)
+              </Button>
+            </div>
           )}
         </div>
       </ToolSection>
