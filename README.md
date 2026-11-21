@@ -119,7 +119,10 @@ recent failures. The first thing on it is a daily cryptic crossword clue, writte
 `/admin/cryptic/` and played through a Discord bot, which fetches each day's clue and
 sends players' guesses for the site to check and score. Apps can also be sent events
 as they happen (webhooks: the day's cryptic at midnight, new posts), signed with a
-secret shown in the same panel.
+secret shown in the same panel. Programs that act for one person (a game mod syncing
+their progress) use a personal token instead: the program shows a code, the person
+approves it at `/link/`, and the program receives a token it keeps; people see and
+revoke theirs at `/account/apps/` (the docs' Personal tokens guide).
 
 Things that cost something to answer (sign-in codes, the contact form, new accounts'
 comments and forum posts, proposed wiki edits, suggested CHUNITHM names, profile

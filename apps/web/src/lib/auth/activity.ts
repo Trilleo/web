@@ -41,6 +41,9 @@ export const SECURITY_EVENTS = {
   "username-changed": "Username changed",
   "signed-out-others": "Other browsers signed out",
   "signed-out-everywhere": "Signed out everywhere",
+  "device-linked": "Device linked",
+  "token-created": "Personal token made",
+  "token-revoked": "Personal token revoked",
 } as const;
 
 export type SecurityEventKind = keyof typeof SECURITY_EVENTS;

@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { allUserTokens } from "../../lib/api/user-tokens";
 import { eventsOf } from "../../lib/auth/activity";
 import { aliasExport } from "../../lib/chunithm/aliases";
 import { requireUser } from "../../lib/auth/guard";
@@ -76,6 +77,17 @@ export const GET: APIRoute = async (context) => {
         synced: key.backedUp,
       })),
       activity: await eventsOf(db, user.id),
+      // Personal tokens by name (only their hash is kept, which is useless here).
+      apiTokens: (await allUserTokens(db, user.id)).map((token) => ({
+        name: token.name,
+        prefix: token.prefix,
+        via: token.via,
+        scopes: token.scopes,
+        createdAt: token.createdAt,
+        expiresAt: token.expiresAt,
+        lastUsedAt: token.lastUsedAt,
+        revokedAt: token.revokedAt,
+      })),
     },
     // The address, its switches, and what was sent (bodies while they’re kept).
     email: {

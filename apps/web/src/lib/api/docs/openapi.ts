@@ -2,7 +2,7 @@
 import { ERROR_CODES } from "../errors";
 import { API_GROUPS, usedGroups, type Route } from "../registry";
 import type { JsonSchema, ObjectSchema, Shape } from "../schema";
-import { API_SCOPES } from "../scopes";
+import { API_SCOPES, USER_SCOPES } from "../scopes";
 import { API_VERSION } from "../routes/system";
 import type { DocContext } from "./context";
 import { API_NAME } from "./pages";
@@ -37,7 +37,9 @@ function operation(route: Route): JsonSchema {
     security:
       route.auth === "public"
         ? [{}, { apiKey: [] }]
-        : [{ apiKey: route.scope ? [route.scope] : [] }],
+        : route.auth === "user"
+          ? [{ personalToken: route.scope ? [route.scope] : [] }]
+          : [{ apiKey: route.scope ? [route.scope] : [] }],
     ...(route.scope ? { "x-scope": route.scope } : {}),
     parameters: [
       ...parameters(route.params, "path"),
@@ -115,6 +117,11 @@ export function openApiDocument(
           type: "http",
           scheme: "bearer",
           description: `An API key, as \`Authorization: Bearer <key>\`. Scopes: ${Object.keys(API_SCOPES).join(", ")}.`,
+        },
+        personalToken: {
+          type: "http",
+          scheme: "bearer",
+          description: `A personal token (\`trlu_…\`), acting for one account, as \`Authorization: Bearer <token>\`. Scopes: ${Object.keys(USER_SCOPES).join(", ")}.`,
         },
       },
       schemas: {

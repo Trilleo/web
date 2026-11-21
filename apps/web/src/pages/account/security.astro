@@ -38,6 +38,7 @@ import { signInErrorMessage } from "../../lib/auth/sign-in";
 import { field } from "../../lib/comments/form";
 import { getDb } from "../../lib/db";
 import { formatPostDate } from "../../lib/listings";
+import { listUserTokens } from "../../lib/api/user-tokens";
 import { toast, toastError } from "../../lib/toast";
 import Notice from "../../components/Notice.astro";
 
@@ -95,6 +96,7 @@ const github = identities.find((identity) => identity.provider === "github");
 const githubReady = authConfig().github !== null;
 const browsers = (await listUserSessions(db, user.id)).length;
 const keys = await listPasskeys(db, user.id);
+const apps = (await listUserTokens(db, user.id)).length;
 const events = await recentEvents(db, user.id);
 /** "Signed in with a passkey", "Passkey added: Chrome on Windows"… */
 function describe(event: { kind: string; detail: string | null }): string {
@@ -373,6 +375,30 @@ else if (done && done !== "adopted") toast(Astro, DONE[done]);
       </div>
 
       <div class={row}>
+        <h2 class={heading}>Apps</h2>
+        <div class={body}>
+          <p>
+            {apps === 0
+              ? "No programs act for your account."
+              : `${String(apps)} ${apps === 1 ? "program acts" : "programs act"} for your account with a personal token.`}{" "}
+            Tokens can’t sign in or change your account, and you can revoke each
+            one.
+          </p>
+          <div class="flex flex-wrap gap-3">
+            <a
+              href="/account/apps/"
+              class={buttonClasses({ variant: "secondary" })}
+            >
+              Manage apps
+            </a>
+            <a href="/link/" class={buttonClasses({ variant: "secondary" })}>
+              Link a device
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class={row}>
         <h2 class={heading}>Recent activity</h2>
         <div class={body}>
           {events.length === 0 ? (
@@ -396,9 +422,9 @@ else if (done && done !== "adopted") toast(Astro, DONE[done]);
             </ol>
           )}
           <p class="text-sm text-muted">
-            Sign-ins, address changes, passkeys and linked accounts, from the
-            last year. Anything you don’t recognise? Sign out everywhere, then
-            check the sections above.
+            Sign-ins, address changes, passkeys, linked accounts and apps, from
+            the last year. Anything you don’t recognise? Sign out everywhere,
+            then check the sections above.
           </p>
         </div>
       </div>

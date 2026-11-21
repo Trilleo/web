@@ -47,6 +47,7 @@ export const PRIVATE_PATHS = [
   "/forum/new/",
   "/forum/report",
   "/forum/unread/",
+  "/link/",
   "/mail/",
   "/minecraft/report",
   "/sign-in",

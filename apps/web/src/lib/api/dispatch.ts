@@ -9,11 +9,16 @@ import { createHash, randomBytes } from "node:crypto";
 import type { Database } from "@trilleo/db";
 import { ApiError, errorBody } from "./errors";
 import { authenticate, type Caller } from "./keys";
-import { API_LIMITS } from "./limits";
+import { API_LIMITS, USER_TOKEN_LIMITS } from "./limits";
 import type { RateDecision, RateLimiter } from "./rate-limit";
 import { matchPath, type Route } from "./registry";
 import { check, type ObjectSchema, type Problem, type Shape } from "./schema";
 import { purgeUsage, recordRequest } from "./usage";
+import {
+  USER_TOKEN_PREFIX,
+  authenticateUser,
+  type UserCaller,
+} from "./user-tokens";
 
 export interface DispatchDeps {
   getDb: () => Promise<Database>;
@@ -172,6 +177,7 @@ export async function dispatch(
   const match = matches.find(({ route }) => route.method === wanted);
   let route: Route | undefined;
   let caller: Caller | null = null;
+  let user: UserCaller | null = null;
   let db: Database | undefined;
   let status: number;
   let response: Response;
@@ -200,30 +206,50 @@ export async function dispatch(
 
     const secret = bearer(request);
     db = await deps.getDb();
-    if (secret !== null) caller = await authenticate(db, secret, now);
+    if (secret?.startsWith(USER_TOKEN_PREFIX))
+      user = await authenticateUser(db, secret, now);
+    else if (secret !== null) caller = await authenticate(db, secret, now);
     if (route.auth === "key" && !caller)
       throw new ApiError(
         "missing_key",
-        "This route needs an API key: send Authorization: Bearer <key>.",
+        user
+          ? "This route needs an app's API key, not a personal token."
+          : "This route needs an API key: send Authorization: Bearer <key>.",
       );
-    if (route.scope && !caller?.scopes.includes(route.scope))
+    if (route.auth === "user" && !user)
+      throw new ApiError(
+        "token_required",
+        caller
+          ? "This route acts for an account: send that account's personal token, not an app's key."
+          : "This route acts for an account: send its personal token as Authorization: Bearer <token>.",
+      );
+    const scopes: readonly string[] =
+      route.auth === "user" ? (user?.scopes ?? []) : (caller?.scopes ?? []);
+    if (route.scope && !scopes.includes(route.scope))
       throw new ApiError(
         "insufficient_scope",
-        `This key doesn't have the "${route.scope}" scope.`,
+        `This ${route.auth === "user" ? "token" : "key"} doesn't have the "${route.scope}" scope.`,
         { required: route.scope },
       );
 
+    const visitor = ipBucket(deps.clientIp);
     const rate = caller
       ? deps.limiter.take(
           `key:${String(caller.key.id)}`,
           caller.app.rateLimit,
           now.getTime(),
         )
-      : deps.limiter.take(
-          ipBucket(deps.clientIp),
-          API_LIMITS.anonymousPerMinute,
-          now.getTime(),
-        );
+      : user
+        ? deps.limiter.take(
+            `user-token:${String(user.token.id)}`,
+            USER_TOKEN_LIMITS.perMinute,
+            now.getTime(),
+          )
+        : deps.limiter.take(
+            visitor,
+            API_LIMITS.anonymousPerMinute,
+            now.getTime(),
+          );
     rateHeaders(headers, rate);
     if (!rate.ok) {
       headers.set("Retry-After", String(rate.reset));
@@ -250,6 +276,8 @@ export async function dispatch(
       query,
       body,
       caller,
+      user,
+      visitor,
       rate,
       limiter: deps.limiter,
       now,
@@ -259,7 +287,7 @@ export async function dispatch(
       siteOrigin: deps.siteOrigin,
     });
     status = route.status;
-    if (route.auth === "public" && !caller && method !== "POST")
+    if (route.auth === "public" && !caller && !user && method !== "POST")
       headers.set(
         "Cache-Control",
         route.cacheSeconds > 0

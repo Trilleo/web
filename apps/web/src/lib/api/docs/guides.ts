@@ -5,9 +5,10 @@
  */
 import { ERROR_CODES } from "../errors";
 import { KEY_PREFIX } from "../keys";
-import { API_LIMITS } from "../limits";
+import { API_LIMITS, DEVICE_LIMITS, USER_TOKEN_LIMITS } from "../limits";
 import { API_GROUPS, usedGroups, type Route } from "../registry";
-import { API_SCOPES } from "../scopes";
+import { API_SCOPES, USER_SCOPES } from "../scopes";
+import { USER_TOKEN_PREFIX } from "../user-tokens";
 import { API_CHANGELOG } from "./changelog";
 import type { DocContext } from "./context";
 import { cell } from "./reference";
@@ -45,6 +46,7 @@ curl -s ${api}/v1/me -H "Authorization: Bearer $TRILLEO_API_KEY"
 ## Guides
 
 - [Authentication](${api}/docs/authentication/): keys, scopes, keeping keys safe.
+- [Personal tokens](${api}/docs/personal-tokens/): acting for one person's account, and linking a device (game mods, scripts).
 - [Conventions](${api}/docs/conventions/): requests, answers, dates, caching, CORS.
 - [Errors](${api}/docs/errors/): the error shape and every code.
 - [Rate limits](${api}/docs/rate-limits/): how many requests, and the headers that say so.
@@ -68,6 +70,8 @@ export function authenticationMarkdown(context: DocContext): string {
     .map(([scope, summary]) => `| \`${scope}\` | ${summary} |`)
     .join("\n");
   return `Some routes are public; the rest need an API key. Every key belongs to an **app** (one program, such as a Discord bot), made by the site's admin in the control panel. An app can have several keys (one per place it runs, say), each revocable on its own.
+
+Routes that act for one person's account (syncing their game progress, say) take that person's **personal token** instead: see [Personal tokens](${context.api}/docs/personal-tokens/).
 
 ## Sending the key
 
@@ -141,7 +145,7 @@ Routes that return lists say how they page. When they do, it's cursor-based: the
 
 ## CORS
 
-Public routes allow requests from any web page (\`Access-Control-Allow-Origin: *\`). Routes that need a key don't send CORS headers, so browsers refuse to call them from other sites: a key in a web page isn't secret.
+Public routes allow requests from any web page (\`Access-Control-Allow-Origin: *\`). Routes that need a key or a personal token don't send CORS headers, so browsers refuse to call them from other sites: a key in a web page isn't secret.
 
 ## Methods
 
@@ -193,6 +197,7 @@ export function rateLimitsMarkdown(context: DocContext): string {
 | Caller | Limit |
 | --- | --- |
 | With a key | The app's limit, set in the control panel (${n(API_LIMITS.defaultPerMinute)} per minute unless changed), per key |
+| With a personal token | ${n(USER_TOKEN_LIMITS.perMinute)} per minute, per token |
 | Without a key | ${n(API_LIMITS.anonymousPerMinute)} per minute per IP address |
 
 The limit is a bucket that refills steadily: a burst of up to the limit at once is fine, then requests fit in as the bucket refills (a 120-per-minute key gets one more every half second).
@@ -242,4 +247,117 @@ export function changelogMarkdown(): string {
     (entry) =>
       `## ${entry.date}\n\n${entry.changes.map((change) => `- ${change}`).join("\n")}`,
   ).join("\n\n");
+}
+
+export function personalTokensMarkdown(context: DocContext): string {
+  const { api, site } = context;
+  const scopes = Object.entries(USER_SCOPES)
+    .map(([scope, summary]) => `| \`${scope}\` | ${summary} |`)
+    .join("\n");
+  const minutes = String(DEVICE_LIMITS.codeMinutes);
+  const interval = String(DEVICE_LIMITS.intervalSeconds);
+  return `API keys belong to apps the site's admin makes. A **personal token** belongs to one person's account instead, and lets a program act for them, within the token's scopes: a game mod that syncs their progress, a script of their own. Tokens look like \`${USER_TOKEN_PREFIX}\` followed by 32 letters and digits. People see and revoke theirs on [their Apps page](${site}/account/apps/).
+
+A program gets a token in one of two ways:
+
+- **Linking a device** (best for anything people install): the program shows a short code, the person approves it on the site, and the program receives the token. Nobody copies a secret.
+- **By hand:** the person makes a token on the Apps page and pastes it into the program.
+
+## Linking a device
+
+The device flow, as in OAuth 2.0's device authorization grant (RFC 8628), in this API's own shapes.
+
+1. Start a link with [\`POST /v1/auth/device\`](${api}/reference/account/#startDeviceLink). Send your program's name (\`clientName\`, which the person sees and the token is named after) and the scopes you need. No key is needed.
+
+\`\`\`bash
+curl -s -X POST ${api}/v1/auth/device \\
+  -H "Content-Type: application/json" \\
+  -d '{"clientName":"SkyBlock mod","scopes":["skyblock:sync"]}'
+\`\`\`
+
+\`\`\`json
+{
+  "deviceCode": "trld_Q2k9xT7bLm4ZpR8sV1nW6yH3cJ5fD0aE",
+  "userCode": "BCDF-GHJK",
+  "verificationUri": "${site}/link/",
+  "verificationUriComplete": "${site}/link/?code=BCDF-GHJK",
+  "expiresIn": ${String(DEVICE_LIMITS.codeMinutes * 60)},
+  "interval": ${interval}
+}
+\`\`\`
+
+2. Show the person \`userCode\` and tell them to open \`verificationUri\` (or open \`verificationUriComplete\` for them, or show it as a QR code). They sign in there, check what's asking and approve. Keep \`deviceCode\` to yourself: it's what redeems the token.
+
+3. Poll [\`POST /v1/auth/device/token\`](${api}/reference/account/#finishDeviceLink) with \`{ "deviceCode": "…" }\`, waiting \`interval\` seconds (${interval}) between polls:
+
+| Answer | What to do |
+| --- | --- |
+| \`400 authorization_pending\` | Not decided yet. Wait \`interval\` seconds and poll again. |
+| \`400 slow_down\` | You polled too soon. Wait longer (\`details.interval\`) and poll again. |
+| \`200\` with \`token\` | Approved. Store the token; it's answered only this once. |
+| \`403 access_denied\` | They declined (or have no room for another token). Stop. |
+| \`400 expired_token\` | The code expired (after ${minutes} minutes) or was used. Start again from step 1. |
+
+\`\`\`text
+start = POST /v1/auth/device
+show start.userCode and start.verificationUri
+repeat until start.expiresIn seconds have passed:
+    wait start.interval seconds
+    answer = POST /v1/auth/device/token { deviceCode: start.deviceCode }
+    if answer is 200: save answer.token, then stop
+    if answer.error.code is "slow_down": add 5 seconds to the wait
+    if answer.error.code is "access_denied" or "expired_token": stop
+\`\`\`
+
+4. Check the token with [\`GET /v1/account\`](${api}/reference/account/#getAccount), which says whose account it is: show "Linked as @name".
+
+## Sending the token
+
+Exactly like a key, in the \`Authorization\` header:
+
+\`\`\`bash
+curl -s ${api}/v1/account -H "Authorization: Bearer $TRILLEO_TOKEN"
+\`\`\`
+
+Routes that act for an account say "Personal token" under **Auth** in the reference. They refuse an app's key (\`401 token_required\`), and routes that need an app's key refuse a token (\`401 missing_key\`). Public routes accept a token too: it's checked, and the request counts against the token's own limit.
+
+## Scopes
+
+A token can only do what its scopes allow; the person sees them before approving.
+
+| Scope | Allows |
+| --- | --- |
+${scopes}
+
+Ask only for what you use. A token can never sign in on the site, see the account's email address or change the account.
+
+## When a token stops working
+
+| Code | Why |
+| --- | --- |
+| \`token_required\` | The route acts for an account and no token (or an app's key) was sent. |
+| \`invalid_key\` | Not a token the site knows. |
+| \`key_revoked\` | The person revoked it on the Apps page (or your program did). |
+| \`key_expired\` | Past the expiry it was made with (linked tokens don't expire). |
+| \`account_blocked\` | The account is blocked. |
+| \`insufficient_scope\` | It hasn't the scope this route needs. |
+
+None of these get better by retrying. For the first five, forget the token and offer to link again.
+
+## Unlinking
+
+Give people a way to unlink in your program: [\`DELETE /v1/account/token\`](${api}/reference/account/#revokeOwnToken) revokes the token it's sent with, and the site lists it no more. People can also revoke it on the site, which your program sees as \`key_revoked\`.
+
+## Limits
+
+- Each token makes up to ${n(USER_TOKEN_LIMITS.perMinute)} requests a minute; the usual [rate-limit headers](${api}/docs/rate-limits/) say how many are left.
+- An account can have ${n(USER_TOKEN_LIMITS.perUser)} tokens at once.
+- One visitor can start ${n(DEVICE_LIMITS.startsPerMinute)} device links a minute.
+- Requests made with a token aren't counted per route; the site notes only when each token was last used.
+
+## Keeping tokens safe
+
+- Store the token where only that person can read it (the program's own config folder), never next to files people share (screenshots of settings, crash reports, logs).
+- Never print it, log it or send it anywhere but this API.
+- Routes that act for an account don't answer browsers' cross-origin requests: a token in a web page isn't secret.`;
 }

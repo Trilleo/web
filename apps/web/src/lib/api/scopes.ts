@@ -38,3 +38,26 @@ export function effectiveScopes(
   const key = new Set(keyScopes);
   return app.filter((scope) => key.has(scope));
 }
+
+/**
+ * What a personal token may do for its account. Tokens are made by the account's
+ * owner (/account/apps/ or a device link) and only ever reach account routes.
+ */
+export const USER_SCOPES = {
+  "skyblock:sync":
+    "Read and update your Hypixel SkyBlock profiles and shard collection.",
+} as const satisfies Record<string, string>;
+
+export type UserScope = keyof typeof USER_SCOPES;
+
+export function isUserScope(value: string): value is UserScope {
+  return Object.hasOwn(USER_SCOPES, value);
+}
+
+/** Known user scopes only, in the list's order, without repeats. */
+export function cleanUserScopes(values: readonly string[]): UserScope[] {
+  const wanted = new Set(values);
+  return (Object.keys(USER_SCOPES) as UserScope[]).filter((scope) =>
+    wanted.has(scope),
+  );
+}

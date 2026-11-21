@@ -385,7 +385,8 @@
   or blocked, except to its owner), /account/security/ (address, passkeys, linked
   accounts, a link to sessions, recent activity), /account/sessions/ (sign other browsers out; sessions keep
   last_used_at, written at most every 5 minutes, and the User-Agent),
-  /account/export.json (everything we keep, as JSON).
+  /account/export.json (everything we keep, as JSON), /account/apps/ (personal
+  tokens for programs acting for the account; see API).
 
 ## Human check
 
@@ -1181,12 +1182,13 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   Locally it's api.localhost:<port>. The API host has no sessions; the middleware only
   rewrites (and starts the usual background work).
 - Groups: System, Site (site, tools, games), Posts (posts, tags), Minecraft, Study,
-  SkyBlock (all public, cached a few minutes), and Daily cryptic (key and scopes). Public
+  SkyBlock (all public, cached a few minutes), Account (device links and personal
+  tokens) and Daily cryptic (key and scopes). Public
   routes answer from the same lib/ code the pages use, so they show only what the
   pages show; lists page with `items` + `nextCursor` (opaque base64url cursors).
 - Routes are declared once with `defineRoute` (lib/api/registry.ts): method, path
   (`{name}` parameters), operationId, group (API_GROUPS), summary, description, auth
-  ("public" | "key"), scope, params/query/body/response schemas, an example, the handler.
+  ("public" | "key" | "user"), scope, params/query/body/response schemas, an example, the handler.
   ROUTES (lib/api/routes/index.ts) lists them. The dispatcher (dispatch.ts) checks the
   key and scope, takes from the rate limit, checks inputs, runs the handler and records
   usage; handlers throw `ApiError(code, message, details)`. The docs pages, /docs.md
@@ -1211,6 +1213,23 @@ post, now)`. People are in groups (forum_groups): guest, newcomer, member and ad
   expiry; revocable). Switching an app off stops its keys. Scopes are API_SCOPES
   (scopes.ts). `Authorization: Bearer <key>`; a key sent to a public route is checked
   too. `last_used_at` is written at most once a minute.
+- Personal tokens (user-tokens.ts, api_user_tokens): act for one account through routes
+  with `auth: "user"` (or a USER_SCOPES scope, which implies it; `skyblock:sync` so far).
+  `trlu_` + 32 characters, so the dispatcher tells them from app keys (`trl_`) by the
+  prefix; SHA-256 only, shown once (the new-key cookie carries it across the redirect).
+  Made on /account/apps/ (name, scopes, 30/90/365 days or never) or by linking a device
+  (device.ts, api_device_codes: RFC 8628's flow in the API's shapes: POST
+  /v1/auth/device → the person approves the eight-letter code on www's /link/ → the
+  program polls POST /v1/auth/device/token, which makes the token once and deletes the
+  link; `authorization_pending`, `slow_down`, `access_denied`, `expired_token`). Handlers
+  get `user` (token, account, scopes) beside `caller`; app routes refuse tokens and
+  user routes refuse keys (`token_required`). Blocked accounts' tokens stop
+  (`account_blocked`). USER_TOKEN_LIMITS (per account, per minute) and DEVICE_LIMITS;
+  wrong codes on /link/ are limited per account in memory. Token requests aren't
+  recorded in api_usage, only `last_used_at`. Making, linking and revoking go to the
+  security log; tokens are in the export and go with the account. The Account group
+  (`GET /v1/account`, `DELETE /v1/account/token`) and the Personal tokens guide
+  (/docs/personal-tokens/) are what a mod's author reads first.
 - Limits (limits.ts, API_LIMITS; the docs quote them): token buckets in memory
   (rate-limit.ts), per key at the app's rate, or per hashed IP without a key (idle
   buckets dropped after a minute, as the privacy page says); bodies up to 64 KB.

@@ -83,6 +83,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-11-21",
+        note: "Personal tokens for programs you let act for your account (made on the Apps page or by linking a device), and how long they're kept.",
+      },
+      {
+        date: "2026-11-21",
         note: "The SkyBlock collection (attribute levels and shards you hold) and the hunting planner's list, kept as tool data.",
       },
       {
@@ -185,6 +189,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "The cookies and browser storage the site uses, what each is for, and how to choose what’s kept.",
     group: "legal",
     changes: [
+      {
+        date: "2026-11-21",
+        note: "The new-key cookie also carries a personal token you make on the Apps page (necessary).",
+      },
       {
         date: "2026-11-21",
         note: "The SkyBlock collection and the hunting planner's list, kept in this browser when you're signed out (preferences).",

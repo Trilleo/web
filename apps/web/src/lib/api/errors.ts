@@ -32,15 +32,47 @@ export const ERROR_CODES = {
   invalid_key: {
     status: 401,
     description:
-      "The key isn't one the site knows (mistyped, or deleted with its app).",
+      "The key or personal token isn't one the site knows (mistyped, or deleted with its app or account).",
   },
   key_revoked: {
     status: 401,
-    description: "The key was revoked in the control panel. Ask for a new one.",
+    description:
+      "The key was revoked in the control panel, or the personal token by its account. Ask for (or link) a new one.",
   },
   key_expired: {
     status: 401,
-    description: "The key passed its expiry date. Ask for a new one.",
+    description:
+      "The key or personal token passed its expiry date. Ask for (or link) a new one.",
+  },
+  token_required: {
+    status: 401,
+    description:
+      "The route acts for an account and needs that account's personal token (`trlu_…`): send `Authorization: Bearer <token>`. An app's key won't do. Get one by linking the device (see Personal tokens).",
+  },
+  account_blocked: {
+    status: 403,
+    description:
+      "The personal token's account is blocked, so its tokens don't work.",
+  },
+  authorization_pending: {
+    status: 400,
+    description:
+      "Device link: the person hasn't approved the code yet. Wait `details.interval` seconds and poll again.",
+  },
+  slow_down: {
+    status: 400,
+    description:
+      "Device link: polled sooner than `details.interval` seconds after the last poll. Wait longer between polls.",
+  },
+  access_denied: {
+    status: 403,
+    description:
+      "Device link: the person declined it (or their account has no room for another token). Stop polling.",
+  },
+  expired_token: {
+    status: 400,
+    description:
+      "Device link: the device code expired before it was approved, or was already used. Start a new link.",
   },
   app_disabled: {
     status: 403,
@@ -114,6 +146,15 @@ export const KEY_ERRORS: readonly ErrorCode[] = [
   "key_revoked",
   "key_expired",
   "app_disabled",
+];
+
+/** Codes every route that acts for an account can answer with. */
+export const TOKEN_ERRORS: readonly ErrorCode[] = [
+  "token_required",
+  "invalid_key",
+  "key_revoked",
+  "key_expired",
+  "account_blocked",
 ];
 
 /** Thrown by handlers (and the dispatcher) to answer with an error. */

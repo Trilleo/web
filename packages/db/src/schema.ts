@@ -2517,6 +2517,69 @@ export const apiErrors = pgTable(
 );
 
 /**
+ * A personal token: lets a program (a game mod, a script) act as one account
+ * through the API's account routes, within its scopes (USER_SCOPES). Made by hand
+ * on /account/apps/ or by linking a device (`via`). Only the SHA-256 is kept, like
+ * api_keys; `prefix` and `last4` tell tokens apart. Deleted with the account.
+ */
+export const apiUserTokens = pgTable(
+  "api_user_tokens",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    prefix: text("prefix").notNull(),
+    last4: text("last4").notNull(),
+    hash: text("hash").notNull(),
+    scopes: jsonb("scopes").$type<string[]>().notNull().default([]),
+    /** "manual" (made on the site) or "device" (a device link). */
+    via: text("via").notNull(),
+    createdAt: createdAt(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    /** Written at most once a minute. */
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("api_user_tokens_hash_idx").on(table.hash),
+    index("api_user_tokens_user_idx").on(table.userId),
+  ],
+);
+
+/**
+ * A device link waiting to be approved (OAuth's device flow): the program holds the
+ * device code (only its SHA-256 here) and polls; the person types the user code on
+ * www's /link/ and approves it, which sets `userId`. The next poll makes the token
+ * and deletes the row. Rows past `expiresAt` are purged.
+ */
+export const apiDeviceCodes = pgTable(
+  "api_device_codes",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    deviceHash: text("device_hash").notNull(),
+    /** Eight letters, stored without the hyphen ("BCDFGHJK"). */
+    userCode: text("user_code").notNull(),
+    /** What the program calls itself, shown on the approval page. */
+    clientName: text("client_name").notNull(),
+    scopes: jsonb("scopes").$type<string[]>().notNull(),
+    createdAt: createdAt(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    lastPolledAt: timestamp("last_polled_at", { withTimezone: true }),
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "cascade",
+    }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    deniedAt: timestamp("denied_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("api_device_codes_device_idx").on(table.deviceHash),
+    uniqueIndex("api_device_codes_user_code_idx").on(table.userCode),
+  ],
+);
+
+/**
  * Where an API app wants events sent (webhooks): an HTTPS address, the secret that
  * signs each delivery, and the events it wants. Switched off after too many failed
  * deliveries in a row (`disabledReason` says why), or by the admin.
@@ -3433,6 +3496,8 @@ export type ForumMessage = typeof forumMessages.$inferSelect;
 export type ApiApp = typeof apiApps.$inferSelect;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type ApiErrorRow = typeof apiErrors.$inferSelect;
+export type ApiUserToken = typeof apiUserTokens.$inferSelect;
+export type ApiDeviceCode = typeof apiDeviceCodes.$inferSelect;
 export type CrypticPuzzle = typeof crypticPuzzles.$inferSelect;
 export type CrypticPlayer = typeof crypticPlayers.$inferSelect;
 export type CrypticAttempt = typeof crypticAttempts.$inferSelect;

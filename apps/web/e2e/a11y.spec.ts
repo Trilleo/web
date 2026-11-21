@@ -89,6 +89,8 @@ const PAGES = [
   "api:/",
   "api:/docs/errors/",
   "api:/docs/webhooks/",
+  "api:/docs/personal-tokens/",
+  "api:/reference/account/",
   "api:/reference/system/",
   "api:/reference/cryptic/",
   "api:/reference/minecraft/",

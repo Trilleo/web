@@ -11,6 +11,7 @@ import {
   conventionsMarkdown,
   errorsMarkdown,
   overviewMarkdown,
+  personalTokensMarkdown,
   rateLimitsMarkdown,
   versioningMarkdown,
 } from "./guides";
@@ -37,6 +38,14 @@ const GUIDES: readonly DocPage[] = [
       "API keys, the apps they belong to, scopes, and keeping keys safe.",
     section: "guide",
     markdown: (context) => authenticationMarkdown(context),
+  },
+  {
+    path: "/docs/personal-tokens/",
+    title: "Personal tokens",
+    description:
+      "Acting for one person's account: linking a device (for game mods and other installed programs), tokens made by hand, scopes and unlinking.",
+    section: "guide",
+    markdown: (context) => personalTokensMarkdown(context),
   },
   {
     path: "/docs/conventions/",

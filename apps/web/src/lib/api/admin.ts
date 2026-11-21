@@ -109,3 +109,22 @@ export function takeNewKeyCookie(
     return null;
   }
 }
+
+/** The `appId` a personal token travels under (no app has ID 0). */
+const PERSONAL_TOKEN = 0;
+
+/** The same as setNewKeyCookie, for a personal token just made on /account/apps/. */
+export function setNewTokenCookie(
+  cookies: AstroCookies,
+  url: URL,
+  token: { name: string; secret: string },
+): void {
+  setNewKeyCookie(cookies, url, { appId: PERSONAL_TOKEN, ...token });
+}
+
+export function takeNewTokenCookie(
+  cookies: AstroCookies,
+  url: URL,
+): { name: string; secret: string } | null {
+  return takeNewKeyCookie(cookies, url, PERSONAL_TOKEN);
+}

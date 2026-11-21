@@ -302,6 +302,13 @@
       "when": 1795182324035,
       "tag": "0042_skyblock-prices",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1795266653278,
+      "tag": "0043_api-user-tokens",
+      "breakpoints": true
     }
   ]
 }

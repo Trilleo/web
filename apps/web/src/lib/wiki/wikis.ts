@@ -40,6 +40,7 @@ export const RESERVED_WIKI_SLUGS: ReadonlySet<string> = new Set([
   "help",
   "humans",
   "legal",
+  "link",
   "llms",
   "mail",
   "media",

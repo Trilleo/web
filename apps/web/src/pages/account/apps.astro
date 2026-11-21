@@ -1,0 +1,321 @@
+---
+/**
+ * Programs that act for your account through the API: personal tokens, linked
+ * devices and ones made by hand (lib/api/user-tokens.ts). POST `intent`: create
+ * (`name`, `expires` days or "never", `scope`s; the token is shown once, carried
+ * across the redirect by the new-key cookie) or revoke (`token`).
+ */
+import { CopyButton, buttonClasses } from "@trilleo/ui";
+import DisplayTitle from "../../components/DisplayTitle.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { setNewTokenCookie, takeNewTokenCookie } from "../../lib/api/admin";
+import { apiOrigin } from "../../lib/api/host";
+import { USER_TOKEN_LIMITS } from "../../lib/api/limits";
+import { USER_SCOPES, isUserScope, type UserScope } from "../../lib/api/scopes";
+import {
+  createUserToken,
+  listUserTokens,
+  revokeUserToken,
+  tokenState,
+  type UserTokenProblem,
+} from "../../lib/api/user-tokens";
+import { logEvent } from "../../lib/auth/activity";
+import { requireUser } from "../../lib/auth/guard";
+import { noStoreRedirect } from "../../lib/auth/redirect";
+import { field } from "../../lib/comments/form";
+import { getDb } from "../../lib/db";
+import { formatPostDate } from "../../lib/listings";
+import { toast, toastError } from "../../lib/toast";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
+const db = await getDb();
+const back = "/account/apps/";
+const now = new Date();
+const scopeNames = Object.keys(USER_SCOPES) as UserScope[];
+const PROBLEMS: Record<UserTokenProblem, string> = {
+  name: `Give it a name of up to ${String(USER_TOKEN_LIMITS.nameLength)} characters.`,
+  scopes: "Tick at least one thing it may do.",
+  expiry: "Choose when it stops working.",
+  limit: `That’s ${String(USER_TOKEN_LIMITS.perUser)} tokens, the most an account can have. Revoke one first.`,
+};
+let error: string | null = null;
+let name = "";
+
+const fresh =
+  Astro.request.method === "GET"
+    ? takeNewTokenCookie(Astro.cookies, Astro.url)
+    : null;
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const intent = field(form, "intent");
+  const userAgent = Astro.request.headers.get("user-agent");
+  if (intent === "create") {
+    name = field(form, "name");
+    const expires = field(form, "expires");
+    const days = Number(expires);
+    const allowed = USER_TOKEN_LIMITS.expiryDays.includes(
+      expires === "never" ? null : days,
+    );
+    const result = allowed
+      ? await createUserToken(
+          db,
+          user.id,
+          {
+            name,
+            scopes: form
+              .getAll("scope")
+              .filter((v): v is string => typeof v === "string"),
+            expiresAt:
+              expires === "never"
+                ? null
+                : new Date(now.getTime() + days * 86_400_000),
+            via: "manual",
+          },
+          now,
+        )
+      : ({ ok: false, problem: "expiry" } as const);
+    if (result.ok) {
+      setNewTokenCookie(Astro.cookies, Astro.url, {
+        name: result.token.name,
+        secret: result.secret,
+      });
+      await logEvent(db, user.id, "token-created", {
+        detail: result.token.name,
+        userAgent,
+        now,
+      });
+      return noStoreRedirect(`${back}#new-token`, 303);
+    }
+    error = PROBLEMS[result.problem];
+    Astro.response.status = 422;
+  } else if (intent === "revoke") {
+    const id = Number(field(form, "token"));
+    const revoked = Number.isInteger(id)
+      ? await revokeUserToken(db, user.id, id, now)
+      : null;
+    if (revoked !== null)
+      await logEvent(db, user.id, "token-revoked", {
+        detail: revoked,
+        userAgent,
+        now,
+      });
+    return noStoreRedirect(`${back}?done=revoked`, 303);
+  } else {
+    return noStoreRedirect(back, 303);
+  }
+}
+
+const tokens = await listUserTokens(db, user.id);
+const docs = apiOrigin(Astro.url);
+const done =
+  Astro.request.method === "GET" ? Astro.url.searchParams.get("done") : null;
+if (error) toastError(Astro, error);
+else if (done === "revoked")
+  toast(Astro, "Revoked. It stopped working at once.");
+
+const row = "grid-swiss gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6";
+const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
+const input =
+  "border border-ink bg-paper px-3 py-2 text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+const expiryLabel = (days: number | null) =>
+  days === null
+    ? "Never"
+    : days === 365
+      ? "In a year"
+      : `In ${String(days)} days`;
+const scopeText = (scopes: readonly string[]) =>
+  scopes.filter(isUserScope).map((scope) => USER_SCOPES[scope]);
+---
+
+<BaseLayout title="Apps" noindex>
+  <section
+    aria-labelledby="apps-title"
+    class="px-page pt-4 pb-24 xl:pt-5 xl:pb-32"
+  >
+    <p class="type-label text-ink">
+      (Account){" "}
+      <a href="/account/" class="link-wipe">
+        @{user.username}
+      </a>
+    </p>
+
+    <DisplayTitle id="apps-title">Apps</DisplayTitle>
+
+    <p class="type-lead mt-6">
+      Programs you’ve let act for your account, like a game mod that syncs your
+      progress. Each has a personal token; none can sign in or change your
+      account.
+    </p>
+
+    <div class="mt-7 flex flex-col gap-12 md:mt-8 xl:mt-12">
+      {fresh && (
+        <div class:list={[row, "scroll-mt-6"]} id="new-token">
+          <h2 class={heading}>New token</h2>
+          <div
+            role="status"
+            class:list={[body, "border border-ink p-4 md:p-5"]}
+            data-testid="new-token"
+          >
+            <p class="font-medium">
+              “{fresh.name}”. Copy it now: it won’t be shown again.
+            </p>
+            <div class="flex flex-wrap items-center gap-3">
+              <code class="font-mono text-sm break-all select-all" data-token>
+                {fresh.secret}
+              </code>
+              <CopyButton client:load value={fresh.secret} label="Copy token" />
+            </div>
+            <p class="text-sm text-muted">
+              Paste it into the program, and keep it as you would a password.
+              Programs send it as{" "}
+              <code class="font-mono">Authorization: Bearer &lt;token&gt;</code>
+              ; see{" "}
+              <a href={`${docs}/docs/personal-tokens/`} class="underline">
+                Personal tokens
+              </a>
+              .
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div class={row}>
+        <h2 id="tokens-heading" class={heading}>
+          Linked ({tokens.length})
+        </h2>
+        <div class={body}>
+          {tokens.length === 0 ? (
+            <p class="text-muted">
+              Nothing yet. A program that supports it shows a code to type on
+              the{" "}
+              <a href="/link/" class="underline">
+                Link a device
+              </a>{" "}
+              page; otherwise make a token below and paste it in.
+            </p>
+          ) : (
+            <ul
+              class="flex flex-col"
+              aria-labelledby="tokens-heading"
+              data-token-list
+            >
+              {tokens.map((token) => {
+                const state = tokenState(token, now);
+                return (
+                  <li class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 border-t border-hair py-4 first:border-t-0 first:pt-0">
+                    <div class="flex min-w-0 flex-col gap-1">
+                      <p class="font-medium break-words">
+                        {token.name}
+                        {state === "expired" && (
+                          <span class="type-label ml-2 bg-ink px-1.5 text-paper">
+                            Expired
+                          </span>
+                        )}
+                      </p>
+                      <p class="type-label text-muted">
+                        <span class="font-mono normal-case">
+                          {token.prefix}…{token.last4}
+                        </span>
+                        {" · "}
+                        {token.via === "device" ? "Linked" : "Made"}{" "}
+                        {formatPostDate(token.createdAt)}
+                        {" · "}
+                        {token.lastUsedAt
+                          ? `last used ${formatPostDate(token.lastUsedAt)}`
+                          : "never used"}
+                        {token.expiresAt &&
+                          state === "active" &&
+                          ` · expires ${formatPostDate(token.expiresAt)}`}
+                      </p>
+                      <p class="text-sm text-muted">
+                        {scopeText(token.scopes).join(" ")}
+                      </p>
+                    </div>
+                    <form method="post" action={back}>
+                      <input type="hidden" name="intent" value="revoke" />
+                      <input type="hidden" name="token" value={token.id} />
+                      <button
+                        type="submit"
+                        class="type-label cursor-pointer border border-ink px-2.5 py-1.5 text-ink hover:bg-ink hover:text-paper"
+                      >
+                        Revoke<span class="sr-only"> {token.name}</span>
+                      </button>
+                    </form>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <p class="text-sm text-muted">
+            Revoking stops a token at once. Up to {USER_TOKEN_LIMITS.perUser}{" "}
+            tokens; each makes up to {USER_TOKEN_LIMITS.perMinute} requests a
+            minute.
+          </p>
+        </div>
+      </div>
+
+      <div class={row}>
+        <h2 class={heading}>Make a token</h2>
+        <form method="post" action={back} class={body}>
+          <input type="hidden" name="intent" value="create" />
+          <label class="flex flex-col gap-1">
+            <span class="font-medium">Name</span>
+            <input
+              name="name"
+              value={name}
+              maxlength={USER_TOKEN_LIMITS.nameLength}
+              required
+              placeholder="SkyBlock mod"
+              class:list={[input, "max-w-md"]}
+            />
+          </label>
+          <fieldset class="flex flex-col gap-2">
+            <legend class="mb-2 font-medium">It may</legend>
+            {scopeNames.map((scope) => (
+              <label class="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  name="scope"
+                  value={scope}
+                  checked
+                  class="mt-1 accent-accent"
+                />
+                <span>
+                  {USER_SCOPES[scope]}{" "}
+                  <code class="font-mono text-sm text-muted">{scope}</code>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+          <label class="flex flex-col gap-1">
+            <span class="font-medium">Stops working</span>
+            <select name="expires" class:list={[input, "max-w-xs"]}>
+              {USER_TOKEN_LIMITS.expiryDays.map((days) => (
+                <option
+                  value={days === null ? "never" : String(days)}
+                  selected={days === 90}
+                >
+                  {expiryLabel(days)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div>
+            <button type="submit" class={buttonClasses()}>
+              Make token
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

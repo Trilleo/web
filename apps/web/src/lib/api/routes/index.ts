@@ -5,6 +5,12 @@
  */
 import type { Route } from "../registry";
 import {
+  finishDevice,
+  getAccount,
+  revokeOwnToken,
+  startDevice,
+} from "./account";
+import {
   deleteCrypticPlayer,
   getCrypticDay,
   getCrypticDayLeaderboard,
@@ -47,6 +53,10 @@ export const ROUTES: readonly Route[] = [
   listSkyblockShards,
   getSkyblockPrices,
   getSkyblockPriceHistory,
+  startDevice,
+  finishDevice,
+  getAccount,
+  revokeOwnToken,
   getCrypticToday,
   getCrypticDay,
   listCrypticArchive,

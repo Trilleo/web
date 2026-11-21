@@ -6,6 +6,7 @@ import {
   COMMON_ERRORS,
   ERROR_CODES,
   KEY_ERRORS,
+  TOKEN_ERRORS,
   type ErrorCode,
 } from "../errors";
 import type { ApiGroup, Route } from "../registry";
@@ -44,7 +45,8 @@ export function routeErrors(route: Route): ErrorCode[] {
     ...(route.body
       ? (["invalid_json", "unsupported_media_type", "body_too_large"] as const)
       : []),
-    ...(route.auth === "key" || route.scope ? KEY_ERRORS : []),
+    ...(route.auth === "key" ? KEY_ERRORS : []),
+    ...(route.auth === "user" ? TOKEN_ERRORS : []),
     ...(route.scope ? (["insufficient_scope"] as const) : []),
     ...COMMON_ERRORS,
   ];
@@ -71,6 +73,8 @@ function curl(route: Route, origin: string): string {
   ];
   if (route.auth === "key")
     lines.push(`  -H "Authorization: Bearer $TRILLEO_API_KEY"`);
+  if (route.auth === "user")
+    lines.push(`  -H "Authorization: Bearer $TRILLEO_TOKEN"`);
   if (route.example.body) {
     lines.push(`  -H "Content-Type: application/json"`);
     lines.push(`  -d '${JSON.stringify(route.example.body)}'`);
@@ -82,9 +86,13 @@ export function routeMarkdown(route: Route, context: DocContext): string {
   const auth =
     route.auth === "public"
       ? "None (a key, if sent, is checked and gets its own rate limit)"
-      : route.scope
-        ? `API key with the \`${route.scope}\` scope`
-        : "API key (any scope)";
+      : route.auth === "user"
+        ? route.scope
+          ? `Personal token with the \`${route.scope}\` scope`
+          : "Personal token (any scope)"
+        : route.scope
+          ? `API key with the \`${route.scope}\` scope`
+          : "API key (any scope)";
   const parts = [
     `## ${route.summary}`,
     `\`${route.method} ${route.path}\``,

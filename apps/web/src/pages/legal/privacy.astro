@@ -1,4 +1,5 @@
 ---
+import { DEVICE_LIMITS } from "../../lib/api/limits";
 import { CHECK_LIMITS } from "../../lib/captcha/checker";
 import { BUILD_LIMITS } from "../../lib/chunithm/limits";
 import { AVATAR_MAX_BYTES } from "../../lib/profile/avatar";
@@ -138,9 +139,23 @@ const ticketHours = TICKET_LIMITS.maxAgeMs / 3_600_000;
       </tr>
       <tr>
         <td>
-          A security log: sign-ins and how, address changes, passkeys and linked
-          accounts added or removed, and sign-outs, each with a rough browser
-          name (such as “Firefox on Windows”) and the time
+          Personal tokens for programs you let act for your account (such as a
+          game mod): a fingerprint (SHA-256) of each token, its name, what it
+          may do, and when it was made, last used, set to expire and revoked.
+          While you link a device, the code and the program’s name, for at most{" "}
+          {DEVICE_LIMITS.codeMinutes} minutes
+        </td>
+        <td>You make a token on the Apps page, or link a device</td>
+        <td>
+          To let that program do what you allowed, and to show you which
+          programs have access
+        </td>
+      </tr>
+      <tr>
+        <td>
+          A security log: sign-ins and how, address changes, passkeys, linked
+          accounts and personal tokens added or removed, and sign-outs, each
+          with a rough browser name (such as “Firefox on Windows”) and the time
         </td>
         <td>Those things happen to your account</td>
         <td>
@@ -418,7 +433,8 @@ const ticketHours = TICKET_LIMITS.maxAgeMs / 3_600_000;
       day only; the contact form keeps a similar hash in memory for a day to
       limit spam, and the API (api.trilleo.net) keeps one in memory, for a
       minute or two, to limit requests made without a key. Programs with an API
-      key are counted by their key, not by who you are.
+      key are counted by their key, not by who you are; requests made with your
+      personal token only update when it was last used.
     </li>
     <li>
       Emails carry no tracking pixels or tracked links: nobody learns whether
@@ -608,8 +624,9 @@ const ticketHours = TICKET_LIMITS.maxAgeMs / 3_600_000;
     </li>
     <li>Contact messages: at most {CONTACT_RETENTION_DAYS} days.</li>
     <li>
-      The security log: {SECURITY_LOG_DAYS} days. Passkeys: until you remove
-      them or delete your account.
+      The security log: {SECURITY_LOG_DAYS} days. Passkeys and personal tokens:
+      until you remove or revoke them, or delete your account (a revoked token’s
+      record stays, without the token, so your export can show it).
     </li>
     <li>
       Your email address and username: until you change them or delete your

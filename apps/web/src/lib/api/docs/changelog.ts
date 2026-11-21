@@ -13,6 +13,14 @@ export const API_CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: "2026-11-21",
     changes: [
+      "Personal tokens (`trlu_…`): act for one person's account, within the scopes they allowed. Get one by linking a device (`POST /v1/auth/device`, then poll `POST /v1/auth/device/token`) or have the person make one on their Apps page. See the Personal tokens guide.",
+      "The Account group: `GET /v1/account` (whose token it is) and `DELETE /v1/account/token` (revoke it). Personal-token scope `skyblock:sync`, for the SkyBlock sync routes to come.",
+      "Error codes `token_required`, `account_blocked`, and the device flow's `authorization_pending`, `slow_down`, `access_denied` and `expired_token`.",
+    ],
+  },
+  {
+    date: "2026-11-21",
+    changes: [
       "Hypixel SkyBlock, no key needed: `GET /v1/skyblock/shards`, `/v1/skyblock/prices` (the Bazaar's latest, fetched by the site every 5 minutes) and `/v1/skyblock/shards/{slug}/prices` (hourly history, `range` 24h, 7d, 30d or 90d).",
       "Error code `prices_unavailable` (503): the site hasn't got the Bazaar's prices yet.",
     ],

@@ -10,9 +10,12 @@ import type { ErrorCode } from "./errors";
 import type { Caller } from "./keys";
 import type { RateDecision, RateLimiter } from "./rate-limit";
 import type { InferShape, ObjectSchema, Schema, Shape } from "./schema";
-import type { ApiScope } from "./scopes";
+import { isUserScope, type ApiScope, type UserScope } from "./scopes";
+import type { UserCaller } from "./user-tokens";
 
 export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
+export type Auth = "public" | "key" | "user";
 
 /** Sections of the reference. A new group goes here (with its intro). */
 export const API_GROUPS = {
@@ -44,6 +47,11 @@ export const API_GROUPS = {
     intro:
       "Hypixel SkyBlock's shards (from SkyShards' data) and their Bazaar prices, which the site fetches from Hypixel every 5 minutes and keeps hourly for 90 days. Public: no key needed.",
   },
+  account: {
+    title: "Account",
+    intro:
+      "Acting for one account with its personal token, and linking a device to get that token (see Personal tokens). Made for programs like game mods that sync someone's progress to their account.",
+  },
   cryptic: {
     title: "Daily cryptic",
     intro:
@@ -61,6 +69,10 @@ export interface HandlerContext<P, Q, B> {
   body: B;
   /** The key's app and scopes; null on a public route called without a key. */
   caller: Caller | null;
+  /** The personal token's account and scopes; null unless one was sent. */
+  user: UserCaller | null;
+  /** The visitor's hashed IP, for a route's own limits on requests without a key. */
+  visitor: string;
   /** This request's rate-limit bucket after taking it. */
   rate: RateDecision;
   /** The API's limiter, for a route's own limits (use keys of the route's own). */
@@ -94,10 +106,13 @@ export interface RouteSpec<
   summary: string;
   /** More, in Markdown. */
   description?: string;
-  /** "public": anyone (a key, if sent, is checked and counted). "key": a key is required. */
-  auth: "public" | "key";
-  /** A scope the key must have (implies auth "key"). */
-  scope?: ApiScope;
+  /**
+   * "public": anyone (a key or token, if sent, is checked and counted). "key": an
+   * app's key is required. "user": a personal token is required.
+   */
+  auth: Auth;
+  /** A scope the key must have (implies auth "key"), or the token (implies "user"). */
+  scope?: ApiScope | UserScope;
   params?: ObjectSchema<P>;
   query?: ObjectSchema<Q>;
   body?: ObjectSchema<B>;
@@ -127,8 +142,8 @@ export interface Route {
   group: ApiGroup;
   summary: string;
   description: string | undefined;
-  auth: "public" | "key";
-  scope: ApiScope | undefined;
+  auth: Auth;
+  scope: ApiScope | UserScope | undefined;
   params: ObjectSchema<Shape> | undefined;
   query: ObjectSchema<Shape> | undefined;
   body: ObjectSchema<Shape> | undefined;
@@ -173,7 +188,7 @@ export function defineRoute<
     group: spec.group,
     summary: spec.summary,
     description: spec.description,
-    auth: spec.scope ? "key" : spec.auth,
+    auth: spec.scope ? (isUserScope(spec.scope) ? "user" : "key") : spec.auth,
     scope: spec.scope,
     params: spec.params,
     query: spec.query,

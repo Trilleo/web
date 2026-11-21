@@ -72,9 +72,11 @@ describe("openDatabase", () => {
     expect(tables.map((row) => row.table_name)).toEqual([
       "admin_alerts",
       "api_apps",
+      "api_device_codes",
       "api_errors",
       "api_keys",
       "api_usage",
+      "api_user_tokens",
       "api_webhook_deliveries",
       "api_webhooks",
       "avatars",
