@@ -74,6 +74,37 @@ function Node({
         </div>
       </li>
     );
+  if (node.kind === "owned")
+    return (
+      <li className="flex flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="type-label text-accent">Have</span>
+          <ShardName shard={shard} quantity={node.quantity} />
+          <span className="text-sm text-muted">from your collection</span>
+        </div>
+      </li>
+    );
+  if (node.kind === "split")
+    return (
+      <li className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="type-label text-muted">Get</span>
+          <ShardName shard={shard} quantity={node.quantity} />
+          <span className="text-sm text-muted">{node.parts.length} ways</span>
+        </div>
+        <ul className="ml-3 flex flex-col gap-2 border-l border-hair pl-4">
+          {node.parts.map((part, i) => (
+            <Node
+              key={i}
+              node={part}
+              plan={plan}
+              onChange={onChange}
+              onReset={onReset}
+            />
+          ))}
+        </ul>
+      </li>
+    );
   if (node.kind === "fuse") {
     const a = plan.shards[node.recipe.a];
     const b = plan.shards[node.recipe.b];

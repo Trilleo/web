@@ -6,11 +6,13 @@
 import {
   RARITY_LABELS,
   ruleParts,
+  segmentsText,
   summarize,
   type RulePart,
   type ShardRecord,
   type ShardSummary,
 } from "@trilleo/skyblock";
+import type { CollectionShard, PlannerShard } from "@trilleo/tool-skyblock";
 import { shardPath } from "@trilleo/tool-skyblock/meta";
 import { CARD_META_LENGTH, truncate, type OgCard } from "../seo";
 import { iconOf, type ShardData } from "./data";
@@ -26,6 +28,36 @@ export function shardSummaries(data: ShardData): ShardSummary[] {
   return data.catalog.shards.map((shard) =>
     summarize(shard, iconOf(data, shard)),
   );
+}
+
+/** How to hunt a shard, a line each, as plain words ("Catch with a Fishing Net."). */
+export function huntLines(shard: ShardRecord): string[] {
+  return (shard.attribute?.howToHunt ?? [])
+    .map((line) => segmentsText(line).replace(/^[-•]\s*/, ""))
+    .filter((line) => line !== "");
+}
+
+/** The Collection's list: the browser's summaries with Hypixel's IDs. */
+export function collectionShards(data: ShardData): CollectionShard[] {
+  return data.catalog.shards.map((shard) => ({
+    ...summarize(shard, iconOf(data, shard)),
+    id: shard.id,
+  }));
+}
+
+/** The planner's list: the calculator's shards with category, families and where. */
+export function plannerShards(data: ShardData): PlannerShard[] {
+  return data.catalog.shards.map((shard) => ({
+    id: shard.id,
+    slug: shard.slug,
+    name: shard.name,
+    rarity: shard.rarity,
+    icon: iconOf(data, shard),
+    rate: shard.rate,
+    category: shard.category,
+    families: shard.families,
+    where: huntLines(shard),
+  }));
 }
 
 /** A shard as a link with its icon. */

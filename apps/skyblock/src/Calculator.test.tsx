@@ -282,3 +282,55 @@ describe("Calculator", () => {
     );
   });
 });
+
+describe("Calculator with a collection", () => {
+  const seed = (value: unknown) => {
+    localStorage.setItem(
+      STORE,
+      JSON.stringify({
+        collection: { value, updatedAt: "2026-11-21T00:00:00.000Z" },
+      }),
+    );
+  };
+
+  it("uses held shards once switched on, and says which", async () => {
+    seed({ levels: {}, held: { SHARD_PHANPYRE: 10 }, keep: [] });
+    renderCalculator();
+    const box = await summary();
+    expect(within(box).getByText(formatHours(10 / 216 + 4 / 60))).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Use my collection" }),
+    );
+    await waitFor(() => {
+      expect(
+        within(screen.getByTestId("calc-summary")).getByText(
+          formatHours(4 / 60),
+        ),
+      ).toBeTruthy();
+    });
+    expect(screen.getByTestId("calc-used").textContent).toContain(
+      "Uses 10 shards from your collection",
+    );
+    expect(screen.getByTestId("calc-tree").textContent).toContain("Have");
+    await waitFor(() => {
+      expect(
+        (stored()[SAVED_KEYS.settings]?.value as { useCollection?: boolean })
+          .useCollection,
+      ).toBe(true);
+    });
+  });
+
+  it("offers what's left to max from the collection's level", async () => {
+    seed({ levels: { SHARD_GROVE: 2 }, held: {}, keep: [] });
+    renderCalculator({ initialQuantity: undefined, initialShard: null });
+    fireEvent.change(await screen.findByLabelText("Shard to make"), {
+      target: { value: "Grove" },
+    });
+    await waitFor(() => {
+      expect(window.location.search).toBe("?shard=grove&qty=92");
+    });
+    expect(
+      screen.getByRole("button", { name: "Left to max from level 2 (92)" }),
+    ).toBeTruthy();
+  });
+});

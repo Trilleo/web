@@ -1,0 +1,65 @@
+---
+/**
+ * The hunting planner: /tools/skyblock/planner/. Several targets at once (picked, or
+ * everything left to max from the Collection), planned with the calculator's setup in
+ * its Web Worker. Rendered per visit, so signed-in people get their list in the page.
+ */
+import { signInHref } from "@trilleo/tool-kit";
+import {
+  PLANNER_PATH,
+  Planner,
+  SKYBLOCK_PATH,
+  meta,
+} from "@trilleo/tool-skyblock";
+import SkyblockLayout from "../../../components/skyblock/SkyblockLayout.astro";
+import { getDb } from "../../../lib/db";
+import { shardData } from "../../../lib/skyblock/data";
+import { plannerShards } from "../../../lib/skyblock/public";
+import { ogImagePath, toolCard } from "../../../lib/seo";
+import { getStorage } from "../../../lib/storage/config";
+import { listToolData } from "../../../lib/tools/store";
+
+export const prerender = false;
+
+// Who's signed in decides what's shown, so no shared caching.
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const db = await getDb();
+const data = await shardData(db, getStorage());
+const shards = plannerShards(data);
+const { user } = Astro.locals;
+const initialSaved = user
+  ? await listToolData<unknown>(db, user.id, meta.slug)
+  : undefined;
+const description =
+  "Plan several Hypixel SkyBlock shards at once, or everything left to max: one list of what to hunt and where, every fusion in order, and the hours or coins it takes.";
+---
+
+<SkyblockLayout
+  title={`Hunting planner · ${meta.name}`}
+  {description}
+  image={ogImagePath(`tools/${meta.slug}`, toolCard(meta))}
+  crumbs={[{ label: "Hunting planner", path: PLANNER_PATH }]}
+  back={{ href: SKYBLOCK_PATH, label: "SkyBlock tools" }}
+>
+  <div class="grid-swiss gap-y-4 pb-8 md:pb-10">
+    <h1 class="type-headline col-span-4 md:col-span-6 xl:col-span-9">
+      Hunting planner
+    </h1>
+    <p class="type-dek col-span-4 max-w-[47.5rem] text-muted md:col-span-6 xl:col-span-9">
+      {description}
+    </p>
+  </div>
+  <Planner
+    client:load
+    signedIn={user !== null}
+    signInHref={signInHref(Astro.url.pathname)}
+    shards={shards}
+    initialSaved={initialSaved}
+  />
+  <noscript>
+    <p class="mt-6 border-l-2 border-accent pl-4">
+      The planner needs JavaScript: it works the plan out in your browser.
+    </p>
+  </noscript>
+</SkyblockLayout>

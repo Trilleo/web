@@ -39,7 +39,14 @@ export type PlanNode =
       entry: PlanNode;
       /** What each lap uses from outside the loop. */
       inputs: PlanNode[];
-    };
+    }
+  /** Inventory mode: shards taken from what you hold. */
+  | { kind: "owned"; shard: number; quantity: number }
+  /**
+   * Inventory mode: one shard got several ways (some held, the rest hunted; or made by
+   * more than one recipe). `quantity` is the parts' total.
+   */
+  | { kind: "split"; shard: number; quantity: number; parts: PlanNode[] };
 
 export interface Plan {
   target: number;
@@ -56,6 +63,8 @@ export interface Plan {
   /** Hunting (or buying) plus fusing: hours, or coins in coin mode. */
   cost: number;
   costPerShard: number;
+  /** Inventory mode: shards taken from what's held, by index, and how many. */
+  used?: Map<number, number>;
 }
 
 const INTEGER_EPSILON = 1e-12;
@@ -267,7 +276,9 @@ export function treeStats(node: PlanNode): {
     } else if (current.kind === "fuse") {
       crafts += current.crafts;
       current.inputs.forEach(visit);
-    } else {
+    } else if (current.kind === "split") {
+      current.parts.forEach(visit);
+    } else if (current.kind === "cycle") {
       crafts += current.crafts;
       visit(current.entry);
       current.inputs.forEach(visit);

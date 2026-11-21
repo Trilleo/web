@@ -10,7 +10,8 @@ test("the SkyBlock tool lists its utilities", async ({ page }) => {
     page.getByRole("heading", { level: 1, name: "Hypixel SkyBlock" }),
   ).toBeVisible();
   const utilities = page.getByTestId("skyblock-utilities");
-  await expect(utilities.getByText("Planned").first()).toBeVisible();
+  for (const name of ["Collection", "Hunting planner", "Fusion lines", "Guide"])
+    await expect(utilities.getByRole("link", { name })).toBeVisible();
   await utilities.getByRole("link", { name: "Shards" }).click();
   await expect(page).toHaveURL("/tools/skyblock/shards/");
 });
@@ -334,4 +335,105 @@ test("the API serves shard prices", async ({ request }) => {
   expect(((await history.json()) as { points: unknown[] }).points.length).toBe(
     1,
   );
+});
+
+test("the collection keeps levels and held shards in this browser", async ({
+  page,
+}) => {
+  await page.goto("/tools/skyblock/collection/");
+  await hydrated(page);
+  await page.getByLabel("Find a shard").fill("tiamat");
+  const row = page.locator(
+    '[data-testid="collection-row"][data-shard="SHARD_TIAMAT"]',
+  );
+  await row.getByLabel("Tiamat: level").selectOption("3");
+  await row.getByLabel("Tiamat: held").fill("4");
+  await expect(row).toContainText("21 of 24 left");
+  await expect(row.getByRole("link", { name: "Plan it" })).toHaveAttribute(
+    "href",
+    "/tools/skyblock/calculator/?shard=tiamat&qty=21",
+  );
+  // Saved after a pause; a reload brings it back.
+  await page.waitForTimeout(900);
+  await page.reload();
+  await hydrated(page);
+  await expect(
+    page
+      .locator('[data-testid="collection-row"][data-shard="SHARD_TIAMAT"]')
+      .getByLabel("Tiamat: level"),
+  ).toHaveValue("3");
+  await expect(page.getByTestId("collection-totals")).toContainText("Held");
+});
+
+test("the calculator uses the collection's shards when asked", async ({
+  page,
+}) => {
+  await page.goto("/tools/skyblock/collection/");
+  await hydrated(page);
+  await page.getByLabel("Find a shard").fill("grove");
+  await page
+    .locator('[data-testid="collection-row"][data-shard="SHARD_GROVE"]')
+    .getByLabel("Grove: held")
+    .fill("1000");
+  await page.waitForTimeout(900);
+  await page.goto("/tools/skyblock/calculator/?shard=grove&qty=10");
+  await hydrated(page);
+  await expect(page.getByTestId("calc-summary")).toBeVisible();
+  await page.getByRole("checkbox", { name: "Use my collection" }).check();
+  await expect(page.getByTestId("calc-used")).toContainText(
+    "Uses 10 shards from your collection",
+  );
+  await expect(page.getByTestId("calc-tree")).toContainText("Have");
+});
+
+test("the planner plans several shards together", async ({ page }) => {
+  await page.goto("/tools/skyblock/planner/");
+  await hydrated(page);
+  for (const name of ["Grove", "Tiamat"]) {
+    await page.getByLabel("Add a shard").fill(name);
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+  }
+  await expect(page.getByTestId("planner-target")).toHaveCount(2);
+  await expect(page.getByTestId("planner-summary")).toContainText("Fusions");
+  await expect(page.getByTestId("planner-hunt")).toBeVisible();
+  await expect(page.getByTestId("planner-checklist")).toContainText("done");
+  await page.getByRole("button", { name: "Remove Grove" }).click();
+  await expect(page.getByTestId("planner-target")).toHaveCount(1);
+});
+
+test("fusion lines draw a shard's line, and each shard re-centres it", async ({
+  page,
+}) => {
+  await page.goto("/tools/skyblock/lines/?shard=iguana");
+  const diagram = page.getByTestId("lines-diagram");
+  await expect(diagram).toBeVisible();
+  await expect(page.getByTestId("lines-summary")).toContainText(
+    "shards within 2 steps",
+  );
+  await expect(page.getByTestId("lines-list")).toContainText("Komodo Dragon");
+  await diagram.getByRole("link", { name: /^Gecko,/ }).click();
+  await expect(page).toHaveURL("/tools/skyblock/lines/?shard=gecko");
+  await expect(diagram.locator("[aria-current=page]")).toHaveAccessibleName(
+    "Gecko, this shard",
+  );
+  await page.getByLabel("Steps out").selectOption("1");
+  await page.getByRole("button", { name: "Show" }).click();
+  await expect(page).toHaveURL(/steps=1/);
+  // A shard's page links its line.
+  await page.goto("/tools/skyblock/shards/iguana/");
+  await page.getByTestId("shard-lines").click();
+  await expect(page).toHaveURL("/tools/skyblock/lines/?shard=iguana");
+});
+
+test("the guide explains levels with the data's numbers", async ({ page }) => {
+  await page.goto("/tools/skyblock/guide/");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Guide" }),
+  ).toBeVisible();
+  await expect(page.getByTestId("guide-levels")).toContainText("96");
+  await page
+    .getByTestId("guide-contents")
+    .getByRole("link", { name: /Fusing/ })
+    .click();
+  await expect(page).toHaveURL(/#fusing$/);
 });

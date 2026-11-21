@@ -1,9 +1,12 @@
 import { shardsToLevel, shardsToMax } from "@trilleo/skyblock";
 import {
+  LEVEL_SHARDS,
   LIMITS,
   SAVED_KEYS,
   isChecklist,
   isChosenRecipe,
+  leftToMax,
+  readCollection,
   readSettings,
   withChoice,
   withoutChoice,
@@ -38,11 +41,11 @@ import type {
 } from "./calc/engine";
 import { Breakdown, Checklist, Compare, Exports } from "./calc/Extras";
 import { formatCoins, formatCost, formatNumber } from "./calc/format";
-import { PlanTree } from "./calc/PlanTree";
+import { PlanTree, ShardName } from "./calc/PlanTree";
 import { Prices, Rates } from "./calc/Rates";
 import { Setup } from "./calc/Setup";
 import type { ShardOption } from "./calc/types";
-import { meta } from "./meta";
+import { COLLECTION_PATH, meta } from "./meta";
 import { ShardIcon } from "./ShardBrowser";
 
 export type { ShardOption } from "./calc/types";
@@ -138,6 +141,16 @@ export function Calculator({
     setFormKey((n) => n + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- savedValue reads saved.items, which loading settles; this runs once.
   }, [saved.loading]);
+
+  // The Collection (its own page edits it): levels for "left to max", held shards for
+  // inventory mode.
+  const collectionValue = savedValue(SAVED_KEYS.collection);
+  const collection = useMemo(
+    () => readCollection(collectionValue),
+    [collectionValue],
+  );
+  const heldKinds = Object.keys(collection.held).length;
+  const levelOf = (id: string) => collection.levels[id] ?? 0;
 
   const firstShard =
     shards.find((shard) => shard.slug === initialShard) ?? null;
@@ -253,9 +266,18 @@ export function Calculator({
   }, [status]);
 
   const request: PlanRequest | null = useMemo(
-    () => (target ? { settings, chosen, target: target.id, quantity } : null),
+    () =>
+      target
+        ? {
+            settings,
+            chosen,
+            target: target.id,
+            quantity,
+            collection: settings.useCollection ? collection : null,
+          }
+        : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps -- market.fetchedAt asks for a new plan when prices change.
-    [settings, chosen, target, quantity, market.fetchedAt],
+    [settings, chosen, target, quantity, market.fetchedAt, collection],
   );
   const [plan, setPlan] = useState<PlanView | null>(null);
   const [calculating, setCalculating] = useState(false);
@@ -359,7 +381,10 @@ export function Calculator({
     );
     if (shard && shard.id !== target?.id) {
       setTarget(shard);
-      setQuantity(shardsToMax(shard.rarity));
+      // What's left to max it, from the Collection's level (all of it at level 0).
+      setQuantity(
+        Math.max(1, leftToMax(shard.rarity, collection.levels[shard.id] ?? 0)),
+      );
     }
   };
   const nameOf = (id: string) =>
@@ -431,8 +456,29 @@ export function Calculator({
                   </button>
                 );
               })}
+              {levelOf(target.id) > 0 && levelOf(target.id) < 10 && (
+                <button
+                  type="button"
+                  aria-pressed={
+                    quantity === leftToMax(target.rarity, levelOf(target.id))
+                  }
+                  className="press border border-ink px-2 py-1 type-label hover:bg-chip aria-pressed:bg-ink aria-pressed:text-paper"
+                  onClick={() => {
+                    setQuantity(leftToMax(target.rarity, levelOf(target.id)));
+                  }}
+                >
+                  {`Left to max from level ${String(levelOf(target.id))} (${String(leftToMax(target.rarity, levelOf(target.id)))})`}
+                </button>
+              )}
             </div>
           )}
+          <CollectionSwitch
+            on={settings.useCollection}
+            held={heldKinds}
+            onChange={(useCollection) => {
+              updateSettings({ useCollection });
+            }}
+          />
         </div>
       </ToolSection>
 
@@ -515,6 +561,7 @@ export function Calculator({
                   ? "Working it out again…"
                   : "With your setup and rates below; change them and this follows."}
               </p>
+              {plan.used && <UsedFromCollection plan={plan} />}
               {Number.isFinite(plan.cost) && <Breakdown plan={plan} />}
               {plan.stale.length > 0 && (
                 <p className="border-l-2 border-accent pl-3 text-sm">
@@ -585,6 +632,29 @@ export function Calculator({
 
       <ToolSection number="05" title="Your setup">
         <div id="setup" className="flex flex-col gap-4">
+          {LEVEL_SHARDS.some((shard) => levelOf(shard.id) > 0) && (
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  updateSettings({
+                    levels: Object.fromEntries(
+                      LEVEL_SHARDS.map((shard) => [
+                        shard.key,
+                        levelOf(shard.id),
+                      ]),
+                    ) as CalcSettings["levels"],
+                  });
+                  setFormKey((n) => n + 1);
+                }}
+              >
+                Fill levels from your collection
+              </Button>
+              <span className="text-muted">
+                Sets the attribute levels below to the ones in your collection.
+              </span>
+            </div>
+          )}
           <Setup
             key={formKey}
             settings={settings}
@@ -696,5 +766,86 @@ export function Calculator({
         />
       )}
     </div>
+  );
+}
+
+/** Inventory mode's switch, with how many kinds of shard the Collection holds. */
+function CollectionSwitch({
+  on,
+  held,
+  onChange,
+}: {
+  on: boolean;
+  held: number;
+  onChange: (on: boolean) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="flex items-start gap-3 border-t border-hair pt-4">
+      <input
+        id={id}
+        type="checkbox"
+        checked={on}
+        aria-describedby={`${id}-hint`}
+        onChange={(event) => {
+          onChange(event.target.checked);
+        }}
+        className="mt-1 size-4 cursor-pointer accent-[var(--tr-accent)]"
+      />
+      <div className="flex flex-col gap-0.5">
+        <label htmlFor={id} className="cursor-pointer type-label">
+          Use my collection
+        </label>
+        <span id={`${id}-hint`} className="text-sm text-muted">
+          {held === 0 ? (
+            <>
+              Shards you hold go into the plan before anything is hunted. Your{" "}
+              <a href={COLLECTION_PATH} className="underline">
+                collection
+              </a>{" "}
+              holds none yet.
+            </>
+          ) : (
+            <>
+              Shards you hold go into the plan before anything is hunted: your{" "}
+              <a href={COLLECTION_PATH} className="underline">
+                collection
+              </a>{" "}
+              holds {held === 1 ? "one kind" : `${String(held)} kinds`}.
+            </>
+          )}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** What a plan in inventory mode takes from the Collection. */
+function UsedFromCollection({ plan }: { plan: PlanView }) {
+  const used = plan.used ?? [];
+  const total = used.reduce((sum, item) => sum + item.quantity, 0);
+  if (used.length === 0)
+    return (
+      <p className="text-sm text-muted" data-testid="calc-used">
+        Nothing you hold helps with this one.
+      </p>
+    );
+  return (
+    <details className="text-sm" data-testid="calc-used">
+      <summary className="cursor-pointer">
+        Uses {formatNumber(total)} shards from your collection (
+        {used.length === 1 ? "one kind" : `${String(used.length)} kinds`})
+      </summary>
+      <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+        {used.map((item) => (
+          <li key={item.shard}>
+            <ShardName
+              shard={plan.shards[item.shard]}
+              quantity={item.quantity}
+            />
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }

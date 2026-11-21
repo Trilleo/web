@@ -1,0 +1,384 @@
+---
+/**
+ * Fusion lines: /tools/skyblock/lines/[?shard=<slug>&steps=1–3&kind=both|special|id].
+ * One shard's line: where it comes from and where it leads, a few steps out, drawn
+ * on the server from SkyShards' pruned fusion graph (lib/skyblock/lines.ts). Every
+ * shard in the diagram is a link that centres it, so it works without JavaScript;
+ * a list under it says the same in words. The same for everyone.
+ */
+import {
+  LINES_PATH,
+  SKYBLOCK_PATH,
+  calculatorPath,
+  meta,
+  shardPath,
+} from "@trilleo/tool-skyblock/meta";
+import { fieldClasses } from "@trilleo/ui/classes";
+import type { LineFilter } from "@trilleo/skyblock/calc";
+import SkyblockLayout from "../../../components/skyblock/SkyblockLayout.astro";
+import { getDb } from "../../../lib/db";
+import { shardData } from "../../../lib/skyblock/data";
+import {
+  LINE_FILTERS,
+  LINE_LAYOUT,
+  LINE_STEPS,
+  isLineFilter,
+  linesPage,
+  shardsOnLines,
+} from "../../../lib/skyblock/lines";
+import { ogImagePath, toolCard } from "../../../lib/seo";
+import { getStorage } from "../../../lib/storage/config";
+
+export const prerender = false;
+
+/** Where the page starts: a line most players know. */
+const DEFAULT_SHARD = "komodo-dragon";
+
+const params = Astro.url.searchParams;
+const data = await shardData(await getDb(), getStorage());
+const choices = shardsOnLines(data);
+const asked = params.get("shard");
+const slug =
+  asked && choices.some((shard) => shard.slug === asked)
+    ? asked
+    : choices.some((shard) => shard.slug === DEFAULT_SHARD)
+      ? DEFAULT_SHARD
+      : (choices[0]?.slug ?? "");
+const stepsParam = Number(params.get("steps"));
+const steps = (LINE_STEPS as readonly number[]).includes(stepsParam)
+  ? stepsParam
+  : 2;
+const kindParam = params.get("kind");
+const kind: LineFilter = isLineFilter(kindParam) ? kindParam : "both";
+const page = slug ? linesPage(data, slug, steps, kind) : null;
+const unknown = asked !== null && asked !== slug;
+if (unknown) Astro.response.status = 404;
+
+const hrefFor = (next: string, overrides: Record<string, string> = {}) => {
+  const query = new URLSearchParams({
+    shard: next,
+    steps: String(steps),
+    kind,
+    ...overrides,
+  });
+  if (query.get("steps") === "2") query.delete("steps");
+  if (query.get("kind") === "both") query.delete("kind");
+  return `${LINES_PATH}?${query.toString()}`;
+};
+const { width: W, height: H } = LINE_LAYOUT;
+const position = new Map(
+  page?.nodes.map((node) => [node.shard.slug, node]) ?? [],
+);
+/** A curve from one box to another: right side to left side when it runs forward. */
+function edgePath(from: string, to: string): string {
+  const a = position.get(from);
+  const b = position.get(to);
+  if (!a || !b) return "";
+  if (b.x > a.x) {
+    const x1 = a.x + W;
+    const y1 = a.y + H / 2;
+    const x2 = b.x - 6;
+    const y2 = b.y + H / 2;
+    const mid = (x1 + x2) / 2;
+    return `M${x1} ${y1} C${mid} ${y1} ${mid} ${y2} ${x2} ${y2}`;
+  }
+  // Backwards or within a column: around the top.
+  const x1 = a.x + W / 2;
+  const y1 = a.y;
+  const x2 = b.x + W / 2;
+  const y2 = b.y - 6;
+  const lift = Math.min(y1, y2) - 26;
+  return `M${x1} ${y1} C${x1} ${lift} ${x2} ${lift} ${x2} ${y2}`;
+}
+const stepWord = (depth: number) =>
+  depth === 0
+    ? "this shard"
+    : `${String(Math.abs(depth))} ${Math.abs(depth) === 1 ? "step" : "steps"} ${depth < 0 ? "before" : "after"}`;
+const columnTitle = (depth: number) =>
+  depth < 0
+    ? `Comes from (${String(-depth)} ${depth === -1 ? "step" : "steps"} back)`
+    : `Leads to (${String(depth)} ${depth === 1 ? "step" : "steps"} on)`;
+const select = `${fieldClasses} h-11 px-2`;
+const description = page
+  ? `${page.centre.name}'s fusion line in Hypixel SkyBlock: the shards it's fused from and the ones it's fused into, as players make them.`
+  : "Hypixel SkyBlock's fusion lines: where each shard comes from and where it leads, as players make them.";
+/** The diagram scrolls sideways when it's wider than the screen: a labelled tab stop. */
+const scrollRegion = {
+  role: "region",
+  "aria-label": "Fusion line diagram",
+  tabindex: 0,
+} as const;
+const row = "grid-swiss mt-10 gap-y-4 border-t border-ink pt-4 md:pt-5";
+const label = "col-span-4 type-label md:col-span-2";
+const body =
+  "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
+---
+
+<SkyblockLayout
+  title={`${page ? `${page.centre.name} · ` : ""}Fusion lines · ${meta.name}`}
+  {description}
+  image={ogImagePath(`tools/${meta.slug}`, toolCard(meta))}
+  crumbs={[{ label: "Fusion lines", path: LINES_PATH }]}
+  back={{ href: SKYBLOCK_PATH, label: "SkyBlock tools" }}
+  noindex={params.size > 0 && asked !== DEFAULT_SHARD}
+>
+  <div class="grid-swiss gap-y-4 pb-8 md:pb-10">
+    <h1 class="type-headline col-span-4 md:col-span-6 xl:col-span-9">
+      Fusion lines
+    </h1>
+    <p class="type-dek col-span-4 max-w-[47.5rem] text-muted md:col-span-6 xl:col-span-9">
+      Where a shard comes from and where it leads. Every shard has fusions with
+      hundreds of partners; these are the ones most of its recipes share, so
+      they’re the lines players follow.
+    </p>
+  </div>
+
+  <section class={row} aria-labelledby="pick-title">
+    <h2 id="pick-title" class={label}>
+      <span class="text-muted">(01)</span> Shard
+    </h2>
+    <form method="get" class={body} data-testid="lines-form">
+      <div class="grid grid-cols-1 items-end gap-4 md:grid-cols-[2fr_1fr_1fr_auto]">
+        <label class="flex flex-col gap-1.5">
+          <span class="type-label">Centre on</span>
+          <select name="shard" class={select}>
+            {choices.map((shard) => (
+              <option value={shard.slug} selected={shard.slug === slug}>
+                {shard.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label class="flex flex-col gap-1.5">
+          <span class="type-label">Steps out</span>
+          <select name="steps" class={select}>
+            {LINE_STEPS.map((n) => (
+              <option value={n} selected={n === steps}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label class="flex flex-col gap-1.5">
+          <span class="type-label">Fusions</span>
+          <select name="kind" class={select}>
+            {Object.entries(LINE_FILTERS).map(([value, text]) => (
+              <option value={value} selected={value === kind}>
+                {text}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="submit"
+          class="press h-11 bg-ink px-5 type-label text-paper hover:bg-accent hover:text-on-accent"
+        >
+          Show
+        </button>
+      </div>
+      {unknown && (
+        <p class="border-l-2 border-accent pl-3" role="alert">
+          That shard isn’t on any fusion line, so here’s {page?.centre.name}’s.
+        </p>
+      )}
+    </form>
+  </section>
+
+  {page && (
+    <>
+      <section class={row} aria-labelledby="line-title">
+        <h2 id="line-title" class={label}>
+          <span class="text-muted">(02)</span> {page.centre.name}’s line
+        </h2>
+        <div class={body}>
+          <p class="text-sm text-muted" data-testid="lines-summary">
+            {page.nodes.length === 1
+              ? `${page.centre.name} isn’t on a line with these fusions.`
+              : `${String(page.nodes.length)} shards within ${String(steps)} ${steps === 1 ? "step" : "steps"}; ${String(page.lineSize)} on the whole line.`}{" "}
+            Pick a shard to centre on it.
+          </p>
+          <div class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+            {kind !== "id" && (
+              <span class="inline-flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  class="inline-block h-0.5 w-6 bg-accent"
+                ></span>
+                Special fusion (two of one family make the next)
+              </span>
+            )}
+            {kind !== "special" && (
+              <span class="inline-flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  class="inline-block w-6 border-t-2 border-dashed border-ink"
+                ></span>
+                ID fusion (with any partner of the right kind)
+              </span>
+            )}
+          </div>
+          <div
+            class="sb-lines overflow-x-auto border border-hair"
+            data-centre-x={page.nodes.find((node) => node.depth === 0)?.x ?? 0}
+            {...scrollRegion}
+          >
+            <svg
+              viewBox={`0 ${String(-30)} ${String(page.width)} ${String(page.height + 30)}`}
+              width={page.width}
+              height={page.height + 30}
+              class="block max-w-none"
+              role="group"
+              aria-label={`${page.centre.name}'s fusion line`}
+              data-testid="lines-diagram"
+            >
+              <defs>
+                <marker
+                  id="sb-arrow-special"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="7"
+                  markerHeight="7"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M0 0 L10 5 L0 10 z" fill="var(--tr-accent)" />
+                </marker>
+                <marker
+                  id="sb-arrow-id"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="7"
+                  markerHeight="7"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M0 0 L10 5 L0 10 z" fill="var(--tr-ink)" />
+                </marker>
+              </defs>
+              {page.edges.map((edge) => (
+                <path
+                  d={edgePath(edge.from, edge.to)}
+                  fill="none"
+                  stroke={
+                    edge.kind === "special"
+                      ? "var(--tr-accent)"
+                      : "var(--tr-ink)"
+                  }
+                  stroke-width={edge.kind === "special" ? 2 : 1.5}
+                  stroke-dasharray={edge.kind === "id" ? "5 4" : undefined}
+                  marker-end={`url(#sb-arrow-${edge.kind})`}
+                />
+              ))}
+              {page.nodes.map((node) => (
+                <a
+                  href={hrefFor(node.shard.slug)}
+                  class:list={["sb-line-node", node.depth === 0 && "is-centre"]}
+                  aria-label={`${node.shard.name}, ${stepWord(node.depth)}`}
+                  aria-current={node.depth === 0 ? "page" : undefined}
+                >
+                  <rect x={node.x} y={node.y} width={W} height={H} />
+                  {node.shard.icon && (
+                    <image
+                      href={node.shard.icon}
+                      x={node.x + 6}
+                      y={node.y + 6}
+                      width="32"
+                      height="32"
+                    />
+                  )}
+                  <text
+                    x={node.x + (node.shard.icon ? 46 : 12)}
+                    y={node.y + H / 2}
+                    dominant-baseline="central"
+                  >
+                    {node.shard.name}
+                  </text>
+                </a>
+              ))}
+            </svg>
+          </div>
+          <script is:inline>
+            // Narrower than the diagram: start with the centred shard in view.
+            for (const box of document.querySelectorAll(
+              ".sb-lines[data-centre-x]",
+            )) {
+              const x = Number(box.getAttribute("data-centre-x"));
+              box.scrollLeft = Math.max(0, x + 88 - box.clientWidth / 2);
+            }
+          </script>
+          {(page.more.before || page.more.after) && (
+            <p class="text-sm text-muted">
+              The line goes on{" "}
+              {page.more.before && page.more.after
+                ? "both ways"
+                : page.more.before
+                  ? "further back"
+                  : "further on"}
+              :{" "}
+              {steps < 3 ? (
+                <a
+                  href={hrefFor(slug, { steps: String(steps + 1) })}
+                  class="underline"
+                >
+                  show {steps + 1} steps
+                </a>
+              ) : (
+                "pick a shard at the edge to follow it."
+              )}
+            </p>
+          )}
+          <div class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+            <a href={shardPath(page.centre.slug)} class="underline">
+              {page.centre.name}’s page
+            </a>
+            <a href={calculatorPath(page.centre.slug)} class="underline">
+              Make {page.centre.name} in the calculator
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section class={row} aria-labelledby="list-title">
+        <h2 id="list-title" class={label}>
+          <span class="text-muted">(03)</span> In words
+        </h2>
+        <div
+          class={`${body} md:grid md:grid-cols-2 md:gap-x-8`}
+          data-testid="lines-list"
+        >
+          {[
+            page.columns.filter((column) => column.depth < 0).reverse(),
+            page.columns.filter((column) => column.depth > 0),
+          ].map((side, i) => (
+            <div class="flex flex-col gap-4">
+              {side.length === 0 ? (
+                <p class="text-sm text-muted">
+                  {i === 0
+                    ? `Nothing on these lines makes ${page.centre.name}.`
+                    : `${page.centre.name} doesn’t go into anything on these lines.`}
+                </p>
+              ) : (
+                side.map((column) => (
+                  <div class="flex flex-col gap-2">
+                    <h3 class="type-label border-b border-ink pb-1">
+                      {columnTitle(column.depth)}
+                    </h3>
+                    <ul class="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                      {column.shards.map((shard) => (
+                        <li>
+                          <a href={hrefFor(shard.slug)} class="underline">
+                            {shard.name}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+    </>
+  )}
+</SkyblockLayout>

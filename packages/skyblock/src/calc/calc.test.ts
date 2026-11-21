@@ -12,8 +12,27 @@ import {
   chosenOf,
   craftsFor,
   cycleQuantities,
+  EMPTY_COLLECTION,
+  collectionFile,
+  connectedLine,
+  fusedOf,
+  inventoryOf,
+  isCollection,
+  isPlannerSave,
+  leftToMax,
+  multiPlan,
+  parseCollectionFile,
+  readCollection,
+  withShard,
   deckOf,
   effectiveRate,
+  exclusivityScores,
+  freelyUsableShards,
+  fusionLines,
+  inventoryPlan,
+  modFormatsFor,
+  neighbourhood,
+  standardLines,
   findCycles,
   fusionSteps,
   isCalcSettings,
@@ -32,6 +51,7 @@ import {
   withChoice,
   type CalcSettings,
   type Graph,
+  type PlanNode,
 } from ".";
 
 const deck = deckOf(
@@ -362,5 +382,248 @@ describe("coin mode", () => {
     });
     expect(isPriceTable(table)).toBe(true);
     expect(isPriceTable({ SHARD_X: { ask: "1" } })).toBe(false);
+  });
+});
+
+describe("inventory mode", () => {
+  const g = graph();
+  const grove = at(g, "C1");
+  const phanpyre = at(g, "C4");
+  const bogged = at(g, "U1");
+  const kinds = (node: PlanNode): string[] =>
+    node.kind === "split"
+      ? ["split", ...node.parts.flatMap(kinds)]
+      : node.kind === "fuse"
+        ? ["fuse", ...node.inputs.flatMap(kinds)]
+        : [node.kind];
+
+  it("matches the plain plan with nothing held", () => {
+    const plain = plan(g, grove, 2, DEFAULT_SETTINGS).plan;
+    const held = inventoryPlan(g, grove, 2, DEFAULT_SETTINGS, {
+      inventory: new Map(),
+    }).plan;
+    expect(held.crafts).toBe(plain.crafts);
+    expect([...held.hunt]).toEqual([...plain.hunt]);
+    expect(held.cost).toBeCloseTo(plain.cost, 12);
+    expect(held.used?.size).toBe(0);
+  });
+
+  it("uses held shards in place of hunting, wholly or in part", () => {
+    const whole = inventoryPlan(g, grove, 2, DEFAULT_SETTINGS, {
+      inventory: new Map([[phanpyre, 5]]),
+    });
+    expect(whole.plan.used?.get(phanpyre)).toBe(5);
+    expect(whole.plan.hunt.has(phanpyre)).toBe(false);
+    expect(whole.left.get(phanpyre)).toBe(0);
+    expect(kinds(whole.plan.tree)).toEqual(["fuse", "owned", "hunt"]);
+
+    const part = inventoryPlan(g, grove, 2, DEFAULT_SETTINGS, {
+      inventory: new Map([[phanpyre, 3]]),
+    });
+    expect(part.plan.hunt.get(phanpyre)).toBe(2);
+    expect(kinds(part.plan.tree)).toEqual([
+      "fuse",
+      "split",
+      "owned",
+      "hunt",
+      "hunt",
+    ]);
+    expect(part.plan.cost).toBeLessThan(
+      plan(g, grove, 2, DEFAULT_SETTINGS).plan.cost,
+    );
+  });
+
+  it("takes the target itself when it's held, and never more than held", () => {
+    const result = inventoryPlan(g, grove, 2, DEFAULT_SETTINGS, {
+      inventory: new Map([
+        [grove, 4],
+        [bogged, 1],
+      ]),
+    });
+    expect(result.plan.cost).toBe(0);
+    expect(result.plan.tree.kind).toBe("owned");
+    expect(result.left.get(grove)).toBe(2);
+    expect(result.left.get(bogged)).toBe(1);
+    expect(result.plan.produced).toBe(2);
+  });
+
+  it("keeps mod exports to the lists when shards are held", () => {
+    const result = inventoryPlan(g, grove, 2, DEFAULT_SETTINGS, {
+      inventory: new Map([[phanpyre, 5]]),
+    });
+    expect(modFormatsFor(result.plan)).toEqual(["nofrills", "skyhanni"]);
+    expect(planText(g, result.plan)).toContain("Use 5 Phanpyre you have");
+    const steps = fusionSteps(g, result.plan);
+    expect(steps).toHaveLength(1);
+  });
+
+  it("scores inputs by how irreplaceable they are", () => {
+    const solved = solve(g, DEFAULT_SETTINGS);
+    const scores = exclusivityScores(g, solved.cost);
+    // Phanpyre is in every Grove recipe; Bogged in only half.
+    expect(scores[phanpyre]).toBeGreaterThan(0);
+    expect(scores[bogged]).toBe(0);
+    expect(Math.max(...scores)).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("fusion lines", () => {
+  const g = graph();
+  const grove = at(g, "C1");
+  const phanpyre = at(g, "C4");
+  const bogged = at(g, "U1");
+
+  it("keeps the inputs most recipes share, by kind", () => {
+    const lines = fusionLines(g);
+    // Phanpyre is in both of Grove's (special) recipes; Grove in both of Bogged's.
+    expect([...(lines.special.get(phanpyre) ?? [])]).toEqual([grove]);
+    expect([...(lines.id.get(grove) ?? [])]).toEqual([bogged]);
+    expect(lines.specialRev.get(grove)?.has(phanpyre)).toBe(true);
+    // One recipe isn't enough to count (Tiamat from Crocodile).
+    expect(lines.id.get(at(g, "R45"))).toBeUndefined();
+    expect([...connectedLine(bogged, lines)].sort()).toEqual(
+      [phanpyre, grove, bogged].sort(),
+    );
+    expect([...connectedLine(bogged, lines, "special")]).toEqual([bogged]);
+  });
+
+  it("drops edges from dearer shards to cheaper ones", () => {
+    const solved = solve(g, DEFAULT_SETTINGS);
+    const lines = standardLines(g, solved.cost);
+    // Grove costs more than hunting Bogged, so nobody fuses one into the other.
+    expect(lines.id.get(grove)).toBeUndefined();
+    expect(lines.special.get(phanpyre)?.has(grove)).toBe(true);
+  });
+
+  it("shows a shard's neighbourhood, steps out each side", () => {
+    const lines = fusionLines(g);
+    const near = neighbourhood(grove, lines, 1);
+    expect(near.depth.get(phanpyre)).toBe(-1);
+    expect(near.depth.get(bogged)).toBe(1);
+    expect(near.edges).toHaveLength(2);
+    const edge = neighbourhood(phanpyre, lines, 1);
+    expect(edge.depth.has(bogged)).toBe(false);
+    expect(edge.more).toEqual({ before: false, after: true });
+    expect(neighbourhood(phanpyre, lines, 2, "special").depth.has(bogged)).toBe(
+      false,
+    );
+  });
+
+  it("frees shards whose whole special line is maxed", () => {
+    const solved = solve(g, DEFAULT_SETTINGS);
+    expect(freelyUsableShards(g, new Map(), solved.cost).size).toBe(0);
+    // Phanpyre leads to Grove: both must be maxed (96 common shards each).
+    const onlyPhanpyre = freelyUsableShards(
+      g,
+      new Map([[phanpyre, 96]]),
+      solved.cost,
+    );
+    expect(onlyPhanpyre.has(phanpyre)).toBe(false);
+    const both = freelyUsableShards(
+      g,
+      new Map([
+        [phanpyre, 96],
+        [grove, 96],
+      ]),
+      solved.cost,
+    );
+    expect(both.has(phanpyre)).toBe(true);
+    expect(both.has(grove)).toBe(true);
+  });
+});
+
+describe("collection", () => {
+  const g = graph();
+  it("keeps only shards with something to say, and checks saves", () => {
+    let c = withShard(EMPTY_COLLECTION, "SHARD_GROVE", { level: 3, held: 12 });
+    c = withShard(c, "SHARD_PHANPYRE", { held: 5, keep: true });
+    c = withShard(c, "SHARD_GROVE", { level: 0 });
+    expect(c).toEqual({
+      levels: {},
+      held: { SHARD_GROVE: 12, SHARD_PHANPYRE: 5 },
+      keep: ["SHARD_PHANPYRE"],
+    });
+    expect(isCollection(c)).toBe(true);
+    expect(isSavedValue(c)).toBe(true);
+    expect(isCollection({ ...c, levels: { SHARD_GROVE: 11 } })).toBe(false);
+    expect(isCollection({ ...c, held: { grove: 1 } })).toBe(false);
+    expect(readCollection("nonsense")).toEqual(EMPTY_COLLECTION);
+  });
+
+  it("turns into an inventory and fused counts, leaving kept shards out", () => {
+    const c = withShard(
+      withShard(EMPTY_COLLECTION, "SHARD_GROVE", { level: 2, held: 12 }),
+      "SHARD_PHANPYRE",
+      { held: 5, keep: true },
+    );
+    expect([...inventoryOf(g, c)]).toEqual([[at(g, "C1"), 12]]);
+    // Common: 1 + 3 shards to level 2.
+    expect([...fusedOf(g, c)]).toEqual([[at(g, "C1"), 4]]);
+    expect(leftToMax("common", 2)).toBe(92);
+    expect(leftToMax("legendary", 10)).toBe(0);
+  });
+
+  it("round-trips through a downloaded file", () => {
+    const c = withShard(EMPTY_COLLECTION, "SHARD_TIAMAT", { level: 10 });
+    const text = collectionFile(c, new Date("2026-11-21T00:00:00Z"));
+    expect(parseCollectionFile(text)).toEqual(c);
+    expect(readCollection(JSON.parse(text))).toEqual(c);
+    expect(parseCollectionFile("{}")).toBeNull();
+    expect(parseCollectionFile("not json")).toBeNull();
+  });
+});
+
+describe("planner", () => {
+  const g = graph();
+  const grove = at(g, "C1");
+  const bogged = at(g, "U1");
+
+  it("adds up separate plans", () => {
+    const targets = [
+      { shard: grove, quantity: 2 },
+      { shard: bogged, quantity: 3 },
+    ];
+    const result = multiPlan(g, targets, DEFAULT_SETTINGS);
+    const one = plan(g, grove, 2, DEFAULT_SETTINGS).plan;
+    const two = plan(g, bogged, 3, DEFAULT_SETTINGS).plan;
+    expect(result.plans).toHaveLength(2);
+    expect(result.cost).toBeCloseTo(one.cost + two.cost, 12);
+    expect(result.crafts).toBe(one.crafts + two.crafts);
+    expect(result.hunt.get(bogged)).toBe(
+      (one.hunt.get(bogged) ?? 0) + (two.hunt.get(bogged) ?? 0),
+    );
+  });
+
+  it("spends held shards across targets, never twice", () => {
+    const result = multiPlan(
+      g,
+      [
+        { shard: grove, quantity: 2 },
+        { shard: grove, quantity: 2 },
+      ],
+      DEFAULT_SETTINGS,
+      { inventory: new Map([[at(g, "C4"), 7]]) },
+    );
+    expect(result.used.get(at(g, "C4"))).toBe(7);
+    expect(result.plans[0]?.used?.get(at(g, "C4"))).toBe(5);
+    expect(result.plans[1]?.used?.get(at(g, "C4"))).toBe(2);
+  });
+
+  it("checks the planner's save", () => {
+    const save = {
+      targets: [{ shard: "SHARD_GROVE", quantity: 96 }],
+      done: ["x"],
+    };
+    expect(isPlannerSave(save)).toBe(true);
+    expect(isSavedValue(save)).toBe(true);
+    expect(
+      isPlannerSave({ ...save, targets: [...save.targets, ...save.targets] }),
+    ).toBe(false);
+    expect(
+      isPlannerSave({
+        ...save,
+        targets: [{ shard: "SHARD_GROVE", quantity: 0 }],
+      }),
+    ).toBe(false);
   });
 });

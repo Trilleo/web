@@ -24,7 +24,7 @@ export function Choice<T extends string | number>({
           return (
             <label
               key={String(option.value)}
-              className={`relative press cursor-pointer border border-ink px-3 py-2 type-label has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-40 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent ${checked ? "bg-ink text-paper" : "hover:bg-chip"}`}
+              className={`relative press cursor-pointer border border-ink px-3 py-2 type-label has-[:disabled]:cursor-not-allowed has-[:disabled]:border-hair has-[:disabled]:text-muted has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent ${checked ? "bg-ink text-paper" : "hover:bg-chip"}`}
             >
               <input
                 type="radio"

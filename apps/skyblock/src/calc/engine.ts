@@ -5,24 +5,32 @@
  * running it here where workers aren't available (tests).
  */
 import {
-  MOD_FORMATS,
   alternatives,
   buildGraph,
   cyclesIfNeeded,
   directCost,
+  fusedOf,
   fusionSteps,
+  inventoryOf,
+  inventoryPlanIn,
+  modFormatsFor,
   modPayload,
+  multiPlan,
+  prepareInventory,
   planFrom,
   planText,
   solve,
   toOverrides,
   type CalcSettings,
   type ChosenRecipe,
+  type Collection,
   type Deck,
   type Graph,
   type GraphRecipe,
+  type InventorySetup,
   type ModFormat,
   type Overrides,
+  type Plan,
   type PlanNode,
   type PriceTable,
   type Solved,
@@ -35,6 +43,16 @@ export interface PlanRequest {
   /** Hypixel ID. */
   target: string;
   quantity: number;
+  /** The Collection, read when `settings.useCollection` is on. */
+  collection?: Collection | null;
+}
+
+/** The hunting planner: several targets with one setup. */
+export interface MultiRequest {
+  settings: CalcSettings;
+  chosen: ChosenRecipe[];
+  targets: { shard: string; quantity: number }[];
+  collection?: Collection | null;
 }
 
 export interface ShardInfo {
@@ -57,6 +75,8 @@ export interface RecipeView {
 
 export type NodeView =
   | { kind: "hunt"; shard: string; quantity: number; cost: number }
+  | { kind: "owned"; shard: string; quantity: number }
+  | { kind: "split"; shard: string; quantity: number; parts: NodeView[] }
   | {
       kind: "fuse";
       shard: string;
@@ -112,13 +132,39 @@ export interface PlanView {
   tree: NodeView;
   /** What to hunt, longest first. */
   hunt: { shard: string; quantity: number; cost: number }[];
+  /** Inventory mode: what's taken from the Collection (null: mode off). */
+  used: { shard: string; quantity: number }[] | null;
   steps: StepView[];
   /** Saved choices the data no longer has. */
   stale: ChosenRecipe[];
   /** Every shard the plan mentions. */
   shards: Record<string, ShardInfo>;
   text: string;
-  mods: Record<ModFormat, { prefix: string; json: string }>;
+  /** The mod formats this plan offers (not SkyOcean with held shards). */
+  mods: Partial<Record<ModFormat, { prefix: string; json: string }>>;
+}
+
+export interface MultiView {
+  version: string;
+  mode: CalcSettings["mode"];
+  /** Each target's share. */
+  targets: {
+    shard: string;
+    quantity: number;
+    cost: number;
+    crafts: number;
+  }[];
+  crafts: number;
+  fusionCost: number;
+  cost: number;
+  hunt: { shard: string; quantity: number; cost: number }[];
+  used: { shard: string; quantity: number }[] | null;
+  /** Every target's fusions, deepest first, the same fusion done together. */
+  steps: StepView[];
+  stale: ChosenRecipe[];
+  shards: Record<string, ShardInfo>;
+  /** Targets not in the data any more. */
+  unknown: string[];
 }
 
 export interface AlternativesView {
@@ -145,6 +191,8 @@ export class CalcEngine {
     overrides: Overrides;
     stale: ChosenRecipe[];
   } | null = null;
+
+  private inventoryMemo: { key: string; setup: InventorySetup } | null = null;
 
   /** The Bazaar's prices, for coin mode, and when they were fetched. */
   private prices: PriceTable | null = null;
@@ -194,6 +242,148 @@ export class CalcEngine {
     return this.solvedMemo;
   }
 
+  /** Inventory mode's setup (solved once per setup, choices and attribute levels). */
+  private inventorySetup(
+    graph: Graph,
+    settings: CalcSettings,
+    chosen: ChosenRecipe[],
+    collection: Collection,
+  ): InventorySetup {
+    const key = JSON.stringify([
+      settings,
+      chosen,
+      collection.levels,
+      settings.mode === "coins" ? this.pricesAt : "",
+    ]);
+    if (this.inventoryMemo?.key !== key) {
+      const { overrides } = this.solved(graph, settings, chosen);
+      this.inventoryMemo = {
+        key,
+        setup: prepareInventory(graph, settings, {
+          overrides,
+          fused: fusedOf(graph, collection),
+        }),
+      };
+    }
+    return this.inventoryMemo.setup;
+  }
+
+  /** Views of shards, nodes and steps for one answer, gathering the shards it names. */
+  private viewer(graph: Graph, overrides: Overrides) {
+    const shards: Record<string, ShardInfo> = {};
+    const id = (index: number) => {
+      const info = this.info(graph, index);
+      shards[info.id] = info;
+      return info.id;
+    };
+    const recipeView = (recipe: GraphRecipe): RecipeView => ({
+      a: id(recipe.a),
+      b: id(recipe.b),
+      quantity: recipe.quantity,
+      reptile: recipe.reptile,
+    });
+    const node = (current: PlanNode): NodeView => {
+      switch (current.kind) {
+        case "hunt":
+          return {
+            kind: "hunt",
+            shard: id(current.shard),
+            quantity: current.quantity,
+            cost: directCost(graph, current.shard) * current.quantity,
+          };
+        case "owned":
+          return {
+            kind: "owned",
+            shard: id(current.shard),
+            quantity: current.quantity,
+          };
+        case "split":
+          return {
+            kind: "split",
+            shard: id(current.shard),
+            quantity: current.quantity,
+            parts: current.parts.map(node),
+          };
+        case "fuse":
+          return {
+            kind: "fuse",
+            shard: id(current.shard),
+            quantity: current.quantity,
+            crafts: current.crafts,
+            recipe: recipeView(current.recipe),
+            chosen: overrides.has(current.shard),
+            inputs: [node(current.inputs[0]), node(current.inputs[1])],
+          };
+        case "cycle":
+          return {
+            kind: "cycle",
+            shard: id(current.shard),
+            quantity: current.quantity,
+            crafts: current.crafts,
+            multiplier: current.multiplier,
+            steps: current.steps.map((step) => ({
+              output: id(step.output),
+              recipe: recipeView(step.recipe),
+            })),
+            entry: node(current.entry),
+            inputs: current.inputs.map(node),
+          };
+      }
+    };
+    const huntList = (hunt: Map<number, number>) =>
+      [...hunt]
+        .map(([index, quantity]) => ({
+          shard: id(index),
+          quantity,
+          cost: directCost(graph, index) * quantity,
+        }))
+        .sort((a, b) => b.cost - a.cost);
+    const usedList = (used: Map<number, number> | undefined) =>
+      used
+        ? [...used]
+            .map(([index, quantity]) => ({ shard: id(index), quantity }))
+            .sort((a, b) => b.quantity - a.quantity)
+        : null;
+    const steps = (plans: Plan[]): StepView[] => {
+      const order: StepView[] = [];
+      const byId = new Map<string, StepView>();
+      for (const plan of plans)
+        for (const step of fusionSteps(graph, plan)) {
+          const existing = byId.get(step.id);
+          if (existing) {
+            existing.crafts += step.crafts;
+            existing.quantity += step.quantity;
+            continue;
+          }
+          const view: StepView =
+            step.kind === "fuse"
+              ? {
+                  kind: "fuse",
+                  id: step.id,
+                  output: id(step.output),
+                  recipe: recipeView(step.recipe),
+                  crafts: step.crafts,
+                  quantity: step.quantity,
+                }
+              : {
+                  kind: "loop",
+                  id: step.id,
+                  output: id(step.output),
+                  steps: step.steps.map((s) => ({
+                    output: id(s.output),
+                    recipe: recipeView(s.recipe),
+                  })),
+                  crafts: step.crafts,
+                  quantity: step.quantity,
+                };
+          byId.set(step.id, view);
+          order.push(view);
+        }
+      return order;
+    };
+    return { shards, id, node, huntList, usedList, steps };
+  }
+
   private info(graph: Graph, index: number): ShardInfo {
     const shard = graph.shards[index];
     if (!shard) throw new Error(`no shard ${String(index)}`);
@@ -209,99 +399,31 @@ export class CalcEngine {
   }
 
   plan(request: PlanRequest): PlanView | null {
-    const graph = this.graph(request.settings);
+    const { settings } = request;
+    const graph = this.graph(settings);
     const target = graph.index.get(request.target);
     if (target === undefined) return null;
     const { solved, cycles, overrides, stale } = this.solved(
       graph,
-      request.settings,
+      settings,
       request.chosen,
     );
-    const result = planFrom(
-      graph,
-      target,
-      request.quantity,
-      solved,
-      cycles,
-      request.settings,
-    );
-    const shards: Record<string, ShardInfo> = {};
-    const id = (index: number) => {
-      const info = this.info(graph, index);
-      shards[info.id] = info;
-      return info.id;
-    };
-    const recipeView = (recipe: GraphRecipe): RecipeView => ({
-      a: id(recipe.a),
-      b: id(recipe.b),
-      quantity: recipe.quantity,
-      reptile: recipe.reptile,
-    });
-    const view = (node: PlanNode): NodeView => {
-      if (node.kind === "hunt")
-        return {
-          kind: "hunt",
-          shard: id(node.shard),
-          quantity: node.quantity,
-          cost: directCost(graph, node.shard) * node.quantity,
-        };
-      if (node.kind === "fuse")
-        return {
-          kind: "fuse",
-          shard: id(node.shard),
-          quantity: node.quantity,
-          crafts: node.crafts,
-          recipe: recipeView(node.recipe),
-          chosen: overrides.has(node.shard),
-          inputs: [view(node.inputs[0]), view(node.inputs[1])],
-        };
-      return {
-        kind: "cycle",
-        shard: id(node.shard),
-        quantity: node.quantity,
-        crafts: node.crafts,
-        multiplier: node.multiplier,
-        steps: node.steps.map((step) => ({
-          output: id(step.output),
-          recipe: recipeView(step.recipe),
-        })),
-        entry: view(node.entry),
-        inputs: node.inputs.map(view),
-      };
-    };
-    const tree = view(result.tree);
-    const hunt = [...result.hunt]
-      .map(([index, quantity]) => ({
-        shard: id(index),
-        quantity,
-        cost: directCost(graph, index) * quantity,
-      }))
-      .sort((a, b) => b.cost - a.cost);
-    const steps: StepView[] = fusionSteps(graph, result).map((step) =>
-      step.kind === "fuse"
-        ? {
-            kind: "fuse",
-            id: step.id,
-            output: id(step.output),
-            recipe: recipeView(step.recipe),
-            crafts: step.crafts,
-            quantity: step.quantity,
-          }
-        : {
-            kind: "loop",
-            id: step.id,
-            output: id(step.output),
-            steps: step.steps.map((s) => ({
-              output: id(s.output),
-              recipe: recipeView(s.recipe),
-            })),
-            crafts: step.crafts,
-            quantity: step.quantity,
-          },
-    );
+    const collection = settings.useCollection
+      ? (request.collection ?? null)
+      : null;
+    const result = collection
+      ? inventoryPlanIn(
+          this.inventorySetup(graph, settings, request.chosen, collection),
+          target,
+          request.quantity,
+          inventoryOf(graph, collection),
+        ).plan
+      : planFrom(graph, target, request.quantity, solved, cycles, settings);
+    const v = this.viewer(graph, overrides);
+    const tree = v.node(result.tree);
     return {
       version: this.deck.version,
-      mode: request.settings.mode,
+      mode: settings.mode,
       market: this.prices?.[request.target]
         ? {
             ask: this.prices[request.target]?.ask ?? null,
@@ -316,17 +438,59 @@ export class CalcEngine {
       cost: result.cost,
       costPerShard: result.costPerShard,
       tree,
-      hunt,
-      steps,
+      hunt: v.huntList(result.hunt),
+      used: v.usedList(result.used),
+      steps: v.steps([result]),
       stale,
-      shards,
+      shards: v.shards,
       text: planText(graph, result),
       mods: Object.fromEntries(
-        MOD_FORMATS.map((format) => [
+        modFormatsFor(result).map((format) => [
           format,
           modPayload(graph, result, format),
         ]),
-      ) as PlanView["mods"],
+      ),
+    };
+  }
+
+  multi(request: MultiRequest): MultiView {
+    const { settings } = request;
+    const graph = this.graph(settings);
+    const { overrides, stale } = this.solved(graph, settings, request.chosen);
+    const unknown: string[] = [];
+    const targets: { shard: number; quantity: number }[] = [];
+    for (const target of request.targets) {
+      const index = graph.index.get(target.shard);
+      if (index === undefined) unknown.push(target.shard);
+      else targets.push({ shard: index, quantity: target.quantity });
+    }
+    const collection = settings.useCollection
+      ? (request.collection ?? null)
+      : null;
+    const result = multiPlan(graph, targets, settings, {
+      overrides,
+      inventory: collection ? inventoryOf(graph, collection) : null,
+      fused: collection ? fusedOf(graph, collection) : undefined,
+    });
+    const v = this.viewer(graph, overrides);
+    return {
+      version: this.deck.version,
+      mode: settings.mode,
+      targets: result.plans.map((plan) => ({
+        shard: v.id(plan.target),
+        quantity: plan.quantity,
+        cost: plan.cost,
+        crafts: plan.crafts,
+      })),
+      crafts: result.crafts,
+      fusionCost: result.fusionCost,
+      cost: result.cost,
+      hunt: v.huntList(result.hunt),
+      used: collection ? v.usedList(result.used) : null,
+      steps: v.steps(result.plans),
+      stale,
+      shards: v.shards,
+      unknown,
     };
   }
 

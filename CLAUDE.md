@@ -1572,10 +1572,10 @@ chunithm:bundle <list>` (scripts/chunithm-bundle.ts around lib/chunithm/bundler.
 ## Hypixel SkyBlock
 
 - /tools/skyblock/ (apps/skyblock, @trilleo/tool-skyblock; status "in-progress"): a hub
-  of utilities (`UTILITIES` in its meta: built ones linked, planned ones listed). Built
-  so far: Shards, the fusion calculator (hours or coins) and Fusion profits. Planned:
-  a collection tracker, a hunting planner and the fusion-lines graph. No Hypixel API key:
-  nothing that needs one (profile import) is built.
+  of utilities (`UTILITIES` in its meta: built ones linked, planned ones listed): Shards,
+  the fusion calculator (hours or coins), Fusion profits, the Collection, the hunting
+  planner, Fusion lines and the guide. No Hypixel API key: nothing that needs one
+  (profile import) is built.
 - Data: SkyShards' repository (github.com/Campionnn/SkyShards, MIT): fusion-data.json,
   fusion-properties.json, desc.json, rates.json and public/shardIcons/<key>.png.
   Pure rules in packages/skyblock; the rest in apps/web/src/lib/skyblock/ (source.ts
@@ -1654,7 +1654,41 @@ skyblock:snapshot` (scripts/skyblock-snapshot.ts on plain Node, like chunithm:bu
   until there are prices, plans carry `mode` and the target's `market` (what the
   shards sell for instantly or by offer, after tax, and the profit), and "Your prices"
   replaces "Your hunting rates". ?mode=coins opens it in coins over the saved setup.
-  Inventory and multi-shard modes wait for the collection tracker and planner.
+- Inventory mode (@trilleo/skyblock/calc's inventory.ts): a faithful port of SkyShards'
+  InvCalculationService (it matched SkyShards' inventory snapshots exactly when ported):
+  the cheapest tree, rewritten top-down so held shards replace hunting and fusing
+  (`owned` nodes; `split` nodes when a shard is got several ways), with alternative
+  recipes carved in where held inputs make them cheaper; exclusivity scores keep back
+  shards that are the key input to something valuable, unless their special line is
+  maxed (`freelyUsableShards`, from attribute levels as shards fused); the better of
+  with and without alternatives wins, so holding shards never makes a plan dearer.
+  `prepareInventory` solves once per setup, `inventoryPlanIn` plans a target; plans
+  carry `used`. SkyOcean's export can't show held shards, so those plans offer the
+  lists only (`modFormatsFor`). The calculator's switch is the setting
+  `useCollection`; its worker gets the Collection with each request.
+- The Collection (/tools/skyblock/collection/, apps/skyblock's Collection.tsx; tool
+  data key "collection", collection.ts: `levels` 1–10 and `held` counts by Hypixel ID,
+  only non-zero ones, plus `keep`, shards plans mustn't use): totals, filters, a row per
+  shard (level, held, keep, what's left to max with a calculator link), and a JSON
+  copy to download and load (`COLLECTION_FILE_FORMAT`). The calculator offers "Left to
+  max", picks that quantity for a new target, and can fill its setup's levels from it.
+- The hunting planner (/tools/skyblock/planner/, Planner.tsx; tool data key "planner":
+  targets and ticked step IDs, `isPlannerSave`): targets added by hand or filled with
+  everything left to max (all, or one category, rarity or family), planned in the
+  calculator's worker (`multi` → multi.ts `multiPlan`: each target as the calculator
+  would, held shards handed from one to the next, totals added up, as SkyShards'
+  multi-shard mode adds its plans), with the calculator's settings and chosen recipes.
+  It shows totals, each target's share, what to hunt grouped by category with where
+  (`plannerShards`: the how-to-hunt lines as text) and a checklist of every fusion.
+- Fusion lines (/tools/skyblock/lines/[?shard=&steps=1–3&kind=], server-rendered, no
+  JavaScript needed): SkyShards' pruned fusion graph (lines.ts: inputs in at least a
+  fifth of a shard's recipes and two of them, by output quantity, special = makes 2,
+  else ID, Chameleon left out; dearer-to-cheaper edges and unobtainable roots pruned
+  with the default setup's costs), a shard's `neighbourhood` laid out in columns by
+  lib/skyblock/lines.ts and drawn as SVG whose boxes link to re-centre, plus a list in
+  words. Shard pages link it when the shard is on a line (`isOnLine`).
+- The guide (/tools/skyblock/guide/) states facts about the game and the tools; its
+  numbers (levels, fortune effects, taxes, counts) come from the code and the data.
 - Bazaar prices (lib/skyblock/bazaar.ts; sb_bazaar one row, sb_price_history): the
   server fetches Hypixel's keyless public endpoint every REFRESH_MS (`startSkyblockBazaar`
   with the other timers, or any request), never browsers: the shards' ask (buy_summary's

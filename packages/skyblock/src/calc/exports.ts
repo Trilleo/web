@@ -54,6 +54,20 @@ function skyOcean(graph: Graph, node: PlanNode): SkyOceanNode {
       method: "direct",
       quantity: node.quantity,
     };
+  if (node.kind === "owned")
+    return {
+      shard: key(node.shard),
+      method: "direct",
+      quantity: node.quantity,
+    };
+  if (node.kind === "split") {
+    // SkyOcean has no splits; plans with held shards don't offer it (`modFormatsFor`).
+    const main =
+      node.parts.find((part) => part.kind !== "owned") ?? node.parts[0];
+    return main
+      ? { ...skyOcean(graph, main), quantity: node.quantity }
+      : { shard: key(node.shard), method: "direct", quantity: node.quantity };
+  }
   if (node.kind === "cycle") {
     const outputQuantity = node.steps[0]?.recipe.quantity ?? 1;
     return {
@@ -94,6 +108,7 @@ function sumNodes(
     const key = keyOf(node);
     if (key !== null) totals.set(key, (totals.get(key) ?? 0) + node.quantity);
     if (node.kind === "fuse") node.inputs.forEach(visit);
+    else if (node.kind === "split") node.parts.forEach(visit);
     else if (node.kind === "cycle") {
       visit(node.entry);
       node.inputs.forEach(visit);
@@ -103,7 +118,23 @@ function sumNodes(
   return totals;
 }
 
-const SOURCE = { hunt: "Direct", fuse: "Fuse", cycle: "Cycle" } as const;
+const SOURCE = {
+  hunt: "Direct",
+  owned: "Direct",
+  fuse: "Fuse",
+  cycle: "Cycle",
+  split: null,
+} as const;
+
+/**
+ * The mod formats a plan can go to: SkyOcean's tree can't show shards taken from what
+ * you hold, so plans using held shards offer the lists only.
+ */
+export function modFormatsFor(plan: Plan): readonly ModFormat[] {
+  return plan.used && plan.used.size > 0
+    ? MOD_FORMATS.filter((format) => format !== "skyocean")
+    : MOD_FORMATS;
+}
 
 /** The mod's prefix and the JSON to gzip after it. */
 export function modPayload(
@@ -116,10 +147,10 @@ export function modPayload(
   if (format === "skyocean") payload = skyOcean(graph, plan.tree);
   else if (format === "nofrills") {
     payload = [
-      ...sumNodes(
-        plan.tree,
-        (node) => `${String(node.shard)}|${SOURCE[node.kind]}`,
-      ),
+      ...sumNodes(plan.tree, (node) => {
+        const source = SOURCE[node.kind];
+        return source === null ? null : `${String(node.shard)}|${source}`;
+      }),
     ].map(([key, needed]) => {
       const [shard = "0", source = "Direct"] = key.split("|");
       return { name: name(Number(shard)), needed, source };
@@ -151,6 +182,14 @@ export function planText(graph: Graph, plan: Plan): string {
       lines.push(
         `${pad}${graph.mode === "coins" ? "Buy" : "Hunt"} ${formatNumber(node.quantity)} ${name(node.shard)}`,
       );
+    } else if (node.kind === "owned") {
+      lines.push(
+        `${pad}Use ${formatNumber(node.quantity)} ${name(node.shard)} you have`,
+      );
+    } else if (node.kind === "split") {
+      node.parts.forEach((part) => {
+        visit(part, depth);
+      });
     } else if (node.kind === "fuse") {
       const fuse = (index: number) => graph.shards[index]?.fuse ?? 1;
       lines.push(

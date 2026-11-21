@@ -1,0 +1,65 @@
+---
+/**
+ * The Collection: /tools/skyblock/collection/. Someone's attribute levels and held
+ * shards (tool data, key "collection"), which the calculator and the hunting planner
+ * read. Rendered per visit, so signed-in people get theirs in the page.
+ */
+import { signInHref } from "@trilleo/tool-kit";
+import {
+  COLLECTION_PATH,
+  Collection,
+  SKYBLOCK_PATH,
+  meta,
+} from "@trilleo/tool-skyblock";
+import SkyblockLayout from "../../../components/skyblock/SkyblockLayout.astro";
+import { getDb } from "../../../lib/db";
+import { shardData } from "../../../lib/skyblock/data";
+import { collectionShards } from "../../../lib/skyblock/public";
+import { ogImagePath, toolCard } from "../../../lib/seo";
+import { getStorage } from "../../../lib/storage/config";
+import { listToolData } from "../../../lib/tools/store";
+
+export const prerender = false;
+
+// Who's signed in decides what's shown, so no shared caching.
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const db = await getDb();
+const data = await shardData(db, getStorage());
+const shards = collectionShards(data);
+const { user } = Astro.locals;
+const initialSaved = user
+  ? await listToolData<unknown>(db, user.id, meta.slug)
+  : undefined;
+const description =
+  "Your Hypixel SkyBlock shards: each attribute's level and the shards you hold, with what's left to max. The calculator and hunting planner use it.";
+---
+
+<SkyblockLayout
+  title={`Collection · ${meta.name}`}
+  {description}
+  image={ogImagePath(`tools/${meta.slug}`, toolCard(meta))}
+  crumbs={[{ label: "Collection", path: COLLECTION_PATH }]}
+  back={{ href: SKYBLOCK_PATH, label: "SkyBlock tools" }}
+>
+  <div class="grid-swiss gap-y-4 pb-8 md:pb-10">
+    <h1 class="type-headline col-span-4 md:col-span-6 xl:col-span-9">
+      Collection
+    </h1>
+    <p class="type-dek col-span-4 max-w-[47.5rem] text-muted md:col-span-6 xl:col-span-9">
+      {description}
+    </p>
+  </div>
+  <Collection
+    client:load
+    signedIn={user !== null}
+    signInHref={signInHref(Astro.url.pathname)}
+    shards={shards}
+    initialSaved={initialSaved}
+  />
+  <noscript>
+    <p class="mt-6 border-l-2 border-accent pl-4">
+      The collection needs JavaScript: it’s kept and edited in your browser.
+    </p>
+  </noscript>
+</SkyblockLayout>

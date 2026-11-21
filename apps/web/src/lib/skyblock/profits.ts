@@ -9,19 +9,18 @@ import {
   DEFAULT_SETTINGS,
   afterTax,
   buildGraph,
-  deckOf,
   effectiveOutput,
   multipliers,
   planFrom,
   sellPrice,
   solve,
   type CalcSettings,
-  type Deck,
 } from "@trilleo/skyblock/calc";
 import type { Database } from "@trilleo/db";
 import type { CurrentPrices } from "./bazaar";
 import { pricesAt, referencePrice } from "./bazaar";
 import { iconOf, type ShardData } from "./data";
+import { deckFor } from "./lines";
 
 export interface ProfitOptions {
   /** Buy inputs instantly (the ask) rather than with buy orders (the bid). */
@@ -57,21 +56,6 @@ export interface ProfitRow {
 }
 
 const memo = new Map<string, ProfitRow[]>();
-
-const deckMemo = new WeakMap<ShardData, Deck>();
-function deckFor(data: ShardData): Deck {
-  let deck = deckMemo.get(data);
-  if (!deck) {
-    deck = deckOf(
-      data.catalog.dataset,
-      "",
-      data.commit,
-      (id) => data.icons.get(id) ?? null,
-    );
-    deckMemo.set(data, deck);
-  }
-  return deck;
-}
 
 /** Every shard that's worth fusing to sell, most profitable first. */
 export function fusionProfits(

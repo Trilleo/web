@@ -170,6 +170,13 @@ calculator (`/tools/skyblock/calculator/`) works out the fastest way to make any
 from your fortune, attribute levels and hunting rates: the tree (choose other recipes),
 a checklist, a time breakdown, comparisons and exports for the SkyOcean, NoFrills and
 SkyHanni mods. It counts in hours (hunting everything) or coins (buying from the Bazaar).
+The Collection (`/tools/skyblock/collection/`) keeps your attribute levels and the shards
+you hold; with "Use my collection" on, the calculator spends held shards first (SkyShards'
+inventory mode). The hunting planner (`/tools/skyblock/planner/`) plans several shards at
+once, or everything left to max, as one list of what to hunt by category and every fusion
+in order. Fusion lines (`/tools/skyblock/lines/`) draw where a shard's line comes from and
+leads, from the fusions most of its recipes share, and the guide
+(`/tools/skyblock/guide/`) explains shards, hunting and fusing.
 Fusion profits (`/tools/skyblock/profits/`) lists shards that sell for more than their
 cheapest route costs, and the shards whose prices moved most. Prices come from Hypixel's
 public Bazaar endpoint (no key), fetched by the server every 5 minutes and kept hourly for

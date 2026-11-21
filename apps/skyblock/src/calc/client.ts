@@ -4,7 +4,13 @@
  * for while another runs replaces it, so only the newest settings are solved.
  */
 import type { PriceTable } from "@trilleo/skyblock/calc";
-import type { AlternativesView, PlanRequest, PlanView } from "./engine";
+import type {
+  AlternativesView,
+  MultiRequest,
+  MultiView,
+  PlanRequest,
+  PlanView,
+} from "./engine";
 import { CalcHost } from "./host";
 import type { WorkerRequest, WorkerResponse } from "./protocol";
 
@@ -22,12 +28,18 @@ export class CalcClient {
   private host: CalcHost | null = null;
   private next = 1;
   private pending = new Map<number, Pending>();
-  /** The plan request waiting behind the running one (only the newest is kept). */
-  private queuedPlan: {
-    request: PlanRequest;
-    resolve: (plan: PlanView | null | undefined) => void;
-  } | null = null;
-  private planning = false;
+  /** Plans and planner plans: only the newest request waiting behind a running one is kept. */
+  private readonly plans = new Latest<PlanRequest, PlanView | null>((request) =>
+    this.send({ type: "plan", request }).then(
+      (response) => CalcClient.unwrap(response, "plan").plan,
+    ),
+  );
+  private readonly multis = new Latest<MultiRequest, MultiView | null>(
+    (request) =>
+      this.send({ type: "multi", request }).then(
+        (response) => CalcClient.unwrap(response, "multi").multi,
+      ),
+  );
 
   constructor(options: { useWorker?: boolean; fetcher?: typeof fetch } = {}) {
     if ((options.useWorker ?? true) && typeof Worker !== "undefined") {
@@ -101,24 +113,12 @@ export class CalcClient {
    * newer request replaced this one before it ran.
    */
   plan(request: PlanRequest): Promise<PlanView | null | undefined> {
-    if (this.planning) {
-      this.queuedPlan?.resolve(undefined);
-      return new Promise((resolve) => {
-        this.queuedPlan = { request, resolve };
-      });
-    }
-    this.planning = true;
-    return this.send({ type: "plan", request })
-      .then((response) => CalcClient.unwrap(response, "plan").plan)
-      .finally(() => {
-        this.planning = false;
-        const queued = this.queuedPlan;
-        this.queuedPlan = null;
-        if (queued)
-          this.plan(queued.request).then(queued.resolve, () => {
-            queued.resolve(undefined);
-          });
-      });
+    return this.plans.run(request);
+  }
+
+  /** The hunting planner's plan; undefined when a newer request replaced it. */
+  multi(request: MultiRequest): Promise<MultiView | null | undefined> {
+    return this.multis.run(request);
   }
 
   async alternatives(
@@ -134,5 +134,38 @@ export class CalcClient {
   close(): void {
     this.worker?.terminate();
     this.worker = null;
+  }
+}
+
+/**
+ * Runs one request at a time; one asked for meanwhile waits, and a newer one replaces
+ * it (the replaced one resolves to undefined), so only the newest settings are solved.
+ */
+class Latest<Request, Result> {
+  private queued: {
+    request: Request;
+    resolve: (result: Result | undefined) => void;
+  } | null = null;
+  private running = false;
+
+  constructor(private readonly start: (request: Request) => Promise<Result>) {}
+
+  run(request: Request): Promise<Result | undefined> {
+    if (this.running) {
+      this.queued?.resolve(undefined);
+      return new Promise((resolve) => {
+        this.queued = { request, resolve };
+      });
+    }
+    this.running = true;
+    return this.start(request).finally(() => {
+      this.running = false;
+      const queued = this.queued;
+      this.queued = null;
+      if (queued)
+        this.run(queued.request).then(queued.resolve, () => {
+          queued.resolve(undefined);
+        });
+    });
   }
 }

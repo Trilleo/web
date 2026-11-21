@@ -21,10 +21,12 @@ import {
 import {
   SHARDS_PATH,
   calculatorPath,
+  linesPath,
   meta,
   shardPath,
 } from "@trilleo/tool-skyblock/meta";
 import { buttonClasses } from "@trilleo/ui/classes";
+import { isOnLine } from "../../../../lib/skyblock/lines";
 import PriceChart from "../../../../components/skyblock/PriceChart.astro";
 import ShardChip from "../../../../components/skyblock/ShardChip.astro";
 import SkyblockLayout from "../../../../components/skyblock/SkyblockLayout.astro";
@@ -53,6 +55,7 @@ const data = await shardData(db, getStorage());
 const page = shardPage(data, slug);
 if (!page) return Astro.rewrite("/404");
 const { shard } = page;
+const onLine = isOnLine(data, shard.id);
 
 const rarity = RARITY_LABELS[shard.rarity];
 const attribute = shard.attribute;
@@ -159,6 +162,15 @@ const scrollRegion = {
         >
           Fastest way to max it
         </a>
+        {onLine && (
+          <a
+            href={linesPath(shard.slug)}
+            class="type-label self-start underline"
+            data-testid="shard-lines"
+          >
+            Its fusion line
+          </a>
+        )}
       </div>
     </div>
     <dl

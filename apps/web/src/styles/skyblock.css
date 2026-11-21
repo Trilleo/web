@@ -24,3 +24,39 @@
   list-style-position: outside;
   margin-left: 1rem;
 }
+
+/* Fusion lines' diagram (pages/tools/skyblock/lines.astro): shards as boxes that link. */
+.sb-line-node rect {
+  fill: var(--tr-paper);
+  stroke: var(--tr-ink);
+  stroke-width: 1;
+  transition: fill var(--tr-dur-fast) var(--tr-ease);
+}
+
+.sb-line-node text {
+  fill: var(--tr-ink);
+  font-size: 13px;
+}
+
+.sb-line-node:hover rect,
+.sb-line-node:focus-visible rect {
+  fill: var(--tr-chip);
+}
+
+.sb-line-node:focus-visible {
+  outline: none;
+}
+
+.sb-line-node:focus-visible rect {
+  stroke: var(--tr-accent);
+  stroke-width: 3;
+}
+
+.sb-line-node.is-centre rect {
+  stroke: var(--tr-accent);
+  stroke-width: 2.5;
+}
+
+.sb-line-node.is-centre text {
+  font-weight: 600;
+}

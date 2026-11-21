@@ -6,10 +6,11 @@ export const meta: ToolMeta = {
   slug: "skyblock",
   name: "Hypixel SkyBlock",
   description:
-    "Utilities for Hypixel SkyBlock: every shard and its fusions, a calculator for the fastest or cheapest way to make one, and Bazaar profits.",
+    "Utilities for Hypixel SkyBlock: every shard and its fusions, a calculator and a hunting planner for the fastest or cheapest way, your collection, fusion lines and Bazaar profits.",
   status: "in-progress",
   icon: "skyblock",
-  // The fusion calculator's setup, chosen recipes and checklist (tool data).
+  // The calculator's setup, chosen recipes and checklist, the collection and the
+  // planner's list (tool data).
   isValidValue: isSavedValue,
 };
 
@@ -18,6 +19,15 @@ export const SKYBLOCK_PATH = "/tools/skyblock/";
 export const SHARDS_PATH = "/tools/skyblock/shards/";
 export const CALCULATOR_PATH = "/tools/skyblock/calculator/";
 export const PROFITS_PATH = "/tools/skyblock/profits/";
+export const COLLECTION_PATH = "/tools/skyblock/collection/";
+export const PLANNER_PATH = "/tools/skyblock/planner/";
+export const LINES_PATH = "/tools/skyblock/lines/";
+export const GUIDE_PATH = "/tools/skyblock/guide/";
+
+/** The fusion lines page, centred on a shard. */
+export function linesPath(slug: string): string {
+  return `${LINES_PATH}?shard=${encodeURIComponent(slug)}`;
+}
 
 /** The calculator, opened on a shard. */
 export function calculatorPath(slug: string, quantity?: number): string {
@@ -58,13 +68,25 @@ export const UTILITIES: readonly Utility[] = [
   {
     name: "Collection",
     description:
-      "The shards you own and your attribute levels, with what's left to max.",
-    href: null,
+      "Your attribute levels and the shards you hold, with what's left to max. The calculator and planner use it.",
+    href: COLLECTION_PATH,
   },
   {
     name: "Hunting planner",
     description:
-      "Several shards at once: one list of what to hunt, where, and for how long.",
-    href: null,
+      "Several shards at once, or everything left to max: one list of what to hunt and where, and every fusion in order.",
+    href: PLANNER_PATH,
+  },
+  {
+    name: "Fusion lines",
+    description:
+      "Where a shard's line comes from and where it leads: the fusions people actually make, drawn around any shard.",
+    href: LINES_PATH,
+  },
+  {
+    name: "Guide",
+    description:
+      "How shards, attributes, hunting and the three kinds of fusion work, and how to use each utility here.",
+    href: GUIDE_PATH,
   },
 ];

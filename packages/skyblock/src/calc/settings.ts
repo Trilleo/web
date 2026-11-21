@@ -9,6 +9,7 @@ import {
   type KuudraTier,
   type LevelKey,
 } from "./hunting";
+import { isCollection } from "./collection";
 
 export interface CalcSettings {
   hunterFortune: number;
@@ -35,6 +36,8 @@ export interface CalcSettings {
   prices: Record<string, number>;
   /** Bazaar tax on selling, in percent (BAZAAR_TAXES). */
   tax: number;
+  /** Inventory mode: plans use the shards held in the Collection. */
+  useCollection: boolean;
 }
 
 export const CALC_MODES = ["time", "coins"] as const;
@@ -71,6 +74,8 @@ export const LIMITS = {
   overrides: 400,
   quantity: 100_000,
   checklistSteps: 2000,
+  /** The hunting planner's targets. */
+  targets: 400,
   /** Coins (a shard, or a fusion). */
   coins: 1e12,
   prices: 400,
@@ -94,6 +99,7 @@ export const DEFAULT_SETTINGS: CalcSettings = {
   fusionCoins: 0,
   prices: {},
   tax: 1.25,
+  useCollection: false,
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -151,6 +157,7 @@ export function isCalcSettings(value: unknown): value is CalcSettings {
       ([id, price]) => isShardId(id) && inRange(price, 0, LIMITS.coins),
     ) &&
     (BAZAAR_TAXES as readonly unknown[]).includes(value.tax) &&
+    typeof value.useCollection === "boolean" &&
     Object.keys(value).length === Object.keys(DEFAULT_SETTINGS).length
   );
 }
@@ -186,16 +193,50 @@ export function isChecklist(value: unknown): value is Checklist {
   );
 }
 
-/** Tool data keys the calculator uses. */
+/** The hunting planner's list (tool data): what to make, and fusions ticked off. */
+export interface PlannerSave {
+  targets: { shard: string; quantity: number }[];
+  /** Step IDs done (steps.ts `stepId`). */
+  done: string[];
+}
+
+export function isPlannerSave(value: unknown): value is PlannerSave {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.targets) &&
+    value.targets.length <= LIMITS.targets &&
+    value.targets.every(
+      (target) =>
+        isRecord(target) &&
+        isShardId(target.shard) &&
+        inRange(target.quantity, 1, LIMITS.quantity) &&
+        Number.isInteger(target.quantity) &&
+        Object.keys(target).length === 2,
+    ) &&
+    new Set(value.targets.map((target) => (target as { shard: string }).shard))
+      .size === value.targets.length &&
+    Array.isArray(value.done) &&
+    value.done.length <= LIMITS.checklistSteps &&
+    value.done.every(
+      (step) => typeof step === "string" && step.length <= 200,
+    ) &&
+    Object.keys(value).length === 2
+  );
+}
+
+/** Tool data keys the tool uses. */
 export const SAVED_KEYS = {
   settings: "calc-settings",
   overrides: "calc-overrides",
   checklist: "calc-checklist",
+  collection: "collection",
+  planner: "planner",
 } as const;
 
-/** Whatever the calculator saves, as the data API sees it (any of its keys' values). */
+/** Whatever the tool saves, as the data API sees it (any of its keys' values). */
 export function isSavedValue(value: unknown): boolean {
   if (isCalcSettings(value) || isChecklist(value)) return true;
+  if (isCollection(value) || isPlannerSave(value)) return true;
   return (
     Array.isArray(value) &&
     value.length <= LIMITS.overrides &&

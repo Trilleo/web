@@ -1,6 +1,6 @@
 /**
- * Answers the calculator's requests: loads the Deck (fetch), then plans and
- * alternatives through a CalcEngine. The same code runs in the worker and, where
+ * Answers the calculator's requests: loads the Deck (fetch), then plans, the planner's
+ * plans and alternatives through a CalcEngine. The same code runs in the worker and, where
  * there's no Worker, on the page itself.
  */
 import {
@@ -76,6 +76,12 @@ export class CalcHost {
           id: message.id,
           type: "plan",
           plan: this.engine.plan(message.request),
+        };
+      if (message.type === "multi")
+        return {
+          id: message.id,
+          type: "multi",
+          multi: this.engine.multi(message.request),
         };
       return {
         id: message.id,

@@ -53,7 +53,11 @@ export function fusionSteps(graph: Graph, plan: Plan): Step[] {
     order.push(step);
   };
   const visit = (node: PlanNode) => {
-    if (node.kind === "hunt") return;
+    if (node.kind === "hunt" || node.kind === "owned") return;
+    if (node.kind === "split") {
+      node.parts.forEach(visit);
+      return;
+    }
     if (node.kind === "fuse") {
       node.inputs.forEach(visit);
       add({

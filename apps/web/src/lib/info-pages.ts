@@ -82,6 +82,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "legal",
     changes: [
       {
+        date: "2026-11-21",
+        note: "The SkyBlock collection (attribute levels and shards you hold) and the hunting planner's list, kept as tool data.",
+      },
+      {
         date: "2026-11-20",
         note: "The SkyBlock fusion calculator: its setup, chosen recipes and checklist, kept as tool data.",
       },
@@ -181,6 +185,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "The cookies and browser storage the site uses, what each is for, and how to choose what’s kept.",
     group: "legal",
     changes: [
+      {
+        date: "2026-11-21",
+        note: "The SkyBlock collection and the hunting planner's list, kept in this browser when you're signed out (preferences).",
+      },
       {
         date: "2026-11-20",
         note: "The SkyBlock fusion calculator remembers your setup, chosen recipes and checklist (preferences).",

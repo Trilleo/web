@@ -1,0 +1,315 @@
+---
+/**
+ * The guide: /tools/skyblock/guide/. How shards, attributes, hunting and fusions work,
+ * and how to use each utility. Numbers come from the code and the shard data (levels,
+ * fortune bonuses, taxes, counts), so they follow when those change; what it says
+ * about the game in words is kept true by hand. The same for everyone.
+ */
+import {
+  MAX_ATTRIBUTE_LEVEL,
+  RARITIES,
+  RARITY_LABELS,
+  SHARDS_PER_LEVEL,
+  shardsToMax,
+} from "@trilleo/skyblock";
+import {
+  BAZAAR_TAXES,
+  FROG_RATE_BONUS,
+  LEVEL_SHARDS,
+  NO_FORTUNE,
+} from "@trilleo/skyblock/calc";
+import {
+  CALCULATOR_PATH,
+  COLLECTION_PATH,
+  GUIDE_PATH,
+  LINES_PATH,
+  PLANNER_PATH,
+  PROFITS_PATH,
+  SHARDS_PATH,
+  SKYBLOCK_PATH,
+  meta,
+  shardPath,
+} from "@trilleo/tool-skyblock/meta";
+import SkyblockLayout from "../../../components/skyblock/SkyblockLayout.astro";
+import { getDb } from "../../../lib/db";
+import { shardData } from "../../../lib/skyblock/data";
+import { ogImagePath, toolCard } from "../../../lib/seo";
+import { getStorage } from "../../../lib/storage/config";
+
+export const prerender = false;
+
+const data = await shardData(await getDb(), getStorage());
+const shards = data.catalog.shards;
+const byRarity = Object.fromEntries(
+  RARITIES.map((rarity) => [
+    rarity,
+    shards.filter((s) => s.rarity === rarity).length,
+  ]),
+);
+const fuseAmounts = [...new Set(shards.map((s) => s.fuseAmount))].sort(
+  (a, b) => b - a,
+);
+const withSpecial = shards.filter((s) => s.inputs).length;
+const byId = (id: string) => shards.find((s) => s.id === id);
+const chameleon = byId("SHARD_CHAMELEON");
+const crocodile = byId("SHARD_CROCODILE");
+const effect = (key: string) =>
+  LEVEL_SHARDS.find((shard) => shard.key === key)?.effect ?? "";
+const percent = (value: number) => `${String(Math.round((value - 1) * 100))}%`;
+const list = (items: readonly string[]) =>
+  items.length <= 1
+    ? (items[0] ?? "")
+    : `${items.slice(0, -1).join(", ")} or ${items.at(-1) ?? ""}`;
+
+const SECTIONS = [
+  { id: "shards", title: "Shards and attributes" },
+  { id: "hunting", title: "Getting shards" },
+  { id: "fusing", title: "Fusing" },
+  { id: "tools", title: "Using these tools" },
+  { id: "data", title: "Where the numbers come from" },
+] as const;
+const description =
+  "How Hypixel SkyBlock's shards work: attributes and their levels, hunting and fortune, the three kinds of fusion, and how to use the calculator, collection and planner.";
+const row = "grid-swiss mt-10 gap-y-4 border-t border-ink pt-4 md:pt-5";
+const label = "col-span-4 type-label md:col-span-2";
+const body = "prose col-span-4 min-w-0 md:col-span-6 xl:col-span-7";
+const scrollRegion = {
+  role: "region",
+  "aria-label": "Shards each level takes",
+  tabindex: 0,
+} as const;
+---
+
+<SkyblockLayout
+  title={`Guide · ${meta.name}`}
+  {description}
+  image={ogImagePath(`tools/${meta.slug}`, toolCard(meta))}
+  crumbs={[{ label: "Guide", path: GUIDE_PATH }]}
+  back={{ href: SKYBLOCK_PATH, label: "SkyBlock tools" }}
+>
+  <div class="grid-swiss gap-y-4 pb-8 md:pb-10">
+    <h1 class="type-headline col-span-4 md:col-span-6 xl:col-span-9">Guide</h1>
+    <p class="type-dek col-span-4 max-w-[47.5rem] text-muted md:col-span-6 xl:col-span-9">
+      {description}
+    </p>
+    <nav aria-label="Contents" class="col-span-4 md:col-span-8 xl:col-span-12">
+      <ol
+        class="flex flex-wrap gap-x-6 gap-y-2 type-label"
+        data-testid="guide-contents"
+      >
+        {SECTIONS.map((section, i) => (
+          <li>
+            <a href={`#${section.id}`} class="inline-block py-1.5 underline">
+              <span class="text-muted">({String(i + 1).padStart(2, "0")})</span>{" "}
+              {section.title}
+            </a>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  </div>
+
+  <section class={row} aria-labelledby="shards">
+    <h2 id="shards" class={label}>
+      <span class="text-muted">(01)</span> Shards and attributes
+    </h2>
+    <div class={body}>
+      <p>
+        There are {shards.length} shards:{" "}
+        {RARITIES.map((r) => `${String(byRarity[r])} ${RARITY_LABELS[r]}`).join(
+          ", ",
+        )}
+        . Each grants an attribute, a small bonus such as health, a stat or a
+        better chance at something. You level an attribute by using shards of
+        its kind at the Hunting Box, from level 1 to {MAX_ATTRIBUTE_LEVEL}; how
+        many each level takes depends on the shard’s rarity.
+      </p>
+      <div class="overflow-x-auto" {...scrollRegion}>
+        <table data-testid="guide-levels">
+          <thead>
+            <tr>
+              <th scope="col">Rarity</th>
+              {SHARDS_PER_LEVEL.common.map((_, i) => (
+                <th scope="col">{i + 1}</th>
+              ))}
+              <th scope="col">To max</th>
+            </tr>
+          </thead>
+          <tbody>
+            {RARITIES.map((rarity) => (
+              <tr>
+                <th scope="row">{RARITY_LABELS[rarity]}</th>
+                {SHARDS_PER_LEVEL[rarity].map((n) => (
+                  <td>{n}</td>
+                ))}
+                <td>{shardsToMax(rarity)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Maxing every attribute takes{" "}
+        {shards
+          .reduce((sum, s) => sum + shardsToMax(s.rarity), 0)
+          .toLocaleString("en")}{" "}
+        shards in all. Each shard’s page shows its attribute at every level; the{" "}
+        <a href={COLLECTION_PATH}>Collection</a> keeps track of yours.
+      </p>
+    </div>
+  </section>
+
+  <section class={row} aria-labelledby="hunting">
+    <h2 id="hunting" class={label}>
+      <span class="text-muted">(02)</span> Getting shards
+    </h2>
+    <div class={body}>
+      <p>
+        Shards are hunted: caught with a Pocket Black Hole after a charm, in
+        hunting traps, with a fishing net or lasso, in the Critter Safari,
+        bought in a shop, or from Kuudra. Each{" "}
+        <a href={SHARDS_PATH}>shard’s page</a> says where. Shards that can’t be
+        hunted are only made by fusing.
+      </p>
+      <p>
+        A shard’s rate is how many you get an hour. The calculator starts from
+        SkyShards’ rates, which assume very good gear and the best spot, often
+        in a group; set your own where yours differ. Rates go up with:
+      </p>
+      <ul>
+        <li>
+          <strong>Hunting Fortune</strong>: each point adds 1% (300 fortune is
+          four times the rate). {NO_FORTUNE.size} shards ignore fortune.
+        </li>
+        <li>
+          <strong>Rarity attributes</strong>: Newt ({effect("newt")}),
+          Salamander ({effect("salamander")}), Lizard King (
+          {effect("lizardKing")}) and Leviathan ({effect("leviathan")}).
+        </li>
+        <li>
+          <strong>Black-hole shards</strong>: King Cobra ({effect("kingCobra")})
+          and Python ({effect("python")}), both boosted by Sea Serpent (
+          {effect("seaSerpent")}), itself boosted by Tiamat ({effect("tiamat")}
+          ).
+        </li>
+        <li>
+          <strong>Frog</strong>: {percent(FROG_RATE_BONUS)} more of every shard
+          that takes fortune.
+        </li>
+      </ul>
+      <p>
+        These are worth levelling first: they speed up everything after. Fill
+        them in under “Your setup” in the{" "}
+        <a href={CALCULATOR_PATH}>calculator</a>, or once in your collection and
+        let the calculator copy them.
+      </p>
+    </div>
+  </section>
+
+  <section class={row} aria-labelledby="fusing">
+    <h2 id="fusing" class={label}>
+      <span class="text-muted">(03)</span> Fusing
+    </h2>
+    <div class={body}>
+      <p>
+        Fusing two kinds of shard makes another. Each fusion uses a fixed number
+        of each input: {list(fuseAmounts.map(String))}, depending on the shard.
+        There are three kinds:
+      </p>
+      <ul>
+        <li>
+          <strong>Special fusions</strong> make two of the result. {withSpecial}{" "}
+          shards have one, with rules for each input, often two shards of a
+          family: this is how a family’s line goes from shard to shard.
+        </li>
+        <li>
+          <strong>ID fusions</strong> make one, from a shard and any partner of
+          the right kind; each shard’s page lists what its ID fusion gives.
+        </li>
+        <li>
+          <strong>Chameleon fusions</strong> use{" "}
+          {chameleon ? (
+            <a href={shardPath(chameleon.slug)}>Chameleon</a>
+          ) : (
+            "Chameleon"
+          )}{" "}
+          as one input and can give any of a list of shards.
+        </li>
+      </ul>
+      <p>
+        Fusions with a reptile shard are reptile fusions:{" "}
+        {crocodile ? (
+          <a href={shardPath(crocodile.slug)}>Crocodile</a>
+        ) : (
+          "Crocodile"
+        )}{" "}
+        ({effect("crocodile")}) can make them give more, so the calculator may
+        count a fraction of a shard on average.
+      </p>
+      <p>
+        Most shards can be made thousands of ways. The{" "}
+        <a href={LINES_PATH}>fusion lines</a> keep only the inputs most of a
+        shard’s recipes share, which leaves the lines players follow.
+      </p>
+    </div>
+  </section>
+
+  <section class={row} aria-labelledby="tools">
+    <h2 id="tools" class={label}>
+      <span class="text-muted">(04)</span> Using these tools
+    </h2>
+    <div class={body}>
+      <h3>Fusion calculator</h3>
+      <p>
+        Pick a shard and how many. The <a href={CALCULATOR_PATH}>calculator</a>{" "}
+        finds the cheapest way to get every shard involved, hunting it or fusing
+        it, and shows the result as a tree, a checklist and a time breakdown.
+        “Change” on any shard in the tree lists the other ways and what they’d
+        cost; a choice you make is kept until you undo it. Count in hours to
+        hunt everything, or in coins to buy from the Bazaar. Copy a plan as text
+        or for the SkyOcean, NoFrills and SkyHanni mods.
+      </p>
+      <h3>Collection</h3>
+      <p>
+        Note each attribute’s level and the shards you hold in your{" "}
+        <a href={COLLECTION_PATH}>collection</a>. With “Use my collection” on,
+        the calculator and planner use what you hold before hunting anything,
+        and “Keep” leaves a shard out. A held shard is spent with care: one
+        that’s nearly always the key input to something valuable is kept back
+        unless the plan itself needs it, until everything its line leads to is
+        maxed.
+      </p>
+      <h3>Hunting planner</h3>
+      <p>
+        The <a href={PLANNER_PATH}>planner</a> plans several shards at once: add
+        them by hand, or fill the list with everything left to max in your
+        collection (all of it, or one category, rarity or family). You get one
+        list of what to hunt by category with where to find each, every fusion
+        in order to tick off, and each shard’s share of the time.
+      </p>
+      <h3>Fusion profits</h3>
+      <p>
+        <a href={PROFITS_PATH}>Fusion profits</a> lists shards that sell on the
+        Bazaar for more than their cheapest route costs, after the Bazaar’s tax
+        ({list(BAZAAR_TAXES.map((tax) => `${String(tax)}%`))}, depending on your
+        account upgrades), and the shards whose prices moved most.
+      </p>
+    </div>
+  </section>
+
+  <section class={row} aria-labelledby="data">
+    <h2 id="data" class={label}>
+      <span class="text-muted">(05)</span> Where the numbers come from
+    </h2>
+    <div class={body}>
+      <p>
+        Shards, recipes and default rates are from SkyShards’ repository, which
+        this site checks for changes and copies; the calculator’s maths is a
+        faithful port of SkyShards’, checked against its own tests. Bazaar
+        prices are fetched from Hypixel’s public Bazaar every 5 minutes by this
+        site; your browser never contacts Hypixel. Nothing here needs your
+        Minecraft account or an API key.
+      </p>
+    </div>
+  </section>
+</SkyblockLayout>

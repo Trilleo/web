@@ -76,7 +76,9 @@ export function Breakdown({ plan }: { plan: PlanView }) {
 }
 
 export interface ChecklistProps {
-  plan: PlanView;
+  /** A plan, or the planner's (anything with what to hunt and the fusions). */
+  plan: Pick<PlanView, "hunt" | "steps" | "shards" | "mode">;
+  testId?: string;
   done: ReadonlySet<string>;
   onToggle: (id: string, done: boolean) => void;
   onClear: () => void;
@@ -85,7 +87,13 @@ export interface ChecklistProps {
 const huntId = (shard: string) => `hunt:${shard}`;
 
 /** The plan as things to do, in order, ticked off as they're done (and kept). */
-export function Checklist({ plan, done, onToggle, onClear }: ChecklistProps) {
+export function Checklist({
+  plan,
+  done,
+  onToggle,
+  onClear,
+  testId = "calc-checklist",
+}: ChecklistProps) {
   const items = [
     ...plan.hunt.map((item) => ({
       id: huntId(item.shard),
@@ -129,7 +137,7 @@ export function Checklist({ plan, done, onToggle, onClear }: ChecklistProps) {
   ];
   const count = items.filter((item) => done.has(item.id)).length;
   return (
-    <div className="flex flex-col gap-3" data-testid="calc-checklist">
+    <div className="flex flex-col gap-3" data-testid={testId}>
       <div className="flex flex-wrap items-center gap-4">
         <p className="text-sm text-muted" aria-live="polite">
           {count} of {items.length} done
@@ -304,11 +312,12 @@ export function Exports({ plan }: { plan: PlanView }) {
     values: Partial<Record<ModFormat, string>>;
   } | null>(null);
   const encoded = made?.plan === plan ? made.values : {};
+  const offered = MOD_FORMATS.filter((format) => plan.mods[format]);
   useEffect(() => {
     let cancelled = false;
     void Promise.all(
-      MOD_FORMATS.map(async (format) => {
-        const { prefix, json } = plan.mods[format];
+      MOD_FORMATS.filter((format) => plan.mods[format]).map(async (format) => {
+        const { prefix, json } = plan.mods[format] ?? { prefix: "", json: "" };
         return [format, await gzipBase64(prefix, json)] as const;
       }),
     ).then(
@@ -330,7 +339,7 @@ export function Exports({ plan }: { plan: PlanView }) {
         <CopyButton value={plan.text} label="Copy the plan as text" />
       </div>
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        {MOD_FORMATS.map((format) => (
+        {offered.map((format) => (
           <div key={format} className="flex items-center gap-3">
             <span className="type-label">{MOD_LABELS[format]}</span>
             {encoded[format] ? (
@@ -347,6 +356,8 @@ export function Exports({ plan }: { plan: PlanView }) {
       <p className="text-sm text-muted">
         Paste the mod strings into SkyOcean, NoFrills or SkyHanni’s shard
         tracker. SkyHanni gets only what to hunt.
+        {offered.length < MOD_FORMATS.length &&
+          " SkyOcean can’t show shards you already have, so it’s left out while the plan uses your collection."}
       </p>
     </div>
   );
