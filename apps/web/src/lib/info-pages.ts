@@ -87,6 +87,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       },
       {
         date: "2026-11-21",
+        note: "SkyBlock profiles: one set of the SkyBlock tool's data per profile, with its name and, once synced from the game, Hypixel's IDs and the game mode.",
+      },
+      {
+        date: "2026-11-21",
         note: "The SkyBlock collection (attribute levels and shards you hold) and the hunting planner's list, kept as tool data.",
       },
       {

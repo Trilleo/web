@@ -7,6 +7,7 @@
  */
 import {
   MAX_ATTRIBUTE_LEVEL,
+  PROFILE_LIMITS,
   RARITIES,
   RARITY_LABELS,
   SHARDS_PER_LEVEL,
@@ -24,6 +25,7 @@ import {
   GUIDE_PATH,
   LINES_PATH,
   PLANNER_PATH,
+  PROFILES_PATH,
   PROFITS_PATH,
   SHARDS_PATH,
   SKYBLOCK_PATH,
@@ -286,6 +288,14 @@ const scrollRegion = {
         collection (all of it, or one category, rarity or family). You get one
         list of what to hunt by category with where to find each, every fusion
         in order to tick off, and each shard’s share of the time.
+      </p>
+      <h3>Profiles</h3>
+      <p>
+        Signed in, keep a collection, calculator setup and plan for each of your
+        SkyBlock profiles: add them on the <a href={PROFILES_PATH}>profiles</a>{" "}
+        page (up to {PROFILE_LIMITS.perUser}, starting empty or with another
+        profile’s setup), and pick one at the top of the collection, calculator
+        and planner. Signed out, this browser keeps one.
       </p>
       <h3>Fusion profits</h3>
       <p>

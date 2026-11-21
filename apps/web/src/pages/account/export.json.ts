@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { allUserTokens } from "../../lib/api/user-tokens";
 import { eventsOf } from "../../lib/auth/activity";
 import { aliasExport } from "../../lib/chunithm/aliases";
+import { profilesExport } from "../../lib/skyblock/profiles";
 import { requireUser } from "../../lib/auth/guard";
 import { listPasskeys } from "../../lib/auth/passkeys";
 import { getDb } from "../../lib/db";
@@ -59,6 +60,8 @@ export const GET: APIRoute = async (context) => {
     },
     // Names you suggested for CHUNITHM songs, and what became of them.
     chunithm: { aliasSuggestions: await aliasExport(db, user.id) },
+    // Each profile's data is in the tool data above, under its keyPrefix.
+    skyblock: { profiles: await profilesExport(db, user.id) },
     // Study progress: every review, answer and lesson finished, and the settings.
     study: await studyExport(db, user.id),
     // Wikis you belong to, the text of every edit you saved or proposed, and what

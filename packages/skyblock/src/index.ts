@@ -14,3 +14,4 @@ export * from "./rules";
 export * from "./search";
 export * from "./sources";
 export * from "./text";
+export * from "./profiles";

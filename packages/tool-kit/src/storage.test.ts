@@ -6,6 +6,8 @@ import {
   browserStorage,
   moveItems,
   preferenceStore,
+  scopeItems,
+  scopedStorage,
   type ToolStorage,
 } from "./storage";
 
@@ -92,6 +94,40 @@ describe("browserStorage", () => {
     await expect(notes.put("../etc", { body: "x" })).rejects.toThrow(
       /Invalid key/,
     );
+  });
+});
+
+describe("scopedStorage", () => {
+  it("keeps one part of a tool's keys apart, under a prefix", async () => {
+    const store = memoryStore();
+    const all = browserStorage<Note>("skyblock", () => store);
+    const main = scopedStorage(all, "");
+    const second = scopedStorage(all, "p2-");
+    await main.put("collection", { body: "main" });
+    const saved = await second.put("collection", { body: "second" });
+    expect(saved.key).toBe("collection");
+
+    expect((await all.list()).map((item) => item.key)).toEqual([
+      "collection",
+      "p2-collection",
+    ]);
+    expect(await second.list()).toMatchObject([
+      { key: "collection", value: { body: "second" } },
+    ]);
+    await second.remove("collection");
+    expect(await second.list()).toEqual([]);
+    expect(await main.list()).toHaveLength(1);
+  });
+
+  it("reads items the server sent the same way", () => {
+    const items = [
+      { key: "a", value: 1, updatedAt: "x" },
+      { key: "p3-a", value: 2, updatedAt: "x" },
+    ];
+    expect(scopeItems(items, "p3-")).toEqual([
+      { key: "a", value: 2, updatedAt: "x" },
+    ]);
+    expect(scopeItems(items, "")).toEqual(items);
   });
 });
 

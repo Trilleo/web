@@ -45,6 +45,48 @@ afterEach(() => {
 });
 
 describe("Collection", () => {
+  it("keeps a profile's collection under its prefix, apart from the others", async () => {
+    localStorage.setItem(
+      STORE,
+      JSON.stringify({
+        [SAVED_KEYS.collection]: {
+          value: { levels: { SHARD_GROVE: 4 }, held: {}, keep: [] },
+          updatedAt: "2026-11-21T08:00:00.000Z",
+        },
+      }),
+    );
+    render(
+      <Collection
+        signedIn={false}
+        signInHref="/sign-in"
+        shards={shards}
+        profilePrefix="p7-"
+      />,
+    );
+    // Main's level (4) never shows here, even once storage has loaded.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const level = within(row("SHARD_GROVE")).getByLabelText<HTMLInputElement>(
+      "Grove: level",
+    );
+    expect(level.value).toBe("0");
+    fireEvent.change(level, { target: { value: "2" } });
+    await waitFor(
+      () => {
+        expect(stored()[`p7-${SAVED_KEYS.collection}`]?.value).toEqual({
+          levels: { SHARD_GROVE: 2 },
+          held: {},
+          keep: [],
+        });
+      },
+      { timeout: COLLECTION_SAVE_DELAY_MS + 1000 },
+    );
+    expect(stored()[SAVED_KEYS.collection]?.value).toEqual({
+      levels: { SHARD_GROVE: 4 },
+      held: {},
+      keep: [],
+    });
+  });
+
   it("keeps levels and held shards, and totals them", async () => {
     render(
       <Collection signedIn={false} signInHref="/sign-in" shards={shards} />,

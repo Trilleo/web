@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { StoredItem } from "./meta";
-import { accountStorage, browserStorage, type ToolStorage } from "./storage";
+import {
+  accountStorage,
+  browserStorage,
+  scopedStorage,
+  type ToolStorage,
+} from "./storage";
 
 export type SaveState = "saving" | "saved" | "failed";
 
@@ -31,10 +36,16 @@ function messageOf(error: unknown): string {
 export function useToolStorage<T>(
   slug: string,
   signedIn: boolean,
+  /** Only keys with this in front, keyed without it (see scopedStorage). */
+  prefix = "",
 ): ToolStorage<T> {
   return useMemo(
-    () => (signedIn ? accountStorage<T>(slug) : browserStorage<T>(slug)),
-    [slug, signedIn],
+    () =>
+      scopedStorage(
+        signedIn ? accountStorage<T>(slug) : browserStorage<T>(slug),
+        prefix,
+      ),
+    [slug, signedIn, prefix],
   );
 }
 

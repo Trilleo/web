@@ -23,6 +23,7 @@ export const COLLECTION_PATH = "/tools/skyblock/collection/";
 export const PLANNER_PATH = "/tools/skyblock/planner/";
 export const LINES_PATH = "/tools/skyblock/lines/";
 export const GUIDE_PATH = "/tools/skyblock/guide/";
+export const PROFILES_PATH = "/tools/skyblock/profiles/";
 
 /** The fusion lines page, centred on a shard. */
 export function linesPath(slug: string): string {
@@ -82,6 +83,12 @@ export const UTILITIES: readonly Utility[] = [
     description:
       "Where a shard's line comes from and where it leads: the fusions people actually make, drawn around any shard.",
     href: LINES_PATH,
+  },
+  {
+    name: "Profiles",
+    description:
+      "One collection, setup and plan per SkyBlock profile, picked at the top of each page. Needs an account.",
+    href: PROFILES_PATH,
   },
   {
     name: "Guide",

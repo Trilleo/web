@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { adminPage, hydrated } from "./support";
+import { adminPage, continueAs, freshLogin, hydrated, toasts } from "./support";
 
 // The shard data is the copy committed with the site (SKYBLOCK_SYNC=off).
 
@@ -438,4 +438,56 @@ test("the guide explains levels with the data's numbers", async ({ page }) => {
     .getByRole("link", { name: /Fusing/ })
     .click();
   await expect(page).toHaveURL(/#fusing$/);
+});
+
+test("signed in, each SkyBlock profile keeps its own collection", async ({
+  page,
+}) => {
+  await page.goto("/tools/skyblock/profiles/");
+  await page.getByRole("link", { name: "Sign in with GitHub" }).click();
+  await continueAs(page, freshLogin("profiles"));
+  await expect(page).toHaveURL("/tools/skyblock/profiles/");
+  await expect(page.locator("[data-profile-list]")).toContainText("Main");
+
+  const tiamat = (level: string) => async () => {
+    await page.goto("/tools/skyblock/collection/");
+    await hydrated(page);
+    await page.getByLabel("Find a shard").fill("tiamat");
+    const select = page
+      .locator('[data-testid="collection-row"][data-shard="SHARD_TIAMAT"]')
+      .getByLabel("Tiamat: level");
+    await select.selectOption(level);
+    // Saved after a pause.
+    await page.waitForTimeout(900);
+  };
+  await tiamat("3")();
+
+  await page.goto("/tools/skyblock/profiles/");
+  await page.getByLabel("Name", { exact: true }).fill("Apple");
+  await page.getByRole("button", { name: "Add profile" }).click();
+  await expect(toasts(page)).toContainText("Profile made");
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze();
+  expect(violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+
+  // Apple starts empty; set its own level.
+  await tiamat("5")();
+  await expect(page.getByLabel("Profile")).toHaveValue(/\d+/);
+  await expect(page.getByLabel("Profile").locator("option:checked")).toHaveText(
+    "Apple",
+  );
+
+  // Switching back shows Main's level, untouched.
+  await page.getByLabel("Profile").selectOption({ label: "Main" });
+  await expect(page.getByLabel("Profile").locator("option:checked")).toHaveText(
+    "Main",
+  );
+  await hydrated(page);
+  await page.getByLabel("Find a shard").fill("tiamat");
+  await expect(
+    page
+      .locator('[data-testid="collection-row"][data-shard="SHARD_TIAMAT"]')
+      .getByLabel("Tiamat: level"),
+  ).toHaveValue("3");
 });

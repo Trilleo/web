@@ -161,6 +161,7 @@ describe("openDatabase", () => {
       "sb_datasets",
       "sb_icons",
       "sb_price_history",
+      "sb_profiles",
       "sb_syncs",
       "security_events",
       "sessions",

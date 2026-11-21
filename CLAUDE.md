@@ -35,7 +35,8 @@
   package, like tools (`.` the React app, `./meta` its `GameMeta`), mounted at
   /games/<name>/. Games: apps/skygrid, apps/hotfix.
 - packages/tool-kit (@trilleo/tool-kit): what tools share: `ToolMeta`, storage
-  (this browser, or the account via the data API), the `useToolItems` hook, and
+  (this browser, or the account via the data API; `scopedStorage`/`scopeItems` keep
+  one part of a tool's keys under a prefix), the `useToolItems` hook, and
   file helpers (src/files.ts: `detectFileType` from the first bytes,
   `formatBytes`, `downloadBlob`).
 - packages/ui (@trilleo/ui): shared React components and the Tailwind v4
@@ -1636,6 +1637,21 @@ skyblock:snapshot` (scripts/skyblock-snapshot.ts on plain Node, like chunithm:bu
 - Attribute texts are drawn by @trilleo/skyblock's `segmentsHtml` (escapes everything;
   only its own spans and glyph SVGs), into `set:html`. Changing what it writes means
   updating its tests.
+- Profiles (lib/skyblock/profiles.ts, sb_profiles; @trilleo/skyblock's profiles.ts):
+  signed in, one set of the tool's data per SkyBlock profile (up to
+  PROFILE_LIMITS.perUser). The account's first profile, "Main" (made the first time
+  a page needs one, `profileState`), keeps the tool's plain keys, so data from before
+  profiles is its data and a rollback still finds it; the others keep theirs under
+  `keyPrefix` "p<id>-" (unique per account). The collection, calculator and planner
+  pages load `pageData` (profiles plus tool data scoped to the active one) and pass
+  `profilePrefix`, which the components hand to `useToolStorage` (tool-kit's
+  `scopedStorage`). The active profile is the one picked last (`selectedAt`).
+  ProfileSwitcher.astro sits under those pages' headings (POST to the profiles page,
+  which sends you back; JS submits on change). /tools/skyblock/profiles/ adds (empty,
+  or copying another's calculator setup), renames, picks and deletes (typing the name;
+  never the last, and its tool data goes with it). Hypixel's profile ID, Minecraft
+  UUID, game mode and last sync are columns the API's sync will fill. Signed out, the
+  browser keeps one set. In the export (`skyblock.profiles`); deleted with the account.
 - The fusion calculator's engine (@trilleo/skyblock/calc, pure) is a faithful port of
   SkyShards' (shardData, fusionMath, minCostSolver, recipeTree, treeExport), odd corners
   and float order included: it matched SkyShards' golden snapshots exactly (every

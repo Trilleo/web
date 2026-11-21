@@ -13,6 +13,8 @@ export {
   isStoredItem,
   moveItems,
   preferenceStore,
+  scopeItems,
+  scopedStorage,
 } from "./storage";
 export type { ToolStorage } from "./storage";
 export { useToolItems, useToolStorage } from "./useToolItems";

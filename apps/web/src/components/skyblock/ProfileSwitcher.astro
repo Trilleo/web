@@ -1,0 +1,83 @@
+---
+/**
+ * Which SkyBlock profile a page shows (lib/skyblock/profiles.ts), under its heading:
+ * a select that switches at once with JavaScript, or with the button without it
+ * (POST to the profiles page, back here). Signed out, a line saying the browser
+ * keeps one profile.
+ */
+import { GAME_MODES, isGameMode } from "@trilleo/skyblock";
+import { PROFILES_PATH } from "@trilleo/tool-skyblock/meta";
+import type { ProfileState } from "../../lib/skyblock/profiles";
+
+interface Props {
+  profiles: ProfileState | null;
+  /** This page, to come back to after switching. */
+  back: string;
+  signInHref: string;
+}
+
+const { profiles, back, signInHref } = Astro.props;
+const label = (profile: ProfileState["active"]) =>
+  isGameMode(profile.gameMode) && profile.gameMode !== "classic"
+    ? `${profile.name} (${GAME_MODES[profile.gameMode]})`
+    : profile.name;
+---
+
+{profiles ? (
+  <form
+    method="post"
+    action={PROFILES_PATH}
+    class="col-span-4 flex flex-wrap items-end gap-x-4 gap-y-2 md:col-span-6 xl:col-span-9"
+    data-profile-switcher
+  >
+    <input type="hidden" name="intent" value="select" />
+    <input type="hidden" name="back" value={back} />
+    <label class="flex flex-col gap-1">
+      <span class="type-label text-muted">Profile</span>
+      <select
+        name="profile"
+        class="min-w-48 border border-ink bg-paper px-3 py-2 text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      >
+        {profiles.profiles.map((profile) => (
+          <option
+            value={String(profile.id)}
+            selected={profile.id === profiles.active.id}
+          >
+            {label(profile)}
+          </option>
+        ))}
+      </select>
+    </label>
+    <button
+      type="submit"
+      class="type-label cursor-pointer border border-ink px-3 py-2.5 text-ink hover:bg-ink hover:text-paper"
+      data-profile-switch
+    >
+      Switch
+    </button>
+    <a href={PROFILES_PATH} class="type-label pb-2.5 underline">
+      Manage profiles
+    </a>
+  </form>
+) : (
+  <p class="col-span-4 text-sm text-muted md:col-span-6 xl:col-span-9">
+    This browser keeps one profile.{" "}
+    <a href={signInHref} class="underline">
+      Sign in
+    </a>{" "}
+    to keep one per SkyBlock profile.
+  </p>
+)}
+
+<script>
+  // Switching needs no button with JavaScript: changing the select sends the form.
+  for (const form of document.querySelectorAll<HTMLFormElement>(
+    "[data-profile-switcher]",
+  )) {
+    const button = form.querySelector<HTMLElement>("[data-profile-switch]");
+    if (button) button.hidden = true;
+    form.querySelector("select")?.addEventListener("change", () => {
+      form.requestSubmit();
+    });
+  }
+</script>

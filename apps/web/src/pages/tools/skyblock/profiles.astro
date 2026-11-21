@@ -1,0 +1,313 @@
+---
+/**
+ * SkyBlock profiles: /tools/skyblock/profiles/ (lib/skyblock/profiles.ts). One set
+ * of the tool's data (collection, calculator setup, chosen recipes, checklist,
+ * planner) per profile in the game; the pages show the one picked last. POST
+ * `intent`: select (`profile`, `back`: the switcher on each page), create (`name`,
+ * `copy`: a profile whose calculator setup to copy), rename (`profile`, `name`) or
+ * delete (`profile`, `confirm`: its name typed again). Needs an account: browsers
+ * keep one set.
+ */
+import { GAME_MODES, PROFILE_LIMITS, isGameMode } from "@trilleo/skyblock";
+import {
+  COLLECTION_PATH,
+  PROFILES_PATH,
+  SKYBLOCK_PATH,
+  meta,
+} from "@trilleo/tool-skyblock/meta";
+import { buttonClasses } from "@trilleo/ui";
+import SkyblockLayout from "../../../components/skyblock/SkyblockLayout.astro";
+import { requireUser } from "../../../lib/auth/guard";
+import { noStoreRedirect } from "../../../lib/auth/redirect";
+import { field } from "../../../lib/comments/form";
+import { getDb } from "../../../lib/db";
+import { formatPostDate } from "../../../lib/listings";
+import { ogImagePath, toolCard } from "../../../lib/seo";
+import {
+  createProfile,
+  deleteProfile,
+  profileState,
+  renameProfile,
+  selectProfile,
+  type ProfileProblem,
+} from "../../../lib/skyblock/profiles";
+import { toast, toastError } from "../../../lib/toast";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const db = await getDb();
+const PROBLEMS: Record<ProfileProblem, string> = {
+  name: `Give it a name of up to ${String(PROFILE_LIMITS.nameLength)} characters.`,
+  limit: `That’s ${String(PROFILE_LIMITS.perUser)} profiles, the most an account can have.`,
+  taken: "You already have a profile with that name.",
+  missing: "That profile isn’t there any more.",
+  last: "You need at least one profile.",
+};
+/** Only this tool's own pages, so `back` can't send anyone elsewhere. */
+const safeBack = (value: string) =>
+  value.startsWith(SKYBLOCK_PATH) && !value.startsWith("//")
+    ? value
+    : PROFILES_PATH;
+let error: string | null = null;
+let newName = "";
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const intent = field(form, "intent");
+  const id = Number(field(form, "profile"));
+  if (intent === "select") {
+    await selectProfile(db, user.id, id);
+    return noStoreRedirect(safeBack(field(form, "back")), 303);
+  } else if (intent === "create") {
+    newName = field(form, "name");
+    const copy = Number(field(form, "copy"));
+    const made = await createProfile(db, user.id, {
+      name: newName,
+      copySetupFrom: Number.isInteger(copy) && copy > 0 ? copy : null,
+    });
+    if (made.ok) return noStoreRedirect(`${PROFILES_PATH}?done=created`, 303);
+    error = PROBLEMS[made.problem];
+  } else if (intent === "rename") {
+    const renamed = await renameProfile(db, user.id, id, field(form, "name"));
+    if (renamed.ok)
+      return noStoreRedirect(`${PROFILES_PATH}?done=renamed`, 303);
+    error = PROBLEMS[renamed.problem];
+  } else if (intent === "delete") {
+    const { profiles } = await profileState(db, user.id);
+    const profile = profiles.find((p) => p.id === id);
+    if (profile && field(form, "confirm").trim() !== profile.name) {
+      error = `Type “${profile.name}” to delete it.`;
+    } else {
+      const deleted = await deleteProfile(db, user.id, id);
+      if (deleted.ok)
+        return noStoreRedirect(`${PROFILES_PATH}?done=deleted`, 303);
+      error = PROBLEMS[deleted.problem];
+    }
+  } else {
+    return noStoreRedirect(PROFILES_PATH, 303);
+  }
+  Astro.response.status = 422;
+}
+
+const { profiles, active } = await profileState(db, user.id);
+const done =
+  Astro.request.method === "GET" ? Astro.url.searchParams.get("done") : null;
+const DONE: Record<string, string> = {
+  created: "Profile made. The SkyBlock pages show it now.",
+  renamed: "Saved.",
+  deleted: "Profile deleted, with its data.",
+};
+if (error) toastError(Astro, error);
+else if (done && DONE[done]) toast(Astro, DONE[done]);
+
+const description =
+  "Your Hypixel SkyBlock profiles: each keeps its own collection, calculator setup and plans. The SkyBlock pages show the one you pick.";
+const input =
+  "border border-ink bg-paper px-3 py-2 text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+const small =
+  "type-label cursor-pointer border border-ink px-2.5 py-1.5 text-ink hover:bg-ink hover:text-paper";
+const row = "grid-swiss gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6";
+const heading = "type-label col-span-4 md:col-span-2 xl:col-span-2";
+const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
+---
+
+<SkyblockLayout
+  title={`Profiles · ${meta.name}`}
+  {description}
+  image={ogImagePath(`tools/${meta.slug}`, toolCard(meta))}
+  crumbs={[{ label: "Profiles", path: PROFILES_PATH }]}
+  back={{ href: SKYBLOCK_PATH, label: "SkyBlock tools" }}
+  noindex
+>
+  <div class="grid-swiss gap-y-4 pb-8 md:pb-10">
+    <h1 class="type-headline col-span-4 md:col-span-6 xl:col-span-9">
+      Profiles
+    </h1>
+    <p class="type-dek col-span-4 max-w-[47.5rem] text-muted md:col-span-6 xl:col-span-9">
+      {description}
+    </p>
+  </div>
+
+  <div class="flex flex-col gap-12">
+    <div class={row}>
+      <h2 id="profiles-heading" class={heading}>
+        Yours ({profiles.length})
+      </h2>
+      <div class={body}>
+        <ul
+          class="flex flex-col"
+          aria-labelledby="profiles-heading"
+          data-profile-list
+        >
+          {profiles.map((profile) => {
+            const isActive = profile.id === active.id;
+            return (
+              <li class="flex flex-col gap-4 border-t border-hair py-5 first:border-t-0 first:pt-0">
+                <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+                  <p class="type-card break-words">
+                    {profile.name}
+                    {isActive && (
+                      <span class="type-label ml-3 bg-accent px-1.5 text-on-accent">
+                        Showing
+                      </span>
+                    )}
+                  </p>
+                  {!isActive && (
+                    <form method="post" action={PROFILES_PATH}>
+                      <input type="hidden" name="intent" value="select" />
+                      <input
+                        type="hidden"
+                        name="profile"
+                        value={String(profile.id)}
+                      />
+                      <input
+                        type="hidden"
+                        name="back"
+                        value={COLLECTION_PATH}
+                      />
+                      <button type="submit" class={small}>
+                        Show<span class="sr-only"> {profile.name}</span>
+                      </button>
+                    </form>
+                  )}
+                </div>
+                <p class="type-label text-muted">
+                  {isGameMode(profile.gameMode)
+                    ? `${GAME_MODES[profile.gameMode]} · `
+                    : ""}
+                  Made {formatPostDate(profile.createdAt)}
+                  {" · "}
+                  {profile.lastSyncedAt
+                    ? `synced from the game ${formatPostDate(profile.lastSyncedAt)}`
+                    : "not synced from the game"}
+                </p>
+                <details class="group">
+                  <summary class="type-label w-fit cursor-pointer underline">
+                    Rename or delete<span class="sr-only"> {profile.name}</span>
+                  </summary>
+                  <div class="mt-4 flex flex-col gap-4">
+                    <form
+                      method="post"
+                      action={PROFILES_PATH}
+                      class="flex flex-wrap items-end gap-3"
+                    >
+                      <input type="hidden" name="intent" value="rename" />
+                      <input
+                        type="hidden"
+                        name="profile"
+                        value={String(profile.id)}
+                      />
+                      <label class="flex flex-col gap-1 text-sm">
+                        <span>New name</span>
+                        <input
+                          name="name"
+                          value={profile.name}
+                          maxlength={PROFILE_LIMITS.nameLength}
+                          required
+                          class={input}
+                        />
+                      </label>
+                      <button
+                        type="submit"
+                        class={buttonClasses({ variant: "secondary" })}
+                      >
+                        Rename
+                      </button>
+                    </form>
+                    {profiles.length > 1 && (
+                      <form
+                        method="post"
+                        action={PROFILES_PATH}
+                        class="flex flex-wrap items-end gap-3"
+                      >
+                        <input type="hidden" name="intent" value="delete" />
+                        <input
+                          type="hidden"
+                          name="profile"
+                          value={String(profile.id)}
+                        />
+                        <label class="flex flex-col gap-1 text-sm">
+                          <span>
+                            Type “{profile.name}” to delete it and its data
+                          </span>
+                          <input
+                            name="confirm"
+                            autocomplete="off"
+                            required
+                            class={input}
+                          />
+                        </label>
+                        <button
+                          type="submit"
+                          class={buttonClasses({ variant: "secondary" })}
+                        >
+                          Delete
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </details>
+              </li>
+            );
+          })}
+        </ul>
+        <p class="text-sm text-muted">
+          A mod that syncs from the game makes and names profiles by itself;
+          link it on your account’s{" "}
+          <a href="/account/apps/" class="underline">
+            Apps
+          </a>{" "}
+          page.
+        </p>
+      </div>
+    </div>
+
+    {profiles.length < PROFILE_LIMITS.perUser && (
+      <div class={row}>
+        <h2 class={heading}>Add a profile</h2>
+        <form method="post" action={PROFILES_PATH} class={body}>
+          <input type="hidden" name="intent" value="create" />
+          <label class="flex flex-col gap-1">
+            <span class="font-medium">Name</span>
+            <input
+              name="name"
+              value={newName}
+              maxlength={PROFILE_LIMITS.nameLength}
+              required
+              placeholder="Apple"
+              class:list={[input, "max-w-md"]}
+            />
+          </label>
+          <label class="flex flex-col gap-1">
+            <span class="font-medium">Start with</span>
+            <select name="copy" class:list={[input, "max-w-md"]}>
+              <option value="">An empty setup</option>
+              {profiles.map((profile) => (
+                <option
+                  value={String(profile.id)}
+                  selected={profile.id === active.id}
+                >
+                  {profile.name}’s calculator setup
+                </option>
+              ))}
+            </select>
+            <span class="text-sm text-muted">
+              Fortune, pets and prices are often the same across profiles. The
+              collection and plans always start empty.
+            </span>
+          </label>
+          <div>
+            <button type="submit" class={buttonClasses()}>
+              Add profile
+            </button>
+          </div>
+        </form>
+      </div>
+    )}
+  </div>
+</SkyblockLayout>

@@ -3387,6 +3387,44 @@ export const sbPriceHistory = pgTable(
 );
 
 /**
+ * Someone's Hypixel SkyBlock profiles: the tool keeps one set of its data (tool_data,
+ * tool "skyblock") per profile. `keyPrefix` is "" for the account's first profile
+ * (its data stays on the plain keys) and "p<id>-" for the rest (@trilleo/skyblock's
+ * profiles.ts). The one picked most recently (`selectedAt`) is the one the pages
+ * show. Hypixel's IDs and the game mode come from a sync (the API's personal tokens),
+ * or stay null for profiles made by hand. Deleted with the account.
+ */
+export const sbProfiles = pgTable(
+  "sb_profiles",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    keyPrefix: text("key_prefix").notNull(),
+    /** Hypixel's profile ID, 32 lower-case hex digits. */
+    hypixelProfileId: text("hypixel_profile_id"),
+    /** The player's Minecraft UUID, 32 lower-case hex digits. */
+    minecraftUuid: text("minecraft_uuid"),
+    /** classic, ironman, stranded or bingo (GAME_MODES). */
+    gameMode: text("game_mode"),
+    createdAt: createdAt(),
+    selectedAt: timestamp("selected_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("sb_profiles_prefix_idx").on(table.userId, table.keyPrefix),
+    uniqueIndex("sb_profiles_hypixel_idx").on(
+      table.userId,
+      table.hypixelProfileId,
+    ),
+  ],
+);
+
+/**
  * The human check's mode (one row, id 1): "normal", "raised" or "attack", until a
  * time or (null) until changed. `setBy` is "admin", or "auto" when a flood raised it.
  */
@@ -3520,3 +3558,4 @@ export type SbIcon = typeof sbIcons.$inferSelect;
 export type SbSync = typeof sbSyncs.$inferSelect;
 export type SbBazaar = typeof sbBazaar.$inferSelect;
 export type SbPriceHistory = typeof sbPriceHistory.$inferSelect;
+export type SbProfile = typeof sbProfiles.$inferSelect;

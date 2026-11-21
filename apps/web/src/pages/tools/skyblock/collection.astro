@@ -11,13 +11,14 @@ import {
   SKYBLOCK_PATH,
   meta,
 } from "@trilleo/tool-skyblock";
+import ProfileSwitcher from "../../../components/skyblock/ProfileSwitcher.astro";
 import SkyblockLayout from "../../../components/skyblock/SkyblockLayout.astro";
+import { pageData } from "../../../lib/skyblock/profiles";
 import { getDb } from "../../../lib/db";
 import { shardData } from "../../../lib/skyblock/data";
 import { collectionShards } from "../../../lib/skyblock/public";
 import { ogImagePath, toolCard } from "../../../lib/seo";
 import { getStorage } from "../../../lib/storage/config";
-import { listToolData } from "../../../lib/tools/store";
 
 export const prerender = false;
 
@@ -28,9 +29,7 @@ const db = await getDb();
 const data = await shardData(db, getStorage());
 const shards = collectionShards(data);
 const { user } = Astro.locals;
-const initialSaved = user
-  ? await listToolData<unknown>(db, user.id, meta.slug)
-  : undefined;
+const { profiles, initialSaved, prefix } = await pageData(db, user);
 const description =
   "Your Hypixel SkyBlock shards: each attribute's level and the shards you hold, with what's left to max. The calculator and hunting planner use it.";
 ---
@@ -49,6 +48,11 @@ const description =
     <p class="type-dek col-span-4 max-w-[47.5rem] text-muted md:col-span-6 xl:col-span-9">
       {description}
     </p>
+    <ProfileSwitcher
+      profiles={profiles}
+      back={Astro.url.pathname + Astro.url.search}
+      signInHref={signInHref(Astro.url.pathname + Astro.url.search)}
+    />
   </div>
   <Collection
     client:load
@@ -56,6 +60,7 @@ const description =
     signInHref={signInHref(Astro.url.pathname)}
     shards={shards}
     initialSaved={initialSaved}
+    profilePrefix={prefix}
   />
   <noscript>
     <p class="mt-6 border-l-2 border-accent pl-4">

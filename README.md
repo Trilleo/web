@@ -179,7 +179,9 @@ inventory mode). The hunting planner (`/tools/skyblock/planner/`) plans several 
 once, or everything left to max, as one list of what to hunt by category and every fusion
 in order. Fusion lines (`/tools/skyblock/lines/`) draw where a shard's line comes from and
 leads, from the fusions most of its recipes share, and the guide
-(`/tools/skyblock/guide/`) explains shards, hunting and fusing.
+(`/tools/skyblock/guide/`) explains shards, hunting and fusing. Signed in, each SkyBlock
+profile keeps its own collection, setup and plans (`/tools/skyblock/profiles/`, picked at
+the top of those pages).
 Fusion profits (`/tools/skyblock/profits/`) lists shards that sell for more than their
 cheapest route costs, and the shards whose prices moved most. Prices come from Hypixel's
 public Bazaar endpoint (no key), fetched by the server every 5 minutes and kept hourly for

@@ -39,6 +39,11 @@ export interface CollectionProps {
   signInHref: string;
   shards: CollectionShard[];
   initialSaved?: StoredItem<unknown>[];
+  /**
+   * The SkyBlock profile whose data this is: its key prefix ("" for the first
+   * profile). The page passes initialSaved already scoped to it.
+   */
+  profilePrefix?: string;
 }
 
 /** Rows shown at first, and added by "Show more". */
@@ -91,8 +96,9 @@ export function Collection({
   signInHref,
   shards,
   initialSaved,
+  profilePrefix = "",
 }: CollectionProps) {
-  const storage = useToolStorage<unknown>(meta.slug, signedIn);
+  const storage = useToolStorage<unknown>(meta.slug, signedIn, profilePrefix);
   const saved = useToolItems(storage, initialSaved);
   const [collection, setCollection] = useState<CollectionValue>(() =>
     readCollection(

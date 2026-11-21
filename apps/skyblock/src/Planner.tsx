@@ -52,6 +52,11 @@ export interface PlannerProps {
   signInHref: string;
   shards: PlannerShard[];
   initialSaved?: StoredItem<unknown>[];
+  /**
+   * The SkyBlock profile whose data this is: its key prefix ("" for the first
+   * profile). The page passes initialSaved already scoped to it.
+   */
+  profilePrefix?: string;
   /** Tests pass their own engine. */
   client?: CalcClient;
 }
@@ -76,9 +81,10 @@ export function Planner({
   signInHref,
   shards,
   initialSaved,
+  profilePrefix = "",
   client: givenClient,
 }: PlannerProps) {
-  const storage = useToolStorage<unknown>(meta.slug, signedIn);
+  const storage = useToolStorage<unknown>(meta.slug, signedIn, profilePrefix);
   const saved = useToolItems(storage, initialSaved);
   const valueOf = (
     items: readonly StoredItem<unknown>[] | undefined,

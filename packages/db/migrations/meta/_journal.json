@@ -309,6 +309,13 @@
       "when": 1795266653278,
       "tag": "0043_api-user-tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1795268071686,
+      "tag": "0044_skyblock-profiles",
+      "breakpoints": true
     }
   ]
 }

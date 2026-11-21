@@ -232,3 +232,35 @@ export async function moveItems<T>(
   }
   return moved;
 }
+
+/**
+ * One part of a tool's storage: keys get `prefix` in front when saved, and only keys
+ * with it are listed (without it). Lets a tool keep several sets of the same keys,
+ * such as one per game profile. An empty prefix is the storage itself.
+ */
+export function scopedStorage<T>(
+  storage: ToolStorage<T>,
+  prefix: string,
+): ToolStorage<T> {
+  if (prefix === "") return storage;
+  return {
+    kind: storage.kind,
+    list: async () => scopeItems(await storage.list(), prefix),
+    put: async (key, value) => {
+      const item = await storage.put(prefix + key, value);
+      return { ...item, key };
+    },
+    remove: (key) => storage.remove(prefix + key),
+  };
+}
+
+/** The items under `prefix`, keyed without it (all of them for ""). */
+export function scopeItems<T>(
+  items: readonly StoredItem<T>[],
+  prefix: string,
+): StoredItem<T>[] {
+  if (prefix === "") return [...items];
+  return items
+    .filter((item) => item.key.startsWith(prefix))
+    .map((item) => ({ ...item, key: item.key.slice(prefix.length) }));
+}

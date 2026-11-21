@@ -85,6 +85,11 @@ export interface CalculatorProps {
   /** Every shard, for the picker and rates (the page renders them). */
   shards: ShardOption[];
   initialSaved?: StoredItem<unknown>[];
+  /**
+   * The SkyBlock profile whose data this is: its key prefix ("" for the first
+   * profile). The page passes initialSaved already scoped to it.
+   */
+  profilePrefix?: string;
   /** From ?shard= (a slug) and ?qty=. */
   initialShard?: string | null;
   initialQuantity?: number;
@@ -102,6 +107,7 @@ export function Calculator({
   signInHref,
   shards,
   initialSaved,
+  profilePrefix = "",
   initialShard = null,
   initialQuantity,
   initialMode,
@@ -109,7 +115,7 @@ export function Calculator({
 }: CalculatorProps) {
   const withMode = (loaded: CalcSettings): CalcSettings =>
     initialMode ? { ...loaded, mode: initialMode } : loaded;
-  const storage = useToolStorage<unknown>(meta.slug, signedIn);
+  const storage = useToolStorage<unknown>(meta.slug, signedIn, profilePrefix);
   const saved = useToolItems(storage, initialSaved);
   const savedValue = (key: string) =>
     saved.items.find((item) => item.key === key)?.value;
