@@ -70,7 +70,10 @@ Dockerfile          Production images: `web` (Caddy + static site) and `app` (No
 ```
 
 The database needs no setup for development: `pnpm dev` uses PGlite (Postgres compiled
-to WebAssembly) in `apps/web/.data/`, and tests use an in-memory one. After changing
+to WebAssembly) in `apps/web/.data/`, and tests use an in-memory one. Stop the dev
+server with Ctrl-C (or `q`) rather than killing it, so the database is closed cleanly;
+if it ever fails to start with a bare `Aborted()`, delete `apps/web/.data/pglite` to
+start afresh. After changing
 `packages/db/src/schema.ts`, run `pnpm --filter @trilleo/db db:generate` and commit the
 new migration.
 

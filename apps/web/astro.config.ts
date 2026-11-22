@@ -25,6 +25,39 @@ const bundleServerDependencies: AstroIntegration = {
   },
 };
 
+/**
+ * When the dev server shuts down (Vite's SIGTERM handler, or `q`), close the PGlite
+ * database first, so its folder needs no crash recovery next time. Vite awaits
+ * plugins' buildEnd while closing, before it exits. The database lives in
+ * src/lib/db.ts, reached through its globalThis symbol (DATABASE_KEY) rather than an
+ * import, which would load the app's server code into the config. Ctrl-C is
+ * handled there (guardShutdown).
+ */
+const closeDevDatabase: AstroIntegration = {
+  name: "trilleo:close-dev-database",
+  hooks: {
+    "astro:config:setup": ({ command, updateConfig }) => {
+      if (command !== "dev") return;
+      updateConfig({
+        vite: {
+          plugins: [
+            {
+              name: "trilleo:close-dev-database",
+              apply: "serve",
+              async buildEnd() {
+                const store = globalThis as Record<symbol, unknown>;
+                const shared = store[Symbol.for("trilleo.database")] as
+                  { close?: () => Promise<void> } | undefined;
+                await shared?.close?.();
+              },
+            },
+          ],
+        },
+      });
+    },
+  },
+};
+
 // Local secrets for `pnpm dev` (apps/web/.env, gitignored; see .env.example). Server
 // code reads process.env, which Vite doesn't fill. Variables already set win, and
 // production has no .env: its settings come from the container's environment.
@@ -63,6 +96,7 @@ export default defineConfig({
     // the visitor's own study records; leave those out.
     sitemap({ filter: (page) => inSitemap(new URL(page).pathname) }),
     bundleServerDependencies,
+    closeDevDatabase,
     // pdf.js's CMaps, fonts and decoders for the Preview tool (/_pdfjs/<version>/).
     pdfjsAssets(),
   ],

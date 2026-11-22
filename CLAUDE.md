@@ -279,7 +279,13 @@ aria-hidden="true"></span><div>…</div></div>` in Astro): an empty label row, t
   (0016_accounts-by-email does both).
 - Server code gets the database from `getDb()` (apps/web/src/lib/db.ts), which
   connects and applies pending migrations on first use; the health route
-  (/api/health) triggers that when the container starts.
+  (/api/health) triggers that when the container starts. The open database is kept on
+  globalThis (DATABASE_KEY), one per process, so `pnpm dev` reloading the module never
+  opens a second PGlite on the same folder. A PGlite folder is closed before the
+  process exits: on Ctrl-C or SIGHUP (`guardShutdown`), and on Vite's own shutdown
+  (SIGTERM, `q`) through astro.config's `closeDevDatabase` plugin. Killed without
+  closing, the folder needs crash recovery next time, which a damaged WAL can make
+  fail (PGlite then aborts with a bare "Aborted()"; delete the folder to reset).
 - DATABASE_URL: a Postgres URL in production (password via PGPASSWORD),
   `memory://` in e2e; unset in `pnpm dev`, which uses PGlite in
   apps/web/.data/pglite (delete it to reset). Tests use in-memory PGlite. A
