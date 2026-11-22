@@ -13,7 +13,7 @@ import {
   meta,
   shardPath,
 } from "@trilleo/tool-skyblock/meta";
-import { fieldClasses } from "@trilleo/ui/classes";
+import { buttonClasses, fieldClasses } from "@trilleo/ui/classes";
 import SkyblockLayout from "../../../components/skyblock/SkyblockLayout.astro";
 import { getDb } from "../../../lib/db";
 import { currentPrices } from "../../../lib/skyblock/bazaar";
@@ -99,7 +99,7 @@ const body =
   "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
 const th = "type-label border-b border-ink py-2 pr-4 font-normal text-muted";
 const td = "border-b border-hair py-2 pr-4 align-middle tabular-nums";
-const select = `${fieldClasses} h-11 px-2`;
+const select = `${fieldClasses} h-11 px-3`;
 ---
 
 <SkyblockLayout
@@ -128,7 +128,7 @@ const select = `${fieldClasses} h-11 px-2`;
           <span class="text-muted">(01)</span> How you trade
         </h2>
         <form method="get" class={`${body} gap-4`} data-testid="profits-form">
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
+          <div class="field-row grid-cols-1 md:grid-cols-3 xl:grid-cols-5">
             <label class="flex flex-col gap-1.5">
               <span class="type-label">Buy inputs with</span>
               <select name="buy" class={select}>
@@ -183,10 +183,7 @@ const select = `${fieldClasses} h-11 px-2`;
             </label>
           </div>
           <div class="flex flex-wrap items-center gap-4">
-            <button
-              type="submit"
-              class="press border border-ink bg-ink px-4 py-2 type-label text-paper hover:bg-paper hover:text-ink"
-            >
+            <button type="submit" class={buttonClasses()}>
               Show
             </button>
             <p class="text-sm text-muted">

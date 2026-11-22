@@ -15,7 +15,7 @@ import {
   SKYBLOCK_PATH,
   meta,
 } from "@trilleo/tool-skyblock/meta";
-import { buttonClasses } from "@trilleo/ui";
+import { buttonClasses, fieldClasses } from "@trilleo/ui/classes";
 import SkyblockLayout from "../../../components/skyblock/SkyblockLayout.astro";
 import { requireUser } from "../../../lib/auth/guard";
 import { noStoreRedirect } from "../../../lib/auth/redirect";
@@ -107,8 +107,7 @@ else if (done && DONE[done]) toast(Astro, DONE[done]);
 
 const description =
   "Your Hypixel SkyBlock profiles: each keeps its own collection, calculator setup and plans. The SkyBlock pages show the one you pick.";
-const input =
-  "border border-ink bg-paper px-3 py-2 text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+const input = `${fieldClasses} h-11 px-3`;
 const small =
   "type-label cursor-pointer border border-ink px-2.5 py-1.5 text-ink hover:bg-ink hover:text-paper";
 const row = "grid-swiss gap-y-5 border-t border-ink pt-4 md:pt-5 xl:pt-6";
@@ -199,8 +198,8 @@ const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
                         name="profile"
                         value={String(profile.id)}
                       />
-                      <label class="flex flex-col gap-1 text-sm">
-                        <span>New name</span>
+                      <label class="flex flex-col gap-1.5">
+                        <span class="type-label">New name</span>
                         <input
                           name="name"
                           value={profile.name}
@@ -228,8 +227,8 @@ const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
                           name="profile"
                           value={String(profile.id)}
                         />
-                        <label class="flex flex-col gap-1 text-sm">
-                          <span>
+                        <label class="flex flex-col gap-1.5">
+                          <span class="type-label">
                             Type “{profile.name}” to delete it and its data
                           </span>
                           <input
@@ -261,8 +260,8 @@ const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
         <h2 class={heading}>Add a profile</h2>
         <form method="post" action={PROFILES_PATH} class={body}>
           <input type="hidden" name="intent" value="create" />
-          <label class="flex flex-col gap-1">
-            <span class="font-medium">Name</span>
+          <label class="flex flex-col gap-1.5">
+            <span class="type-label">Name</span>
             <input
               name="name"
               value={newName}
@@ -272,8 +271,8 @@ const body = "col-span-4 flex flex-col gap-5 md:col-span-6 xl:col-span-7";
               class:list={[input, "max-w-md"]}
             />
           </label>
-          <label class="flex flex-col gap-1">
-            <span class="font-medium">Start with</span>
+          <label class="flex flex-col gap-1.5">
+            <span class="type-label">Start with</span>
             <select name="copy" class:list={[input, "max-w-md"]}>
               <option value="">An empty setup</option>
               {profiles.map((profile) => (

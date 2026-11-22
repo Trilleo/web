@@ -394,7 +394,7 @@ export function Calculator({
     <div className="flex flex-col gap-10">
       <ToolSection number="01" title="What to make">
         <div className="flex flex-col gap-5">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr_1fr]">
+          <div className="field-row grid-cols-1 md:grid-cols-[2fr_1fr]">
             <ShardPicker
               label="Shard to make"
               shards={shards}

@@ -5,7 +5,7 @@ export type {
   ButtonProps,
   ButtonVariant,
 } from "./Button";
-export { Choice, Field } from "./controls";
+export { Choice, Field, FieldAction } from "./controls";
 export type { ChoiceProps } from "./controls";
 export { COPIED_MS, CopyButton } from "./CopyButton";
 export type { CopyButtonProps } from "./CopyButton";

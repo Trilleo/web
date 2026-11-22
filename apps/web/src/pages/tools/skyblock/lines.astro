@@ -14,7 +14,7 @@ import {
   shardPath,
 } from "@trilleo/tool-skyblock/meta";
 import { LineShardField } from "@trilleo/tool-skyblock";
-import { fieldClasses } from "@trilleo/ui/classes";
+import { buttonClasses, fieldClasses } from "@trilleo/ui/classes";
 import type { LineFilter } from "@trilleo/skyblock/calc";
 import SkyblockLayout from "../../../components/skyblock/SkyblockLayout.astro";
 import { getDb } from "../../../lib/db";
@@ -104,7 +104,7 @@ const columnTitle = (depth: number) =>
   depth < 0
     ? `Comes from (${String(-depth)} ${depth === -1 ? "step" : "steps"} back)`
     : `Leads to (${String(depth)} ${depth === 1 ? "step" : "steps"} on)`;
-const select = `${fieldClasses} h-11 px-2`;
+const select = `${fieldClasses} h-11 px-3`;
 const description = page
   ? `${page.centre.name}'s fusion line in Hypixel SkyBlock: the shards it's fused from and the ones it's fused into, as players make them.`
   : "Hypixel SkyBlock's fusion lines: where each shard comes from and where it leads, as players make them.";
@@ -139,7 +139,7 @@ const body =
       <span class="text-muted">(01)</span> Shard
     </h2>
     <form method="get" class={body} data-testid="lines-form">
-      <div class="grid grid-cols-1 items-end gap-4 md:grid-cols-[2fr_1fr_1fr_auto]">
+      <div class="field-row grid-cols-1 md:grid-cols-[2fr_1fr_1fr_auto]">
         <LineShardField client:load shards={pickerShards} value={slug} />
         <label class="flex flex-col gap-1.5">
           <span class="type-label">Steps out</span>
@@ -161,12 +161,14 @@ const body =
             ))}
           </select>
         </label>
-        <button
-          type="submit"
-          class="press h-11 bg-ink px-5 type-label text-paper hover:bg-accent hover:text-on-accent"
-        >
-          Show
-        </button>
+        <div class="field-action">
+          <span aria-hidden="true"></span>
+          <div>
+            <button type="submit" class={buttonClasses()}>
+              Show
+            </button>
+          </div>
+        </div>
       </div>
       {unknown && (
         <p class="border-l-2 border-accent pl-3" role="alert">

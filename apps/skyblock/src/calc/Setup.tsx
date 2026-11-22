@@ -74,28 +74,32 @@ function Toggle({
   onChange: (checked: boolean) => void;
 }) {
   const id = useId();
+  // Shaped like a field (an empty label row, a box the controls' height, the hint),
+  // so it lines up with the fields beside it in a .field-row.
   return (
-    <div className="flex items-start gap-3">
-      <input
-        id={id}
-        type="checkbox"
-        checked={checked}
-        aria-describedby={hint ? `${id}-hint` : undefined}
-        onChange={(event) => {
-          onChange(event.target.checked);
-        }}
-        className="mt-1 size-4 cursor-pointer accent-[var(--tr-accent)]"
-      />
-      <div className="flex flex-col">
-        <label htmlFor={id} className="cursor-pointer type-label">
-          {label}
-        </label>
-        {hint && (
-          <span id={`${id}-hint`} className="text-sm text-muted">
-            {hint}
-          </span>
-        )}
-      </div>
+    <div className="flex flex-col gap-1.5">
+      <span aria-hidden="true" />
+      <label
+        htmlFor={id}
+        className="flex h-11 cursor-pointer items-center gap-3 border border-hair px-3 type-label hover:border-ink has-[:checked]:border-ink"
+      >
+        <input
+          id={id}
+          type="checkbox"
+          checked={checked}
+          aria-describedby={hint ? `${id}-hint` : undefined}
+          onChange={(event) => {
+            onChange(event.target.checked);
+          }}
+          className="size-4 shrink-0 cursor-pointer accent-[var(--tr-accent)]"
+        />
+        {label}
+      </label>
+      {hint && (
+        <span id={`${id}-hint`} className="text-sm text-muted">
+          {hint}
+        </span>
+      )}
     </div>
   );
 }
@@ -139,7 +143,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
 
       {settings.mode === "coins" && (
         <div
-          className="grid grid-cols-1 gap-4 md:grid-cols-3"
+          className="field-row grid-cols-1 md:grid-cols-3"
           data-testid="calc-coin-setup"
         >
           <Toggle
@@ -168,7 +172,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
                 onChange={(event) => {
                   onChange({ tax: Number(event.target.value) });
                 }}
-                className={`${fieldClasses} h-11 px-2`}
+                className={`${fieldClasses} h-11 px-3`}
               >
                 {BAZAAR_TAXES.map((tax) => (
                   <option key={tax} value={tax}>
@@ -181,7 +185,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="field-row grid-cols-1 md:grid-cols-3">
         <NumberField
           label="Hunting Fortune"
           hint="Before attribute bonuses."
@@ -204,7 +208,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="field-row grid-cols-1 md:grid-cols-3">
         <Toggle
           label="Frog pet"
           hint="+10% to hunting rates."
@@ -232,7 +236,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
 
       <fieldset className="flex flex-col gap-4">
         <legend className="mb-2 type-label">Attribute levels</legend>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+        <div className="field-row grid-cols-2 md:grid-cols-3">
           {LEVEL_SHARDS.map((shard) => (
             <Field key={shard.key} label={nameOf(shard.id)} hint={shard.effect}>
               {(props) => (
@@ -247,7 +251,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
                       },
                     });
                   }}
-                  className={`${fieldClasses} h-11 px-2`}
+                  className={`${fieldClasses} h-11 px-3`}
                 >
                   {LEVELS.map((level) => (
                     <option key={level} value={level}>
@@ -263,7 +267,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
 
       <fieldset className="flex flex-col gap-4">
         <legend className="mb-2 type-label">Kuudra (Kraken shards)</legend>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="field-row grid-cols-1 md:grid-cols-3">
           <Field label="Tier">
             {(props) => (
               <select
@@ -274,7 +278,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
                     kuudraTier: event.target.value as KuudraTier | "none",
                   });
                 }}
-                className={`${fieldClasses} h-11 px-2`}
+                className={`${fieldClasses} h-11 px-3`}
               >
                 <option value="none">I don’t run Kuudra</option>
                 {KUUDRA_TIERS.map((tier) => (

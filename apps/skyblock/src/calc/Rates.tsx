@@ -1,5 +1,5 @@
 import { LIMITS, type CalcSettings } from "@trilleo/skyblock/calc";
-import { Button, Field, fieldClasses } from "@trilleo/ui";
+import { Button, Field, FieldAction, fieldClasses } from "@trilleo/ui";
 import { useState, type ReactNode } from "react";
 import { ShardIcon } from "../ShardBrowser";
 import { ShardPicker } from "../ShardPicker";
@@ -87,7 +87,7 @@ function OwnValues({
   return (
     <div className="flex flex-col gap-5" data-testid={testId}>
       <form
-        className="grid grid-cols-1 items-end gap-4 md:grid-cols-[2fr_1fr_auto]"
+        className="field-row grid-cols-1 md:grid-cols-[2fr_1fr_10rem]"
         onSubmit={(event) => {
           event.preventDefault();
           add();
@@ -125,9 +125,11 @@ function OwnValues({
             />
           )}
         </Field>
-        <div className="md:pb-6">
-          <Button type="submit">{submit}</Button>
-        </div>
+        <FieldAction>
+          <Button type="submit" className="w-full">
+            {submit}
+          </Button>
+        </FieldAction>
       </form>
       {problem && (
         <p role="alert" className="border-l-2 border-accent pl-3 text-sm">

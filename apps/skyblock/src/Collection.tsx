@@ -347,7 +347,7 @@ export function Collection({
 
       <ToolSection number="02" title="Your shards">
         <div className="flex flex-col gap-6">
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="field-row grid-cols-2 md:grid-cols-4">
             <ShardPicker
               className="col-span-2"
               label="Jump to a shard"
@@ -357,22 +357,20 @@ export function Collection({
               note={levelNote(collection.levels)}
               testId="collection-jump"
             />
-            <div className="col-span-2">
-              <Field label="Filter">
-                {(props) => (
-                  <input
-                    {...props}
-                    type="search"
-                    value={query}
-                    onChange={(event) => {
-                      setQuery(event.target.value);
-                      setJumpTo(null);
-                    }}
-                    className={`${fieldClasses} h-11 px-3`}
-                  />
-                )}
-              </Field>
-            </div>
+            <Field label="Filter" className="col-span-2">
+              {(props) => (
+                <input
+                  {...props}
+                  type="search"
+                  value={query}
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                    setJumpTo(null);
+                  }}
+                  className={`${fieldClasses} h-11 px-3`}
+                />
+              )}
+            </Field>
             <Field label="Show">
               {(props) => (
                 <select
@@ -381,7 +379,7 @@ export function Collection({
                   onChange={(event) => {
                     setShow(event.target.value as Show);
                   }}
-                  className={`${fieldClasses} h-11 px-2`}
+                  className={`${fieldClasses} h-11 px-3`}
                 >
                   {Object.entries(SHOWS).map(([value, label]) => (
                     <option key={value} value={value}>
@@ -399,7 +397,7 @@ export function Collection({
                   onChange={(event) => {
                     setRarity(event.target.value as Rarity | "");
                   }}
-                  className={`${fieldClasses} h-11 px-2`}
+                  className={`${fieldClasses} h-11 px-3`}
                 >
                   <option value="">Any</option>
                   {RARITIES.map((value) => (
@@ -418,7 +416,7 @@ export function Collection({
                   onChange={(event) => {
                     setCategory(event.target.value);
                   }}
-                  className={`${fieldClasses} h-11 px-2`}
+                  className={`${fieldClasses} h-11 px-3`}
                 >
                   <option value="">Any</option>
                   {options.categories.map((value) => (
@@ -437,7 +435,7 @@ export function Collection({
                   onChange={(event) => {
                     setFamily(event.target.value);
                   }}
-                  className={`${fieldClasses} h-11 px-2`}
+                  className={`${fieldClasses} h-11 px-3`}
                 >
                   <option value="">Any</option>
                   {options.families.map((value) => (

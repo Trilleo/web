@@ -21,7 +21,14 @@ import {
   useToolStorage,
   type StoredItem,
 } from "@trilleo/tool-kit";
-import { Button, Choice, Field, ToolSection, fieldClasses } from "@trilleo/ui";
+import {
+  Button,
+  Choice,
+  Field,
+  FieldAction,
+  ToolSection,
+  fieldClasses,
+} from "@trilleo/ui";
 import {
   useCallback,
   useEffect,
@@ -344,7 +351,7 @@ export function Planner({
     <div className="flex flex-col gap-10">
       <ToolSection number="01" title="What to make">
         <div className="flex flex-col gap-6">
-          <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-[2fr_1fr_auto]">
+          <div className="field-row grid-cols-1 md:grid-cols-[2fr_1fr_10rem]">
             <ShardPicker
               label="Add a shard"
               shards={shards}
@@ -370,14 +377,17 @@ export function Planner({
                 />
               )}
             </Field>
-            <Button onClick={add} disabled={!addShard}>
-              Add
-            </Button>
+            <FieldAction>
+              <Button onClick={add} disabled={!addShard} className="w-full">
+                Add
+              </Button>
+            </FieldAction>
           </div>
 
           <div className="flex flex-col gap-3 border-t border-hair pt-5">
-            <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-[2fr_auto]">
+            <div className="field-row grid-cols-1 md:grid-cols-[2fr_1fr_10rem]">
               <Field
+                className="md:col-span-2"
                 label="Or plan what’s left to max in your collection"
                 hint={`${String(fillCandidates.length)} shards. Replaces the list.`}
               >
@@ -388,7 +398,7 @@ export function Planner({
                     onChange={(event) => {
                       setScopeText(event.target.value);
                     }}
-                    className={`${fieldClasses} h-11 px-2`}
+                    className={`${fieldClasses} h-11 px-3`}
                   >
                     <option value="all">Every shard</option>
                     <optgroup label="Category">
@@ -415,13 +425,16 @@ export function Planner({
                   </select>
                 )}
               </Field>
-              <Button
-                variant="secondary"
-                onClick={fill}
-                disabled={fillCandidates.length === 0}
-              >
-                Fill the list
-              </Button>
+              <FieldAction>
+                <Button
+                  variant="secondary"
+                  onClick={fill}
+                  disabled={fillCandidates.length === 0}
+                  className="w-full"
+                >
+                  Fill the list
+                </Button>
+              </FieldAction>
             </div>
             <p className="text-sm text-muted">
               Levels come from your{" "}

@@ -7,6 +7,7 @@
  */
 import { GAME_MODES, isGameMode } from "@trilleo/skyblock";
 import { PROFILES_PATH } from "@trilleo/tool-skyblock/meta";
+import { buttonClasses, fieldClasses } from "@trilleo/ui/classes";
 import type { ProfileState } from "../../lib/skyblock/profiles";
 
 interface Props {
@@ -32,11 +33,11 @@ const label = (profile: ProfileState["active"]) =>
   >
     <input type="hidden" name="intent" value="select" />
     <input type="hidden" name="back" value={back} />
-    <label class="flex flex-col gap-1">
+    <label class="flex flex-col gap-1.5">
       <span class="type-label text-muted">Profile</span>
       <select
         name="profile"
-        class="min-w-48 border border-ink bg-paper px-3 py-2 text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        class={`${fieldClasses} h-11 w-auto min-w-48 px-3`}
       >
         {profiles.profiles.map((profile) => (
           <option
@@ -50,12 +51,15 @@ const label = (profile: ProfileState["active"]) =>
     </label>
     <button
       type="submit"
-      class="type-label cursor-pointer border border-ink px-3 py-2.5 text-ink hover:bg-ink hover:text-paper"
+      class={buttonClasses({ variant: "secondary" })}
       data-profile-switch
     >
       Switch
     </button>
-    <a href={PROFILES_PATH} class="type-label pb-2.5 underline">
+    <a
+      href={PROFILES_PATH}
+      class="inline-flex h-11 items-center type-label underline"
+    >
       Manage profiles
     </a>
   </form>

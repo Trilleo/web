@@ -43,6 +43,7 @@
   theme (`theme.css`, CSS `@theme` tokens). Source-only, no build step. Tool
   building blocks: `ToolSection` (a section with its label in the left column),
   `FileDrop`, `Choice` (radio row), `Field` (label + hint as description),
+  `FieldAction` (buttons in a `.field-row`),
   `CopyButton`, `fieldClasses`; `./toast` the pop-up notices (`showToast`);
   `./classes` `buttonClasses` and `fieldClasses` without React, for plain-DOM code.
 - packages/db (@trilleo/db): Drizzle schema, migrations, and client. Source-only.
@@ -175,6 +176,14 @@
   never examples, reassurance or what the label already says. No paragraphs
   explaining how a section works; empty states are a short line ("Nothing yet.").
   Keep text that warns what a destructive action does.
+- Rows of fields side by side are `.field-row` (theme.css, unlayered): each child
+  takes three rows of one subgrid (label, control, hint), so controls line up
+  whichever fields have a hint or a wrapping label, never `items-end`. Buttons go in a
+  `.field-action` (`FieldAction`, or `<div class="field-action"><span
+aria-hidden="true"></span><div>…</div></div>` in Astro): an empty label row, then
+  the buttons, the controls' h-11. A wrapper element around a field breaks the
+  subgrid: give the field the grid placement (`Field`'s `className`). Astro islands
+  are looked through. Selects and inputs in a row share h-11 and px-3.
 - Dropdowns (`select`, single choice) draw their own chevron, 12px in, in the text
   colour (theme.css, unlayered, so it beats padding utilities; the browser's arrow
   comes back in forced colours). Don't give a select its own arrow or right padding.

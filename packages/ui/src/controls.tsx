@@ -49,16 +49,19 @@ export function Choice<T extends string | number>({
 export function Field({
   label,
   hint,
+  className,
   children,
 }: {
   label: string;
   hint?: string;
+  /** Placement in its grid (`col-span-2`). */
+  className?: string;
   children: (props: { id: string; "aria-describedby"?: string }) => ReactNode;
 }) {
   const id = useId();
   const hintId = useId();
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={`flex flex-col gap-1.5 ${className ?? ""}`}>
       <label htmlFor={id} className="type-label">
         {label}
       </label>
@@ -68,6 +71,25 @@ export function Field({
           {hint}
         </span>
       )}
+    </div>
+  );
+}
+
+/**
+ * Buttons in a `.field-row`, lined up with the fields' controls: an empty label row,
+ * then the buttons.
+ */
+export function FieldAction({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`field-action ${className ?? ""}`}>
+      <span aria-hidden="true" />
+      <div className="flex flex-wrap gap-3">{children}</div>
     </div>
   );
 }

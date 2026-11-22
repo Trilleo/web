@@ -137,7 +137,7 @@ export function ShardBrowser({ shards, initialQuery = "" }: ShardBrowserProps) {
                   onChange={(event) => {
                     update({ rarity: event.target.value as Rarity | "" });
                   }}
-                  className={`${fieldClasses} h-11 px-2`}
+                  className={`${fieldClasses} h-11 px-3`}
                 >
                   <option value="">Any</option>
                   {RARITIES.map((rarity) => (
@@ -163,7 +163,7 @@ export function ShardBrowser({ shards, initialQuery = "" }: ShardBrowserProps) {
                     onChange={(event) => {
                       update({ [key]: event.target.value });
                     }}
-                    className={`${fieldClasses} h-11 px-2`}
+                    className={`${fieldClasses} h-11 px-3`}
                   >
                     <option value="">Any</option>
                     {values.map((value) => (

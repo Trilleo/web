@@ -222,6 +222,28 @@ select:not([multiple], [size]) {
   }
 }
 
+/* A row of fields whose controls and buttons line up, whichever have a hint or a
+   label that wraps: each child takes three rows of one subgrid (label, control,
+   hint). A button goes in a .field-action, whose first child is an empty label row.
+   Unlayered, so it wins over the children's own flex utilities. An Astro island
+   (display: contents) is looked through to its own children; what never shows
+   (the island's style and script, hidden inputs) is left alone. */
+.field-row {
+  display: grid;
+  gap: 1rem;
+}
+.field-row
+  > :not(astro-island, style, script, template, [hidden], [type="hidden"]),
+.field-row
+  > astro-island
+  > :not(style, script, template, [hidden], [type="hidden"]) {
+  grid-row: span 3;
+  display: grid;
+  grid-template-rows: subgrid;
+  row-gap: 0.375rem;
+  align-content: start;
+}
+
 @keyframes tr-focus {
   from {
     outline-offset: 6px;
