@@ -3,7 +3,7 @@ import DisplayTitle from "../components/DisplayTitle.astro";
 import { ArrowRightIcon, ArrowUpRightIcon } from "@trilleo/ui";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { authorJsonLd, breadcrumbJsonLd } from "../lib/seo";
-import { GITHUB_URL, SITE_NAME } from "../lib/site";
+import { CONTACT_EMAIL, GITHUB_URL, SITE_NAME } from "../lib/site";
 
 const links = [
   {
@@ -31,6 +31,20 @@ const links = [
     href: GITHUB_URL,
   },
 ] as const;
+
+const facts = [
+  { term: "Run by", value: "Trilleo, an individual in mainland China" },
+  {
+    term: "Sections",
+    value: "Writing, Tools, Games, Minecraft, Study, Forum",
+  },
+  {
+    term: "Accounts",
+    value: "Email code or GitHub; your first comment or post is reviewed",
+  },
+  { term: "Built with", value: "Astro, React, Tailwind, Postgres" },
+  { term: "Hosted on", value: "One small server, behind Cloudflare" },
+] as const;
 ---
 
 <BaseLayout
@@ -54,14 +68,35 @@ const links = [
 
     <div class="grid-swiss mt-7 gap-y-8 border-t border-ink pt-4 md:mt-8 md:gap-y-10 md:pt-5 xl:mt-12 xl:pt-6">
       <div class="col-span-4 flex flex-col gap-8 md:col-span-8 md:gap-10 xl:col-span-9">
-        <p class="max-w-[42rem] text-[15px] leading-[1.6] text-muted xl:text-base">
-          Make an account with your email or GitHub to comment, post in the{" "}
-          <a href="/forum/" class="link-wipe">
-            forum
-          </a>{" "}
-          and keep your tool data. Your first comment or post is read before it
-          appears.
-        </p>
+        <p class="type-lead">{SITE_NAME} is Trilleo’s personal site.</p>
+        <dl class="grid grid-cols-1 border-t border-ink md:grid-cols-[10rem_1fr]">
+          {facts.map((fact) => (
+            <>
+              <dt class="type-label pt-3 text-muted md:border-b md:border-hair md:pb-3">
+                {fact.term}
+              </dt>
+              <dd class="border-b border-hair pb-3 md:pt-3">{fact.value}</dd>
+            </>
+          ))}
+          <dt class="type-label pt-3 text-muted md:border-b md:border-hair md:pb-3">
+            Source
+          </dt>
+          <dd class="border-b border-hair pb-3 md:pt-3">
+            <a href={GITHUB_URL} class="group">
+              <span class="link-wipe">
+                {GITHUB_URL.replace(/^https:\/\//, "")}
+              </span>
+            </a>
+          </dd>
+          <dt class="type-label pt-3 text-muted md:border-b md:border-hair md:pb-3">
+            Contact
+          </dt>
+          <dd class="border-b border-hair pb-3 md:pt-3">
+            <a href={`mailto:${CONTACT_EMAIL}`} class="group">
+              <span class="link-wipe">{CONTACT_EMAIL}</span>
+            </a>
+          </dd>
+        </dl>
       </div>
 
       <nav

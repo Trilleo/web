@@ -168,7 +168,9 @@
   facts); a row with nothing there starts at column 1. Reading text keeps a
   measure (7 columns, or a max-width), so it may leave the right side open.
 - Copy is minimal. No description under a page's title (the meta description
-  stays, for search engines and share cards; cards in lists keep theirs). Field
+  stays, for search engines and share cards; cards in lists keep theirs); the
+  exceptions are the home page's one line under the hero and About's one sentence
+  above its facts list. Field
   hints state only hard constraints: formats, limits, units ("PNG, JPEG · 5 MB"),
   never examples, reassurance or what the label already says. No paragraphs
   explaining how a section works; empty states are a short line ("Nothing yet.").
