@@ -480,6 +480,7 @@ describe("email addresses", () => {
       wiki: false,
       watchlist: false,
       forum: false,
+      skyblock: false,
       admin: false,
     });
     expect((await unsubscribe(db, "x".repeat(40), "replies")).ok).toBe(false);

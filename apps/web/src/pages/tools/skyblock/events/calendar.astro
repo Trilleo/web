@@ -1,0 +1,157 @@
+---
+/**
+ * The calendar feed's page: /tools/skyblock/events/calendar/[?events=&alarm=]. A GET
+ * form (no JavaScript needed) picks events and an alarm; the page then shows the
+ * feed's address to copy and a webcal: link that opens a calendar app.
+ */
+import {
+  EVENT_CATEGORIES,
+  EVENTS,
+  PERK_EVENTS,
+  formatLead,
+  type EventCategory,
+} from "@trilleo/skyblock/events";
+import { EVENTS_PATH, meta } from "@trilleo/tool-skyblock/meta";
+import { CopyButton } from "@trilleo/ui";
+import { buttonClasses, fieldClasses } from "@trilleo/ui/classes";
+import SkyblockLayout from "../../../../components/skyblock/SkyblockLayout.astro";
+import { ogImagePath, toolCard } from "../../../../lib/seo";
+import {
+  CALENDAR_PATH,
+  ICS_ALARMS,
+  ICS_DAYS,
+  feedUrl,
+  readFeedChoice,
+  webcalUrl,
+} from "../../../../lib/skyblock/calendar-feed";
+
+export const prerender = false;
+
+const params = Astro.url.searchParams;
+const asked = params.has("events") || params.has("alarm") || params.has("go");
+const choice = readFeedChoice(params);
+const url = feedUrl(choice, Astro.url.origin);
+const chosen = new Set(choice.events);
+const all = [...EVENTS, ...PERK_EVENTS];
+const groups = (Object.keys(EVENT_CATEGORIES) as EventCategory[])
+  .map((category) => ({
+    category,
+    label: EVENT_CATEGORIES[category],
+    events: all.filter((event) => event.category === category),
+  }))
+  .filter((group) => group.events.length > 0);
+const description =
+  "Hypixel SkyBlock's events in your own calendar: pick the events and an alarm, and subscribe from any calendar app.";
+/** Fields in a row share the controls' height and padding. */
+const field = `${fieldClasses} h-11 px-3`;
+const row = "grid-swiss mt-10 gap-y-4 border-t border-ink pt-4 md:pt-5";
+const label = "col-span-4 type-label md:col-span-2";
+const body =
+  "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
+---
+
+<SkyblockLayout
+  title={`Calendar feed · Event timer · ${meta.name}`}
+  {description}
+  image={ogImagePath(`tools/${meta.slug}`, toolCard(meta))}
+  crumbs={[
+    { label: "Event timer", path: EVENTS_PATH },
+    { label: "Calendar feed", path: CALENDAR_PATH },
+  ]}
+  back={{ href: EVENTS_PATH, label: "Event timer" }}
+  noindex={asked}
+  notice="own"
+>
+  <div class="grid-swiss gap-y-4 pb-8 md:pb-10">
+    <h1 class="type-headline col-span-4 md:col-span-6 xl:col-span-9">
+      Calendar feed
+    </h1>
+  </div>
+
+  <section class={row} aria-labelledby="pick-title">
+    <h2 id="pick-title" class={label}>
+      <span class="text-muted">(01)</span> Events
+    </h2>
+    <form method="get" class={body} data-testid="calendar-form">
+      <input type="hidden" name="go" value="1" />
+      <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {groups.map((group) => (
+          <fieldset class="flex flex-col gap-2">
+            <legend class="type-label mb-2 text-muted">{group.label}</legend>
+            {group.events.map((event) => (
+              <label class="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="events"
+                  value={event.slug}
+                  checked={chosen.has(event.slug)}
+                />
+                {event.name}
+              </label>
+            ))}
+          </fieldset>
+        ))}
+      </div>
+      <p class="text-sm text-muted">None ticked: every event.</p>
+      <div class="field-row grid-cols-1 md:grid-cols-[minmax(0,16rem)_auto] md:justify-start">
+        <label class="flex flex-col gap-1.5">
+          <span class="type-label">Alarm</span>
+          <select name="alarm" class={field}>
+            <option value="" selected={choice.alarm === null}>
+              None
+            </option>
+            {ICS_ALARMS.map((alarm) => (
+              <option value={String(alarm)} selected={choice.alarm === alarm}>
+                {formatLead(alarm)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div class="field-action">
+          <span aria-hidden="true"></span>
+          <div>
+            <button type="submit" class={buttonClasses()}>
+              Make the link
+            </button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  {asked && (
+    <section class={row} aria-labelledby="link-title">
+      <h2 id="link-title" class={label}>
+        <span class="text-muted">(02)</span> Subscribe
+      </h2>
+      <div class={body} data-testid="calendar-link">
+        <label class="flex flex-col gap-1.5">
+          <span class="type-label">Feed address</span>
+          <input
+            type="text"
+            readonly
+            value={url}
+            class={`${field} font-mono text-sm`}
+            data-testid="calendar-url"
+          />
+          <span class="text-sm text-muted">
+            The next {ICS_DAYS} days, refreshed by your calendar app.
+          </span>
+        </label>
+        <div class="flex flex-wrap gap-3">
+          <CopyButton client:visible value={url} label="Copy address" />
+          <a
+            href={webcalUrl(url)}
+            class={buttonClasses({ variant: "secondary" })}
+          >
+            Open in a calendar app
+          </a>
+        </div>
+      </div>
+    </section>
+  )}
+
+  <Fragment slot="credit">
+    Times are worked out from the SkyBlock calendar.
+  </Fragment>
+</SkyblockLayout>

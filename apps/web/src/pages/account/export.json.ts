@@ -4,6 +4,7 @@ import { eventsOf } from "../../lib/auth/activity";
 import { aliasExport } from "../../lib/chunithm/aliases";
 import { profilesExport } from "../../lib/skyblock/profiles";
 import { syncLogExport } from "../../lib/skyblock/game-sync";
+import { reminderExport } from "../../lib/skyblock/reminders";
 import { requireUser } from "../../lib/auth/guard";
 import { listPasskeys } from "../../lib/auth/passkeys";
 import { getDb } from "../../lib/db";
@@ -65,6 +66,8 @@ export const GET: APIRoute = async (context) => {
     skyblock: {
       profiles: await profilesExport(db, user.id),
       syncs: await syncLogExport(db, user.id),
+      // Event reminders: which events and leads, the settings, what was sent.
+      eventReminders: await reminderExport(db, user.id),
     },
     // Study progress: every review, answer and lesson finished, and the settings.
     study: await studyExport(db, user.id),

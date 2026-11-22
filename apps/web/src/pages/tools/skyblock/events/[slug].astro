@@ -4,6 +4,8 @@
  * and the next times in real time), how long, where; on now or next. A perk's event
  * (mayor.ts) has times only while someone in office holds the perk. Rendered on the
  * server from the calendar and the election feed; event-clock.ts makes it live.
+ * "Remind me" (RemindMe.astro) adds email reminders for the signed-in and browser
+ * notifications for anyone (event-notify.ts).
  */
 import {
   EVENT_CATEGORIES,
@@ -22,11 +24,15 @@ import {
   skyblockDate,
 } from "@trilleo/skyblock/events";
 import { EVENTS_PATH, eventPath, meta } from "@trilleo/tool-skyblock/meta";
+import RemindMe from "../../../../components/skyblock/RemindMe.astro";
 import SkyblockLayout from "../../../../components/skyblock/SkyblockLayout.astro";
 import { getDb } from "../../../../lib/db";
 import { ogImagePath, toolCard } from "../../../../lib/seo";
 import { liveFeeds } from "../../../../lib/skyblock/feeds";
 import { isoTime, utcTime } from "../../../../lib/skyblock/events";
+import { REMINDER_ANSWERS } from "../../../../lib/skyblock/reminder-answers";
+import { listReminders } from "../../../../lib/skyblock/reminders";
+import { toast, toastError } from "../../../../lib/toast";
 
 export const prerender = false;
 
@@ -38,10 +44,12 @@ const base = eventBySlug(slug) ?? perkEventBySlug(slug);
 if (!base) return Astro.rewrite("/404");
 
 const now = Date.now();
+const user = Astro.locals.user ?? null;
+const db = await getDb();
 let event = base;
 let holder: ReturnType<typeof perkHolder> = null;
 if (base.perk) {
-  const { election } = await liveFeeds(await getDb(), now);
+  const { election } = await liveFeeds(db, now);
   holder = election ? perkHolder(election, base.perk) : null;
   // In office: the event with the term's limits. Otherwise it has no times.
   event = mayorEvents(election).find((e) => e.slug === base.slug) ?? base;
@@ -52,7 +60,13 @@ const upcoming = inactive ? [] : nextOccurrences(event, now, NEXT_SHOWN);
 const next = upcoming[0];
 const length = lengthOf(event.schedule);
 const boundary = current ? current.end : (next?.start ?? now);
-Astro.response.headers.set("Cache-Control", "no-store");
+Astro.response.headers.set("Cache-Control", "private, no-store");
+const reminders = user
+  ? (await listReminders(db, user.id)).filter((r) => r.eventSlug === base.slug)
+  : [];
+const answer = REMINDER_ANSWERS[Astro.url.searchParams.get("reminder") ?? ""];
+if (answer?.error) toastError(Astro, answer.message);
+else if (answer) toast(Astro, answer.message);
 
 const description = `${event.name} in Hypixel SkyBlock: ${scheduleInWords(event).toLowerCase()}. ${event.summary} The next times, with countdowns.`;
 const row = "grid-swiss mt-10 gap-y-4 border-t border-ink pt-4 md:pt-5";
@@ -176,7 +190,11 @@ const facts: { term: string; value: string; mono?: boolean }[] = [
           </thead>
           <tbody>
             {upcoming.map((occurrence) => (
-              <tr>
+              <tr
+                data-notify-event={event.slug}
+                data-notify-name={event.name}
+                data-notify-start={String(occurrence.start)}
+              >
                 <td class={td}>
                   <time datetime={isoTime(occurrence.start)} data-local>
                     {utcTime(occurrence.start)}
@@ -198,6 +216,15 @@ const facts: { term: string; value: string; mono?: boolean }[] = [
     </section>
   )}
 
+  <RemindMe
+    {event}
+    {user}
+    {reminders}
+    {now}
+    path={eventPath(base.slug)}
+    number={upcoming.length > 0 ? "03" : "02"}
+  />
+
   <Fragment slot="credit">
     Times are worked out from the SkyBlock calendar.
   </Fragment>
@@ -205,6 +232,8 @@ const facts: { term: string; value: string; mono?: boolean }[] = [
 
 <script>
   import { startEventClock } from "../../../../components/skyblock/event-clock";
+  import { startEventNotify } from "../../../../components/skyblock/event-notify";
 
   startEventClock();
+  startEventNotify();
 </script>

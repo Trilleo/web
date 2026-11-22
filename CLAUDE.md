@@ -1655,6 +1655,29 @@ chunithm:bundle <list>` (scripts/chunithm-bundle.ts around lib/chunithm/bundler.
   their pages say when nobody does. /admin/skyblock/ shows each feed, with "Fetch now".
   SKYBLOCK_FEEDS=off never fetches; SKYBLOCK_HYPIXEL_URL points elsewhere (e2e:
   e2e/fake-skyblock.ts, whose mayor holds Fishing Festival).
+- Event reminders by email (lib/skyblock/reminders.ts; sb_reminders, sb_reminder_settings,
+  sb_reminder_sends; rules in @trilleo/skyblock/events' reminders.ts): people switch on
+  each event themselves (an event and a lead from `leadsFor`: REMINDER_LEADS shorter than
+  the gap between its times), on its page's "Remind me" (RemindMe.astro) or
+  /tools/skyblock/events/reminders/ (settings: time zone, daily cap, quiet hours); all
+  forms POST to /tools/skyblock/events/remind (answers in reminder-answers.ts). A pass
+  every TICK_MS (`startSkyblockReminders`, or any request) finds what's due
+  (`dueOccurrence`: from the lead before the start to REMINDER_LIMITS.graceMs after it) and
+  sends each person one "skyblock-reminder" email (topic "skyblock") for everything due
+  to them. The rate guard: their daily cap in any 24 hours, quiet hours in their zone,
+  the admin's pause; each reminder is logged once per start (sent, cap, quiet, off), so
+  it's never sent twice, and the log is purged after REMINDER_LOG_DAYS. Perk events
+  remind only while someone holds the perk. /admin/mail/reminders/ (MailNav, beside the
+  outbox) lists every subscription with totals and the last day's sends, removes any,
+  and pauses or resumes a person. In the export (`skyblock.eventReminders`); deleted with
+  the account.
+- Browser notifications (components/skyblock/event-notify.ts): anyone, no account; the
+  chosen events and leads stay in this browser (`trilleo:tool:skyblock:notify`,
+  preferences), and fire only while an event timer page is open (`data-notify-*` rows).
+- The calendar feed (lib/skyblock/calendar-feed.ts): /tools/skyblock/events/calendar.ics
+  ?events=&alarm= (no account or secret: the link says which events), the next ICS_DAYS
+  written out as events with stable UIDs (`calendarIcs`, no RRULEs); /…/events/calendar/
+  is a GET form that builds the link and a webcal: one.
 - Data: SkyShards' repository (github.com/Campionnn/SkyShards, MIT): fusion-data.json,
   fusion-properties.json, desc.json, rates.json and public/shardIcons/<key>.png.
   Pure rules in packages/skyblock; the rest in apps/web/src/lib/skyblock/ (source.ts

@@ -32,6 +32,8 @@ import LiveSections from "../../../../components/skyblock/LiveSections.astro";
 import SkyblockLayout from "../../../../components/skyblock/SkyblockLayout.astro";
 import { getDb } from "../../../../lib/db";
 import { liveFeeds } from "../../../../lib/skyblock/feeds";
+import { CALENDAR_PATH } from "../../../../lib/skyblock/calendar-feed";
+import { REMINDERS_PATH } from "../../../../lib/skyblock/reminders";
 import { ogImagePath, toolCard } from "../../../../lib/seo";
 import {
   eventsIn,
@@ -103,6 +105,17 @@ const scrollRegion = {
     <h1 class="type-headline col-span-4 md:col-span-6 xl:col-span-9">
       Event timer
     </h1>
+    <nav
+      aria-label="Event timer"
+      class="col-span-4 flex flex-wrap gap-x-6 gap-y-2 type-label md:col-span-8 xl:col-span-12"
+    >
+      <a href={REMINDERS_PATH} class="group">
+        <span class="link-wipe">Your reminders</span>
+      </a>
+      <a href={CALENDAR_PATH} class="group">
+        <span class="link-wipe">Calendar feed</span>
+      </a>
+    </nav>
   </div>
 
   <section class={row} aria-labelledby="now-title">
@@ -222,7 +235,11 @@ const scrollRegion = {
             </thead>
             <tbody>
               {board.next.map((occurrence) => (
-                <tr>
+                <tr
+                  data-notify-event={occurrence.event.slug}
+                  data-notify-name={occurrence.event.name}
+                  data-notify-start={String(occurrence.start)}
+                >
                   <th scope="row" class={`${td} font-normal`}>
                     <a href={eventPath(occurrence.event.slug)} class="group">
                       <span class="link-wipe font-medium">
@@ -323,5 +340,8 @@ const scrollRegion = {
 <script>
   import { startEventClock } from "../../../../components/skyblock/event-clock";
 
+  import { startEventNotify } from "../../../../components/skyblock/event-notify";
+
   startEventClock();
+  startEventNotify();
 </script>

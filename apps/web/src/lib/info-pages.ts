@@ -82,6 +82,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "legal",
     changes: [
       {
+        date: "2026-11-22",
+        note: "SkyBlock event reminders by email: what's kept (events, leads, time zone, quiet hours, daily limit, a log of sends), for how long, and that the admin can see them.",
+      },
+      {
         date: "2026-11-21",
         note: "Personal tokens for programs you let act for your account (made on the Apps page or by linking a device), and how long they're kept.",
       },
@@ -197,6 +201,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
       "The cookies and browser storage the site uses, what each is for, and how to choose what’s kept.",
     group: "legal",
     changes: [
+      {
+        date: "2026-11-22",
+        note: "The SkyBlock event timer remembers which events this browser should notify you of (preferences).",
+      },
       {
         date: "2026-11-21",
         note: "The new-key cookie also carries a personal token you make on the Apps page (necessary).",

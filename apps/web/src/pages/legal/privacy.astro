@@ -1,6 +1,7 @@
 ---
 import { DEVICE_LIMITS } from "../../lib/api/limits";
 import { SYNC_LOG_LIMITS } from "../../lib/skyblock/game-sync";
+import { REMINDER_LOG_DAYS } from "../../lib/skyblock/reminders";
 import { CHECK_LIMITS } from "../../lib/captcha/checker";
 import { BUILD_LIMITS } from "../../lib/chunithm/limits";
 import { AVATAR_MAX_BYTES } from "../../lib/profile/avatar";
@@ -263,6 +264,18 @@ const ticketHours = TICKET_LIMITS.maxAgeMs / 3_600_000;
         <td>
           To keep them in your account. Trades are recorded without names, for
           price history
+        </td>
+      </tr>
+      <tr>
+        <td>
+          SkyBlock event reminders: the events you asked to be emailed about and
+          how long before, your time zone, quiet hours and daily limit, and a
+          log of each reminder (sent, or why not)
+        </td>
+        <td>You add a reminder on the SkyBlock event timer</td>
+        <td>
+          To email you before those events, within your limits. The site’s admin
+          can see and remove reminders, and pause someone’s
         </td>
       </tr>
       <tr>
@@ -630,6 +643,10 @@ const ticketHours = TICKET_LIMITS.maxAgeMs / 3_600_000;
     <li>
       SkyBlock syncs from the game: {SYNC_LOG_LIMITS.days} days (at most the
       latest {SYNC_LOG_LIMITS.perProfile} per profile).
+    </li>
+    <li>
+      SkyBlock event reminders: until you remove them or delete your account;
+      the log of what was sent, {REMINDER_LOG_DAYS} days.
     </li>
     <li>
       The security log: {SECURITY_LOG_DAYS} days. Passkeys and personal tokens:

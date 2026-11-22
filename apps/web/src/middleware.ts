@@ -28,6 +28,10 @@ import {
 import { bazaarInBackground, startSkyblockBazaar } from "./lib/skyblock/bazaar";
 import { feedsInBackground, startSkyblockFeeds } from "./lib/skyblock/feeds";
 import {
+  remindersInBackground,
+  startSkyblockReminders,
+} from "./lib/skyblock/reminders";
+import {
   skyblockSyncInBackground,
   startSkyblockSync,
 } from "./lib/skyblock/sync";
@@ -61,6 +65,8 @@ function startTimers(): void {
   startSkyblockBazaar(getDb);
   // SkyBlock's election, fire sales, Bingo and news: each on its own pace.
   startSkyblockFeeds(getDb);
+  // SkyBlock event reminders by email: a pass every 30 seconds.
+  startSkyblockReminders(getDb);
 }
 
 /** Work any request may start (each at most every few minutes, in the background). */
@@ -85,6 +91,8 @@ function backgroundWork(): void {
   bazaarInBackground(getDb);
   // SkyBlock's election, fire sales, Bingo and news (also on their own timer).
   feedsInBackground(getDb);
+  // SkyBlock event reminders that came due (also on their own timer).
+  remindersInBackground(getDb);
   // The human check's counts, and its watch for floods (every minute at most).
   flushChecksInBackground(getDb, checker);
 }

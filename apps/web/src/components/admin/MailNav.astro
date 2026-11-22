@@ -1,0 +1,38 @@
+---
+/**
+ * The Mail section's pages under its title: the outbox and the SkyBlock reminders
+ * people have set up (/admin/mail/reminders/).
+ */
+interface Props {
+  current: "outbox" | "reminders";
+}
+
+const { current } = Astro.props;
+const items = [
+  { key: "outbox", label: "Outbox", href: "/admin/mail/" },
+  {
+    key: "reminders",
+    label: "SkyBlock reminders",
+    href: "/admin/mail/reminders/",
+  },
+] as const;
+---
+
+<nav aria-label="Mail" class="type-label mt-4 flex flex-wrap gap-x-6 gap-y-2">
+  {items.map((item) => (
+    <a
+      href={item.href}
+      aria-current={item.key === current ? "page" : undefined}
+      class:list={["group", item.key === current ? "text-ink" : "text-muted"]}
+    >
+      <span
+        class:list={[
+          "link-wipe",
+          item.key === current && "underline underline-offset-4",
+        ]}
+      >
+        {item.label}
+      </span>
+    </a>
+  ))}
+</nav>

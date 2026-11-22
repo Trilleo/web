@@ -176,7 +176,11 @@ page per event (`/tools/skyblock/events/<event>/`). It also shows the mayor and 
 with their perks (and the events those perks add), the running election's votes, fire
 sales, Bingo and Hypixel's news, which the server fetches from Hypixel's public API
 (`apps/web/src/lib/skyblock/feeds.ts`, watched at `/admin/skyblock/`;
-`SKYBLOCK_FEEDS=off` keeps `pnpm dev` from fetching). Shards:
+`SKYBLOCK_FEEDS=off` keeps `pnpm dev` from fetching). Signed in, people can be emailed
+before the events they choose (`/tools/skyblock/events/reminders/`: a daily cap, quiet
+hours and their time zone; the admin sees them all at `/admin/mail/reminders/`); anyone
+can have this browser notify them while the page is open, or subscribe to a calendar feed
+(`/tools/skyblock/events/calendar/`). Shards:
 every shard, searchable by name, attribute or effect, and a page for each
 (`/tools/skyblock/shards/<name>/`) with its attribute drawn as the game draws it, what each
 level costs, where to hunt it, and every fusion that makes it or uses it. The fusion

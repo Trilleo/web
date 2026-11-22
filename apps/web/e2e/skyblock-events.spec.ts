@@ -1,4 +1,6 @@
-import { expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page } from "@playwright/test";
+import { adminPage, continueAs, freshLogin, toasts } from "./support";
 
 // The event timer works the calendar out from the time alone, so these check shape
 // and links, never a particular date.
@@ -84,7 +86,7 @@ test.describe("without JavaScript", () => {
  * The feeds come from e2e/fake-skyblock.ts, fetched by the server in the background
  * after its first requests: reload until they've arrived.
  */
-async function feedsLoaded(page: import("@playwright/test").Page) {
+async function feedsLoaded(page: Page) {
   await expect(async () => {
     await page.goto("/tools/skyblock/events/");
     await expect(page.getByTestId("mayor-name")).toHaveText("Marina", {
@@ -138,4 +140,126 @@ test("the mayor's perks add their events", async ({ page }) => {
     "Only while a mayor or minister",
   );
   await expect(page.getByTestId("event-times")).toHaveCount(0);
+});
+
+async function axe(page: Page) {
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze();
+  expect(violations.map((v) => `${page.url()} ${v.id}: ${v.help}`)).toEqual([]);
+}
+
+async function signIn(page: Page, user: string, start: string) {
+  await page.goto(start);
+  await page
+    .getByRole("link", { name: "Sign in", exact: true })
+    .first()
+    .click();
+  await page.getByRole("link", { name: "Sign in with GitHub" }).click();
+  await continueAs(page, user);
+}
+
+test("signed out, an event page offers sign-in and browser notifications", async ({
+  page,
+}) => {
+  await page.goto("/tools/skyblock/events/spooky-festival/");
+  const remind = page.locator("#remind");
+  await expect(remind.getByRole("link", { name: "Sign in" })).toBeVisible();
+  await expect(
+    remind.getByRole("button", { name: "Notify me in this browser" }),
+  ).toBeVisible();
+});
+
+test("email reminders are added, listed, set up and removed", async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  const me = freshLogin("reminder");
+  await signIn(page, me, "/tools/skyblock/events/spooky-festival/");
+  await expect(page).toHaveURL(/\/events\/spooky-festival\//);
+  const remind = page.locator("#remind");
+  await remind
+    .getByLabel("Email me")
+    .selectOption({ label: "15 minutes before" });
+  await remind.getByRole("button", { name: "Remind me" }).click();
+  await expect(toasts(page)).toContainText("Reminder added.");
+  await expect(page.getByTestId("event-reminders")).toContainText(
+    "15 minutes before",
+  );
+  // Hourly events don't offer leads longer than their gap.
+  await page.goto("/tools/skyblock/events/dark-auction/");
+  await expect(
+    page.locator("#remind").getByLabel("Email me").locator("option"),
+  ).toHaveText([
+    "When it starts",
+    "5 minutes before",
+    "15 minutes before",
+    "30 minutes before",
+  ]);
+
+  await page.goto("/tools/skyblock/events/reminders/");
+  await expect(page.getByTestId("reminders-list")).toContainText(
+    "Spooky Festival",
+  );
+  await axe(page);
+  const settings = page.getByTestId("reminder-settings");
+  await settings.getByLabel("Time zone").fill("Asia/Shanghai");
+  await settings.getByLabel("Most emails a day").fill("5");
+  await settings.getByLabel("Quiet hours").check();
+  await settings.getByRole("button", { name: "Save" }).click();
+  await expect(toasts(page)).toContainText("Settings saved.");
+  await expect(settings.getByLabel("Time zone")).toHaveValue("Asia/Shanghai");
+  await settings.getByLabel("Time zone").fill("Nowhere/Here");
+  await settings.getByRole("button", { name: "Save" }).click();
+  await expect(toasts(page)).toContainText("That isn't a time zone.");
+
+  // The admin sees it under Mail, and can remove it.
+  const admin = await adminPage(browser, baseURL);
+  await admin.goto(`/admin/mail/reminders/?user=${me}`);
+  const table = admin.getByTestId("admin-reminders");
+  await expect(table).toContainText("Spooky Festival");
+  await expect(table).toContainText("15 minutes before");
+  await axe(admin);
+  await table.getByRole("button", { name: "Pause person" }).click();
+  await expect(toasts(admin)).toContainText("paused");
+  await page.reload();
+  await expect(page.locator("#remind")).toContainText(
+    "paused by the site's admin",
+  );
+
+  await page
+    .getByRole("button", { name: "Remove Spooky Festival, 15 minutes before" })
+    .click();
+  await expect(toasts(page)).toContainText("Reminder removed.");
+  await expect(page.getByTestId("reminders-empty")).toBeVisible();
+  await admin.close();
+});
+
+test("the calendar feed makes a link, and the feed is a calendar", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/tools/skyblock/events/");
+  await page.getByRole("link", { name: "Calendar feed" }).click();
+  await expect(page).toHaveURL("/tools/skyblock/events/calendar/");
+  const form = page.getByTestId("calendar-form");
+  await form.getByLabel("Spooky Festival").check();
+  await form.getByLabel("Dark Auction").check();
+  await form.getByLabel("Alarm").selectOption({ label: "15 minutes before" });
+  await form.getByRole("button", { name: "Make the link" }).click();
+  const url = await page.getByTestId("calendar-url").inputValue();
+  expect(url).toMatch(
+    /\/tools\/skyblock\/events\/calendar\.ics\?events=(spooky-festival|dark-auction)%2C(spooky-festival|dark-auction)&alarm=15$/,
+  );
+  await expect(
+    page.getByRole("link", { name: "Open in a calendar app" }),
+  ).toHaveAttribute("href", /^webcal:/);
+  const response = await request.get(url);
+  expect(response.headers()["content-type"]).toContain("text/calendar");
+  const ics = await response.text();
+  expect(ics).toContain("BEGIN:VCALENDAR");
+  expect(ics).toContain("SUMMARY:Dark Auction");
+  expect(ics).toContain("TRIGGER:-PT15M");
+  expect(ics).not.toContain("SUMMARY:Jacob");
 });

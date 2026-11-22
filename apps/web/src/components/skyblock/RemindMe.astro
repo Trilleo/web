@@ -1,0 +1,190 @@
+---
+/**
+ * An event page's "Remind me": email reminders for the signed-in (a lead, added and
+ * removed through POST /tools/skyblock/events/remind; lib/skyblock/reminders.ts), a
+ * sign-in link for everyone else, and browser notifications for anyone
+ * (event-notify.ts, shown only with JavaScript).
+ */
+import {
+  formatLead,
+  leadsFor,
+  nextReminderAt,
+  type SkyBlockEvent,
+} from "@trilleo/skyblock/events";
+import { signInHref } from "@trilleo/tool-kit";
+import { buttonClasses, fieldClasses } from "@trilleo/ui/classes";
+import type { User } from "@trilleo/db";
+import { EMAIL_SETTINGS_PATH } from "../../lib/mail/compose";
+import { isoTime, utcTime } from "../../lib/skyblock/events";
+import {
+  REMINDERS_PATH,
+  canEmail,
+  type ReminderRow,
+} from "../../lib/skyblock/reminders";
+import Notice from "../Notice.astro";
+
+interface Props {
+  /** The event as its page shows it (a perk's, with its term when it's on). */
+  event: SkyBlockEvent;
+  user: User | null;
+  reminders: ReminderRow[];
+  now: number;
+  /** This page, to come back to. */
+  path: string;
+  number: string;
+}
+
+const { event, user, reminders, now, path, number } = Astro.props;
+const leads = leadsFor(event);
+const taken = new Set(reminders.map((r) => r.leadMinutes));
+const free = leads.filter((lead) => !taken.has(lead));
+const row = "grid-swiss mt-10 gap-y-4 border-t border-ink pt-4 md:pt-5";
+const label = "col-span-4 type-label md:col-span-2";
+const body =
+  "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
+const select = `${fieldClasses} h-11 px-3`;
+---
+
+<section class={row} aria-labelledby="remind-title" id="remind">
+  <h2 id="remind-title" class={label}>
+    <span class="text-muted">({number})</span> Remind me
+  </h2>
+  <div class={body}>
+    {!user ? (
+      <p>
+        <a href={signInHref(`${path}#remind`)} class="underline">
+          Sign in
+        </a>{" "}
+        to get an email before it starts.
+      </p>
+    ) : (
+      <>
+        {!user.email ? (
+          <Notice>
+            <p>
+              Reminders go to your email address.{" "}
+              <a href={EMAIL_SETTINGS_PATH} class="underline">
+                Add one
+              </a>
+              .
+            </p>
+          </Notice>
+        ) : (
+          !canEmail(user) && (
+            <Notice>
+              <p>
+                SkyBlock reminders are off in your{" "}
+                <a href={EMAIL_SETTINGS_PATH} class="underline">
+                  email settings
+                </a>
+                .
+              </p>
+            </Notice>
+          )
+        )}
+        {reminders.length > 0 && (
+          <ul class="flex flex-col" data-testid="event-reminders">
+            {reminders.map((reminder) => {
+              const next = nextReminderAt(event, reminder.leadMinutes, now);
+              return (
+                <li class="flex flex-wrap items-center justify-between gap-3 border-b border-hair py-2 text-sm">
+                  <span>
+                    <span class="font-medium">
+                      {formatLead(reminder.leadMinutes)}
+                    </span>
+                    {next !== null && (
+                      <span class="text-muted">
+                        {" · next "}
+                        <time datetime={isoTime(next)} data-local>
+                          {utcTime(next)}
+                        </time>
+                      </span>
+                    )}
+                  </span>
+                  <form method="post" action="/tools/skyblock/events/remind">
+                    <input type="hidden" name="intent" value="remove" />
+                    <input
+                      type="hidden"
+                      name="id"
+                      value={String(reminder.id)}
+                    />
+                    <input type="hidden" name="back" value={path} />
+                    <button
+                      type="submit"
+                      class={buttonClasses({ variant: "secondary" })}
+                    >
+                      Remove
+                    </button>
+                  </form>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {free.length > 0 && (
+          <form
+            method="post"
+            action="/tools/skyblock/events/remind"
+            class="field-row grid-cols-1 md:grid-cols-[minmax(0,16rem)_auto] md:justify-start"
+          >
+            <input type="hidden" name="intent" value="add" />
+            <input type="hidden" name="event" value={event.slug} />
+            <input type="hidden" name="back" value={path} />
+            <label class="flex flex-col gap-1.5">
+              <span class="type-label">Email me</span>
+              <select name="lead" class={select}>
+                {free.map((lead) => (
+                  <option value={String(lead)}>{formatLead(lead)}</option>
+                ))}
+              </select>
+            </label>
+            <div class="field-action">
+              <span aria-hidden="true" />
+              <div>
+                <button type="submit" class={buttonClasses()}>
+                  Remind me
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
+        <p class="text-sm">
+          <a href={REMINDERS_PATH} class="group">
+            <span class="link-wipe">All your reminders and their settings</span>
+          </a>
+        </p>
+      </>
+    )}
+    <div
+      data-browser-notify
+      data-event={event.slug}
+      hidden
+      class="field-row grid-cols-1 md:grid-cols-[minmax(0,16rem)_auto] md:justify-start"
+    >
+      <label class="flex flex-col gap-1.5">
+        <span class="type-label">Notify in this browser</span>
+        <select class={select}>
+          {leads.map((lead) => (
+            <option value={String(lead)}>{formatLead(lead)}</option>
+          ))}
+        </select>
+        <span class="text-sm text-muted">
+          Only while an event timer page is open.
+        </span>
+      </label>
+      <div class="field-action">
+        <span aria-hidden="true" />
+        <div>
+          <button
+            type="button"
+            class={buttonClasses({ variant: "secondary" })}
+            aria-pressed="false"
+          >
+            Notify me in this browser
+          </button>
+        </div>
+        <span class="text-sm text-muted" data-notify-status role="status" />
+      </div>
+    </div>
+  </div>
+</section>

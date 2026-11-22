@@ -330,6 +330,13 @@
       "when": 1795356261482,
       "tag": "0046_skyblock-feeds",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1795357308983,
+      "tag": "0047_skyblock-reminders",
+      "breakpoints": true
     }
   ]
 }

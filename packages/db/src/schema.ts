@@ -3430,6 +3430,77 @@ export const sbElectionVotes = pgTable(
 );
 
 /**
+ * SkyBlock event reminders: someone asked to be emailed `leadMinutes` before an event
+ * starts (its slug in @trilleo/skyblock/events: calendar or perk events). One row per
+ * event and lead; nothing is on until they add it. Deleted with the account.
+ */
+export const sbReminders = pgTable(
+  "sb_reminders",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    eventSlug: text("event_slug").notNull(),
+    leadMinutes: integer("lead_minutes").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    lastSentAt: timestamp("last_sent_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("sb_reminders_user_event_lead").on(
+      table.userId,
+      table.eventSlug,
+      table.leadMinutes,
+    ),
+    index("sb_reminders_event").on(table.eventSlug),
+  ],
+);
+
+/**
+ * Someone's reminder settings: their time zone (for times in emails and quiet hours),
+ * the most emails in any 24 hours, quiet hours (minutes since midnight; both null:
+ * none), and a pause the admin can set. Missing row: the defaults.
+ */
+export const sbReminderSettings = pgTable("sb_reminder_settings", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  timeZone: text("time_zone").notNull().default("UTC"),
+  dailyCap: integer("daily_cap").notNull(),
+  quietStart: integer("quiet_start"),
+  quietEnd: integer("quiet_end"),
+  /** Set by the admin: no reminders go out while it's set. */
+  pausedAt: timestamp("paused_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+});
+
+/**
+ * Each reminder once per time its event starts: sent, or skipped (over the daily
+ * cap, in quiet hours, or email off), so it's never tried twice. Counts the cap;
+ * purged after REMINDER_LOG_DAYS.
+ */
+export const sbReminderSends = pgTable(
+  "sb_reminder_sends",
+  {
+    reminderId: integer("reminder_id")
+      .notNull()
+      .references(() => sbReminders.id, { onDelete: "cascade" }),
+    /** The event's start this was for. */
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** "sent", "cap", "quiet" or "off". */
+    status: text("status").notNull(),
+    at: timestamp("at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.reminderId, table.startsAt] }),
+    index("sb_reminder_sends_user_at").on(table.userId, table.at),
+  ],
+);
+
+/**
  * Someone's Hypixel SkyBlock profiles: the tool keeps one set of its data (tool_data,
  * tool "skyblock") per profile. `keyPrefix` is "" for the account's first profile
  * (its data stays on the plain keys) and "p<id>-" for the rest (@trilleo/skyblock's
@@ -3639,5 +3710,8 @@ export type SbPriceHistory = typeof sbPriceHistory.$inferSelect;
 export type SbFeed = typeof sbFeeds.$inferSelect;
 export type SbElection = typeof sbElections.$inferSelect;
 export type SbElectionVotes = typeof sbElectionVotes.$inferSelect;
+export type SbReminder = typeof sbReminders.$inferSelect;
+export type SbReminderSettings = typeof sbReminderSettings.$inferSelect;
+export type SbReminderSend = typeof sbReminderSends.$inferSelect;
 export type SbProfile = typeof sbProfiles.$inferSelect;
 export type SbSyncLogRow = typeof sbSyncLog.$inferSelect;

@@ -167,6 +167,10 @@ set). /admin's **Mail** section shows where alerts go.
 - **Someone says a code never arrived:** find it on /admin/mail/ (filter **To**). Sent:
   it's in their spam folder or held by their provider. Queued with an error: see the
   error. Not there: they mistyped the address.
+- **SkyBlock event reminders** are the one kind of email that comes on a schedule
+  people set themselves. /admin/mail/reminders/ lists every subscription, with how
+  many were sent or held back (daily cap, quiet hours, email off) in the last day.
+  Remove one, or pause someone whose reminders bounce or who complains, from there.
 - **Turn email off:** remove the `SMTP_*` lines from `app.env` and recreate the app.
   Messages are then kept in the outbox, not sent.
 

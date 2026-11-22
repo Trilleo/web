@@ -13,6 +13,7 @@ export const NOTIFICATION_TOPICS = [
   "wiki",
   "watchlist",
   "forum",
+  "skyblock",
   "admin",
 ] as const;
 export type NotificationTopic = (typeof NOTIFICATION_TOPICS)[number];
@@ -28,6 +29,7 @@ export const DEFAULT_NOTIFICATIONS: Readonly<NotificationSettings> = {
   wiki: true,
   watchlist: true,
   forum: true,
+  skyblock: true,
   admin: true,
 };
 
@@ -61,6 +63,10 @@ export const NOTIFICATION_LABELS: Readonly<
   forum: {
     label: "Forum",
     hint: "Watched topics and forums, mentions, answers.",
+  },
+  skyblock: {
+    label: "SkyBlock reminders",
+    hint: "The events you asked to be reminded of.",
   },
   admin: {
     label: "Admin alerts",
@@ -130,6 +136,11 @@ export const MAIL_KINDS = {
     secret: false,
   },
   "forum-digest": { label: "Forum digest", topic: "forum", secret: false },
+  "skyblock-reminder": {
+    label: "SkyBlock reminder",
+    topic: "skyblock",
+    secret: false,
+  },
   "contact-reply": { label: "Contact reply", topic: null, secret: false },
   "admin-alert": { label: "Admin alert", topic: "admin", secret: false },
   test: { label: "Test", topic: null, secret: false },

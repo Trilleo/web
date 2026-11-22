@@ -50,6 +50,7 @@ export const PRIVATE_PATHS = [
   "/link/",
   "/mail/",
   "/minecraft/report",
+  "/tools/skyblock/events/remind",
   "/sign-in",
   "/tools/skyblock/profiles",
   "/writing/preview/",

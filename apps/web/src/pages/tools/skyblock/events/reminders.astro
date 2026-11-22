@@ -1,0 +1,269 @@
+---
+/**
+ * Someone's SkyBlock reminders: /tools/skyblock/events/reminders/ (signed in). Every
+ * reminder with its next email and Remove, and the settings: time zone (filled from
+ * the browser when JavaScript can), the most emails in any 24 hours, quiet hours.
+ * Forms post to /tools/skyblock/events/remind; works without JavaScript.
+ */
+import {
+  REMINDER_LIMITS,
+  formatClock,
+  formatLead,
+  mayorEvents,
+  nextReminderAt,
+} from "@trilleo/skyblock/events";
+import { EVENTS_PATH, eventPath, meta } from "@trilleo/tool-skyblock/meta";
+import { buttonClasses, fieldClasses } from "@trilleo/ui/classes";
+import Notice from "../../../../components/Notice.astro";
+import SkyblockLayout from "../../../../components/skyblock/SkyblockLayout.astro";
+import { requireUser } from "../../../../lib/auth/guard";
+import { getDb } from "../../../../lib/db";
+import { EMAIL_SETTINGS_PATH } from "../../../../lib/mail/compose";
+import { ogImagePath, toolCard } from "../../../../lib/seo";
+import { isoTime, utcTime } from "../../../../lib/skyblock/events";
+import { liveFeeds } from "../../../../lib/skyblock/feeds";
+import { REMINDER_ANSWERS } from "../../../../lib/skyblock/reminder-answers";
+import {
+  REMINDERS_PATH,
+  canEmail,
+  listReminders,
+  reminderEvent,
+  reminderSettings,
+} from "../../../../lib/skyblock/reminders";
+import { toast, toastError } from "../../../../lib/toast";
+
+export const prerender = false;
+
+const user = requireUser(Astro);
+if (user instanceof Response) return user;
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const db = await getDb();
+const now = Date.now();
+const reminders = await listReminders(db, user.id);
+const settings = await reminderSettings(db, user.id);
+const perks = mayorEvents((await liveFeeds(db, now)).election);
+const rows = reminders.map((reminder) => {
+  const base = reminderEvent(reminder.eventSlug);
+  const event = base?.perk ? perks.find((e) => e.slug === base.slug) : base;
+  return {
+    reminder,
+    name: base?.name ?? reminder.eventSlug,
+    next: event ? nextReminderAt(event, reminder.leadMinutes, now) : null,
+    perk: base?.perk ?? null,
+  };
+});
+const answer = REMINDER_ANSWERS[Astro.url.searchParams.get("reminder") ?? ""];
+if (answer?.error) toastError(Astro, answer.message);
+else if (answer) toast(Astro, answer.message);
+
+/** Fields in a row share the controls' height and padding. */
+const field = `${fieldClasses} h-11 px-3`;
+const row = "grid-swiss mt-10 gap-y-4 border-t border-ink pt-4 md:pt-5";
+const label = "col-span-4 type-label md:col-span-2";
+const body =
+  "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
+const quietOn = settings.quietStart !== null && settings.quietEnd !== null;
+---
+
+<SkyblockLayout
+  title={`Your reminders · Event timer · ${meta.name}`}
+  description="Your Hypixel SkyBlock event reminders."
+  image={ogImagePath(`tools/${meta.slug}`, toolCard(meta))}
+  crumbs={[
+    { label: "Event timer", path: EVENTS_PATH },
+    { label: "Your reminders", path: REMINDERS_PATH },
+  ]}
+  back={{ href: EVENTS_PATH, label: "Event timer" }}
+  noindex
+  notice="own"
+>
+  <div class="grid-swiss gap-y-4 pb-8 md:pb-10">
+    <h1 class="type-headline col-span-4 md:col-span-6 xl:col-span-9">
+      Your reminders
+    </h1>
+  </div>
+
+  <section class={row} aria-labelledby="remind-title" id="remind">
+    <h2 id="remind-title" class={label}>
+      <span class="text-muted">(01)</span> Reminders
+    </h2>
+    <div class={body}>
+      {!user.email ? (
+        <Notice>
+          <p>
+            Reminders go to your email address.{" "}
+            <a href={EMAIL_SETTINGS_PATH} class="underline">
+              Add one
+            </a>
+            .
+          </p>
+        </Notice>
+      ) : (
+        !canEmail(user) && (
+          <Notice>
+            <p>
+              SkyBlock reminders are off in your{" "}
+              <a href={EMAIL_SETTINGS_PATH} class="underline">
+                email settings
+              </a>
+              .
+            </p>
+          </Notice>
+        )
+      )}
+      {settings.pausedAt && (
+        <Notice>
+          <p>Your reminders are paused by the site's admin.</p>
+        </Notice>
+      )}
+      {rows.length === 0 ? (
+        <p class="text-muted" data-testid="reminders-empty">
+          None yet. Add them from an{" "}
+          <a href={EVENTS_PATH} class="underline">
+            event's page
+          </a>
+          .
+        </p>
+      ) : (
+        <ul class="flex flex-col" data-testid="reminders-list">
+          {rows.map(({ reminder, name, next, perk }) => (
+            <li class="flex flex-wrap items-center justify-between gap-3 border-b border-hair py-2 text-sm">
+              <span class="flex flex-col">
+                <a href={eventPath(reminder.eventSlug)} class="group">
+                  <span class="link-wipe font-medium">{name}</span>
+                </a>
+                <span class="text-muted">
+                  {formatLead(reminder.leadMinutes)}
+                  {next !== null ? (
+                    <>
+                      {" · next "}
+                      <time datetime={isoTime(next)} data-local>
+                        {utcTime(next)}
+                      </time>
+                    </>
+                  ) : (
+                    perk && ` · only while someone holds ${perk}`
+                  )}
+                </span>
+              </span>
+              <form method="post" action="/tools/skyblock/events/remind">
+                <input type="hidden" name="intent" value="remove" />
+                <input type="hidden" name="id" value={String(reminder.id)} />
+                <input type="hidden" name="back" value={REMINDERS_PATH} />
+                <button
+                  type="submit"
+                  class={buttonClasses({ variant: "secondary" })}
+                  aria-label={`Remove ${name}, ${formatLead(reminder.leadMinutes).toLowerCase()}`}
+                >
+                  Remove
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p class="text-sm text-muted">
+        {reminders.length} of {REMINDER_LIMITS.perUser}
+      </p>
+    </div>
+  </section>
+
+  <section class={row} aria-labelledby="settings-title" id="settings">
+    <h2 id="settings-title" class={label}>
+      <span class="text-muted">(02)</span> Settings
+    </h2>
+    <form
+      method="post"
+      action="/tools/skyblock/events/remind"
+      class={body}
+      data-testid="reminder-settings"
+    >
+      <input type="hidden" name="intent" value="settings" />
+      <input type="hidden" name="back" value={REMINDERS_PATH} />
+      <div class="field-row grid-cols-1 md:grid-cols-2">
+        <label class="flex flex-col gap-1.5">
+          <span class="type-label">Time zone</span>
+          <input
+            type="text"
+            name="timeZone"
+            value={settings.timeZone}
+            class={field}
+            autocomplete="off"
+            spellcheck="false"
+            data-time-zone
+            data-saved={settings.timeZone}
+          />
+          <span class="text-sm text-muted">
+            IANA name, such as Asia/Shanghai
+          </span>
+        </label>
+        <label class="flex flex-col gap-1.5">
+          <span class="type-label">Most emails a day</span>
+          <input
+            type="number"
+            name="dailyCap"
+            min="1"
+            max={String(REMINDER_LIMITS.dailyCapMax)}
+            value={String(settings.dailyCap)}
+            class={field}
+            required
+          />
+          <span class="text-sm text-muted">
+            1–{REMINDER_LIMITS.dailyCapMax}, in any 24 hours
+          </span>
+        </label>
+      </div>
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="quiet" checked={quietOn} />
+        Quiet hours
+      </label>
+      <div class="field-row grid-cols-2 md:grid-cols-[repeat(2,minmax(0,12rem))_auto] md:justify-start">
+        <label class="flex flex-col gap-1.5">
+          <span class="type-label">From</span>
+          <input
+            type="time"
+            name="quietStart"
+            value={formatClock(settings.quietStart ?? 22 * 60)}
+            class={field}
+          />
+        </label>
+        <label class="flex flex-col gap-1.5">
+          <span class="type-label">Until</span>
+          <input
+            type="time"
+            name="quietEnd"
+            value={formatClock(settings.quietEnd ?? 7 * 60)}
+            class={field}
+          />
+        </label>
+        <div class="field-action col-span-2 md:col-span-1">
+          <span aria-hidden="true"></span>
+          <div>
+            <button type="submit" class={buttonClasses()}>
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  <Fragment slot="credit">
+    Times are worked out from the SkyBlock calendar.
+  </Fragment>
+</SkyblockLayout>
+
+<script>
+  import { startEventClock } from "../../../../components/skyblock/event-clock";
+
+  startEventClock();
+  // Never saved yet (still UTC): suggest the browser's own zone.
+  for (const input of document.querySelectorAll<HTMLInputElement>(
+    "[data-time-zone]",
+  )) {
+    if (input.dataset.saved === "UTC") {
+      input.value = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    }
+  }
+</script>
