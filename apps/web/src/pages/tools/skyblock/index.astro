@@ -1,59 +1,78 @@
 ---
 /**
- * The Hypixel SkyBlock tool's front page: its utilities (the built ones linked, the
- * planned ones listed). Prerendered: it holds no data of its own.
+ * The Hypixel SkyBlock tool's front page: its utilities in sections (events, shards
+ * and attributes, your data), the built ones linked, the planned ones listed.
+ * Prerendered: it holds no data of its own.
  */
-import { UTILITIES, meta } from "@trilleo/tool-skyblock";
+import { UTILITIES, UTILITY_GROUPS, meta } from "@trilleo/tool-skyblock/meta";
+import type { UtilityGroup } from "@trilleo/tool-skyblock/meta";
 import { ArrowRightIcon } from "@trilleo/ui";
 import ToolLayout from "../../../components/tools/ToolLayout.astro";
 import { HYPIXEL_NOTICE } from "../../../lib/skyblock/public";
+
+const groups = (Object.keys(UTILITY_GROUPS) as UtilityGroup[])
+  .map((group) => ({
+    group,
+    label: UTILITY_GROUPS[group],
+    utilities: UTILITIES.filter((utility) => utility.group === group),
+  }))
+  .filter((group) => group.utilities.length > 0);
 ---
 
 <ToolLayout meta={meta}>
-  <section
-    aria-labelledby="utilities-title"
-    class="grid-swiss gap-y-4 border-t border-ink pt-4 md:pt-5"
-  >
-    <h2 id="utilities-title" class="col-span-4 type-label md:col-span-2">
-      <span class="text-muted">(01)</span> Utilities
-    </h2>
-    <ul
-      class="col-span-4 grid grid-cols-1 gap-px border border-hair bg-hair md:col-span-6 md:grid-cols-2 xl:col-span-10"
-      data-testid="skyblock-utilities"
-    >
-      {UTILITIES.map((utility) => (
-        <li
-          class:list={[
-            "relative flex flex-col gap-2 bg-paper p-5",
-            utility.href && "group hover:bg-chip",
-          ]}
+  <div class="flex flex-col gap-12" data-testid="skyblock-utilities">
+    {groups.map(({ group, label, utilities }, index) => (
+      <section
+        aria-labelledby={`utilities-${group}`}
+        class="grid-swiss gap-y-4 border-t border-ink pt-4 md:pt-5"
+      >
+        <h2
+          id={`utilities-${group}`}
+          class="col-span-4 type-label md:col-span-2"
         >
-          <h3 class="type-row flex items-center justify-between gap-3 font-medium">
-            {utility.href ? (
-              <a
-                href={utility.href}
-                class="after:absolute after:inset-0 after:content-['']"
-              >
-                <span class="link-wipe">{utility.name}</span>
-              </a>
-            ) : (
-              <span>{utility.name}</span>
-            )}
-            {utility.href ? (
-              <ArrowRightIcon
-                size={18}
-                className="transition-transform duration-(--tr-dur-base) ease-swiss group-hover:translate-x-1"
-              />
-            ) : (
-              <span class="type-label text-muted">Planned</span>
-            )}
-          </h3>
-          <p class:list={["text-sm", !utility.href && "text-muted"]}>
-            {utility.description}
-          </p>
-        </li>
-      ))}
-    </ul>
-  </section>
+          <span class="text-muted">({String(index + 1).padStart(2, "0")})</span>{" "}
+          {label}
+        </h2>
+        <ul class="col-span-4 grid grid-cols-1 gap-px border border-hair bg-hair md:col-span-6 md:grid-cols-2 xl:col-span-10">
+          {utilities.map((utility, i) => (
+            <li
+              class:list={[
+                "relative flex flex-col gap-2 bg-paper p-5",
+                utility.href && "group hover:bg-chip",
+                // An odd one out takes the whole last row.
+                utilities.length % 2 === 1 &&
+                  i === utilities.length - 1 &&
+                  "md:col-span-2",
+              ]}
+            >
+              <h3 class="type-row flex items-center justify-between gap-3 font-medium">
+                {utility.href ? (
+                  <a
+                    href={utility.href}
+                    class="after:absolute after:inset-0 after:content-['']"
+                  >
+                    <span class="link-wipe">{utility.name}</span>
+                  </a>
+                ) : (
+                  <span>{utility.name}</span>
+                )}
+                {utility.href ? (
+                  <ArrowRightIcon
+                    size={18}
+                    className="transition-transform duration-(--tr-dur-base) ease-swiss group-hover:translate-x-1"
+                  />
+                ) : (
+                  <span class="type-label text-muted">Planned</span>
+                )}
+              </h3>
+              <p class:list={["text-sm", !utility.href && "text-muted"]}>
+                {utility.description}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))}
+  </div>
   <p class="mt-12 max-w-[47.5rem] text-sm text-muted">{HYPIXEL_NOTICE}</p>
 </ToolLayout>

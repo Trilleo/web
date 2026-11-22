@@ -22,9 +22,15 @@ test("the SkyBlock tool lists its utilities", async ({ page }) => {
     page.getByRole("heading", { level: 1, name: "Hypixel SkyBlock" }),
   ).toBeVisible();
   const utilities = page.getByTestId("skyblock-utilities");
-  for (const name of ["Collection", "Hunting planner", "Fusion lines", "Guide"])
+  for (const name of [
+    "Event timer",
+    "Collection",
+    "Hunting planner",
+    "Fusion lines",
+    "Shards guide",
+  ])
     await expect(utilities.getByRole("link", { name })).toBeVisible();
-  await utilities.getByRole("link", { name: "Shards" }).click();
+  await utilities.getByRole("link", { name: "Shards", exact: true }).click();
   await expect(page).toHaveURL("/tools/skyblock/shards/");
 });
 
@@ -503,7 +509,7 @@ test.describe("without JavaScript", () => {
 test("the guide explains levels with the data's numbers", async ({ page }) => {
   await page.goto("/tools/skyblock/guide/");
   await expect(
-    page.getByRole("heading", { level: 1, name: "Guide" }),
+    page.getByRole("heading", { level: 1, name: "Shards guide" }),
   ).toBeVisible();
   await expect(page.getByTestId("guide-levels")).toContainText("96");
   await page

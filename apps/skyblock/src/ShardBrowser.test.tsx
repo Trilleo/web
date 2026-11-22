@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { PAGE_SIZE, ShardBrowser } from "./ShardBrowser";
-import { UTILITIES, meta, shardPath } from "./meta";
+import { UTILITIES, UTILITY_GROUPS, meta, shardPath } from "./meta";
 
 afterEach(cleanup);
 
@@ -79,6 +79,12 @@ describe("meta", () => {
     expect(shardPath("lizard-king")).toBe(
       "/tools/skyblock/shards/lizard-king/",
     );
-    expect(UTILITIES[0]?.href).toBe("/tools/skyblock/shards/");
+    expect(UTILITIES.find((u) => u.name === "Shards")?.href).toBe(
+      "/tools/skyblock/shards/",
+    );
+    // Every utility belongs to one of the hub's sections.
+    for (const utility of UTILITIES) {
+      expect(Object.keys(UTILITY_GROUPS)).toContain(utility.group);
+    }
   });
 });

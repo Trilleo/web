@@ -2,12 +2,13 @@
 /**
  * The frame around the SkyBlock tool's inner pages (the shard list, a shard): the
  * site's layout, a breadcrumb through (02) Tools / Hypixel SkyBlock, a way back, and
- * Hypixel's notice at the foot.
+ * Hypixel's notice at the foot: with SkyShards' credit on the shard pages, or with
+ * the page's own `credit` slot (the event timer).
  */
 import { meta } from "@trilleo/tool-skyblock/meta";
 import { ArrowLeftIcon } from "@trilleo/ui";
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { HYPIXEL_NOTICE } from "../../lib/skyblock/public";
+import { HYPIXEL_NOTICE, SKYBLOCK_NOTICE } from "../../lib/skyblock/public";
 import { breadcrumbJsonLd, type JsonLd } from "../../lib/seo";
 import { toolPath } from "../../lib/tools/registry";
 import Breadcrumb from "../Breadcrumb.astro";
@@ -22,6 +23,8 @@ interface Props {
   jsonLd?: JsonLd[];
   /** Keep this page out of search engines (filtered views). */
   noindex?: boolean;
+  /** Whose data the page shows: SkyShards' (the shard pages) or its own slot's. */
+  notice?: "shards" | "own";
 }
 
 const {
@@ -32,6 +35,7 @@ const {
   back,
   jsonLd = [],
   noindex = false,
+  notice = "shards",
 } = Astro.props;
 const home = toolPath(meta.slug);
 ---
@@ -79,20 +83,26 @@ const home = toolPath(meta.slug);
 
   <section class="px-page pt-8 pb-24 md:pt-10 xl:pt-14 xl:pb-32">
     <slot />
-    <p class="mt-16 max-w-[47.5rem] text-sm text-muted">
-      {HYPIXEL_NOTICE.replace(/SkyShards\.$/, "")}
-      <a href="https://skyshards.com/" class="underline" rel="noreferrer">
-        SkyShards
-      </a>{" "}
-      (
-      <a
-        href="https://github.com/Campionnn/SkyShards"
-        class="underline"
-        rel="noreferrer"
-      >
-        MIT
-      </a>
-      ), kept up to date from its repository.
-    </p>
+    {notice === "shards" ? (
+      <p class="mt-16 max-w-[47.5rem] text-sm text-muted">
+        {HYPIXEL_NOTICE.replace(/SkyShards\.$/, "")}
+        <a href="https://skyshards.com/" class="underline" rel="noreferrer">
+          SkyShards
+        </a>{" "}
+        (
+        <a
+          href="https://github.com/Campionnn/SkyShards"
+          class="underline"
+          rel="noreferrer"
+        >
+          MIT
+        </a>
+        ), kept up to date from its repository.
+      </p>
+    ) : (
+      <p class="mt-16 max-w-[47.5rem] text-sm text-muted">
+        {SKYBLOCK_NOTICE} <slot name="credit" />
+      </p>
+    )}
   </section>
 </BaseLayout>

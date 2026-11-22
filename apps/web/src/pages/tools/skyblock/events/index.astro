@@ -1,0 +1,311 @@
+---
+/**
+ * The event timer: /tools/skyblock/events/[?category=]. The SkyBlock date, what's on
+ * now, each calendar event's next start, and the year by month, all worked out from
+ * the calendar (@trilleo/skyblock/events) at the request. Rendered on the server so
+ * it reads right without JavaScript; event-clock.ts ticks the countdowns, writes
+ * times in the visitor's zone and reloads when something starts or ends.
+ */
+import {
+  EVENT_CATEGORIES,
+  cadence,
+  eventBoard,
+  formatCountdown,
+  formatDuration,
+  formatSkyblockClock,
+  formatSkyblockDate,
+  isEventCategory,
+  ordinal,
+  skyblockDate,
+} from "@trilleo/skyblock/events";
+import type { EventCategory } from "@trilleo/skyblock/events";
+import {
+  EVENTS_PATH,
+  SKYBLOCK_PATH,
+  eventPath,
+  meta,
+} from "@trilleo/tool-skyblock/meta";
+import SkyblockLayout from "../../../../components/skyblock/SkyblockLayout.astro";
+import { ogImagePath, toolCard } from "../../../../lib/seo";
+import {
+  eventsIn,
+  isoTime,
+  utcTime,
+  yearByMonth,
+} from "../../../../lib/skyblock/events";
+
+export const prerender = false;
+
+const asked = Astro.url.searchParams.get("category");
+const category: EventCategory | null = isEventCategory(asked) ? asked : null;
+const now = Date.now();
+const today = skyblockDate(now);
+const events = eventsIn(category);
+const board = eventBoard(now, events);
+const year = yearByMonth(today.year, now, events);
+const allYear = events.filter((event) => event.schedule.kind !== "yearly");
+// Reload once the first thing on the board changes.
+const boundary = Math.min(
+  ...board.running.map((occurrence) => occurrence.end),
+  ...board.next.map((occurrence) => occurrence.start),
+);
+// Times move every second: let nobody keep a copy.
+Astro.response.headers.set("Cache-Control", "no-store");
+
+const description =
+  "Hypixel SkyBlock's event timer: the SkyBlock date, what's on now, when every calendar event starts next, and the year ahead by month.";
+const row = "grid-swiss mt-10 gap-y-4 border-t border-ink pt-4 md:pt-5";
+const label = "col-span-4 type-label md:col-span-2";
+const body =
+  "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
+const th = "type-label border-b border-ink py-2 pr-4 font-normal text-muted";
+const td = "border-b border-hair py-2 pr-4 align-top tabular-nums";
+const filters: { key: EventCategory | null; label: string }[] = [
+  { key: null, label: "All" },
+  ...(Object.entries(EVENT_CATEGORIES) as [EventCategory, string][]).map(
+    ([key, name]) => ({ key, label: name }),
+  ),
+];
+const filterHref = (key: EventCategory | null) =>
+  key === null ? EVENTS_PATH : `${EVENTS_PATH}?category=${key}`;
+/**
+ * The next-times table scrolls sideways on phones, so its box is a labelled region
+ * and a tab stop (axe: scrollable-region-focusable).
+ */
+const scrollRegion = {
+  role: "region",
+  "aria-label": "Next events",
+  tabindex: 0,
+} as const;
+---
+
+<SkyblockLayout
+  title={`Event timer · ${meta.name}`}
+  {description}
+  image={ogImagePath(`tools/${meta.slug}`, toolCard(meta))}
+  crumbs={[{ label: "Event timer", path: EVENTS_PATH }]}
+  back={{ href: SKYBLOCK_PATH, label: "SkyBlock tools" }}
+  noindex={category !== null}
+  notice="own"
+>
+  <div
+    class="grid-swiss gap-y-4 pb-8 md:pb-10"
+    data-boundary={String(boundary)}
+  >
+    <h1 class="type-headline col-span-4 md:col-span-6 xl:col-span-9">
+      Event timer
+    </h1>
+  </div>
+
+  <section class={row} aria-labelledby="now-title">
+    <h2 id="now-title" class={label}>
+      <span class="text-muted">(01)</span> Now
+    </h2>
+    <div class={body}>
+      <p class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <span class="type-title font-medium" data-sb-date data-testid="sb-date">
+          {formatSkyblockDate(today)}
+        </span>
+        <span class="font-mono text-muted" data-sb-clock>
+          {formatSkyblockClock(today)}
+        </span>
+      </p>
+      <nav aria-label="Event categories" class="flex flex-wrap gap-2">
+        {filters.map((filter) => (
+          <a
+            href={filterHref(filter.key)}
+            aria-current={filter.key === category ? "page" : undefined}
+            class:list={[
+              "type-label border px-3 py-1.5",
+              filter.key === category
+                ? "border-ink bg-ink text-paper"
+                : "border-hair hover:border-ink",
+            ]}
+          >
+            {filter.label}
+          </a>
+        ))}
+      </nav>
+      {board.running.length === 0 ? (
+        <p class="text-muted" data-testid="events-running-empty">
+          Nothing on.
+        </p>
+      ) : (
+        <ul
+          class:list={[
+            "grid gap-px border border-hair bg-hair",
+            board.running.length > 1 && "md:grid-cols-2",
+          ]}
+          data-testid="events-running"
+        >
+          {board.running.map((occurrence, index) => (
+            <li
+              class:list={[
+                "group relative flex flex-col gap-2 bg-paper p-4 hover:bg-chip",
+                // An odd one out takes the whole last row.
+                board.running.length % 2 === 1 &&
+                  index === board.running.length - 1 &&
+                  "md:col-span-2",
+              ]}
+            >
+              <a
+                href={eventPath(occurrence.event.slug)}
+                class="type-row font-medium after:absolute after:inset-0 after:content-['']"
+              >
+                <span class="link-wipe">{occurrence.event.name}</span>
+              </a>
+              <div class="h-1 bg-hair" aria-hidden="true">
+                <div
+                  class="h-full bg-accent"
+                  style={`width: ${String(Math.round(((now - occurrence.start) / (occurrence.end - occurrence.start)) * 100))}%`}
+                  data-progress-start={String(occurrence.start)}
+                  data-progress-end={String(occurrence.end)}
+                />
+              </div>
+              <p class="text-sm text-muted">
+                Ends in{" "}
+                <span
+                  class="tabular-nums text-ink"
+                  data-countdown={String(occurrence.end)}
+                >
+                  {formatCountdown(occurrence.end - now)}
+                </span>
+                {" · "}
+                {occurrence.event.where}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  </section>
+
+  <section class={row} aria-labelledby="next-title">
+    <h2 id="next-title" class={label}>
+      <span class="text-muted">(02)</span> Next
+    </h2>
+    <div class={body}>
+      <div class="overflow-x-auto" {...scrollRegion}>
+        <table
+          class="w-full min-w-[40rem] border-collapse text-left text-sm"
+          data-testid="events-next"
+        >
+          <thead>
+            <tr>
+              <th scope="col" class={th}>
+                Event
+              </th>
+              <th scope="col" class={th}>
+                In
+              </th>
+              <th scope="col" class={th}>
+                Starts
+              </th>
+              <th scope="col" class={th}>
+                SkyBlock date
+              </th>
+              <th scope="col" class={th}>
+                Lasts
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {board.next.map((occurrence) => (
+              <tr>
+                <th scope="row" class={`${td} font-normal`}>
+                  <a href={eventPath(occurrence.event.slug)} class="group">
+                    <span class="link-wipe font-medium">
+                      {occurrence.event.name}
+                    </span>
+                  </a>
+                </th>
+                <td class={td}>
+                  <span data-countdown={String(occurrence.start)}>
+                    {formatCountdown(occurrence.start - now)}
+                  </span>
+                </td>
+                <td class={td}>
+                  <time datetime={isoTime(occurrence.start)} data-local>
+                    {utcTime(occurrence.start)}
+                  </time>
+                </td>
+                <td class={td}>
+                  {formatSkyblockDate(skyblockDate(occurrence.start), false)}
+                </td>
+                <td class={td}>
+                  {occurrence.end === occurrence.start
+                    ? "—"
+                    : formatDuration(occurrence.end - occurrence.start)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class={row} aria-labelledby="year-title">
+    <h2 id="year-title" class={label}>
+      <span class="text-muted">(03)</span> Year {today.year}
+    </h2>
+    <div class={body}>
+      {allYear.length > 0 && (
+        <ul class="flex flex-col gap-1 text-sm">
+          {allYear.map((event) => (
+            <li>
+              <a href={eventPath(event.slug)} class="group">
+                <span class="link-wipe font-medium">{event.name}</span>
+              </a>{" "}
+              <span class="text-muted">{cadence(event).toLowerCase()}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <ol
+        class="grid gap-px border border-hair bg-hair md:grid-cols-2 xl:grid-cols-3"
+        data-testid="events-year"
+      >
+        {year.map((month) => (
+          <li
+            class="flex flex-col gap-2 bg-paper p-4"
+            aria-current={month.current ? "date" : undefined}
+          >
+            <p class="type-label flex items-center justify-between gap-2">
+              <span>{month.name}</span>
+              {month.current && (
+                <span class="bg-accent px-1.5 text-on-accent">Now</span>
+              )}
+            </p>
+            {month.starts.length === 0 ? (
+              <p class="text-sm text-muted">—</p>
+            ) : (
+              <ul class="flex flex-col gap-1 text-sm">
+                {month.starts.map((occurrence) => (
+                  <li class="flex gap-3">
+                    <span class="w-10 shrink-0 tabular-nums text-muted">
+                      {ordinal(skyblockDate(occurrence.start).day)}
+                    </span>
+                    <a href={eventPath(occurrence.event.slug)} class="group">
+                      <span class="link-wipe">{occurrence.event.name}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+
+  <Fragment slot="credit">
+    Times are worked out from the SkyBlock calendar.
+  </Fragment>
+</SkyblockLayout>
+
+<script>
+  import { startEventClock } from "../../../../components/skyblock/event-clock";
+
+  startEventClock();
+</script>

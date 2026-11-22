@@ -25,8 +25,12 @@ import { iconOf, type ShardData } from "./data";
 export const PARTNERS_SHOWN = 16;
 
 /** Hypixel's notice, on every SkyBlock page (their rules for fan sites). */
-export const HYPIXEL_NOTICE =
-  "Not affiliated with or endorsed by Hypixel Inc. Shard icons and stat symbols are Hypixel’s; shard data is from SkyShards.";
+/** Every SkyBlock page says this. */
+export const SKYBLOCK_NOTICE =
+  "Not affiliated with or endorsed by Hypixel Inc.";
+
+/** The shard pages add whose icons and data they show. */
+export const HYPIXEL_NOTICE = `${SKYBLOCK_NOTICE} Shard icons and stat symbols are Hypixel’s; shard data is from SkyShards.`;
 
 export function shardSummaries(data: ShardData): ShardSummary[] {
   return data.catalog.shards.map((shard) =>

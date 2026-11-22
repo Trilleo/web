@@ -29,6 +29,8 @@ const PAGES = [
   "/tools/skyblock/planner/",
   "/tools/skyblock/lines/?shard=iguana",
   "/tools/skyblock/guide/",
+  "/tools/skyblock/events/",
+  "/tools/skyblock/events/spooky-festival/",
   "/games/",
   "/games/skygrid/",
   "/games/skygrid/leaderboard/",

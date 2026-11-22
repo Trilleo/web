@@ -85,12 +85,14 @@
   the notes in a notes layer and draws their judgement ranges; score.ts, scores, ranks and
   play rating. `./testing` draws test charts (and notes, `drawNote`).
   Source-only.
-- packages/skyblock (@trilleo/skyblock): Hypixel SkyBlock's shards, pure: rarities and
+- packages/skyblock (@trilleo/skyblock): Hypixel SkyBlock, pure. `.` the shards: rarities and
   attribute levels (attributes.ts), attribute texts (text.ts: Minecraft colours, ranges,
   stat symbols from glyphs.ts as SVG), `readSources` (SkyShards' four files → a
   Dataset, checked), fusion rules in words (rules.ts), `ShardCatalog` (recipes both
   ways, grouped) and the list's search (search.ts); `./calc` the fusion calculator's
-  engine (see Hypixel SkyBlock). `./testing` writes small source files. Source-only.
+  engine (see Hypixel SkyBlock); `./events` the calendar and its events (events/: the
+  date at any moment, when each event happens; small, the browser imports it).
+  `./testing` writes small source files. Source-only.
 - study/: study subjects as Markdown files (see Study below and study/README.md).
 - Blog content: Markdown posts in Postgres, written in the admin editor (/admin/posts).
 - The wiki (wiki.trilleo.net) is apps/web on a second host, not its own app: pages in
@@ -1618,11 +1620,23 @@ chunithm:bundle <list>` (scripts/chunithm-bundle.ts around lib/chunithm/bundler.
 
 ## Hypixel SkyBlock
 
-- /tools/skyblock/ (apps/skyblock, @trilleo/tool-skyblock; status "in-progress"): a hub
-  of utilities (`UTILITIES` in its meta: built ones linked, planned ones listed): Shards,
-  the fusion calculator (hours or coins), Fusion profits, the Collection, the hunting
-  planner, Fusion lines and the guide. No Hypixel API key: nothing that needs one
-  (profile import) is built.
+- /tools/skyblock/ (apps/skyblock, @trilleo/tool-skyblock; status "in-progress"): general
+  utilities for the game, not only shards. The hub lists `UTILITIES` (its meta: built
+  ones linked, planned ones listed) in sections (`UTILITY_GROUPS`): Events (the event
+  timer), Shards & attributes (Shards, the fusion calculator in hours or coins, Fusion
+  profits, the Collection, the hunting planner, Fusion lines, the shards guide) and Your
+  data (Profiles). No Hypixel API key: nothing that needs one (profile import) is built.
+- The event timer (/tools/skyblock/events/[?category=], …/events/<slug>/;
+  @trilleo/skyblock/events): the SkyBlock calendar worked out from its epoch
+  (1560275700 s; a day 20 minutes, a month 31 days, a year 124 hours; calendar.ts) and
+  each calendar event's schedule (EVENTS in events.ts: every few days, days of each month,
+  or dates of the year), checked against Year 527 of the in-game calendar (events.test.ts;
+  the official wiki closed in July 2026, so the Skyblocker mod's feed, hysky.de/api/calendar,
+  was the reference). Pages are server-rendered from the time alone (no-store), in UTC;
+  components/skyblock/event-clock.ts ticks countdowns, rewrites times in the visitor's
+  zone and reloads at the next start or end (`data-boundary`). Event pages are in
+  /sitemap-skyblock.xml. SkyblockLayout's `notice="own"` swaps SkyShards' credit for the
+  page's `credit` slot.
 - Data: SkyShards' repository (github.com/Campionnn/SkyShards, MIT): fusion-data.json,
   fusion-properties.json, desc.json, rates.json and public/shardIcons/<key>.png.
   Pure rules in packages/skyblock; the rest in apps/web/src/lib/skyblock/ (source.ts

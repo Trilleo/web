@@ -62,8 +62,9 @@ packages/study      @trilleo/study: the study section's engine (content loader, 
                     renderer with KaTeX, quizzes, circuits, React widgets)
 packages/captcha    @trilleo/captcha: the human check (levels, proof-of-work, the grid
                     puzzle, and the browser side: humanFetch and the puzzle dialog)
-packages/skyblock   @trilleo/skyblock: Hypixel SkyBlock's shards (reading SkyShards' data,
-                    attribute texts, fusion rules, the recipe index, search)
+packages/skyblock   @trilleo/skyblock: Hypixel SkyBlock (shards: reading SkyShards' data,
+                    attribute texts, fusion rules, the recipe index, search; the
+                    calendar and its events)
 study/              Study subjects: Markdown lessons, one folder per subject (see study/README.md)
 deploy/             Caddy config, server compose file, deploy and backup scripts, runbooks
 Dockerfile          Production images: `web` (Caddy + static site) and `app` (Node server)
@@ -168,7 +169,10 @@ Ctrl-C lets the charts in progress finish; a second Ctrl-C drops them. Running i
 again carries on where it stopped (`--limit`, `--delay`, `--out` and
 `--retry-failed` change what it does).
 
-The Hypixel SkyBlock tool (`/tools/skyblock/`) collects utilities for the game. Shards:
+The Hypixel SkyBlock tool (`/tools/skyblock/`) collects utilities for the game. The event
+timer (`/tools/skyblock/events/`) shows the SkyBlock date, what's on now, when every
+calendar event starts next and the year by month, worked out from the calendar, with a
+page per event (`/tools/skyblock/events/<event>/`). Shards:
 every shard, searchable by name, attribute or effect, and a page for each
 (`/tools/skyblock/shards/<name>/`) with its attribute drawn as the game draws it, what each
 level costs, where to hunt it, and every fusion that makes it or uses it. The fusion
@@ -181,7 +185,7 @@ you hold; with "Use my collection" on, the calculator spends held shards first (
 inventory mode). The hunting planner (`/tools/skyblock/planner/`) plans several shards at
 once, or everything left to max, as one list of what to hunt by category and every fusion
 in order. Fusion lines (`/tools/skyblock/lines/`) draw where a shard's line comes from and
-leads, from the fusions most of its recipes share, and the guide
+leads, from the fusions most of its recipes share, and the shards guide
 (`/tools/skyblock/guide/`) explains shards, hunting and fusing. Signed in, each SkyBlock
 profile keeps its own collection, setup and plans (`/tools/skyblock/profiles/`, picked at
 the top of those pages), and a mod can sync each one's attribute levels and Hunting Box
