@@ -1635,9 +1635,12 @@ skyblock:snapshot` (scripts/skyblock-snapshot.ts on plain Node, like chunithm:bu
 - data.ts `shardData` holds the current ShardCatalog in memory (rechecked every
   RECHECK_MS; `forgetData` after a pass) with icon addresses (storage copies over
   committed files; none: the rarity's letter on the game's panel).
+- Shards are listed in Hypixel's order of shard IDs (the `key`: C1, C2 … C10, U1 …, L…;
+  `compareShardIds` in rarity.ts), which the game shows; cards and shard pages show the
+  ID, and searching for one ("C14") finds that shard first.
 - Pages (server-rendered, the same for everyone): /tools/skyblock/shards/ (ShardBrowser,
   `client:load`, with a noscript index of every shard) and /tools/skyblock/shards/<slug>/
-  (facts; the attribute and how to hunt it in an `mc-tooltip` panel, so Hypixel's
+  (facts, the shard ID and item ID among them; the attribute and how to hunt it in an `mc-tooltip` panel, so Hypixel's
   colours read in both themes; the levels table; the special fusion's rules in words,
   ID and chameleon fusions, every recipe grouped by `groupPairs`, long groups showing
   PARTNERS_SHOWN shards). SkyblockLayout gives them the breadcrumb and Hypixel's notice

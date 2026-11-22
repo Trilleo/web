@@ -12,7 +12,7 @@
  * so the site never keeps a half-read version. Missing descriptions or rates aren't
  * problems (a new shard may not have them yet).
  */
-import { parseRarity } from "./rarity";
+import { compareShardIds, parseRarity } from "./rarity";
 import {
   shardSlug,
   type Dataset,
@@ -169,15 +169,8 @@ export function readSources(
       `only ${String(shards.length)} shards (at least ${String(minShards)} expected)`,
     );
 
-  // Stable order: by rarity letter, then number (C1, C2, … U1, …), as SkyShards has them.
-  const order = "CUREL";
-  shards.sort((a, b) => {
-    const letter =
-      order.indexOf(a.key[0] ?? "") - order.indexOf(b.key[0] ?? "");
-    return letter !== 0
-      ? letter
-      : Number(a.key.slice(1)) - Number(b.key.slice(1));
-  });
+  // Stable order: Hypixel's, by rarity letter, then number (C1, C2, … U1, …).
+  shards.sort((a, b) => compareShardIds(a.key, b.key));
   const index = new Map(shards.map((shard, i) => [shard.key, i]));
 
   const recipes: RecipeRow[] = [];

@@ -23,6 +23,11 @@ test("shards can be searched and filtered, and the search stays in the address",
   await hydrated(page);
   await expect(page.getByTestId("shard-count")).toHaveText(/^\d{3} shards$/);
   const list = page.getByTestId("shard-list");
+  // Hypixel's order of shard IDs: Grove is C1.
+  await expect(list.getByRole("link").first()).toHaveText("Grove");
+  await expect(list.getByTestId("shard-id").first()).toHaveText("ID C1");
+  await page.getByLabel("Name, attribute or effect").fill("L6");
+  await expect(list.getByRole("link").first()).toHaveText("Tiamat");
   await page.getByLabel("Name, attribute or effect").fill("tiamat");
   await expect(list.getByRole("link").first()).toHaveText("Tiamat");
   await expect(page).toHaveURL(/\?q=tiamat$/);
@@ -57,6 +62,7 @@ test("a shard's page shows its attribute, levels and fusions", async ({
     "/tools/skyblock/shard-icons/tiamat.webp",
   );
   await expect(page.getByTestId("shard-facts")).toContainText("Legendary");
+  await expect(page.getByTestId("shard-facts")).toContainText("Shard ID");
   await expect(page.getByTestId("shard-attribute")).toContainText(
     "Echo of Echoes",
   );

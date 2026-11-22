@@ -51,6 +51,16 @@ export function ShardIcon({
   );
 }
 
+/** Hypixel's shard ID ("C14"), as a small mono tag. */
+export function ShardId({ id }: { id: string }) {
+  return (
+    <span className="type-label font-normal text-muted" data-testid="shard-id">
+      <span className="sr-only">ID </span>
+      {id}
+    </span>
+  );
+}
+
 /** The rarity as the game shows it: its colour on the dark panel. */
 export function RarityTag({ rarity }: { rarity: Rarity }) {
   return (
@@ -210,7 +220,7 @@ export function ShardBrowser({ shards, initialQuery = "" }: ShardBrowserProps) {
                 >
                   <ShardIcon shard={shard} />
                   <div className="flex min-w-0 flex-col gap-1">
-                    <h3 className="type-row font-medium">
+                    <h3 className="flex items-baseline gap-2 type-row font-medium">
                       {/* The link stretches over the card, so the whole card opens it. */}
                       <a
                         href={shardPath(shard.slug)}
@@ -218,6 +228,7 @@ export function ShardBrowser({ shards, initialQuery = "" }: ShardBrowserProps) {
                       >
                         {shard.name}
                       </a>
+                      <ShardId id={shard.key} />
                     </h3>
                     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
                       <RarityTag rarity={shard.rarity} />

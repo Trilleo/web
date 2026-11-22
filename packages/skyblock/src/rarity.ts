@@ -44,3 +44,29 @@ export function parseRarity(value: unknown): Rarity | null {
 export function rarityRank(rarity: Rarity): number {
   return RARITIES.indexOf(rarity);
 }
+
+/** The letters Hypixel's shard IDs start with, lowest rarity first (C1, U12, L6). */
+export const SHARD_ID_LETTERS = "CUREL";
+
+/** "C14" → its letter's place and number; null when it isn't a shard ID. */
+export function parseShardId(
+  value: string,
+): { letter: number; number: number } | null {
+  const match = /^([a-z])(\d{1,3})$/i.exec(value.trim());
+  if (!match) return null;
+  const letter = SHARD_ID_LETTERS.indexOf((match[1] ?? "").toUpperCase());
+  return letter < 0 ? null : { letter, number: Number(match[2]) };
+}
+
+/**
+ * Hypixel's order of shard IDs: by rarity letter, then number (C1, C2, … C10, U1, …).
+ * IDs that don't parse go last, as text.
+ */
+export function compareShardIds(a: string, b: string): number {
+  const x = parseShardId(a);
+  const y = parseShardId(b);
+  if (x && y) return x.letter - y.letter || x.number - y.number;
+  if (x) return -1;
+  if (y) return 1;
+  return a.localeCompare(b);
+}

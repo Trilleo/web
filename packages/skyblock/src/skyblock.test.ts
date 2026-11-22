@@ -10,6 +10,8 @@ import {
   ruleParts,
   ruleText,
   searchShards,
+  compareShardIds,
+  parseShardId,
   segmentsHtml,
   segmentsText,
   shardSlug,
@@ -234,6 +236,21 @@ describe("ShardCatalog", () => {
   });
 });
 
+describe("shard IDs", () => {
+  it("orders by rarity letter, then number", () => {
+    expect(
+      ["L1", "C10", "U2", "C9", "R1", "E3", "C1", "odd"].sort(compareShardIds),
+    ).toEqual(["C1", "C9", "C10", "U2", "R1", "E3", "L1", "odd"]);
+  });
+
+  it("parses only real IDs", () => {
+    expect(parseShardId("c14")).toEqual({ letter: 0, number: 14 });
+    expect(parseShardId("X1")).toBeNull();
+    expect(parseShardId("C")).toBeNull();
+    expect(parseShardId("Grove")).toBeNull();
+  });
+});
+
 describe("search", () => {
   const list = read().shards.map((shard) => summarize(shard, null));
 
@@ -254,7 +271,12 @@ describe("search", () => {
     ]);
   });
 
-  it("filters, sorting by rarity then name", () => {
+  it("finds a shard by its ID first", () => {
+    expect(searchShards(list, { query: "r45" })[0]?.key).toBe("R45");
+    expect(searchShards(list, { query: " L6 " })[0]?.key).toBe("L6");
+  });
+
+  it("filters, sorting by shard ID", () => {
     expect(
       searchShards(list, { category: "Combat" }).map((s) => s.key),
     ).toEqual(["R45", "L6"]);

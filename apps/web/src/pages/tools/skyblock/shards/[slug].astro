@@ -72,13 +72,14 @@ const rate =
     ? `${shard.rate.toLocaleString("en", { maximumFractionDigits: 2 })} an hour`
     : null;
 const facts: [string, string | null][] = [
+  ["Shard ID", shard.key],
   ["Rarity", rarity],
   ["Category", shard.category || null],
   ["Families", shard.families.join(", ") || null],
   ["Skill", shard.skill || null],
   ["Fusion uses", `${String(shard.fuseAmount)} at a time`],
   ["Hunting rate", rate],
-  ["Hypixel ID", shard.id],
+  ["Item ID", shard.id],
 ];
 // The Bazaar: today's prices and the chart over a range (?range=, links: no JS).
 const current = await currentPrices(db);
@@ -148,6 +149,10 @@ const scrollRegion = {
       )}
       <div class="flex min-w-0 flex-col gap-3">
         <p class="type-label text-muted">
+          <span class="text-ink" data-testid="shard-id">
+            {shard.key}
+          </span>
+          {" · "}
           <span class={`mc-text mc-c-${RARITY_CODES[shard.rarity]}`}>
             {rarity}
           </span>

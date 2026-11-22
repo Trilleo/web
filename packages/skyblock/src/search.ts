@@ -4,7 +4,7 @@
  * its text and how to hunt it; filtered by rarity, category, family and skill.
  */
 import type { ShardRecord } from "./dataset";
-import { rarityRank, type Rarity } from "./rarity";
+import { compareShardIds, parseShardId, type Rarity } from "./rarity";
 import { segmentsText, withoutBuffedBy } from "./text";
 
 export interface ShardSummary {
@@ -72,6 +72,8 @@ export function fold(text: string): string {
 export function matchScore(shard: ShardSummary, query: string): number {
   const q = fold(query);
   if (!q) return 1;
+  // A shard ID ("C14") finds that shard first.
+  if (parseShardId(q) && q === shard.key.toLowerCase()) return 120;
   const name = fold(shard.name);
   if (name === q) return 100;
   if (name.startsWith(q)) return 80;
@@ -97,7 +99,7 @@ export function matchScore(shard: ShardSummary, query: string): number {
 
 /**
  * The shards that pass the filters and match the words: best matches first, and
- * among equals (or with no words) by rarity, then name.
+ * among equals (or with no words) in Hypixel's order of shard IDs (C1, C2, … L48).
  */
 export function searchShards(
   shards: readonly ShardSummary[],
@@ -114,10 +116,7 @@ export function searchShards(
   }
   return scored
     .sort(
-      (a, b) =>
-        b.score - a.score ||
-        rarityRank(a.shard.rarity) - rarityRank(b.shard.rarity) ||
-        a.shard.name.localeCompare(b.shard.name),
+      (a, b) => b.score - a.score || compareShardIds(a.shard.key, b.shard.key),
     )
     .map(({ shard }) => shard);
 }

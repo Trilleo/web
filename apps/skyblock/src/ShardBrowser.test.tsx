@@ -27,7 +27,7 @@ const names = () =>
     .map((link) => link.textContent);
 
 describe("ShardBrowser", () => {
-  it("lists every shard, rarest last, each linking its page", () => {
+  it("lists every shard in shard-ID order, each linking its page", () => {
     render(<ShardBrowser shards={shards()} />);
     expect(names()).toEqual([
       "Grove",
@@ -36,6 +36,9 @@ describe("ShardBrowser", () => {
       "Crocodile",
       "Tiamat",
     ]);
+    expect(
+      screen.getAllByTestId("shard-id").map((id) => id.textContent),
+    ).toEqual(["ID C1", "ID C4", "ID U1", "ID R45", "ID L6"]);
     expect(
       screen.getByRole("link", { name: "Tiamat" }).getAttribute("href"),
     ).toBe("/tools/skyblock/shards/tiamat/");
