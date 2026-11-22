@@ -104,6 +104,13 @@ describe("shardSlug", () => {
     expect(shardSlug("Lizard King")).toBe("lizard-king");
     expect(shardSlug("Soul of the Alpha")).toBe("soul-of-the-alpha");
     expect(shardSlug("Kiara's Fëlix!")).toBe("kiara-s-felix");
+    expect(shardSlug("  --Tiamat--  ")).toBe("tiamat");
+  });
+
+  it("stays fast on long runs of separators", () => {
+    const start = performance.now();
+    expect(shardSlug(`a${"-".repeat(100_000)}!`)).toBe("a");
+    expect(performance.now() - start).toBeLessThan(500);
   });
 });
 

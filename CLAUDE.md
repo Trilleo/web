@@ -114,6 +114,10 @@
 - New domain, fresh start: no WordPress content or URLs carried over.
 - Node 24 LTS, pnpm (version pinned in package.json#packageManager).
   TypeScript stays on 6.x until typescript-eslint and @astrojs/check support 7.
+- Security fixes in transitive dependencies (Dependabot alerts) are version floors in
+  pnpm-workspace.yaml's `overrides`, each scoped to the vulnerable range; drop one
+  once its parent depends on a fixed version. `@emnapi/*` is held on 1.x there:
+  pnpm otherwise picks its 2.0 beta for Astro's wasm bindings and `astro check` breaks.
 - Design: "Swiss grid" direction (Schibsted Grotesk + Geist Mono, orange accent),
   with Source Serif 4 for reading text.
   Light/dark follows the system; the header toggle overrides it, and flipping
