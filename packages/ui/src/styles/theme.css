@@ -86,6 +86,9 @@
   --animate-mask-up: tr-mask-up 700ms var(--tr-ease-out) backwards;
   --animate-pop: tr-pop var(--tr-dur-slow) var(--tr-ease-out) backwards;
   --animate-fade: tr-fade var(--tr-dur-slow) var(--tr-ease) backwards;
+  /* Dialogs opening: a short fade with a slight lift (pop is for small things). */
+  --animate-dialog: tr-dialog var(--tr-dur-fast) var(--tr-ease-out) backwards;
+  --animate-backdrop: tr-fade var(--tr-dur-fast) var(--tr-ease-out) backwards;
   /* A rule drawing in from the left: pair it with origin-left. */
   --animate-draw: tr-draw 900ms var(--tr-ease) backwards;
 }
@@ -111,6 +114,13 @@
   to {
     translate: 0 0;
     clip-path: inset(-0.25em -0.1em -0.25em -0.1em);
+  }
+}
+@keyframes tr-dialog {
+  from {
+    opacity: 0;
+    scale: 0.98;
+    translate: 0 4px;
   }
 }
 @keyframes tr-pop {

@@ -325,7 +325,7 @@ function PickerDialog<T extends PickerShard>({
       aria-labelledby={titleId}
       onClose={onClose}
       data-testid="shard-picker"
-      className="m-0 h-dvh max-h-none w-screen max-w-none animate-pop border-ink bg-paper p-0 text-ink backdrop:bg-ink/40 md:m-auto md:h-[min(44rem,calc(100dvh-4rem))] md:w-[min(48rem,calc(100vw-4rem))] md:border"
+      className="m-0 h-dvh max-h-none w-screen max-w-none animate-dialog border-ink bg-paper p-0 text-ink backdrop:animate-backdrop backdrop:bg-ink/40 md:m-auto md:h-[min(44rem,calc(100dvh-4rem))] md:w-[min(48rem,calc(100vw-4rem))] md:border"
     >
       <div className="flex h-full flex-col">
         <div className="flex flex-col gap-3 border-b border-hair p-4">

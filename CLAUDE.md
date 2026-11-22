@@ -212,7 +212,9 @@ aria-hidden="true"></span><div>…</div></div>` in Astro): an empty label row, t
 - Utilities: `link-wipe` (underline drawn from the left; put it on the text span,
   it reacts to the enclosing link/button/`group`), `press` (click press-in; owns
   the element's transitions), `animate-rise|fade|mask-up|pop|draw` (entrances,
-  `backwards` fill so hover transforms still work afterwards). `buttonClasses`
+  `backwards` fill so hover transforms still work afterwards; pop is for small
+  things), and for dialogs `animate-dialog` (a short fade and slight lift) with
+  `backdrop:animate-backdrop`. `buttonClasses`
   gives buttons a sliding fill (`hover: "plain"`: a plain colour change, used on the
   sign-in pages).
 - Scroll reveals: add `data-reveal` (or `="rule"` / `="fade"`); reveal.ts staggers
