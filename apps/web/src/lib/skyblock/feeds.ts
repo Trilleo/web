@@ -4,18 +4,22 @@
  * its own pace (FEEDS), never browsers; @trilleo/skyblock/events' readers check every
  * answer, and the checked result replaces the feed's row in sb_feeds. The election
  * also writes the history: each election by year (sb_elections) and the running one's
- * votes by the hour (sb_election_votes).
+ * votes by the hour (sb_election_votes). One feed isn't Hypixel's: Jacob's contest
+ * crops, from the Skyblocker mod's calendar (CROPS_URL), which Hypixel's API lacks.
  *
  * Settings (optional): SKYBLOCK_FEEDS=off never fetches; SKYBLOCK_HYPIXEL_URL points
- * at another host (e2e's fake). FAILURES_TO_ALERT failures of one feed in a row alert
+ * at another host (e2e's fake); SKYBLOCK_CROPS=off skips the crops alone and
+ * SKYBLOCK_CROPS_URL points them elsewhere. FAILURES_TO_ALERT failures of one feed in a row alert
  * the admin ("skyblock-feeds"), at most every ALERT_GAP_MS.
  */
 import {
   readBingo,
   readElection,
   readFireSales,
+  readJacobCrops,
   readNews,
   type Bingo,
+  type JacobSchedule,
   type Election,
   type FireSale,
   type NewsItem,
@@ -32,6 +36,8 @@ import { hourOf } from "./bazaar";
 import { fetchJson } from "./source";
 
 export const HYPIXEL_API = "https://api.hypixel.net";
+/** The Skyblocker mod's in-game calendar: Jacob's contests with their crops. */
+export const CROPS_URL = "https://hysky.de/api/calendar";
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
 
@@ -61,6 +67,13 @@ export const FEEDS = {
     everyMs: 30 * MINUTE_MS,
     read: readNews,
   },
+  jacob: {
+    label: "Jacob's crops",
+    // Not Hypixel's: the address comes from `cropsUrl`.
+    path: null,
+    everyMs: 3 * HOUR_MS,
+    read: readJacobCrops,
+  },
 } as const;
 export type Feed = keyof typeof FEEDS;
 export const FEED_NAMES = Object.keys(FEEDS) as Feed[];
@@ -82,10 +95,20 @@ export function hypixelBase(
   );
 }
 
+export function cropsUrl(
+  env: Record<string, string | undefined> = process.env,
+): string | null {
+  if (env.SKYBLOCK_FEEDS === "off" || env.SKYBLOCK_CROPS === "off") return null;
+  const url = env.SKYBLOCK_CROPS_URL?.trim();
+  return url === undefined || url === "" ? CROPS_URL : url;
+}
+
 export interface FeedDeps {
   fetch?: typeof fetch;
   /** null: fetching is off. Read from the environment if left out. */
   base?: string | null;
+  /** The crop calendar's address; null: skipped. Read from the environment if left out. */
+  crops?: string | null;
   now?: () => Date;
   sleep?: (ms: number) => Promise<void>;
   /** Fetch these whether or not they're due ("Check now"). */
@@ -106,6 +129,7 @@ export async function refreshFeeds(
   const base = deps.base === undefined ? hypixelBase() : deps.base;
   if (!base) return [];
   const now = deps.now ?? (() => new Date());
+  const crops = deps.crops === undefined ? cropsUrl() : deps.crops;
   const rows = new Map(
     (await db.select().from(sbFeeds)).map((row) => [row.feed, row]),
   );
@@ -117,7 +141,10 @@ export async function refreshFeeds(
       row?.lastErrorAt?.getTime() ?? 0,
     );
     if (!deps.force && now().getTime() - last < FEEDS[feed].everyMs) continue;
-    results.push(await refreshFeed(db, feed, base, deps, now));
+    const path = FEEDS[feed].path;
+    const url = path === null ? crops : `${base}${path}`;
+    if (url === null) continue;
+    results.push(await refreshFeed(db, feed, url, deps, now));
   }
   if (results.some((result) => result.ok)) forgetFeeds();
   return results;
@@ -126,7 +153,7 @@ export async function refreshFeeds(
 async function refreshFeed(
   db: Database,
   feed: Feed,
-  base: string,
+  url: string,
   deps: FeedDeps,
   now: () => Date,
 ): Promise<FeedResult> {
@@ -134,7 +161,7 @@ async function refreshFeed(
   try {
     const body = await fetchJson(
       deps.fetch ?? fetch,
-      `${base}${FEEDS[feed].path}`,
+      url,
       deps.sleep ? { sleep: deps.sleep } : {},
     );
     data = FEEDS[feed].read(body);
@@ -189,7 +216,7 @@ async function recordFailure(
       db,
       {
         kind: "skyblock-feeds",
-        summary: `SkyBlock: Hypixel's ${FEEDS[feed].label.toLowerCase()} haven't loaded ${String(failures)} times in a row: ${message}`,
+        summary: `SkyBlock: the ${FEEDS[feed].label.toLowerCase()} feed hasn't loaded ${String(failures)} times in a row: ${message}`,
         path: "/admin/skyblock/",
       },
       now,
@@ -261,6 +288,8 @@ export interface LiveFeeds {
   fireSales: FireSale[];
   bingo: Bingo | null;
   news: NewsItem[];
+  /** Jacob's contests and their crops, when the crop calendar has loaded. */
+  jacob: JacobSchedule | null;
   fetchedAt: Record<Feed, Date | null>;
 }
 
@@ -287,6 +316,7 @@ export async function liveFeeds(
     fireSales: (data("firesales") as FireSale[] | null) ?? [],
     bingo: data("bingo") as Bingo | null,
     news: (data("news") as NewsItem[] | null) ?? [],
+    jacob: data("jacob") as JacobSchedule | null,
     fetchedAt: Object.fromEntries(
       FEED_NAMES.map((feed) => [feed, rows.get(feed)?.fetchedAt ?? null]),
     ) as Record<Feed, Date | null>,

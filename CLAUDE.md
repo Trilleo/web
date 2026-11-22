@@ -1674,6 +1674,27 @@ chunithm:bundle <list>` (scripts/chunithm-bundle.ts around lib/chunithm/bundler.
 - Browser notifications (components/skyblock/event-notify.ts): anyone, no account; the
   chosen events and leads stay in this browser (`trilleo:tool:skyblock:notify`,
   preferences), and fire only while an event timer page is open (`data-notify-*` rows).
+- Jacob's contest crops (@trilleo/skyblock/events' crops.ts, `readJacobCrops`): not in
+  Hypixel's API, so the feeds' "jacob" feed reads the Skyblocker mod's calendar
+  (CROPS_URL, hysky.de/api/calendar, every 3 hours; credited on the pages that show
+  crops and in the colophon). Elite's API (the one SkyHanni uses) needs written
+  permission for public projects, so it isn't used. Only real contest starts and known
+  crops are kept (JACOB_CROPS). Crops show on the board, the contest's page (24 times
+  ahead for hourly events), emails and the calendar feed (`crops=` filters it); a
+  contest reminder may name crops (sb_reminders.crops) and is then sent only for
+  contests known to use one (`cropsMatch`). The API doesn't serve crops (a third
+  party's data). SKYBLOCK_CROPS=off skips the feed; SKYBLOCK_CROPS_URL points elsewhere
+  (e2e: fake-skyblock.ts's /hysky/calendar).
+- Elections (lib/skyblock/elections.ts): /tools/skyblock/events/elections/ (the running
+  one's shares, then each recorded result: mayor, minister, votes) and
+  …/elections/<year>/ (booth dates, each candidate's votes, share and perks, a sparkline
+  of their share over the recorded hours, one per candidate so no palette is needed,
+  and the hourly table). From sb_elections/sb_election_votes, so history starts with
+  the site's first fetch. In /sitemap-skyblock.xml.
+- API (lib/api/routes/skyblock-events.ts, group "skyblock", public):
+  `/v1/skyblock/calendar`, `/events` (`hours` ≤ 336, `category`), `/mayor`,
+  `/elections`, `/elections/{year}`, `/firesales`, `/bingo`; perks come plain and raw
+  (§ codes); `feed_unavailable` (503) before a feed has loaded.
 - The calendar feed (lib/skyblock/calendar-feed.ts): /tools/skyblock/events/calendar.ics
   ?events=&alarm= (no account or secret: the link says which events), the next ICS_DAYS
   written out as events with stable UIDs (`calendarIcs`, no RRULEs); /…/events/calendar/

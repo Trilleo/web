@@ -15,9 +15,9 @@ export const prerender = false;
  */
 export const GET: APIRoute = async ({ url }) => {
   const now = Date.now();
-  const { election } = await liveFeeds(await getDb(), now);
+  const { election, jacob } = await liveFeeds(await getDb(), now);
   return new Response(
-    feedIcs(readFeedChoice(url.searchParams), election, now),
+    feedIcs(readFeedChoice(url.searchParams), election, jacob, now),
     {
       headers: {
         "Content-Type": "text/calendar; charset=utf-8",

@@ -188,6 +188,7 @@ describe("sending", () => {
             userId,
             eventSlug: "a",
             leadMinutes: 0,
+            crops: null,
             createdAt: BEFORE,
             lastSentAt: null,
           },
@@ -204,6 +205,7 @@ describe("sending", () => {
             userId,
             eventSlug: "b",
             leadMinutes: 0,
+            crops: null,
             createdAt: BEFORE,
             lastSentAt: null,
           },
@@ -273,6 +275,46 @@ describe("sending", () => {
     await sendDueReminders(handle.db, new Date(first + 5 * 3_600_000));
     expect(await sends()).toHaveLength(5);
     expect((await mail()).length).toBe(2);
+  });
+
+  it("sends a Jacob's contest reminder with crops only for contests known to use one", async () => {
+    // The contest at 1795083300 uses Wheat, Nether Wart and Cocoa Beans.
+    const start = 1795083300_000;
+    const { sbFeeds } = await import("@trilleo/db");
+    await handle.db.insert(sbFeeds).values({
+      feed: "jacob",
+      fetchedAt: new Date(start - 3_600_000),
+      data: {
+        contests: { [String(start)]: ["Wheat", "Nether Wart", "Cocoa Beans"] },
+      },
+    });
+    const other = await makeUser("farmer", "farmer@example.com");
+    await addReminder(
+      handle.db,
+      userId,
+      "jacobs-farming-contest",
+      5,
+      new Date(),
+      ["Cactus"],
+    );
+    await addReminder(
+      handle.db,
+      other,
+      "jacobs-farming-contest",
+      5,
+      new Date(),
+      ["Wheat", "Gold"],
+    );
+    expect((await listReminders(handle.db, other))[0]?.crops).toEqual([
+      "Wheat",
+    ]);
+    await sendDueReminders(handle.db, new Date(start - 5 * 60_000));
+    const messages = await mail();
+    expect(messages.map((m) => m.toAddress)).toEqual(["farmer@example.com"]);
+    expect(messages[0]?.textBody).toContain("Wheat, Nether Wart, Cocoa Beans");
+    // The next contest's crops aren't known: no email for a crop reminder.
+    await sendDueReminders(handle.db, new Date(start + 3_600_000 - 5 * 60_000));
+    expect(await mail()).toHaveLength(1);
   });
 
   it("sends perk events only while someone in office holds the perk", async () => {

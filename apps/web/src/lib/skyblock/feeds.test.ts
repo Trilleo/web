@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   FAILURES_TO_ALERT,
   FEEDS,
+  cropsUrl,
   feedStatus,
   forgetFeeds,
   hypixelBase,
@@ -66,6 +67,7 @@ function hypixel(overrides: Record<string, unknown> = {}) {
 const deps = (fetcher: typeof fetch) => ({
   fetch: fetcher,
   base: "https://hypixel.test",
+  crops: null,
   now: () => clock,
   sleep: () => Promise.resolve(),
 });
@@ -159,6 +161,26 @@ describe("the SkyBlock feeds", () => {
     expect(news?.lastError).toMatch(/news/);
     const alerts = await handle.db.select().from(adminAlerts);
     expect(alerts.map((a) => a.kind)).toEqual(["skyblock-feeds"]);
+    expect(alerts[0]?.summary).toContain("the news feed");
+  });
+
+  it("reads Jacob's crops from the crop calendar, on its own address", async () => {
+    const { fetcher, asked } = hypixel({ "/calendar": fixture("crops") });
+    const results = await refreshFeeds(handle.db, {
+      ...deps(fetcher),
+      crops: "https://crops.test/calendar",
+    });
+    expect(results.find((r) => r.feed === "jacob")?.ok).toBe(true);
+    expect(asked).toContain("/calendar");
+    const live = await liveFeeds(handle.db, clock.getTime());
+    expect(live.jacob?.contests["1795083300000"]).toEqual([
+      "Wheat",
+      "Nether Wart",
+      "Cocoa Beans",
+    ]);
+    expect(cropsUrl({ SKYBLOCK_CROPS: "off" })).toBeNull();
+    expect(cropsUrl({ SKYBLOCK_FEEDS: "off" })).toBeNull();
+    expect(cropsUrl({})).toBe("https://hysky.de/api/calendar");
   });
 
   it("fetches nothing when switched off", async () => {

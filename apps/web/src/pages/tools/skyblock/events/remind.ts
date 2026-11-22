@@ -15,7 +15,8 @@ export const prerender = false;
 
 /**
  * POST /tools/skyblock/events/remind, from the event pages and the reminders page (no
- * JavaScript needed): `intent` add (event, lead), remove (id) or settings (time zone,
+ * JavaScript needed): `intent` add (event, lead, and for Jacob's contests any
+ * `crops`), remove (id) or settings (time zone,
  * daily cap, quiet hours). Back to `back` (a page under /tools/skyblock/events/) with
  * ?reminder=<what happened> (REMINDER_ANSWERS in lib/skyblock/reminder-answers.ts).
  */
@@ -41,6 +42,8 @@ export const POST: APIRoute = async (context) => {
         user.id,
         field(form, "event"),
         Number.parseInt(field(form, "lead"), 10),
+        new Date(),
+        form.getAll("crops").filter((v): v is string => typeof v === "string"),
       );
       return finish(result.ok ? "added" : result.error);
     }

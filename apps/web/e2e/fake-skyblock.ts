@@ -5,7 +5,8 @@
  * has prices (SKYBLOCK_BAZAAR_URL in playwright.config.ts). The event timer's feeds
  * (SKYBLOCK_HYPIXEL_URL) answer as of the request: Marina is mayor with Fishing
  * Festival, Diaz minister, a running election with fixed votes, a fire sale and Bingo
- * on now, and two news posts.
+ * on now, and two news posts. /hysky/calendar stands in for the Skyblocker mod's
+ * calendar (SKYBLOCK_CROPS_URL): the next contests with crops in turn.
  */
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -134,7 +135,31 @@ export function electionBody(elected = electedYear()): unknown {
 
 const DAY_MS = 86_400_000;
 
+const CROPS = [
+  ["Wheat", "Carrot", "Potato"],
+  ["Cactus", "Melon", "Pumpkin"],
+  ["Sugar Cane", "Nether Wart", "Mushroom"],
+];
+
+/**
+ * The Skyblocker calendar's shape: the next dozen Jacob's contests (every hour, a
+ * SkyBlock day after each third day starts) with crops in turn.
+ */
+export function cropsBody(now = Date.now()): unknown {
+  const period = 3 * SB_DAY_MS;
+  const anchor = EPOCH_MS + SB_DAY_MS;
+  const first = anchor + Math.ceil((now - anchor) / period) * period;
+  return Array.from({ length: 12 }, (_, i) => ({
+    timestamp: (first + i * period) / 1000,
+    duration: 1199,
+    event: "Jacob's Farming Contest",
+    location: "/warp garden",
+    extras: CROPS[i % CROPS.length],
+  }));
+}
+
 function feedBody(path: string, now = Date.now()): unknown {
+  if (path === "/hysky/calendar") return cropsBody(now);
   if (path === "/v2/resources/skyblock/election") return electionBody();
   if (path === "/v2/skyblock/firesales")
     return {

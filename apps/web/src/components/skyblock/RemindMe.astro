@@ -6,6 +6,7 @@
  * (event-notify.ts, shown only with JavaScript).
  */
 import {
+  JACOB_CROPS,
   formatLead,
   leadsFor,
   nextReminderAt,
@@ -36,6 +37,7 @@ interface Props {
 
 const { event, user, reminders, now, path, number } = Astro.props;
 const leads = leadsFor(event);
+const contest = event.slug === "jacobs-farming-contest";
 const taken = new Set(reminders.map((r) => r.leadMinutes));
 const free = leads.filter((lead) => !taken.has(lead));
 const row = "grid-swiss mt-10 gap-y-4 border-t border-ink pt-4 md:pt-5";
@@ -92,6 +94,11 @@ const select = `${fieldClasses} h-11 px-3`;
                     <span class="font-medium">
                       {formatLead(reminder.leadMinutes)}
                     </span>
+                    {reminder.crops && (
+                      <span class="text-muted">
+                        {` · ${reminder.crops.join(" or ")}`}
+                      </span>
+                    )}
                     {next !== null && (
                       <span class="text-muted">
                         {" · next "}
@@ -125,25 +132,44 @@ const select = `${fieldClasses} h-11 px-3`;
           <form
             method="post"
             action="/tools/skyblock/events/remind"
-            class="field-row grid-cols-1 md:grid-cols-[minmax(0,16rem)_auto] md:justify-start"
+            class="flex flex-col gap-4"
           >
             <input type="hidden" name="intent" value="add" />
             <input type="hidden" name="event" value={event.slug} />
             <input type="hidden" name="back" value={path} />
-            <label class="flex flex-col gap-1.5">
-              <span class="type-label">Email me</span>
-              <select name="lead" class={select}>
-                {free.map((lead) => (
-                  <option value={String(lead)}>{formatLead(lead)}</option>
-                ))}
-              </select>
-            </label>
-            <div class="field-action">
-              <span aria-hidden="true" />
-              <div>
-                <button type="submit" class={buttonClasses()}>
-                  Remind me
-                </button>
+            {contest && (
+              <fieldset class="flex flex-col gap-2">
+                <legend class="type-label mb-2">Only with these crops</legend>
+                <div class="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
+                  {JACOB_CROPS.map((crop) => (
+                    <label class="flex items-center gap-2 text-sm">
+                      <input type="checkbox" name="crops" value={crop} />
+                      {crop}
+                    </label>
+                  ))}
+                </div>
+                <span class="text-sm text-muted">
+                  None ticked: every contest. With crops, only contests whose
+                  crops are known.
+                </span>
+              </fieldset>
+            )}
+            <div class="field-row grid-cols-1 md:grid-cols-[minmax(0,16rem)_auto] md:justify-start">
+              <label class="flex flex-col gap-1.5">
+                <span class="type-label">Email me</span>
+                <select name="lead" class={select}>
+                  {free.map((lead) => (
+                    <option value={String(lead)}>{formatLead(lead)}</option>
+                  ))}
+                </select>
+              </label>
+              <div class="field-action">
+                <span aria-hidden="true" />
+                <div>
+                  <button type="submit" class={buttonClasses()}>
+                    Remind me
+                  </button>
+                </div>
               </div>
             </div>
           </form>

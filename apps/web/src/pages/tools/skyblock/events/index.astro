@@ -34,8 +34,11 @@ import { getDb } from "../../../../lib/db";
 import { liveFeeds } from "../../../../lib/skyblock/feeds";
 import { CALENDAR_PATH } from "../../../../lib/skyblock/calendar-feed";
 import { REMINDERS_PATH } from "../../../../lib/skyblock/reminders";
+import { ELECTIONS_PATH } from "../../../../lib/skyblock/elections";
 import { ogImagePath, toolCard } from "../../../../lib/seo";
 import {
+  SKYBLOCKER_URL,
+  cropsOf,
   eventsIn,
   isoTime,
   utcTime,
@@ -115,6 +118,9 @@ const scrollRegion = {
       <a href={CALENDAR_PATH} class="group">
         <span class="link-wipe">Calendar feed</span>
       </a>
+      <a href={ELECTIONS_PATH} class="group">
+        <span class="link-wipe">Elections</span>
+      </a>
     </nav>
   </div>
 
@@ -192,7 +198,7 @@ const scrollRegion = {
                   {formatCountdown(occurrence.end - now)}
                 </span>
                 {" · "}
-                {occurrence.event.where}
+                {cropsOf(occurrence, live.jacob) ?? occurrence.event.where}
               </p>
             </li>
           ))}
@@ -246,6 +252,14 @@ const scrollRegion = {
                         {occurrence.event.name}
                       </span>
                     </a>
+                    {cropsOf(occurrence, live.jacob) && (
+                      <span
+                        class="block text-muted"
+                        data-testid="contest-crops"
+                      >
+                        {cropsOf(occurrence, live.jacob)}
+                      </span>
+                    )}
                   </th>
                   <td class={td}>
                     <span data-countdown={String(occurrence.start)}>
@@ -333,7 +347,12 @@ const scrollRegion = {
 
   <Fragment slot="credit">
     Times are worked out from the SkyBlock calendar; the mayor, the election,
-    fire sales, Bingo and news are from Hypixel's public API.
+    fire sales, Bingo and news are from Hypixel's public API; Jacob's contest
+    crops are from the{" "}
+    <a href={SKYBLOCKER_URL} class="underline" rel="noreferrer">
+      Skyblocker
+    </a>{" "}
+    mod's calendar.
   </Fragment>
 </SkyblockLayout>
 

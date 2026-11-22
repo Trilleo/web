@@ -180,7 +180,10 @@ sales, Bingo and Hypixel's news, which the server fetches from Hypixel's public 
 before the events they choose (`/tools/skyblock/events/reminders/`: a daily cap, quiet
 hours and their time zone; the admin sees them all at `/admin/mail/reminders/`); anyone
 can have this browser notify them while the page is open, or subscribe to a calendar feed
-(`/tools/skyblock/events/calendar/`). Shards:
+(`/tools/skyblock/events/calendar/`). Jacob's contests show their crops (from the
+Skyblocker mod's calendar), and reminders and the feed can pick crops. Elections are
+kept from the site's first fetch (`/tools/skyblock/events/elections/`), and the API
+serves the calendar, events, mayor, elections, fire sales and Bingo (`/v1/skyblock/…`). Shards:
 every shard, searchable by name, attribute or effect, and a page for each
 (`/tools/skyblock/shards/<name>/`) with its attribute drawn as the game draws it, what each
 level costs, where to hunt it, and every fusion that makes it or uses it. The fusion

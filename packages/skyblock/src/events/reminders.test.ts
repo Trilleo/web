@@ -141,6 +141,22 @@ describe("the calendar feed", () => {
     ).toBe(true);
   });
 
+  it("adds extra words to a time's summary", () => {
+    const [contest] = occurrences(
+      event("jacobs-farming-contest"),
+      now,
+      now + 3_600_000,
+    );
+    if (!contest) throw new Error("no contest");
+    const ics = calendarIcs([contest], {
+      ...options,
+      extra: () => "Wheat, Cactus, Carrot",
+    });
+    expect(ics).toContain(
+      "SUMMARY:Jacob's Farming Contest: Wheat\\, Cactus\\, Carrot",
+    );
+  });
+
   it("gives moment-long events a minute, and leaves the alarm out when asked", () => {
     const [auction] = occurrences(event("dark-auction"), now, now + 3_600_000);
     if (!auction) throw new Error("no auction");

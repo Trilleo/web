@@ -10,12 +10,15 @@
  * them. Every reminder is logged once per start (sb_reminder_sends: sent or why
  * not), so a pass never sends one twice, even two passes at once; the log is purged
  * after REMINDER_LOG_DAYS. Perk events count only while someone in office holds the
- * perk (the election feed).
+ * perk (the election feed). A Jacob's contest reminder may name crops: it's then sent
+ * only for contests known (the crop feed) to use one of them.
  */
 import {
   EVENTS,
   PERK_EVENTS,
   REMINDER_LIMITS,
+  contestCrops,
+  cropName,
   dueOccurrence,
   formatDuration,
   formatLead,
@@ -27,6 +30,8 @@ import {
   mayorEvents,
   reminderSubject,
   skyblockDate,
+  type JacobCrop,
+  type JacobSchedule,
   type Occurrence,
   type SkyBlockEvent,
 } from "@trilleo/skyblock/events";
@@ -47,6 +52,8 @@ import { notifyUser } from "../mail/notify";
 import { liveFeeds } from "./feeds";
 
 export const REMINDERS_PATH = "/tools/skyblock/events/reminders/";
+/** The one event whose reminders may name crops. */
+export const CONTEST_SLUG = "jacobs-farming-contest";
 /** How often a pass looks for what's due. */
 export const TICK_MS = 30 * 1000;
 /** The send log is kept this long. */
@@ -150,6 +157,8 @@ export interface ReminderRow {
   id: number;
   eventSlug: string;
   leadMinutes: number;
+  /** Jacob's contests with one of these crops only; null: every time. */
+  crops: string[] | null;
   createdAt: Date;
   lastSentAt: Date | null;
 }
@@ -163,6 +172,7 @@ export async function listReminders(
       id: sbReminders.id,
       eventSlug: sbReminders.eventSlug,
       leadMinutes: sbReminders.leadMinutes,
+      crops: sbReminders.crops,
       createdAt: sbReminders.createdAt,
       lastSentAt: sbReminders.lastSentAt,
     })
@@ -179,6 +189,7 @@ export async function addReminder(
   slug: string,
   lead: number,
   now = new Date(),
+  cropNames: readonly string[] = [],
 ): Promise<{ ok: true } | { ok: false; error: AddError }> {
   const event = reminderEvent(slug);
   if (!event) return { ok: false, error: "unknown-event" };
@@ -190,9 +201,20 @@ export async function addReminder(
     .where(eq(sbReminders.userId, userId));
   if ((row?.n ?? 0) >= REMINDER_LIMITS.perUser)
     return { ok: false, error: "too-many" };
+  // Crops only mean something for Jacob's contests; unknown names are dropped.
+  const crops =
+    slug === CONTEST_SLUG
+      ? [...new Set(cropNames.flatMap((name) => cropName(name) ?? []))]
+      : [];
   const added = await db
     .insert(sbReminders)
-    .values({ userId, eventSlug: slug, leadMinutes: lead, createdAt: now })
+    .values({
+      userId,
+      eventSlug: slug,
+      leadMinutes: lead,
+      crops: crops.length > 0 ? crops : null,
+      createdAt: now,
+    })
     .onConflictDoNothing()
     .returning({ id: sbReminders.id });
   return added.length > 0 ? { ok: true } : { ok: false, error: "exists" };
@@ -240,6 +262,22 @@ interface Due {
   reminder: typeof sbReminders.$inferSelect;
   event: SkyBlockEvent;
   occurrence: Occurrence;
+  /** A contest's crops, when known. */
+  crops?: JacobCrop[] | null;
+}
+
+/**
+ * Whether a reminder's crop filter lets a time through: no filter, or a Jacob's
+ * contest whose crops are known and include one of them.
+ */
+export function cropsMatch(
+  wanted: readonly string[] | null,
+  occurrence: Occurrence,
+  jacob: JacobSchedule | null,
+): boolean {
+  if (!wanted || wanted.length === 0) return true;
+  const known = contestCrops(jacob, occurrence.start);
+  return known?.some((crop) => wanted.includes(crop)) ?? false;
 }
 
 function when(ms: number, timeZone: string): string {
@@ -269,7 +307,7 @@ export function reminderEmail(
       ? reminderSubject(first.event.name, first.occurrence.start, now)
       : `${reminderSubject(first.event.name, first.occurrence.start, now)}, and ${String(sorted.length - 1)} more`;
   const blocks: EmailBlock[] = [];
-  for (const { event, occurrence } of sorted) {
+  for (const { event, occurrence, crops } of sorted) {
     blocks.push(
       {
         type: "text",
@@ -288,6 +326,7 @@ export function reminderEmail(
                 ] as const,
               ]
             : []),
+          ...(crops ? [["Crops", crops.join(", ")] as const] : []),
           ["Where", event.where],
           ...(event.warp ? [["Warp", event.warp] as const] : []),
         ],
@@ -324,11 +363,14 @@ export async function sendDueReminders(
   const at = now.getTime();
   const reminders = await db.select().from(sbReminders);
   if (reminders.length > 0) {
-    const perks = reminders.some((r) =>
-      PERK_EVENTS.some((event) => event.slug === r.eventSlug),
-    )
-      ? mayorEvents((await liveFeeds(db, at)).election)
-      : [];
+    const needsFeeds = reminders.some(
+      (r) =>
+        PERK_EVENTS.some((event) => event.slug === r.eventSlug) ||
+        r.eventSlug === CONTEST_SLUG,
+    );
+    const live = needsFeeds ? await liveFeeds(db, at) : null;
+    const perks = mayorEvents(live?.election ?? null);
+    const jacob = live?.jacob ?? null;
     const due: Due[] = [];
     for (const reminder of reminders) {
       const base = reminderEvent(reminder.eventSlug);
@@ -337,7 +379,13 @@ export async function sendDueReminders(
       const event = base.perk ? perks.find((e) => e.slug === base.slug) : base;
       if (!event) continue;
       const occurrence = dueOccurrence(event, reminder.leadMinutes, at);
-      if (occurrence) due.push({ reminder, event, occurrence });
+      if (occurrence && cropsMatch(reminder.crops, occurrence, jacob))
+        due.push({
+          reminder,
+          event,
+          occurrence,
+          crops: contestCrops(jacob, occurrence.start),
+        });
     }
     if (due.length > 0) return sendTo(db, due, now);
   }
@@ -462,6 +510,7 @@ export async function reminderExport(db: Database, userId: string) {
     reminders: (await listReminders(db, userId)).map((row) => ({
       event: row.eventSlug,
       lead: formatLead(row.leadMinutes),
+      crops: row.crops,
       createdAt: row.createdAt,
       lastSentAt: row.lastSentAt,
     })),

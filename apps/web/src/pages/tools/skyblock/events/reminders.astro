@@ -135,6 +135,7 @@ const quietOn = settings.quietStart !== null && settings.quietEnd !== null;
                 </a>
                 <span class="text-muted">
                   {formatLead(reminder.leadMinutes)}
+                  {reminder.crops && ` · ${reminder.crops.join(" or ")}`}
                   {next !== null ? (
                     <>
                       {" · next "}

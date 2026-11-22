@@ -109,6 +109,11 @@ export const ERROR_CODES = {
     description:
       "The site hasn't got Hypixel's Bazaar prices yet (it fetches them every few minutes, and Hypixel may not be answering). Try again in a few minutes.",
   },
+  feed_unavailable: {
+    status: 503,
+    description:
+      "The site hasn't read that from Hypixel yet (it reads the election every 5 minutes and Bingo every 30, and Hypixel may not be answering). Try again in a few minutes.",
+  },
   method_not_allowed: {
     status: 405,
     description:

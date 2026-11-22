@@ -18,6 +18,8 @@ export interface IcsOptions {
   now: number;
   /** The domain UIDs end in. */
   domain: string;
+  /** Extra words for a time, shown after its name (Jacob's contest crops). */
+  extra?: (occurrence: Occurrence) => string | null;
 }
 
 /** How long apps should wait before fetching again. */
@@ -78,6 +80,7 @@ export function calendarIcs(
   for (const occurrence of occurrences) {
     const { event, start, end } = occurrence;
     const date = formatSkyblockDate(skyblockDate(start));
+    const extra = options.extra?.(occurrence) ?? null;
     const description = [
       event.summary,
       `SkyBlock date: ${date}.`,
@@ -92,7 +95,7 @@ export function calendarIcs(
       `DTSTART:${icsDate(start)}`,
       // A moment-long event (the Dark Auction) gets a minute, which apps can show.
       `DTEND:${icsDate(end > start ? end : start + 60_000)}`,
-      `SUMMARY:${icsText(event.name)}`,
+      `SUMMARY:${icsText(extra ? `${event.name}: ${extra}` : event.name)}`,
       `DESCRIPTION:${icsText(description)}`,
       `LOCATION:${icsText(event.where)}`,
       `URL:${options.eventUrl(event.slug)}`,

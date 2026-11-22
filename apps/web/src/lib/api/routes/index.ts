@@ -33,6 +33,15 @@ import {
   listSkyblockShards,
 } from "./skyblock";
 import {
+  getSkyblockBingo,
+  getSkyblockCalendar,
+  getSkyblockElection,
+  getSkyblockMayor,
+  listSkyblockElections,
+  listSkyblockEvents,
+  listSkyblockFireSales,
+} from "./skyblock-events";
+import {
   getSkyblockCollection,
   listSkyblockProfiles,
   listSkyblockSyncs,
@@ -60,6 +69,13 @@ export const ROUTES: readonly Route[] = [
   listSkyblockShards,
   getSkyblockPrices,
   getSkyblockPriceHistory,
+  getSkyblockCalendar,
+  listSkyblockEvents,
+  getSkyblockMayor,
+  listSkyblockElections,
+  getSkyblockElection,
+  listSkyblockFireSales,
+  getSkyblockBingo,
   startDevice,
   finishDevice,
   getAccount,

@@ -11,6 +11,13 @@ export interface ChangelogEntry {
 
 export const API_CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: "2026-11-22",
+    changes: [
+      "SkyBlock's event timer, no key needed: `GET /v1/skyblock/calendar` (the SkyBlock date and every event, on now and next), `/v1/skyblock/events` (times in the coming hours, `hours` and `category`), `/v1/skyblock/mayor` (the mayor, minister and running election), `/v1/skyblock/elections` and `/v1/skyblock/elections/{year}` (recorded elections, with votes by the hour), `/v1/skyblock/firesales` and `/v1/skyblock/bingo`.",
+      "Error code `feed_unavailable` (503): the site hasn't read that from Hypixel yet.",
+    ],
+  },
+  {
     date: "2026-11-21",
     changes: [
       "SkyBlock sync, with a personal token (scope `skyblock:sync`): `GET /v1/skyblock/me/profiles`, `PUT /v1/skyblock/me/profiles/{profileId}`, `POST /v1/skyblock/me/profiles/{profileId}/sync`, `GET /v1/skyblock/me/profiles/{profileId}/collection` and `GET /v1/skyblock/me/profiles/{profileId}/syncs`. See the SkyBlock sync guide.",

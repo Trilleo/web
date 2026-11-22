@@ -50,6 +50,7 @@ const e2eEnv = {
   SKYBLOCK_BAZAAR_URL: `${FAKE_SKYBLOCK}/v2/skyblock/bazaar`,
   // So do the event timer's feeds (mayor, election, fire sales, Bingo, news).
   SKYBLOCK_HYPIXEL_URL: FAKE_SKYBLOCK,
+  SKYBLOCK_CROPS_URL: `${FAKE_SKYBLOCK}/hysky/calendar`,
   // The human check asks only browsers with a trilleo_check_test cookie (its level),
   // and puzzles carry their answers (e2e/human-check.spec.ts).
   CAPTCHA_TEST: "1",

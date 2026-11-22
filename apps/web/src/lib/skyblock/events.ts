@@ -5,6 +5,8 @@
  */
 import {
   EVENTS,
+  contestCrops,
+  type JacobSchedule,
   SB_MONTHS,
   occurrences,
   skyblockDate,
@@ -75,3 +77,14 @@ export function yearByMonth(
     current: today.year === year && today.month === index + 1,
   }));
 }
+
+/** A time's crops, for Jacob's contests whose crops are known; null otherwise. */
+export function cropsOf(
+  occurrence: Occurrence,
+  jacob: JacobSchedule | null,
+): string | null {
+  if (occurrence.event.slug !== "jacobs-farming-contest") return null;
+  return contestCrops(jacob, occurrence.start)?.join(", ") ?? null;
+}
+
+export const SKYBLOCKER_URL = "https://github.com/SkyblockerMod/Skyblocker";

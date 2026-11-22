@@ -32,6 +32,7 @@ const PAGES = [
   "/tools/skyblock/events/",
   "/tools/skyblock/events/spooky-festival/",
   "/tools/skyblock/events/calendar/?events=dark-auction&alarm=5",
+  "/tools/skyblock/events/elections/",
   "/games/",
   "/games/skygrid/",
   "/games/skygrid/leaderboard/",

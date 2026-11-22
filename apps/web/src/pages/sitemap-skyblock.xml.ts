@@ -3,6 +3,11 @@ import { EVENTS } from "@trilleo/skyblock/events";
 import { EVENTS_PATH, eventPath } from "@trilleo/tool-skyblock/meta";
 import { getDb } from "../lib/db";
 import { shardData } from "../lib/skyblock/data";
+import {
+  ELECTIONS_PATH,
+  electionPath,
+  listElections,
+} from "../lib/skyblock/elections";
 import { shardPaths } from "../lib/skyblock/public";
 import { SITE_URL } from "../lib/site";
 
@@ -10,7 +15,7 @@ export const prerender = false;
 
 /**
  * Every SkyBlock shard's page (the list is in the build's sitemap), and the event
- * timer's pages (server-rendered). The shards come from the synced data, so
+ * timer's pages (server-rendered), elections included. The shards come from the synced data, so
  * robots.txt points here; their `lastmod` is when that version was read.
  */
 export const GET: APIRoute = async ({ site }) => {
@@ -24,7 +29,13 @@ export const GET: APIRoute = async ({ site }) => {
       (path) => `<url><loc>${new URL(path, origin).href}</loc>${lastmod}</url>`,
     )
     .join("");
-  const events = [EVENTS_PATH, ...EVENTS.map((event) => eventPath(event.slug))]
+  const elections = await listElections(await getDb());
+  const events = [
+    EVENTS_PATH,
+    ...EVENTS.map((event) => eventPath(event.slug)),
+    ELECTIONS_PATH,
+    ...elections.map((election) => electionPath(election.year)),
+  ]
     .map((path) => `<url><loc>${new URL(path, origin).href}</loc></url>`)
     .join("");
   return new Response(

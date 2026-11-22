@@ -1,12 +1,13 @@
 ---
 /**
  * The calendar feed's page: /tools/skyblock/events/calendar/[?events=&alarm=]. A GET
- * form (no JavaScript needed) picks events and an alarm; the page then shows the
+ * form (no JavaScript needed) picks events, Jacob's crops and an alarm; the page then shows the
  * feed's address to copy and a webcal: link that opens a calendar app.
  */
 import {
   EVENT_CATEGORIES,
   EVENTS,
+  JACOB_CROPS,
   PERK_EVENTS,
   formatLead,
   type EventCategory,
@@ -93,6 +94,28 @@ const body =
         ))}
       </div>
       <p class="text-sm text-muted">None ticked: every event.</p>
+      <fieldset class="flex flex-col gap-2">
+        <legend class="type-label mb-2 text-muted">
+          Jacob's contests with these crops
+        </legend>
+        <div class="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
+          {JACOB_CROPS.map((crop) => (
+            <label class="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="crops"
+                value={crop}
+                checked={choice.crops.includes(crop)}
+              />
+              {crop}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <p class="text-sm text-muted">
+        None ticked: every contest. Crops are known a SkyBlock year ahead at
+        most.
+      </p>
       <div class="field-row grid-cols-1 md:grid-cols-[minmax(0,16rem)_auto] md:justify-start">
         <label class="flex flex-col gap-1.5">
           <span class="type-label">Alarm</span>
@@ -152,6 +175,15 @@ const body =
   )}
 
   <Fragment slot="credit">
-    Times are worked out from the SkyBlock calendar.
+    Times are worked out from the SkyBlock calendar; Jacob's contest crops are
+    from the{" "}
+    <a
+      href="https://github.com/SkyblockerMod/Skyblocker"
+      class="underline"
+      rel="noreferrer"
+    >
+      Skyblocker
+    </a>{" "}
+    mod's calendar.
   </Fragment>
 </SkyblockLayout>

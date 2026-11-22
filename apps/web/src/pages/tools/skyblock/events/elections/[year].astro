@@ -1,0 +1,274 @@
+---
+/**
+ * One SkyBlock election: /tools/skyblock/events/elections/<year>/ (the year its booth
+ * opened). Each candidate's votes and share, their perks in the game's colours, who
+ * won and became minister, and, for the hours the site saw it running, each
+ * candidate's share over time (one small chart each, so no colours are needed; a
+ * table says the same in numbers).
+ */
+import { sectionSegments, segmentsHtml } from "@trilleo/skyblock";
+import {
+  eventBySlug,
+  formatSkyblockDate,
+  mayorTerm,
+  occurrences,
+  skyblockDate,
+  skyblockTime,
+  type Perk,
+} from "@trilleo/skyblock/events";
+import { EVENTS_PATH, meta } from "@trilleo/tool-skyblock/meta";
+import SkyblockLayout from "../../../../../components/skyblock/SkyblockLayout.astro";
+import { getDb } from "../../../../../lib/db";
+import { ogImagePath, toolCard } from "../../../../../lib/seo";
+import {
+  ELECTIONS_PATH,
+  electionByYear,
+  electionPath,
+  electionVotes,
+  shareSeries,
+  sparkline,
+} from "../../../../../lib/skyblock/elections";
+
+export const prerender = false;
+
+const year = Number.parseInt(Astro.params.year ?? "", 10);
+if (!Number.isInteger(year) || year < 1 || String(year) !== Astro.params.year)
+  return Astro.rewrite("/404");
+const db = await getDb();
+const election = await electionByYear(db, year);
+if (!election) return Astro.rewrite("/404");
+const points = await electionVotes(db, year);
+const keys = election.candidates.map((c) => c.key);
+const series = shareSeries(points, keys);
+const peak = Math.max(0.05, ...[...series.values()].flat());
+const opened = skyblockTime(year, 6, 27);
+const closes = (() => {
+  const booth = eventBySlug("mayor-election");
+  return booth
+    ? (occurrences(booth, opened, opened + 1)[0]?.end ?? null)
+    : null;
+})();
+const term = mayorTerm(year);
+Astro.response.headers.set(
+  "Cache-Control",
+  election.closed ? "public, max-age=3600" : "public, max-age=300",
+);
+
+const share = (votes: number) =>
+  election.totalVotes > 0
+    ? `${((votes / election.totalVotes) * 100).toFixed(1)}%`
+    : "—";
+const count = (n: number) => n.toLocaleString("en");
+const perkHtml = (perk: Perk) =>
+  segmentsHtml(sectionSegments(perk.description));
+const hour = (date: Date) =>
+  date.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+  }) + " UTC";
+const description = `Hypixel SkyBlock's Year ${String(year)} mayor election: ${
+  election.closed && election.mayor
+    ? `won by ${election.mayor.name} with ${share(election.mayor.votes)} of ${count(election.totalVotes)} votes`
+    : "running now"
+}, with every candidate's perks and votes.`;
+const row = "grid-swiss mt-10 gap-y-4 border-t border-ink pt-4 md:pt-5";
+const label = "col-span-4 type-label md:col-span-2";
+const body =
+  "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
+const th = "type-label border-b border-ink py-2 pr-4 font-normal text-muted";
+const td = "border-b border-hair py-2 pr-4 align-top tabular-nums";
+const W = 240;
+const H = 40;
+const scrollRegion = {
+  role: "region",
+  "aria-label": "Votes by the hour",
+  tabindex: 0,
+} as const;
+---
+
+<SkyblockLayout
+  title={`Year ${String(year)} election · ${meta.name}`}
+  {description}
+  image={ogImagePath(`tools/${meta.slug}`, toolCard(meta))}
+  crumbs={[
+    { label: "Event timer", path: EVENTS_PATH },
+    { label: "Elections", path: ELECTIONS_PATH },
+    { label: `Year ${String(year)}`, path: electionPath(year) },
+  ]}
+  back={{ href: ELECTIONS_PATH, label: "Elections" }}
+  notice="own"
+>
+  <div class="grid-swiss gap-y-4 pb-8 md:pb-10">
+    <h1 class="type-headline col-span-4 md:col-span-6 xl:col-span-9">
+      Year {year} election
+    </h1>
+  </div>
+
+  <section class={row} aria-labelledby="result-title">
+    <h2 id="result-title" class={label}>
+      <span class="text-muted">(01)</span>
+      {election.closed ? "Result" : "So far"}
+    </h2>
+    <div class={body}>
+      <dl
+        class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm"
+        data-testid="election-facts"
+      >
+        <dt class="type-label text-muted">Booth</dt>
+        <dd>
+          {formatSkyblockDate(skyblockDate(opened))}
+          {closes !== null && ` to ${formatSkyblockDate(skyblockDate(closes))}`}
+        </dd>
+        {election.mayor && (
+          <>
+            <dt class="type-label text-muted">Mayor</dt>
+            <dd>
+              {election.mayor.name}, {share(election.mayor.votes)}
+              <span class="text-muted">
+                {" "}
+                · until {formatSkyblockDate(skyblockDate(term.to))}
+              </span>
+            </dd>
+          </>
+        )}
+        {election.minister && (
+          <>
+            <dt class="type-label text-muted">Minister</dt>
+            <dd>{election.minister.name}</dd>
+          </>
+        )}
+        <dt class="type-label text-muted">Votes</dt>
+        <dd>{count(election.totalVotes)}</dd>
+      </dl>
+      <ol class="flex flex-col gap-6" data-testid="election-candidates">
+        {election.candidates.map((candidate, index) => {
+          const values = series.get(candidate.key) ?? [];
+          return (
+            <li class="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <div class="flex flex-col gap-2">
+                <p class="flex flex-wrap items-baseline justify-between gap-x-4">
+                  <span class:list={["type-row", index === 0 && "font-medium"]}>
+                    {candidate.name}
+                    {election.mayor?.key === candidate.key && (
+                      <span class="type-label ml-2 bg-accent px-1.5 text-on-accent">
+                        Mayor
+                      </span>
+                    )}
+                    {election.minister?.key === candidate.key && (
+                      <span class="type-label ml-2 border border-ink px-1.5">
+                        Minister
+                      </span>
+                    )}
+                  </span>
+                  <span class="text-sm tabular-nums text-muted">
+                    {count(candidate.votes)} · {share(candidate.votes)}
+                  </span>
+                </p>
+                <span class="h-2 bg-hair" aria-hidden="true">
+                  <span
+                    class:list={[
+                      "block h-full",
+                      index === 0 ? "bg-accent" : "bg-ink",
+                    ]}
+                    style={`width: ${share(candidate.votes)}`}
+                  />
+                </span>
+                {values.length > 1 && (
+                  <svg
+                    viewBox={`0 0 ${String(W)} ${String(H)}`}
+                    class="h-10 w-full max-w-60 overflow-visible"
+                    role="img"
+                    aria-label={`${candidate.name}'s share over ${String(values.length)} hours`}
+                    preserveAspectRatio="none"
+                  >
+                    <line
+                      x1="0"
+                      y1={H}
+                      x2={W}
+                      y2={H}
+                      class="stroke-hair"
+                      stroke-width="1"
+                    />
+                    <polyline
+                      points={sparkline(values, W, H, peak)}
+                      fill="none"
+                      class={index === 0 ? "stroke-accent" : "stroke-ink"}
+                      stroke-width="2"
+                      vector-effect="non-scaling-stroke"
+                    />
+                  </svg>
+                )}
+              </div>
+              {candidate.perks.length > 0 && (
+                <div class="mc-tooltip mc-block sb-lore" data-static>
+                  {candidate.perks.map((perk) => (
+                    <p class="sb-perk">
+                      <span class="mc-line mc-c-a">
+                        {perk.name}
+                        {perk.minister && (
+                          <span class="mc-c-8"> (minister)</span>
+                        )}
+                      </span>
+                      <span class="mc-line" set:html={perkHtml(perk)} />
+                    </p>
+                  ))}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  </section>
+
+  {points.length > 0 && (
+    <section class={row} aria-labelledby="hours-title">
+      <h2 id="hours-title" class={label}>
+        <span class="text-muted">(02)</span> By the hour
+      </h2>
+      <div class={body}>
+        <details class="sb-details text-sm">
+          <summary class="cursor-pointer">
+            {points.length} {points.length === 1 ? "hour" : "hours"} recorded
+          </summary>
+          <div class="mt-3 overflow-x-auto" {...scrollRegion}>
+            <table
+              class="w-full border-collapse text-left text-sm"
+              data-testid="election-hours"
+            >
+              <thead>
+                <tr>
+                  <th scope="col" class={th}>
+                    Hour
+                  </th>
+                  {election.candidates.map((candidate) => (
+                    <th scope="col" class={th}>
+                      {candidate.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {points.map((point) => (
+                  <tr>
+                    <th scope="row" class={`${td} font-normal`}>
+                      {hour(point.hour)}
+                    </th>
+                    {keys.map((key) => (
+                      <td class={td}>{count(point.votes[key] ?? 0)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+    </section>
+  )}
+
+  <Fragment slot="credit">The election is from Hypixel's public API.</Fragment>
+</SkyblockLayout>

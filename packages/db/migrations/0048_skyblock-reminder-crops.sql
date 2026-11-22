@@ -1,0 +1,1 @@
+ALTER TABLE "sb_reminders" ADD COLUMN "crops" jsonb;

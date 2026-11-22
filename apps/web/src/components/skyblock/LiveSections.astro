@@ -21,6 +21,7 @@ import {
   voteShares,
   type Perk,
 } from "@trilleo/skyblock/events";
+import { ELECTIONS_PATH, electionPath } from "../../lib/skyblock/elections";
 import type { LiveFeeds } from "../../lib/skyblock/feeds";
 import { isoTime, utcTime } from "../../lib/skyblock/events";
 
@@ -157,6 +158,15 @@ const bingoState = !bingo
                 );
               })}
             </ol>
+            <p class="text-sm">
+              <a href={electionPath(running.year)} class="group">
+                <span class="link-wipe">This election, hour by hour</span>
+              </a>
+              {" · "}
+              <a href={ELECTIONS_PATH} class="group">
+                <span class="link-wipe">All elections</span>
+              </a>
+            </p>
             <details class="sb-details text-sm">
               <summary class="cursor-pointer">Candidates' perks</summary>
               <ul class="mt-3 grid gap-4 md:grid-cols-2">

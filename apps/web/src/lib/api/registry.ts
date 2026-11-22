@@ -45,7 +45,7 @@ export const API_GROUPS = {
   skyblock: {
     title: "SkyBlock",
     intro:
-      "Hypixel SkyBlock's shards (from SkyShards' data) and their Bazaar prices, which the site fetches from Hypixel every 5 minutes and keeps hourly for 90 days. Public: no key needed.",
+      "Hypixel SkyBlock: the calendar and its events, the mayor and elections, fire sales and Bingo (what the site's event timer shows), and the shards (from SkyShards' data) with their Bazaar prices, which the site fetches from Hypixel every 5 minutes and keeps hourly for 90 days. Public: no key needed.",
   },
   account: {
     title: "Account",

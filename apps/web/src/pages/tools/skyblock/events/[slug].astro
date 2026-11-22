@@ -29,15 +29,21 @@ import SkyblockLayout from "../../../../components/skyblock/SkyblockLayout.astro
 import { getDb } from "../../../../lib/db";
 import { ogImagePath, toolCard } from "../../../../lib/seo";
 import { liveFeeds } from "../../../../lib/skyblock/feeds";
-import { isoTime, utcTime } from "../../../../lib/skyblock/events";
+import {
+  SKYBLOCKER_URL,
+  cropsOf,
+  isoTime,
+  utcTime,
+} from "../../../../lib/skyblock/events";
 import { REMINDER_ANSWERS } from "../../../../lib/skyblock/reminder-answers";
 import { listReminders } from "../../../../lib/skyblock/reminders";
 import { toast, toastError } from "../../../../lib/toast";
 
 export const prerender = false;
 
-/** How many times ahead the page lists. */
+/** How many times ahead the page lists: a day of the hourly ones, else ten. */
 const NEXT_SHOWN = 10;
+const NEXT_SHOWN_HOURLY = 24;
 
 const slug = Astro.params.slug ?? "";
 const base = eventBySlug(slug) ?? perkEventBySlug(slug);
@@ -48,15 +54,22 @@ const user = Astro.locals.user ?? null;
 const db = await getDb();
 let event = base;
 let holder: ReturnType<typeof perkHolder> = null;
+const { election, jacob } = await liveFeeds(db, now);
+const contest = base.slug === "jacobs-farming-contest";
 if (base.perk) {
-  const { election } = await liveFeeds(db, now);
   holder = election ? perkHolder(election, base.perk) : null;
   // In office: the event with the term's limits. Otherwise it has no times.
   event = mayorEvents(election).find((e) => e.slug === base.slug) ?? base;
 }
 const inactive = base.perk !== undefined && !event.during;
 const current = inactive ? null : currentOccurrence(event, now);
-const upcoming = inactive ? [] : nextOccurrences(event, now, NEXT_SHOWN);
+const upcoming = inactive
+  ? []
+  : nextOccurrences(
+      event,
+      now,
+      event.schedule.kind === "cycle" ? NEXT_SHOWN_HOURLY : NEXT_SHOWN,
+    );
 const next = upcoming[0];
 const length = lengthOf(event.schedule);
 const boundary = current ? current.end : (next?.start ?? now);
@@ -186,6 +199,11 @@ const facts: { term: string; value: string; mono?: boolean }[] = [
               <th scope="col" class={th}>
                 SkyBlock date
               </th>
+              {contest && (
+                <th scope="col" class={th}>
+                  Crops
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -208,6 +226,11 @@ const facts: { term: string; value: string; mono?: boolean }[] = [
                 <td class={td}>
                   {formatSkyblockDate(skyblockDate(occurrence.start))}
                 </td>
+                {contest && (
+                  <td class={td} data-testid="contest-crops">
+                    {cropsOf(occurrence, jacob) ?? "Not known yet"}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -227,6 +250,15 @@ const facts: { term: string; value: string; mono?: boolean }[] = [
 
   <Fragment slot="credit">
     Times are worked out from the SkyBlock calendar.
+    {contest && (
+      <>
+        Crops are from the{" "}
+        <a href={SKYBLOCKER_URL} class="underline" rel="noreferrer">
+          Skyblocker
+        </a>{" "}
+        mod's calendar.
+      </>
+    )}
   </Fragment>
 </SkyblockLayout>
 

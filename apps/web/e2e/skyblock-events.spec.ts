@@ -263,3 +263,64 @@ test("the calendar feed makes a link, and the feed is a calendar", async ({
   expect(ics).toContain("TRIGGER:-PT15M");
   expect(ics).not.toContain("SUMMARY:Jacob");
 });
+
+test("Jacob's contests show their crops, and reminders and the feed can pick crops", async ({
+  page,
+  request,
+}) => {
+  await feedsLoaded(page);
+  await expect(
+    page.getByTestId("events-next").getByTestId("contest-crops"),
+  ).toHaveText(
+    /^(Wheat, Carrot, Potato|Cactus, Melon, Pumpkin|Sugar Cane, Nether Wart, Mushroom)$/,
+  );
+  await page.goto("/tools/skyblock/events/jacobs-farming-contest/");
+  const crops = page.getByTestId("event-times").getByTestId("contest-crops");
+  await expect(crops.first()).not.toHaveText("Not known yet");
+  // The calendar feed keeps only contests with a chosen crop.
+  const ics = await (
+    await request.get(
+      "/tools/skyblock/events/calendar.ics?events=jacobs-farming-contest&crops=Cactus",
+    )
+  ).text();
+  const summaries = ics.match(/^SUMMARY:.*$/gm) ?? [];
+  expect(summaries.length).toBeGreaterThan(0);
+  for (const summary of summaries) expect(summary).toContain("Cactus");
+});
+
+test("a reminder for Jacob's contests can name crops", async ({ page }) => {
+  await signIn(
+    page,
+    freshLogin("farmer"),
+    "/tools/skyblock/events/jacobs-farming-contest/",
+  );
+  const remind = page.locator("#remind");
+  await remind.getByLabel("Cactus").check();
+  await remind.getByLabel("Wheat").check();
+  await remind.getByRole("button", { name: "Remind me" }).click();
+  await expect(toasts(page)).toContainText("Reminder added.");
+  await expect(page.getByTestId("event-reminders")).toContainText(
+    "Cactus or Wheat",
+  );
+});
+
+test("elections list what the site recorded, and each has its page", async ({
+  page,
+}) => {
+  await feedsLoaded(page);
+  await page.getByRole("link", { name: "Elections", exact: true }).click();
+  await expect(page).toHaveURL("/tools/skyblock/events/elections/");
+  await expect(page.getByTestId("election-running")).toContainText("Diana");
+  const past = page.getByTestId("elections-past");
+  await expect(past).toContainText("Marina");
+  await past.getByRole("link").first().click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    /^Year \d+ election$/,
+  );
+  await expect(page.getByTestId("election-candidates")).toContainText("Marina");
+  await expect(page.getByTestId("election-facts")).toContainText("Diaz");
+  await axe(page);
+  expect(
+    (await page.goto("/tools/skyblock/events/elections/1/"))?.status(),
+  ).toBe(404);
+});

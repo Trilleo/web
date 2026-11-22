@@ -3443,6 +3443,8 @@ export const sbReminders = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     eventSlug: text("event_slug").notNull(),
     leadMinutes: integer("lead_minutes").notNull(),
+    /** Jacob's contests only: remind only when one of these crops is in it. */
+    crops: jsonb("crops").$type<string[]>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     lastSentAt: timestamp("last_sent_at", { withTimezone: true }),
   },

@@ -436,7 +436,7 @@ export const INFO_PAGES: readonly InfoPage[] = [
     changes: [
       {
         date: "2026-11-22",
-        note: "The SkyBlock event timer: the game's calendar, and the mayor, election, fire sales, Bingo and news from Hypixel's API.",
+        note: "The SkyBlock event timer: the game's calendar, the mayor, election, fire sales, Bingo and news from Hypixel's API, and Jacob's contest crops from the Skyblocker mod's calendar.",
       },
       {
         date: "2026-11-20",

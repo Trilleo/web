@@ -1,0 +1,174 @@
+---
+/**
+ * SkyBlock's mayor elections: /tools/skyblock/events/elections/. The running one (if
+ * the booth is open) and every closed one the site has recorded (lib/skyblock/
+ * elections.ts), newest first: the winner, the minister and their shares.
+ */
+import { EVENTS_PATH, meta } from "@trilleo/tool-skyblock/meta";
+import SkyblockLayout from "../../../../../components/skyblock/SkyblockLayout.astro";
+import { getDb } from "../../../../../lib/db";
+import { ogImagePath, toolCard } from "../../../../../lib/seo";
+import {
+  ELECTIONS_PATH,
+  electionPath,
+  listElections,
+} from "../../../../../lib/skyblock/elections";
+
+export const prerender = false;
+
+const elections = await listElections(await getDb());
+const running = elections.find((e) => !e.closed) ?? null;
+const past = elections.filter((e) => e.closed);
+Astro.response.headers.set("Cache-Control", "public, max-age=300");
+
+const share = (votes: number, total: number) =>
+  total > 0 ? `${((votes / total) * 100).toFixed(1)}%` : "—";
+const count = (n: number) => n.toLocaleString("en");
+const description =
+  "Hypixel SkyBlock's mayor elections: the one running now with its votes, and every past result the site has recorded, with each mayor and minister.";
+const row = "grid-swiss mt-10 gap-y-4 border-t border-ink pt-4 md:pt-5";
+const label = "col-span-4 type-label md:col-span-2";
+const body =
+  "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
+const th = "type-label border-b border-ink py-2 pr-4 font-normal text-muted";
+const td = "border-b border-hair py-2 pr-4 align-top tabular-nums";
+const scrollRegion = {
+  role: "region",
+  "aria-label": "Past elections",
+  tabindex: 0,
+} as const;
+---
+
+<SkyblockLayout
+  title={`Elections · Event timer · ${meta.name}`}
+  {description}
+  image={ogImagePath(`tools/${meta.slug}`, toolCard(meta))}
+  crumbs={[
+    { label: "Event timer", path: EVENTS_PATH },
+    { label: "Elections", path: ELECTIONS_PATH },
+  ]}
+  back={{ href: EVENTS_PATH, label: "Event timer" }}
+  notice="own"
+>
+  <div class="grid-swiss gap-y-4 pb-8 md:pb-10">
+    <h1 class="type-headline col-span-4 md:col-span-6 xl:col-span-9">
+      Elections
+    </h1>
+  </div>
+
+  <section class={row} aria-labelledby="running-title">
+    <h2 id="running-title" class={label}>
+      <span class="text-muted">(01)</span> Running
+    </h2>
+    <div class={body} data-testid="election-running">
+      {!running ? (
+        <p class="text-muted">The booth is closed.</p>
+      ) : (
+        <>
+          <p>
+            <a href={electionPath(running.year)} class="group">
+              <span class="link-wipe type-row font-medium">
+                Year {running.year}
+              </span>
+            </a>{" "}
+            <span class="text-muted">
+              · {count(running.totalVotes)} votes so far
+            </span>
+          </p>
+          <ol class="flex flex-col gap-2">
+            {running.candidates.map((candidate, index) => (
+              <li class="grid grid-cols-[7rem_1fr_auto] items-center gap-3 text-sm md:grid-cols-[9rem_1fr_auto]">
+                <span class:list={[index === 0 && "font-medium"]}>
+                  {candidate.name}
+                </span>
+                <span class="h-2 bg-hair" aria-hidden="true">
+                  <span
+                    class:list={[
+                      "block h-full",
+                      index === 0 ? "bg-accent" : "bg-ink",
+                    ]}
+                    style={`width: ${share(candidate.votes, running.totalVotes)}`}
+                  />
+                </span>
+                <span class="text-muted tabular-nums">
+                  {share(candidate.votes, running.totalVotes)}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+    </div>
+  </section>
+
+  <section class={row} aria-labelledby="past-title">
+    <h2 id="past-title" class={label}>
+      <span class="text-muted">(02)</span> Results
+    </h2>
+    <div class={body}>
+      {past.length === 0 ? (
+        <p class="text-muted" data-testid="elections-empty">
+          Nothing yet.
+        </p>
+      ) : (
+        <div class="overflow-x-auto" {...scrollRegion}>
+          <table
+            class="w-full min-w-[36rem] border-collapse text-left text-sm"
+            data-testid="elections-past"
+          >
+            <thead>
+              <tr>
+                <th scope="col" class={th}>
+                  Year
+                </th>
+                <th scope="col" class={th}>
+                  Mayor
+                </th>
+                <th scope="col" class={th}>
+                  Minister
+                </th>
+                <th scope="col" class={th}>
+                  Votes
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {past.map((election) => (
+                <tr>
+                  <th scope="row" class={`${td} font-normal`}>
+                    <a href={electionPath(election.year)} class="group">
+                      <span class="link-wipe font-medium">
+                        Year {election.year}
+                      </span>
+                    </a>
+                  </th>
+                  <td class={td}>
+                    {election.mayor ? (
+                      <>
+                        {election.mayor.name}{" "}
+                        <span class="text-muted">
+                          {share(election.mayor.votes, election.totalVotes)}
+                        </span>
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td class={td}>{election.minister?.name ?? "—"}</td>
+                  <td class={td}>{count(election.totalVotes)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p class="text-sm text-muted">
+        Recorded since the site first fetched Hypixel's election.
+      </p>
+    </div>
+  </section>
+
+  <Fragment slot="credit">
+    The elections are from Hypixel's public API.
+  </Fragment>
+</SkyblockLayout>
