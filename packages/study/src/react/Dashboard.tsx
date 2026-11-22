@@ -67,10 +67,6 @@ function Settings() {
             ))}
           </select>
         </label>
-        <p className="study-muted">
-          Higher recall means more reviews. Reviews themselves have no daily
-          limit: whatever is due shows up.
-        </p>
         <p className="study-tracker-actions">
           <button type="submit" className="study-button">
             Save settings
@@ -121,9 +117,7 @@ export function Dashboard() {
               you signed in
             </span>
           </p>
-          <p>
-            Move them into your account, so your reviews and answers follow you.
-          </p>
+          <p>Move them into your account?</p>
           <p className="study-tracker-actions">
             <button
               type="button"

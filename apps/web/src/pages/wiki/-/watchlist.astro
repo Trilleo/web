@@ -3,12 +3,10 @@
  * wiki.trilleo.net/-/watchlist: what you watch, across every wiki, and the latest
  * edits to it by others. The daily digest email covers the same.
  */
-import { NOTIFICATION_LABELS } from "@trilleo/mail";
 import ToolHeading from "../../../components/wiki/ToolHeading.astro";
 import WatchButton from "../../../components/wiki/WatchButton.astro";
 import WikiLayout from "../../../layouts/WikiLayout.astro";
 import { noStoreRedirect } from "../../../lib/auth/redirect";
-import { mainOrigin } from "../../../lib/wiki/host";
 import { privateHeaders, publicPath, wikiDb } from "../../../lib/wiki/page";
 import { formatWikiDate, wikiTable } from "../../../lib/wiki/ui";
 import {
@@ -35,16 +33,11 @@ const changes = await watchedChanges(db, user, {
   limit: 100,
 });
 const back = publicPath(Astro.url);
-const emailSettings = `${mainOrigin(Astro.url)}/account/email/`;
 ---
 
 <WikiLayout title="Watchlist" noindex>
   <div class="flex flex-col gap-10">
-    <ToolHeading
-      label="Your account"
-      title="Watchlist"
-      lead={`Edits by others to the pages and wikis you watch, from the last ${String((DIGEST.lookbackMs * 2) / 86_400_000)} days. Pages you edit or propose changes to are watched for you.`}
-    />
+    <ToolHeading label="Your account" title="Watchlist" />
 
     <section class="flex flex-col gap-4" aria-labelledby="changes-heading">
       <h2 id="changes-heading" class="type-label text-muted">
@@ -109,10 +102,7 @@ const emailSettings = `${mainOrigin(Astro.url)}/account/email/`;
         What you watch ({watches.length} of {WATCH_LIMITS.max})
       </h2>
       {watches.length === 0 ? (
-        <p class="text-muted">
-          Nothing yet: a page's “Watch this page” button, or “Watch this wiki”
-          on a wiki's Recent changes, adds it here.
-        </p>
+        <p class="text-muted">Nothing yet.</p>
       ) : (
         <ul class="flex flex-col" data-watches>
           {watches.map((row) => (
@@ -136,14 +126,5 @@ const emailSettings = `${mainOrigin(Astro.url)}/account/email/`;
         </ul>
       )}
     </section>
-
-    <p class="text-sm text-muted">
-      Once a day at most, a digest email lists what changed since the last one.
-      Switch “{NOTIFICATION_LABELS.watchlist.label}” off in your{" "}
-      <a href={emailSettings} class="text-ink underline">
-        email settings
-      </a>{" "}
-      to stop it.
-    </p>
   </div>
 </WikiLayout>

@@ -2,7 +2,6 @@ import {
   LOSS,
   RANKS,
   allowance,
-  formatConstant,
   formatRating,
   formatScore,
   justiceLeft,
@@ -64,11 +63,7 @@ export function ScoreCalculator({ notes, constant }: ScoreCalculatorProps) {
         <div className="max-w-60">
           <Field
             label="Notes"
-            hint={
-              notes === null
-                ? "This chart’s note count isn’t known: type it in."
-                : "The chart’s note count. Change it to try another."
-            }
+            hint={notes === null ? "Unknown for this chart." : undefined}
           >
             {(props) => (
               <input
@@ -375,10 +370,7 @@ function RatingPanel({
 
   return (
     <Panel title="Rating target" testId="rating-panel">
-      <Field
-        label="Rating"
-        hint={`Constant ${formatConstant(constant)}: at most ${formatRating(best)}.`}
-      >
+      <Field label="Rating" hint={`Max ${formatRating(best)}.`}>
         {(props) => (
           <input
             {...props}

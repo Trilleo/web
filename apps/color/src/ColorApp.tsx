@@ -232,10 +232,6 @@ export function ColorApp() {
                   )}
                 </Field>
               </div>
-              <p className="-mt-2 text-sm text-muted">
-                OKLCH sliders move evenly to the eye. Colors outside what
-                screens show are brought in by lowering chroma.
-              </p>
             </div>
           </div>
         </ToolSection>
@@ -270,8 +266,7 @@ export function ColorApp() {
                   <Badge pass={passes.largeAAA}>AAA large</Badge>
                 </div>
                 <p className="text-sm text-muted">
-                  WCAG 2: body text needs 4.5:1 (AA) or 7:1 (AAA); large text
-                  and interface parts need 3:1.
+                  AA 4.5:1, AAA 7:1; large text 3:1.
                 </p>
               </div>
             </div>

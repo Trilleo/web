@@ -401,7 +401,7 @@ export function Calculator({
       <ToolSection number="01" title="What to make">
         <div className="flex flex-col gap-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr_1fr]">
-            <Field label="Shard to make" hint="Start typing its name.">
+            <Field label="Shard to make">
               {(props) => (
                 <input
                   {...props}
@@ -607,10 +607,6 @@ export function Calculator({
         <>
           <ToolSection number="03" title="Fusion tree">
             <div className="flex flex-col gap-4">
-              <p className="text-sm text-muted">
-                From the top: each fusion and what goes into it. “Change” shows
-                the other ways to get a shard and what they’d cost.
-              </p>
               <PlanTree
                 plan={plan}
                 onChange={setChanging}
@@ -656,9 +652,6 @@ export function Calculator({
               >
                 Fill levels from your collection
               </Button>
-              <span className="text-muted">
-                Sets the attribute levels below to the ones in your collection.
-              </span>
             </div>
           )}
           <Setup
@@ -712,10 +705,7 @@ export function Calculator({
 
       <ToolSection number="07" title="Recipes you chose">
         {chosen.length === 0 ? (
-          <p className="text-sm text-muted">
-            None: every shard is made the cheapest way. Use “Change” in the
-            fusion tree to pick another.
-          </p>
+          <p className="text-sm text-muted">None.</p>
         ) : (
           <div className="flex flex-col gap-3" data-testid="calc-chosen">
             <ul className="flex flex-col">

@@ -99,10 +99,7 @@ else if (done === "deleted") toast(Astro, "Release deleted, with its files.");
           </a>
         </div>
         {releases.length === 0 ? (
-          <p class="text-muted">
-            No releases yet. Make one and upload its file: once it’s published,
-            the project is out.
-          </p>
+          <p class="text-muted">No releases yet.</p>
         ) : (
           <ol class="border-b border-ink" data-testid="releases">
             {releases.map((entry) => (

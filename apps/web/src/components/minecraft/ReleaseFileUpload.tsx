@@ -71,7 +71,7 @@ export default function ReleaseFileUpload({
         multiple={role === "extra"}
         accept={extensions.map((ext) => `.${ext}`).join(",")}
         title={role === "main" ? "Drop the main file" : "Drop extra files"}
-        hint={`${extensions.map((ext) => `.${ext}`).join(", ")}.${role === "main" && hasMain ? " The current main file becomes an extra." : ""}`}
+        hint={`${extensions.map((ext) => `.${ext}`).join(", ")}.${role === "main" && hasMain ? " The current one becomes an extra." : ""}`}
         uploadOptions={uploadOptions}
         onUploaded={(stored, source) => {
           setUploaded((n) => n + 1);

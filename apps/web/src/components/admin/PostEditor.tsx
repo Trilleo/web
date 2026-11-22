@@ -687,8 +687,7 @@ export function PostEditor(props: EditorProps) {
                 className={`${fieldClass} min-h-[32rem] resize-y px-4 py-3 font-mono text-sm leading-relaxed xl:min-h-[44rem]`}
               />
               <p id={`${uid}-body-hint`} className="type-label text-muted">
-                Markdown, with footnotes ([^1]) and code blocks. Drop or paste
-                images to upload them.
+                Markdown. Drop or paste images.
               </p>
               <FieldError id={`${uid}-body-error`} error={errors.body} />
             </div>
@@ -711,10 +710,6 @@ export function PostEditor(props: EditorProps) {
         </Row>
 
         <Row label="Search & sharing" id="search">
-          <p className="max-w-[40rem]">
-            Search engines and link previews use the title and description
-            above. Fill these in only to say it differently there.
-          </p>
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-2 xl:gap-6">
             <div className="flex flex-col gap-2">
               <label htmlFor={`${uid}-seoTitle`} className="type-label">
@@ -942,8 +937,7 @@ export function PostEditor(props: EditorProps) {
           {/* Separate forms: these act on the saved post, not the fields above. */}
           <Row label="Sharing" id="sharing">
             <p className="max-w-[40rem]">
-              A secret link lets someone read this post before it’s published.
-              It’s never indexed, and revoking it stops it working.
+              A secret link to read the draft. Never indexed.
             </p>
             {props.previewUrl ? (
               <div className="flex flex-col gap-3">

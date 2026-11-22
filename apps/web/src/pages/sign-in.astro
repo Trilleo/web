@@ -80,11 +80,7 @@ const notice = signedOut
   <AuthCard
     id="sign-in-title"
     title={user ? "You’re signed in" : "Sign in"}
-    description={
-      user
-        ? `As @${user.username}.`
-        : "Or make an account: it’s the same first step. We’ll email you a code, so there’s no password."
-    }
+    description={user ? `As @${user.username}.` : undefined}
   >
     {(error || notice) && (
       <p

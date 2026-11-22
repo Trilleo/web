@@ -31,10 +31,7 @@ const wanted = context ? await wantedPages(context.db, context.wiki) : [];
     noindex
   >
     <div class="flex flex-col gap-6">
-      <ToolHeading
-        title="Wanted pages"
-        lead="Linked to, but not written yet."
-      />
+      <ToolHeading title="Wanted pages" />
       {wanted.length === 0 ? (
         <p class="text-muted">Every link goes to a page that exists.</p>
       ) : (

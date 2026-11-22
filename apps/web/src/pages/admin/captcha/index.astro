@@ -163,12 +163,10 @@ const label = "type-label col-span-4 md:col-span-2 xl:col-span-2";
       <h2 class={label}>Routes</h2>
       <div class={body}>
         <p class="text-muted">
-          Actions an hour from one visitor before each level: a light
-          proof-of-work ({POW_BITS[1]} bits), a heavy one ({POW_BITS[2]} bits),
-          then the puzzle. Without JavaScript every level is the puzzle. A pass
-          lasts {CHECK_LIMITS.passMs / 60_000} minutes or{" "}
-          {CHECK_LIMITS.passUses} actions; {CHECK_LIMITS.failuresToRefuse}{" "}
-          failures in an hour turn a visitor away for a while.
+          Actions an hour per visitor before each level: light work (
+          {POW_BITS[1]} bits), heavy ({POW_BITS[2]} bits), puzzle. Passes last{" "}
+          {CHECK_LIMITS.passMs / 60_000} minutes or {CHECK_LIMITS.passUses}{" "}
+          actions.
         </p>
         <table class="w-full text-sm">
           <caption class="sr-only">Guarded routes</caption>

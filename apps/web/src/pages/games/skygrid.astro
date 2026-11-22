@@ -35,16 +35,7 @@ const controls = [
     serverTime={Date.now()}
   />
   <Fragment slot="about">
-    <p class="text-[15px] leading-normal xl:text-base">
-      You start on a small island in the sky with nothing. Chop trees and
-      harvest crops, craft tools, and head through the portals: to the Hub and
-      its merchant, the Forest, the Mines and the Shore. Past the Hub’s
-      graveyard lies the Spider Cave, and its Broodmother. Every skill levels up
-      as you work, and every resource grows a collection that unlocks new
-      recipes: tools, swords and armor, and minions, which keep working on your
-      island while you’re away.
-    </p>
-    <h3 class="type-label mt-2">How to play</h3>
+    <h3 class="type-label">How to play</h3>
     <dl class="grid grid-cols-1 border-t border-ink md:grid-cols-[14rem_1fr]">
       {controls.map(([keys, what]) => (
         <>
@@ -57,17 +48,9 @@ const controls = [
         </>
       ))}
     </dl>
-    <p class="text-[15px] leading-normal text-muted">
-      Signed out, your island is kept in this browser. Sign in to keep it in
-      your account instead: the server checks every move, so it’s the same
-      island on every device, and you can trade with other players at the Bazaar
-      in the Hub.
-    </p>
     <p class="text-[15px] leading-normal">
-      The leaderboards rank the islands with the most skill XP, by skill, and
-      the richest; each name links to that player’s island.
       <a href="/games/skygrid/leaderboard/" class="underline">
-        See the leaderboards
+        Leaderboards
       </a>
     </p>
   </Fragment>

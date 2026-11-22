@@ -146,9 +146,7 @@ toastError(Astro, problem);
           <p class="border-l-2 border-accent pl-4">{config.problem}</p>
         )}
         <p class="text-muted">
-          Bodies are cleared {MAIL_RETENTION_DAYS} days after a message is
-          written (codes as soon as they’re sent); the rest of the row goes
-          after {MAIL_LOG_DAYS} days.
+          Bodies kept {MAIL_RETENTION_DAYS} days, rows {MAIL_LOG_DAYS}.
         </p>
         <div class="flex flex-wrap items-end gap-3">
           <form
@@ -377,8 +375,7 @@ toastError(Astro, problem);
           </ul>
         )}
         <p class="mt-4 text-muted">
-          Alerts are bundled: at most one email every{" "}
-          {String(ADMIN_ALERT_GAP_MS / 60_000)} minutes.
+          At most one email every {String(ADMIN_ALERT_GAP_MS / 60_000)} minutes.
         </p>
       </div>
     </div>

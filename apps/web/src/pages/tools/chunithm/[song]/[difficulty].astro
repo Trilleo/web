@@ -355,11 +355,7 @@ toast(Astro, aliasMessage, aliasDone ? "done" : "error");
         Other names
       </h2>
       <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-7">
-        <p class="text-muted">
-          Search finds songs by the names players use too: nicknames,
-          translations, short forms.
-          {aliases.length === 0 && " This song has none yet."}
-        </p>
+        {aliases.length === 0 && <p class="text-muted">None yet.</p>}
         {admin && aliases.length > 0 && (
           <ul class="flex flex-col text-sm" data-testid="admin-names">
             {aliases.map((alias) => (

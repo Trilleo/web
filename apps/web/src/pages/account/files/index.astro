@@ -104,10 +104,6 @@ toastError(Astro, error);
             />
           </div>
         )}
-        <p class="text-muted">
-          Files you upload through the site’s features are kept here. Deleted,
-          refused and taken-down files still count until their copies are gone.
-        </p>
       </div>
     </div>
 
@@ -118,20 +114,18 @@ toastError(Astro, error);
           <p class="border-l-2 border-accent pl-3">
             You can’t upload files at the moment
             {standing.banReason === "strikes"
-              ? `: you have ${String(standing.activeStrikes)} strikes. The ban lifts when your strikes expire or an appeal is accepted.`
+              ? `: ${String(standing.activeStrikes)} strikes. It lifts when they expire or an appeal is accepted.`
               : `: ${standing.banReason ?? ""}`}
           </p>
         ) : (
           <p>
             {isTrustedUploader(standing)
               ? "Your public uploads go up straight away."
-              : "Your public uploads are checked by the site owner before others can see them. After a few approved uploads, they go up straight away."}
+              : "Your public uploads are reviewed first."}
           </p>
         )}
         <p class="text-muted">
-          {activeStrikes.length} of {STRIKE_LIMIT} strikes. A strike comes with
-          a file that’s refused or taken down for breaking the rules, and lasts
-          90 days. {STRIKE_LIMIT} strikes stop you uploading for a while.
+          {activeStrikes.length} of {STRIKE_LIMIT} strikes. Each lasts 90 days.
         </p>
         {activeStrikes.length > 0 && (
           <ul class="flex flex-col gap-2">

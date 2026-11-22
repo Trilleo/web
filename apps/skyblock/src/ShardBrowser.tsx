@@ -104,10 +104,7 @@ export function ShardBrowser({ shards, initialQuery = "" }: ShardBrowserProps) {
     <div className="flex flex-col gap-10">
       <ToolSection number="01" title="Find a shard">
         <div className="flex flex-col gap-5">
-          <Field
-            label="Name, attribute or effect"
-            hint="Searches names first, then attributes, what they do and where to hunt."
-          >
+          <Field label="Name, attribute or effect">
             {(props) => (
               <input
                 {...props}

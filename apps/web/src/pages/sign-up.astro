@@ -97,11 +97,7 @@ const input =
   <AuthCard
     id="sign-up-title"
     title={ticket ? "Choose a username" : "Create an account"}
-    description={
-      ticket
-        ? `${ticket.email} is confirmed. One last thing.`
-        : "Comment, keep your tool data and game saves, and share Minecraft creations. Start with your email: we’ll send a code to confirm it."
-    }
+    description={ticket ? `${ticket.email} is confirmed.` : undefined}
   >
     {error && (
       <p slot="notice" role="alert" class="border-l-2 border-accent pl-3">
@@ -137,7 +133,7 @@ const input =
           />
           <p id="username-hint" class="text-sm text-muted">
             {usernameError ??
-              `Your profile is /people/<username>/. Lower-case letters, digits and hyphens, ${String(USERNAME_LIMITS.min)}–${String(USERNAME_LIMITS.max)} characters. You can change it later.`}
+              `a–z, 0–9 and hyphens, ${String(USERNAME_LIMITS.min)}–${String(USERNAME_LIMITS.max)} characters.`}
           </p>
         </div>
         <div class="flex items-start gap-3">

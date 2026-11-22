@@ -29,7 +29,7 @@ async function emailCode(page: Page, admin: Page, address: string) {
   await page.getByLabel("Email address").fill(address);
   await page.getByRole("button", { name: "Continue with email" }).click();
   await expect(page).toHaveURL("/sign-in/code");
-  await expect(page.getByText(`code we sent to ${address}`)).toBeVisible();
+  await expect(page.getByText(`Sent to ${address}.`)).toBeVisible();
   const code = await codeSentTo(admin, address);
   await page.getByLabel("Code", { exact: true }).fill(code);
   await page.getByRole("button", { name: "Continue" }).click();

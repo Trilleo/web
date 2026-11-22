@@ -76,10 +76,7 @@ const obstacles = [
   />
   <Fragment slot="about">
     <p class="text-[15px] leading-normal xl:text-base">
-      Production is down and the fix is ready. Run it there: the robot keeps
-      running, faster and faster, and all you choose is when to jump and when to
-      slide. Each metre is a point and each token is worth {TOKEN_POINTS}. The
-      course is different every run.
+      A metre is a point; a token is {TOKEN_POINTS}.
     </p>
     <h3 class="type-label mt-2">How to play</h3>
     <dl class="grid grid-cols-1 border-t border-ink md:grid-cols-[14rem_1fr]">
@@ -134,23 +131,12 @@ const obstacles = [
         </li>
       ))}
     </ol>
-    <h3 class="type-label mt-2">Daily Run and leaderboards</h3>
+    <h3 class="type-label mt-2">Daily Run</h3>
     <p class="text-[15px] leading-normal">
-      The Daily Run is the same course for everyone, all day (UTC); play it as
-      often as you like. Signed in, every run you finish is checked: the server
-      replays your key presses through the same game, so the score on the board
-      is the one you earned. Your best endless run and each day’s best Daily Run
-      go on the{" "}
+      One course for everyone, all day (UTC).{" "}
       <a href={`${path}leaderboard/`} class="underline">
-        leaderboards
+        Leaderboards
       </a>
-      , where anyone can watch them again. Checked runs also earn achievements,
-      and some of those unlock something for the robot to wear.
-    </p>
-    <p class="text-[15px] leading-normal text-muted">
-      Signed out, your best score, furthest run and tokens are kept in this
-      browser, and they stay there when you sign in: only checked runs count in
-      an account.
     </p>
   </Fragment>
 </GameLayout>

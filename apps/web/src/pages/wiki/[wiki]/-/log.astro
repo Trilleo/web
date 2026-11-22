@@ -43,10 +43,7 @@ const entries = context
 ) : (
   <WikiLayout title="Log" wiki={context.wiki} access={context.access} noindex>
     <div class="flex flex-col gap-6">
-      <ToolHeading
-        title="Log"
-        lead="What happened besides edits (those are in Recent changes)."
-      />
+      <ToolHeading title="Log" />
       {entries.length === 0 ? (
         <p class="text-muted">Nothing yet.</p>
       ) : (

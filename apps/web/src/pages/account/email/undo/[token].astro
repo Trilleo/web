@@ -52,7 +52,7 @@ if (!restored && !error && !ticket) {
     title={restored ? "Your address is back" : "Undo the change?"}
     description={
       restored
-        ? `${restored} signs in again. Every browser was signed out, and passkeys and linked accounts added since the change were removed.`
+        ? `${restored} is back. Every browser was signed out.`
         : ticket
           ? `@${ticket.user.username} was moved from ${maskEmail(ticket.email)} to ${maskEmail(ticket.user.email ?? "")}. Undoing puts ${maskEmail(ticket.email)} back, signs every browser out, and removes passkeys and linked accounts added since.`
           : undefined

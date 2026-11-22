@@ -141,16 +141,12 @@ if (saved) toast(Astro, "Saved.");
               type="checkbox"
               name="watchReplies"
               checked={settings.watchReplies}
-              aria-describedby="watchReplies-hint"
               class="mt-1 size-4 shrink-0 accent-accent"
             />
             <div>
               <label for="watchReplies" class="font-medium">
                 Watch topics I reply to
               </label>
-              <p id="watchReplies-hint" class="text-sm text-muted">
-                You always watch topics you start.
-              </p>
             </div>
           </div>
         </div>
@@ -198,7 +194,7 @@ if (saved) toast(Astro, "Saved.");
               class="w-full border border-ink bg-paper px-3 py-2.5 text-base"
             />
             <p id="signature-hint" class="text-sm text-muted">
-              One line of plain text, up to {SIGNATURE_MAX} characters.
+              Up to {SIGNATURE_MAX} characters.
             </p>
           </div>
         </div>

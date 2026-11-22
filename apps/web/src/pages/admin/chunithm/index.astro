@@ -336,11 +336,6 @@ toastError(Astro, error);
             <dd class={detail}>songs · read {when(overview.sdvxListedAt)}</dd>
           </div>
         </dl>
-        <p class="text-muted">
-          Updates run every few hours by themselves, on a timer (one after
-          another, a minute and a half apart, while jackets are still to be
-          copied). Sources: SEGA’s song list, otoge-db and sdvx.in’s song lists.
-        </p>
         <div class="flex flex-wrap items-center gap-3">
           <form method="post">
             <input type="hidden" name="intent" value="sync" />
@@ -446,10 +441,7 @@ toastError(Astro, error);
       <p class={label}>Charts not linked</p>
       <div class={body}>
         <p class="text-muted">
-          Charts in the game, Expert and up, not linked to one of sdvx.in’s yet
-          (sdvx.in may not have drawn them). If it has, give its ID and
-          difficulty as its viewer’s address has them (id=11061&amp;diff=mst):
-          11061/mst, or 008/we for World’s End.
+          Refs as in sdvx.in’s viewer: 11061/mst, or 008/we.
         </p>
         {missing.length === 0 ? (
           <p>Every chart is linked.</p>
@@ -495,11 +487,6 @@ toastError(Astro, error);
     <div class={row}>
       <p class={label}>Charts to place</p>
       <div class={body}>
-        <p class="text-muted">
-          Charts sdvx.in added to its lists since they were first read that the
-          last update couldn’t match to one of ours. Link one to a song (its ID
-          in SEGA’s list), or ignore it if it’s nothing in our catalog.
-        </p>
         {fresh.length === 0 ? (
           <p>Nothing to place.</p>
         ) : (
@@ -627,11 +614,7 @@ toastError(Astro, error);
     <div class={row}>
       <p class={label}>Chart pictures</p>
       <div class={body}>
-        <p class="text-muted">
-          Charts are joined from sdvx.in’s layers the first time someone views
-          them, one at a time (at most {BUILD_LIMITS.perHour} an hour), and kept
-          as WebP tiles in storage.
-        </p>
+        <p class="text-muted">Up to {BUILD_LIMITS.perHour} builds an hour.</p>
         <p>
           <a href="/admin/chunithm/import/" class="group">
             <span class="link-wipe">
@@ -730,10 +713,8 @@ toastError(Astro, error);
         </dl>
         {layers.count > 0 && (
           <p class="text-muted" data-testid="chunithm-layers">
-            Layers kept for retries: {layers.count} · {megabytes(layers.bytes)}.
-            A failed build’s whole layers wait in storage, so its next try
-            downloads only the rest; they go once the chart builds, or after{" "}
-            {LAYER_KEEP_DAYS} days.
+            Layers kept for retries: {layers.count} · {megabytes(layers.bytes)},
+            for up to {LAYER_KEEP_DAYS} days.
           </p>
         )}
         <form method="post" class="flex flex-wrap items-end gap-3">
@@ -797,13 +778,8 @@ toastError(Astro, error);
       <p class={label}>Judgement ranges</p>
       <div class={body} data-testid="chunithm-judgement">
         <p class="text-muted">
-          {judgement.drawn}{" "}
-          {judgement.drawn === 1 ? "picture has" : "pictures have"} judgement
-          ranges, drawn when a visitor turns them on. Their notes are found in
-          sdvx.in’s pictures and counted against sdvx.in’s own numbers (taps
-          include ExTaps and the starts of holds and slides). A chart listed
-          here found too few or too many, so some of its ranges are missing or
-          misplaced.
+          {judgement.drawn} {judgement.drawn === 1 ? "picture" : "pictures"}.
+          Listed: note counts that disagree with sdvx.in’s.
         </p>
         {judgement.disagreeing.length > 0 && (
           <ul class="flex flex-col">
@@ -835,11 +811,7 @@ toastError(Astro, error);
     <div class={row}>
       <p class={label}>Withdrawn</p>
       <div class={body}>
-        <p class="text-muted">
-          A withdrawn chart isn’t shown or built, and its tiles stop being
-          served (if sdvx.in asks us to take one down, say). Updates leave it
-          withdrawn.
-        </p>
+        <p class="text-muted">Not shown, built or served.</p>
         <form method="post" class="flex flex-wrap items-end gap-3">
           <input type="hidden" name="intent" value="withdraw" />
           <label class="flex flex-col gap-1">
@@ -938,11 +910,6 @@ toastError(Astro, error);
             </tbody>
           </table>
         )}
-        <p class="text-muted">
-          Constants are kept per version: the current one’s change as otoge-db
-          learns them, and an ended version’s are frozen from otoge-db’s final
-          file.
-        </p>
       </div>
     </div>
   </section>

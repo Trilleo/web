@@ -69,7 +69,7 @@ function Toggle({
   onChange,
 }: {
   label: string;
-  hint: string;
+  hint?: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
 }) {
@@ -80,7 +80,7 @@ function Toggle({
         id={id}
         type="checkbox"
         checked={checked}
-        aria-describedby={`${id}-hint`}
+        aria-describedby={hint ? `${id}-hint` : undefined}
         onChange={(event) => {
           onChange(event.target.checked);
         }}
@@ -90,9 +90,11 @@ function Toggle({
         <label htmlFor={id} className="cursor-pointer type-label">
           {label}
         </label>
-        <span id={`${id}-hint`} className="text-sm text-muted">
-          {hint}
-        </span>
+        {hint && (
+          <span id={`${id}-hint`} className="text-sm text-muted">
+            {hint}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -142,7 +144,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
         >
           <Toggle
             label="Instant buy"
-            hint="Pay the lowest sell offer now, rather than the top buy order (cheaper, but you wait)."
+            hint="Lowest sell offer, not top buy order."
             checked={settings.instantBuy}
             onChange={(instantBuy) => {
               onChange({ instantBuy });
@@ -150,7 +152,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
           />
           <NumberField
             label="Coins per fusion"
-            hint="What each fusion costs you, counted in the total. 0 to leave it out."
+            hint="Per fusion. 0 to leave out."
             value={settings.fusionCoins}
             min={0}
             max={LIMITS.coins}
@@ -158,10 +160,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
               onChange({ fusionCoins: value ?? 0 });
             }}
           />
-          <Field
-            label="Bazaar tax"
-            hint="On what you sell: less with the Bazaar Flipper upgrades."
-          >
+          <Field label="Bazaar tax">
             {(props) => (
               <select
                 {...props}
@@ -185,7 +184,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <NumberField
           label="Hunting Fortune"
-          hint="From your gear and pets, before the attribute bonuses below."
+          hint="Before attribute bonuses."
           value={settings.hunterFortune}
           min={0}
           max={LIMITS.hunterFortune}
@@ -195,7 +194,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
         />
         <NumberField
           label="Seconds per fusion"
-          hint="Time each fusion takes you, counted in the total. 0 to leave it out."
+          hint="Per fusion. 0 to leave out."
           value={settings.fusionSeconds}
           min={0}
           max={LIMITS.fusionSeconds}
@@ -208,7 +207,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Toggle
           label="Frog pet"
-          hint="+10% to every hunting rate."
+          hint="+10% to hunting rates."
           checked={settings.frogBonus}
           onChange={(frogBonus) => {
             onChange({ frogBonus });
@@ -216,7 +215,6 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
         />
         <Toggle
           label="No Chameleon"
-          hint="Leave Chameleon shards out: you can’t hunt them."
           checked={settings.excludeChameleon}
           onChange={(excludeChameleon) => {
             onChange({ excludeChameleon });
@@ -224,7 +222,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
         />
         <Toggle
           label="No wooden bait"
-          hint="Shards caught with it come far slower (5%, Shinyfish 10%)."
+          hint="5% rate (Shinyfish 10%)."
           checked={settings.noWoodenBait}
           onChange={(noWoodenBait) => {
             onChange({ noWoodenBait });
@@ -234,10 +232,6 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
 
       <fieldset className="flex flex-col gap-4">
         <legend className="mb-2 type-label">Attribute levels</legend>
-        <p className="text-sm text-muted">
-          These attributes speed up hunting and fusing. Level them first: they
-          make every other shard quicker.
-        </p>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
           {LEVEL_SHARDS.map((shard) => (
             <Field key={shard.key} label={nameOf(shard.id)} hint={shard.effect}>
@@ -269,10 +263,6 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
 
       <fieldset className="flex flex-col gap-4">
         <legend className="mb-2 type-label">Kuudra (Kraken shards)</legend>
-        <p className="text-sm text-muted">
-          Kraken shards drop from Kuudra runs. Pick the tier you run to work out
-          their rate; coins an hour turns the key’s cost into time.
-        </p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <Field label="Tier">
             {(props) => (
@@ -297,7 +287,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
           </Field>
           <NumberField
             label="Seconds per run"
-            hint="Empty: the tier’s usual time."
+            hint="Empty: the tier’s default."
             value={settings.kuudraSeconds}
             min={1}
             max={LIMITS.kuudraSeconds}
@@ -312,7 +302,7 @@ export function Setup({ settings, shards, pricesAt, onChange }: SetupProps) {
           />
           <NumberField
             label="Coins an hour"
-            hint="What your time earns. Empty: keys cost nothing."
+            hint="Empty: keys are free."
             value={settings.coinsPerHour}
             min={0}
             max={LIMITS.coinsPerHour}

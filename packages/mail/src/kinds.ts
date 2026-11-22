@@ -36,35 +36,35 @@ export const NOTIFICATION_LABELS: Readonly<
 > = {
   security: {
     label: "Sign-in alerts",
-    hint: "Your account was signed in to from a browser it hasn’t used before.",
+    hint: "Sign-ins from a new browser.",
   },
   replies: {
     label: "Replies to your comments",
-    hint: "Someone replied in a thread you started or joined.",
+    hint: "Replies in your threads.",
   },
   comments: {
     label: "Your comments’ review",
-    hint: "A comment that waited for approval went live, or the admin hid or removed one.",
+    hint: "Approved, hidden or removed.",
   },
   reviews: {
     label: "Uploads and Minecraft projects",
-    hint: "A file was approved, refused or taken down, an appeal was decided, or a project was hidden or shown again.",
+    hint: "Decisions on files, appeals and projects.",
   },
   wiki: {
     label: "Wiki proposals",
-    hint: "An edit you proposed on a wiki was approved or declined, or (in wikis you help run) someone proposed one.",
+    hint: "Proposed edits and their decisions.",
   },
   watchlist: {
     label: "Wiki watchlist",
-    hint: "Once a day at most: what changed on the wiki pages you watch.",
+    hint: "A daily digest of watched pages.",
   },
   forum: {
     label: "Forum",
-    hint: "Replies in topics you watch, new topics in forums you watch, mentions and accepted answers. How often: on your forum settings page.",
+    hint: "Watched topics and forums, mentions, answers.",
   },
   admin: {
     label: "Admin alerts",
-    hint: "New messages, files waiting for review, reports and appeals (admins only).",
+    hint: "Messages, reviews, reports, appeals.",
   },
 };
 

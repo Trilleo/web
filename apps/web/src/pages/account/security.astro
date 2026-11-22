@@ -277,20 +277,13 @@ else if (done && done !== "adopted") toast(Astro, DONE[done]);
                 </button>
               </div>
               <p class="text-sm text-muted" data-passkey-unsupported>
-                Adding a passkey needs JavaScript and a browser that supports
-                passkeys.
+                Needs JavaScript and passkey support.
               </p>
               <p role="alert" class="text-sm" hidden data-passkey-error></p>
             </div>
           ) : (
-            <p class="text-sm text-muted">
-              That’s {MAX_PASSKEYS}, the most an account can have.
-            </p>
+            <p class="text-sm text-muted">{MAX_PASSKEYS} is the most.</p>
           )}
-          <p class="text-sm text-muted">
-            Removing a passkey here stops it working on this site; your device
-            may list it until you delete it there too.
-          </p>
         </div>
       </div>
 
@@ -346,11 +339,6 @@ else if (done && done !== "adopted") toast(Astro, DONE[done]);
               Add an email address before unlinking: it’s your only way in.
             </p>
           )}
-          <p class="text-sm text-muted">
-            Linking only reads your GitHub account’s ID, username, name and
-            verified email address. Renaming yourself on GitHub doesn’t change
-            anything here.
-          </p>
         </div>
       </div>
 
@@ -421,11 +409,7 @@ else if (done && done !== "adopted") toast(Astro, DONE[done]);
               ))}
             </ol>
           )}
-          <p class="text-sm text-muted">
-            Sign-ins, address changes, passkeys, linked accounts and apps, from
-            the last year. Anything you don’t recognise? Sign out everywhere,
-            then check the sections above.
-          </p>
+          <p class="text-sm text-muted">The last year.</p>
         </div>
       </div>
     </div>

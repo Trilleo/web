@@ -354,10 +354,9 @@ export function Exports({ plan }: { plan: PlanView }) {
         ))}
       </div>
       <p className="text-sm text-muted">
-        Paste the mod strings into SkyOcean, NoFrills or SkyHanni’s shard
-        tracker. SkyHanni gets only what to hunt.
+        For SkyOcean, NoFrills or SkyHanni.
         {offered.length < MOD_FORMATS.length &&
-          " SkyOcean can’t show shards you already have, so it’s left out while the plan uses your collection."}
+          " SkyOcean is left out: it can’t show held shards."}
       </p>
     </div>
   );

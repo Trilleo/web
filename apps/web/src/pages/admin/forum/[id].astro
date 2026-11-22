@@ -449,8 +449,7 @@ else if (done) toast(Astro, DONE_MESSAGES[done] ?? "Saved.");
                   Locked
                 </label>
                 <p id="locked-hint" class="text-sm text-muted">
-                  Only moderators can start topics or reply (an announcements
-                  forum, an archive).
+                  Only moderators can post.
                 </p>
               </div>
             </div>
@@ -469,7 +468,7 @@ else if (done) toast(Astro, DONE_MESSAGES[done] ?? "Saved.");
                 Hidden
               </label>
               <p id="hidden-hint" class="text-sm text-muted">
-                Only moderators see it, and everything inside it.
+                Only moderators see it.
               </p>
             </div>
           </div>
@@ -502,13 +501,10 @@ else if (done) toast(Astro, DONE_MESSAGES[done] ?? "Saved.");
         <h2 class={label}>Who may do what here</h2>
         <div class="col-span-4 flex min-w-0 flex-col gap-5 md:col-span-6 xl:col-span-10">
           <p class="text-muted">
-            Each group does what its own settings say
-            {parentForum ? `, as ${parentForum.name} changes them` : ""}, unless
-            you choose otherwise here. Forums inside this one follow it.{" "}
+            Subforums follow this.{" "}
             <a href="/admin/forum/groups/" class="link-wipe text-ink">
-              Change the groups themselves
+              Groups
             </a>
-            .
           </p>
           <div
             class="overflow-x-auto border border-ink"
@@ -596,10 +592,7 @@ else if (done) toast(Astro, DONE_MESSAGES[done] ?? "Saved.");
       <div id="prefixes" class:list={[row, "mt-12 scroll-mt-6"]}>
         <h2 class={label}>Prefixes</h2>
         <div class={body}>
-          <p class="text-muted">
-            Labels people can put before a topic’s title here, like [Bug] or
-            [Guide]. Topics can be listed by prefix.
-          </p>
+          <p class="text-muted">Like [Bug] or [Guide].</p>
           {prefixes.length === 0 ? (
             <p class="text-muted">None yet.</p>
           ) : (
@@ -704,10 +697,7 @@ else if (done) toast(Astro, DONE_MESSAGES[done] ?? "Saved.");
       <div id="moderators" class:list={[row, "mt-12 scroll-mt-6"]}>
         <h2 class={label}>Moderators</h2>
         <div class={body}>
-          <p class="text-muted">
-            People assigned here moderate this {existing.kind} and everything in
-            it, besides the Moderators group (every forum) and you.
-          </p>
+          <p class="text-muted">They moderate everything inside it too.</p>
           {moderators.length === 0 ? (
             <p class="text-muted">Nobody assigned.</p>
           ) : (

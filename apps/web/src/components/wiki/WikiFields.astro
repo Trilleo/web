@@ -206,9 +206,7 @@ const described = (name: WikiField) =>
       aria-describedby="nav-hint"
     >{values.nav}</textarea>
     <span id="nav-hint" class="text-sm text-muted">
-      One section per block, separated by a blank line: the section's name on
-      its first line, then one link per line, “Label | Page title” or just a
-      page title.
+      Blocks split by a blank line: a heading, then one “Label | Page” per line.
     </span>
     {errors.nav && (
       <strong id="nav-error" class="text-sm font-medium" role="alert">

@@ -36,10 +36,7 @@ if (context && title)
     noindex
   >
     <div class="flex flex-col gap-6">
-      <ToolHeading
-        title="Create a page"
-        lead="Name it, then write it. Titles can't contain # < > [ ] { } | or \."
-      />
+      <ToolHeading title="Create a page" />
       <form method="get" class="flex max-w-[40rem] flex-col gap-4">
         {typed && !title && (
           <p class="border-l-2 border-accent pl-3" role="alert">

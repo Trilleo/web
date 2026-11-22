@@ -110,7 +110,7 @@ const input =
     <AuthCard
       id="link-title"
       title="Linked"
-      description="Go back to the program: it finishes by itself within a few seconds."
+      description="Go back to the program."
     >
       <p>
         It can now act for <strong>@{user.username}</strong> within what you
@@ -128,11 +128,7 @@ const input =
       </a>
     </AuthCard>
   ) : done === "declined" ? (
-    <AuthCard
-      id="link-title"
-      title="Declined"
-      description="Nothing was linked. The program will say so."
-    >
+    <AuthCard id="link-title" title="Declined">
       <a
         href="/account/apps/"
         class={buttonClasses({
@@ -148,7 +144,7 @@ const input =
     <AuthCard
       id="link-title"
       title={`Link ${link.clientName}?`}
-      description={`Code ${formatUserCode(link.userCode)}. Only approve it if you started this in the program yourself.`}
+      description={`Code ${formatUserCode(link.userCode)}. Approve only if you started this.`}
     >
       <div class="flex flex-col gap-3">
         <p>
@@ -161,9 +157,7 @@ const input =
           ))}
         </ul>
         <p class="text-sm text-muted">
-          It can’t sign in, see your email address or change your account. You
-          can revoke it any time on the Apps page. This code expires in{" "}
-          {minutesLeft} {minutesLeft === 1 ? "minute" : "minutes"}.
+          Expires in {minutesLeft} {minutesLeft === 1 ? "minute" : "minutes"}.
         </p>
       </div>
       <form method="post" action="/link/" class="flex flex-col gap-3">
@@ -191,11 +185,7 @@ const input =
       </form>
     </AuthCard>
   ) : (
-    <AuthCard
-      id="link-title"
-      title="Link a device"
-      description="Type the code the program shows you, to let it act for your account."
-    >
+    <AuthCard id="link-title" title="Link a device">
       {error && (
         <p slot="notice" role="alert" class="border-l-2 border-accent pl-3">
           {error}
@@ -221,7 +211,7 @@ const input =
             class:list={[input, "font-mono tracking-[0.2em] uppercase"]}
           />
           <p id="code-hint" class="text-sm text-muted">
-            Eight letters, like BCDF-GHJK.
+            Like BCDF-GHJK.
           </p>
         </div>
         <button

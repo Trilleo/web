@@ -75,12 +75,6 @@ const features = [
 
     <DisplayTitle id="study-title">Study</DisplayTitle>
 
-    <div class="grid-swiss mt-7 gap-y-6 border-t border-ink pt-4 md:mt-8 md:pt-5 xl:mt-12 xl:pt-6">
-      <p class="type-lead col-span-4 md:col-span-8 xl:col-span-9">
-        {STUDY_DESCRIPTION}
-      </p>
-    </div>
-
     {subjects.length > 0 && (
       <section
         aria-labelledby="study-yours"
@@ -104,10 +98,7 @@ const features = [
       <h2 class="type-label col-span-4 md:col-span-2">Subjects</h2>
       <div class="col-span-4 md:col-span-6 xl:col-span-7">
         {subjects.length === 0 ? (
-          <p class="type-dek text-muted">
-            Subjects arrive as the term goes on, each made from its class's own
-            materials.
-          </p>
+          <p class="type-dek text-muted">None yet.</p>
         ) : (
           <ol class="flex flex-col border-t border-ink">
             {subjects.map((subject) => (

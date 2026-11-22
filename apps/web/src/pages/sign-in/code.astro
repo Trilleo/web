@@ -15,7 +15,6 @@ import {
 } from "../../lib/auth/cookies";
 import {
   SIGN_IN_CODE_ERRORS,
-  SIGN_IN_LIMITS,
   SIGN_IN_VERIFY_ERRORS,
   requestSignInCode,
   verifySignInCode,
@@ -104,7 +103,6 @@ if (Astro.request.method === "POST") {
 }
 if (Astro.url.searchParams.has("resent") && !error) notice = "New code sent.";
 
-const minutes = String(SIGN_IN_LIMITS.ttlMs / 60_000);
 const input =
   "w-full border border-ink bg-paper px-3 py-2.5 text-base text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-invalid:border-accent";
 ---
@@ -113,7 +111,7 @@ const input =
   <AuthCard
     id="code-title"
     title="Check your email"
-    description={`Type the code we sent to ${pending.email}. It works for ${minutes} minutes.`}
+    description={`Sent to ${pending.email}.`}
   >
     {(error || notice) && (
       <p
@@ -148,7 +146,7 @@ const input =
           class:list={[input, "font-mono tracking-[0.3em]"]}
         />
         <p id="code-hint" class="text-sm text-muted">
-          {CODE_DIGITS} digits. Not there? Check the spam folder.
+          {CODE_DIGITS} digits.
         </p>
       </div>
       <button

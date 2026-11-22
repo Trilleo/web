@@ -172,9 +172,7 @@ toastError(Astro, error);
         <input type="hidden" name="intent" value="save" />
         {live && (
           <p class="border-l-2 border-hair pl-4 text-muted">
-            Its day has come, so the answer, enumeration and day stay as they
-            are: players' guesses were checked against them. The clue,
-            explanation and setter can still be corrected.
+            Live: answer, enumeration and day are locked.
           </p>
         )}
         {stats && (
@@ -233,8 +231,7 @@ toastError(Astro, error);
           aria-live="polite"
           data-enumeration-hint
         >
-          Word lengths, like 6, 4,3 or 5-4. Leave it empty to take it from the
-          answer as written (spaces between words, hyphens kept).
+          Like 6, 4,3 or 5-4. Empty: from the answer.
         </p>
         <label class="flex flex-col gap-1.5">
           <span class="type-label text-muted">

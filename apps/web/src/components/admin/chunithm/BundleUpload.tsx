@@ -20,7 +20,7 @@ export default function BundleUpload({ maxMegabytes }: BundleUploadProps) {
         multiple
         accept=".zip"
         title="Drop bundles"
-        hint={`chunithm-bundle-….zip from the bundling script, up to ${String(maxMegabytes)} MB each.`}
+        hint={`ZIP, up to ${String(maxMegabytes)} MB each.`}
         onUploaded={() => {
           setUploaded((n) => n + 1);
         }}

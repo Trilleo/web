@@ -21,7 +21,6 @@ import {
 } from "../../../lib/skyblock/bazaar";
 import { SOURCE_REPO, skyblockSource } from "../../../lib/skyblock/source";
 import {
-  ICONS_PER_PASS,
   SYNC_EVERY_MS,
   startSync,
   syncRunning,
@@ -159,17 +158,15 @@ const detail = "mt-1 text-sm text-muted";
           </div>
         </dl>
         <p class="text-muted">
-          Checks run every {hours} hours by themselves, reading
+          Every {hours} hours, from
           <a
             class="underline"
             href={`https://github.com/${repo}`}
             rel="noreferrer"
           >
             {repo}
-          </a>{" "}
-          on GitHub. Only files that changed are downloaded; new or changed
-          icons are copied {ICONS_PER_PASS} a pass, failed ones again a day
-          later.
+          </a>
+          .
         </p>
         {overview.withoutIcon.length > 0 && (
           <p class="text-sm">
@@ -214,9 +211,8 @@ const detail = "mt-1 text-sm text-muted";
           </div>
         </dl>
         <p class="text-muted">
-          Fetched from Hypixel’s public Bazaar endpoint every{" "}
-          {REFRESH_MS / 60000} minutes; hourly history is kept{" "}
-          {PRICE_HISTORY_DAYS} days.
+          Every {REFRESH_MS / 60000} minutes; history kept {PRICE_HISTORY_DAYS}{" "}
+          days.
         </p>
       </div>
     </div>

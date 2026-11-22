@@ -143,11 +143,6 @@ else if (doneParam) toast(Astro, DONE[doneParam]);
         class="mt-6 flex flex-col gap-2 border-l-2 border-accent pl-3"
       >
         <p class="font-medium">One more step: add your email address.</p>
-        <p class="text-muted md:max-w-2xl">
-          Accounts here are now known by their email address: you sign in with
-          it (a code, no password), and it keeps your account yours even if you
-          rename yourself on GitHub. Signing in with GitHub keeps working too.
-        </p>
       </div>
     )}
 
@@ -185,8 +180,7 @@ else if (doneParam) toast(Astro, DONE[doneParam]);
                   Code sent to {maskEmail(pending.email)}
                 </label>
                 <p id="code-hint" class="text-muted">
-                  {CODE_DIGITS} digits, valid for {minutes} minutes from when it
-                  was sent.
+                  {CODE_DIGITS} digits, valid {minutes} minutes.
                 </p>
                 <input
                   id="code"
@@ -239,10 +233,9 @@ else if (doneParam) toast(Astro, DONE[doneParam]);
                       : "Email address"}
                 </label>
                 <p id="email-hint" class="text-muted">
-                  We’ll send a code to it.{" "}
                   {user.email
-                    ? "Your current address keeps working until you confirm the new one."
-                    : ""}
+                    ? "The current one works until you confirm."
+                    : "We’ll send a code to it."}
                 </p>
                 <input
                   id="email"
@@ -308,10 +301,6 @@ else if (doneParam) toast(Astro, DONE[doneParam]);
               </li>
             ))}
           </ul>
-          <p class="text-muted">
-            Codes you ask for always arrive. Every notification has an
-            unsubscribe link, too.
-          </p>
           <div>
             <button type="submit" class={buttonClasses()}>
               Save notifications

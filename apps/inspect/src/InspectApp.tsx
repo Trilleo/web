@@ -201,7 +201,6 @@ export function InspectApp() {
       <div className="flex flex-col gap-10 md:gap-12">
         <FileDrop
           title={file ? "Inspect another file" : "Drop a file here"}
-          hint="Any type, any size. It's read in this browser and never uploaded. You can also paste one."
           acceptPaste
           onFiles={(files) => {
             const [first] = files;

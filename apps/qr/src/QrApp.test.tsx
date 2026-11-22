@@ -37,9 +37,9 @@ describe("QrApp", () => {
     });
     expect(screen.getByText("WIFI:T:WPA;S:Home;P:secret;;")).toBeTruthy();
 
-    expect(screen.queryByText(/Orange is lighter/)).toBeNull();
+    expect(screen.queryByText(/Orange may scan/)).toBeNull();
     fireEvent.click(screen.getByLabelText("Orange"));
-    expect(screen.getByText(/Orange is lighter/)).toBeTruthy();
+    expect(screen.getByText(/Orange may scan/)).toBeTruthy();
   });
 
   it("says when the text is too long", () => {

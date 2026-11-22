@@ -127,9 +127,7 @@ describe("Planner", () => {
       },
     );
     await waitFor(() => {
-      expect(
-        screen.getByText("1 shards not maxed. This replaces the list."),
-      ).toBeTruthy();
+      expect(screen.getByText("1 shards. Replaces the list.")).toBeTruthy();
     });
     fireEvent.click(screen.getByRole("button", { name: "Fill the list" }));
     const targets = await screen.findAllByTestId("planner-target");

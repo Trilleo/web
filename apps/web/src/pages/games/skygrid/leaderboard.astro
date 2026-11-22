@@ -3,7 +3,7 @@
  * Skygrid's leaderboards: total skill XP, each skill, and coins (top 50). Names
  * follow the profile rules (lib/games/skygrid/leaderboard.ts).
  */
-import { SKILL_NAMES, levelOf, type SkillId } from "@trilleo/game-skygrid/core";
+import { SKILL_NAMES, levelOf } from "@trilleo/game-skygrid/core";
 import { meta } from "@trilleo/game-skygrid/meta";
 import { ArrowLeftIcon } from "@trilleo/ui";
 import Breadcrumb from "../../../components/Breadcrumb.astro";
@@ -41,8 +41,6 @@ const valueOf = (value: number) =>
     : board === "total"
       ? `${value.toLocaleString("en")} XP`
       : `Lv ${String(levelOf(value))} · ${value.toLocaleString("en")} XP`;
-const isSkill = (value: Board): value is SkillId =>
-  value !== "total" && value !== "coins";
 ---
 
 <BaseLayout
@@ -143,10 +141,7 @@ const isSkill = (value: Board): value is SkillId =>
             ))}
           </ol>
         )}
-        <p class="mt-4 text-sm text-muted">
-          Only islands kept in an account count: sign in while you play.
-          {isSkill(board) ? " Levels go up to 25." : ""}
-        </p>
+        <p class="mt-4 text-sm text-muted">Signed-in islands only.</p>
       </div>
     </div>
   </section>

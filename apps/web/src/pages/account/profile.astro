@@ -13,7 +13,6 @@ import { isAdmin, requireUser } from "../../lib/auth/guard";
 import { logEvent } from "../../lib/auth/activity";
 import { noStoreRedirect } from "../../lib/auth/redirect";
 import {
-  USERNAME_HOLD_DAYS,
   USERNAME_LIMITS,
   USERNAME_PROBLEMS,
   changeUsername,
@@ -107,8 +106,8 @@ const avatarStatus =
 const hasErrors = Object.keys(errors).length > 0 || usernameError !== null;
 const githubName = user.name ?? user.username;
 const nameHint = user.name
-  ? `Shown on your profile and comments. Leave empty to use ${user.name}, the name on your linked GitHub account.`
-  : `Shown on your profile and comments. Leave empty to show just @${user.username}.`;
+  ? `Empty: ${user.name}, from GitHub.`
+  : `Empty: @${user.username}.`;
 
 // Field limits are in characters as people count them, checked on the server; the
 // browser counts UTF-16 units (an emoji is two), so its maxlength only stops pastes
@@ -130,21 +129,21 @@ const lines = [
   {
     name: "pronouns",
     label: "Pronouns",
-    hint: "Optional, e.g. she/her, they/them.",
+    hint: "",
     placeholder: "",
     autocomplete: "off",
   },
   {
     name: "location",
     label: "Location",
-    hint: "Optional. As broad as you like.",
+    hint: "",
     placeholder: "",
     autocomplete: "off",
   },
   {
     name: "status",
     label: "Currently",
-    hint: "A line about what you’re up to, shown at the top of your profile.",
+    hint: "",
     placeholder: "Building a redstone computer",
     autocomplete: "off",
   },
@@ -198,9 +197,7 @@ else toast(Astro, avatarStatus);
               class="w-full text-sm file:mr-3 file:cursor-pointer file:border file:border-ink file:bg-paper file:px-3 file:py-2 file:font-sans file:text-ink"
             />
             <p id="avatar-hint" class="text-sm text-muted">
-              PNG, JPEG or WebP, up to {avatarMegabytes} MB
-              {admin && " (the admin’s limit)"}. It’s cropped to a square and
-              shown next to your name on comments, forum posts and your profile.
+              PNG, JPEG or WebP, up to {avatarMegabytes} MB.
             </p>
             <div class="flex flex-col gap-3" hidden data-avatar-crop>
               <canvas
@@ -343,9 +340,9 @@ else toast(Astro, avatarStatus);
               {usernameError ? (
                 <strong class="font-medium">{usernameError}</strong>
               ) : canRenameAt ? (
-                `You changed it recently. You can change it again on ${formatPostDate(canRenameAt)}.`
+                `Can be changed again on ${formatPostDate(canRenameAt)}.`
               ) : (
-                `In your profile’s address and next to your comments. Lower-case letters, digits and hyphens. Links to the old one keep working for ${String(USERNAME_HOLD_DAYS)} days.`
+                "a–z, 0–9 and hyphens."
               )}
             </p>
           </div>
@@ -363,23 +360,29 @@ else toast(Astro, avatarStatus);
                 autocomplete={line.autocomplete}
                 maxlength={PROFILE_LIMITS[line.name] * 2}
                 aria-invalid={errors[line.name] ? "true" : undefined}
-                aria-describedby={`${line.name}-hint`}
+                aria-describedby={
+                  errors[line.name] || line.hint
+                    ? `${line.name}-hint`
+                    : undefined
+                }
                 class={input}
                 data-preview-source={line.name}
               />
-              <p
-                id={`${line.name}-hint`}
-                class:list={[
-                  "text-sm",
-                  errors[line.name] ? "text-ink" : "text-muted",
-                ]}
-              >
-                {errors[line.name] ? (
-                  <strong class="font-medium">{errors[line.name]}</strong>
-                ) : (
-                  line.hint
-                )}
-              </p>
+              {(errors[line.name] || line.hint) && (
+                <p
+                  id={`${line.name}-hint`}
+                  class:list={[
+                    "text-sm",
+                    errors[line.name] ? "text-ink" : "text-muted",
+                  ]}
+                >
+                  {errors[line.name] ? (
+                    <strong class="font-medium">{errors[line.name]}</strong>
+                  ) : (
+                    line.hint
+                  )}
+                </p>
+              )}
             </div>
           ))}
 
@@ -402,10 +405,7 @@ else toast(Astro, avatarStatus);
               {errors.bio ? (
                 <strong class="font-medium">{errors.bio}</strong>
               ) : (
-                <>
-                  Up to {PROFILE_LIMITS.bio} characters. Formatting as in
-                  comments: *emphasis*, **bold**, `code`, &gt; quotes and links.
-                </>
+                <>Up to {PROFILE_LIMITS.bio} characters. Markdown.</>
               )}
             </p>
           </div>
@@ -417,10 +417,7 @@ else toast(Astro, avatarStatus);
           Links
         </h2>
         <div class={body}>
-          <p class="text-muted">
-            Up to {PROFILE_LIMITS.links}: your site, socials, projects. Leave a
-            label empty to use the site’s name.
-          </p>
+          <p class="text-muted">Up to {PROFILE_LIMITS.links}.</p>
           <ol class="flex flex-col gap-4">
             {values.links.map((link, index) => {
               const key = `link-${String(index)}` as const;
@@ -496,9 +493,7 @@ else toast(Astro, avatarStatus);
                 Public profile
               </label>
               <p id="profilePublic-hint" class="text-muted">
-                Anyone can see your profile page, and your name on comments
-                links to it. Off: only you can see it, and your name links to
-                GitHub.
+                Off: only you can see it.
               </p>
             </div>
           </div>

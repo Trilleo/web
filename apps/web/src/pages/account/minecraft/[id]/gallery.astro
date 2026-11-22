@@ -111,7 +111,7 @@ else if (done) toast(Astro, DONE[done]);
             projectId={project.id}
             room={MC_LIMITS.gallery - images.length}
             accept={GALLERY_EXTENSIONS.map((ext) => `.${ext}`).join(",")}
-            hint={`PNG, JPEG, WebP, GIF or AVIF, up to ${formatBytes(GALLERY_MAX_BYTES)} each. Screenshots work best at 16:9.`}
+            hint={`PNG, JPEG, WebP, GIF or AVIF, up to ${formatBytes(GALLERY_MAX_BYTES)} each.`}
           />
         ) : (
           <p class="text-muted">File storage isn’t set up on this server.</p>
@@ -125,10 +125,7 @@ else if (done) toast(Astro, DONE[done]);
       </h2>
       <div class="col-span-4 md:col-span-6 xl:col-span-10">
         {shown.length === 0 ? (
-          <p class="text-muted">
-            None yet. The first picture becomes the cover on cards and share
-            previews.
-          </p>
+          <p class="text-muted">None yet. The first is the cover.</p>
         ) : (
           <ol class="border-b border-ink" data-testid="gallery">
             {shown.map((entry, index) => (

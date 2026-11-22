@@ -146,10 +146,10 @@ const privacy = `${isWikiHost(Astro.url) ? mainOrigin(Astro.url) : ""}/legal/pri
     title={view.kind === "refused" ? "Too many tries" : "One quick check"}
     description={
       view.kind === "none"
-        ? "This check doesn’t lead anywhere. Go back and try again."
+        ? "Nothing to check. Go back and try again."
         : view.kind === "refused"
-          ? "Lots of checks from your network have failed lately. Try again in an hour."
-          : "A lot has been sent from your network lately, so the site wants to be sure you’re a person. Your form is kept and sent once this is done."
+          ? "Too many failed checks. Try again in an hour."
+          : "Your form is sent once this is done."
     }
   >
     {(error || filesLeft) && (
@@ -196,10 +196,6 @@ const privacy = `${isWikiHost(Astro.url) ? mainOrigin(Astro.url) : ""}/legal/pri
           <input type="hidden" name="_check_nonce" value="" />
           <p role="status" data-pow-status class="font-medium">
             Checking you’re not a bot…
-          </p>
-          <p class="text-sm text-muted">
-            Your browser is working out a small sum. It takes a moment and needs
-            nothing from you.
           </p>
           <button
             type="submit"

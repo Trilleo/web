@@ -53,14 +53,7 @@ const base = context ? toolHref(context.wiki, "proposals") : "";
     noindex
   >
     <div class="flex flex-col gap-6">
-      <ToolHeading
-        title="Proposed edits"
-        lead={
-          member
-            ? "Edits from people outside the wiki. Approving saves one as its author's revision; declining sends them your note."
-            : "Your proposed edits to this wiki. Its members approve or decline them, and you get an email either way."
-        }
-      />
+      <ToolHeading title="Proposed edits" />
       {member && (
         <nav aria-label="Proposals" class="type-nav flex gap-5">
           <a
@@ -92,7 +85,7 @@ const base = context ? toolHref(context.wiki, "proposals") : "";
             ? all
               ? "Nobody has proposed an edit yet."
               : "Nothing is waiting."
-            : "You haven't proposed any edits here. Any page's “Propose a change” tab starts one."}
+            : "You haven't proposed any edits here."}
         </p>
       ) : (
         <div class="relative overflow-x-auto">

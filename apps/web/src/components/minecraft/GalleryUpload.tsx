@@ -35,7 +35,7 @@ export default function GalleryUpload({
         purpose="minecraft-media"
         accept={accept}
         title={room === 1 ? "Drop a picture" : "Drop pictures"}
-        hint={`${hint} Room for ${String(room)} more.`}
+        hint={`${hint} ${String(room)} left.`}
         uploadOptions={uploadOptions}
         onUploaded={() => {
           setUploaded((n) => n + 1);

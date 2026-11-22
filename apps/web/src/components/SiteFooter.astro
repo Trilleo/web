@@ -6,7 +6,6 @@ import {
   ICP_FILING,
   NAV_ITEMS,
   PSB_FILING,
-  SITE_DESCRIPTION,
   SITE_NAME,
 } from "../lib/site";
 import { apiOrigin } from "../lib/api/host";
@@ -90,7 +89,6 @@ const psbCode = PSB_FILING?.match(/\d+/)?.[0];
   ))}
 
   <div class="col-span-4 flex flex-col items-start gap-5 border-t border-ink pt-4 md:col-span-8 md:flex-row md:items-end md:justify-between md:gap-8 xl:col-span-4 xl:col-start-9 xl:row-start-1 xl:flex-col xl:items-start xl:justify-between">
-    <p class="type-row max-w-[22ch]">{SITE_DESCRIPTION}</p>
     <a href="#top" class={`${linkClass} shrink-0 gap-2`}>
       <span class="link-wipe">Back to top</span>
       <ArrowUpIcon

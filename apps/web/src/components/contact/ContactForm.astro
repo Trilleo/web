@@ -97,7 +97,7 @@ const described = (field: ContactField, hint?: string) =>
         class={input}
       />
       <p id="contact-email-hint" class="text-sm text-muted">
-        Only if you’d like a reply. It’s used for nothing else.
+        Optional, for a reply.
       </p>
       {errors.email && (
         <p id="contact-email-error" class="text-sm">
@@ -119,14 +119,10 @@ const described = (field: ContactField, hint?: string) =>
       maxlength={CONTACT_FIELD_LIMITS.body.max}
       rows={8}
       aria-invalid={errors.body ? "true" : undefined}
-      aria-describedby={described("body", "contact-body-hint")}
+      aria-describedby={described("body")}
       class={`${input} resize-y`}
       set:text={values.body}
     />
-    <p id="contact-body-hint" class="text-sm text-muted">
-      Plain text. For a takedown, include the address of the page and what you
-      own; for a security problem, the steps to see it.
-    </p>
     {errors.body && (
       <p id="contact-body-error" class="text-sm">
         {errors.body}

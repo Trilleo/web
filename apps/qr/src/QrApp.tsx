@@ -104,10 +104,7 @@ export function QrApp() {
               />
 
               {content.kind === "url" && (
-                <Field
-                  label="Link"
-                  hint="https:// is added if you leave it out."
-                >
+                <Field label="Link">
                   {(props) => (
                     <input
                       {...props}
@@ -173,10 +170,7 @@ export function QrApp() {
                     )}
                   </Field>
                   {content.security !== "nopass" && (
-                    <Field
-                      label="Password"
-                      hint="It's only put in the code, never sent anywhere."
-                    >
+                    <Field label="Password">
                       {(props) => (
                         <input
                           {...props}
@@ -252,10 +246,7 @@ export function QrApp() {
 
               {(content.kind === "phone" || content.kind === "sms") && (
                 <div className="flex flex-col gap-6">
-                  <Field
-                    label="Phone number"
-                    hint="Include the country code, e.g. +86."
-                  >
+                  <Field label="Phone number" hint="With country code.">
                     {(props) => (
                       <input
                         {...props}
@@ -335,10 +326,6 @@ export function QrApp() {
               options={CORRECTIONS}
               onChange={setCorrection}
             />
-            <p className="-mt-3 text-sm text-muted">
-              How much of the code can be damaged or covered and still scan.
-              Higher means a denser code.
-            </p>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <Choice
                 legend="Color"
@@ -360,13 +347,11 @@ export function QrApp() {
             </div>
             {lowContrast && (
               <p className="border-l-2 border-accent pl-4">
-                Orange is lighter than ink, so some scanners find it harder to
-                read. Test it before printing, or raise the error correction.
+                Orange may scan less reliably. Test before printing.
               </p>
             )}
             <Field
               label={`Margin: ${String(margin)} module${margin === 1 ? "" : "s"}`}
-              hint="Scanners need a light border; the standard asks for 4."
             >
               {(props) => (
                 <input

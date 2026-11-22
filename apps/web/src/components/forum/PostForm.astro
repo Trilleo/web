@@ -170,10 +170,7 @@ const input =
       {errors.body ? (
         <strong class="font-medium">{errors.body}</strong>
       ) : (
-        <>
-          Markdown: **bold**, *italic*, `code`, &gt; quotes, lists, tables, #
-          headings and links. @username mentions someone.
-        </>
+        <>Markdown. @username mentions.</>
       )}
     </p>
     <p class="type-label text-muted" aria-live="polite" data-draft-status></p>
@@ -199,7 +196,7 @@ const input =
         ))}
       </datalist>
       <p id={`${id}-tags-hint`} class="text-sm text-muted">
-        Up to {MAX_TAGS}, separated by commas or spaces, e.g. “redstone, help”.
+        Up to {MAX_TAGS}, comma-separated.
       </p>
     </div>
   )}
@@ -241,7 +238,7 @@ const input =
           ",",
         )}
         room={attach.room}
-        hint={`Up to ${String(ATTACHMENT_LIMITS.perPost)} files of ${String(ATTACHMENT_LIMITS.bytes / 1024 / 1024)} MB: pictures, PDF, ZIP, text and Minecraft files.`}
+        hint={`Up to ${String(ATTACHMENT_LIMITS.perPost)} files, ${String(ATTACHMENT_LIMITS.bytes / 1024 / 1024)} MB each.`}
       />
     </div>
   )}

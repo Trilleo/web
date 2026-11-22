@@ -110,9 +110,8 @@ export function AccountPanel({
           />
         </dl>
         <p className="text-[15px] leading-normal text-muted">
-          Every run you finish here is checked by the server and counted.{" "}
           <a href={leaderboardHref} className="text-ink underline">
-            See the leaderboards
+            Leaderboards
           </a>
         </p>
       </div>

@@ -208,10 +208,6 @@ const scrollRegion = {
               set:html={segmentsHtml(withoutBuffedBy(attribute.description))}
             />
           </div>
-          <p class="text-sm text-muted">
-            Values run from level 1 to level {MAX_ATTRIBUTE_LEVEL}. Each level
-            is bought with {shard.name} shards at the Hunting Box.
-          </p>
           {attribute.howToHunt.length > 0 && (
             <div class="flex flex-col gap-2">
               <h3 class="type-label">How to hunt</h3>
@@ -386,10 +382,7 @@ const scrollRegion = {
               label={`${shard.name}’s Bazaar prices over ${PRICE_RANGES[range].label}`}
             />
           )}
-          <p class="text-sm text-muted">
-            From Hypixel’s Bazaar, fetched by this site every 5 minutes; the
-            chart shows each hour’s median.
-          </p>
+          <p class="text-sm text-muted">Hourly medians.</p>
         </>
       )}
     </div>

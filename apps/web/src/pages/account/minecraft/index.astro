@@ -10,11 +10,7 @@ import ProjectThumb from "../../../components/minecraft/ProjectThumb.astro";
 import { requireUser } from "../../../lib/auth/guard";
 import { getDb } from "../../../lib/db";
 import { formatPostDate } from "../../../lib/listings";
-import {
-  MC_LIMITS,
-  stateLabel,
-  typeInfo,
-} from "../../../lib/minecraft/catalog";
+import { stateLabel, typeInfo } from "../../../lib/minecraft/catalog";
 import { editPath, projectPath } from "../../../lib/minecraft/paths";
 import { projectsOf, releaseFileIds } from "../../../lib/minecraft/store";
 import DownloadChart from "../../../components/files/DownloadChart.astro";
@@ -72,10 +68,7 @@ if (done) toast(Astro, DONE[done]);
           </a>
         </div>
         {projects.length === 0 ? (
-          <p class="text-muted">
-            Nothing yet. Share a mod, a plugin, a world, a build or a pack: make
-            a project, add pictures, then upload a release.
-          </p>
+          <p class="text-muted">Nothing yet.</p>
         ) : (
           <ol class="border-b border-ink" data-testid="my-projects">
             {projects.map((project) => {
@@ -144,29 +137,5 @@ if (done) toast(Astro, DONE[done]);
         </div>
       </div>
     )}
-
-    <div class={row}>
-      <h2 class={heading}>How it works</h2>
-      <div class="col-span-4 flex flex-col gap-4 md:col-span-6 xl:col-span-7">
-        <p>
-          A project is its page: a name, a description, pictures and a licence.
-          Its files come in releases, each with the Minecraft versions it works
-          with. Others can see a project once one of its releases is published.
-        </p>
-        <p class="text-muted">
-          Uploads are checked for malware. Until you’re trusted, the site owner
-          looks at them first; mods and plugins (.jar files) are always looked
-          at, since people run them. See{" "}
-          <a href="/account/files/" class="link-wipe text-ink">
-            your files
-          </a>{" "}
-          for storage and standing, and the{" "}
-          <a href="/legal/guidelines/" class="link-wipe text-ink">
-            guidelines
-          </a>{" "}
-          for what’s allowed. Up to {MC_LIMITS.projectsPerAccount} projects.
-        </p>
-      </div>
-    </div>
   </section>
 </BaseLayout>

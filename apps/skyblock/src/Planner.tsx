@@ -348,7 +348,7 @@ export function Planner({
       <ToolSection number="01" title="What to make">
         <div className="flex flex-col gap-6">
           <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-[2fr_1fr_auto]">
-            <Field label="Add a shard" hint="Start typing its name.">
+            <Field label="Add a shard">
               {(props) => (
                 <input
                   {...props}
@@ -374,7 +374,7 @@ export function Planner({
                 <option key={shard.id} value={shard.name} />
               ))}
             </datalist>
-            <Field label="How many" hint="Empty: what’s left to max.">
+            <Field label="How many" hint="Empty: left to max.">
               {(props) => (
                 <input
                   {...props}
@@ -398,7 +398,7 @@ export function Planner({
             <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-[2fr_auto]">
               <Field
                 label="Or plan what’s left to max in your collection"
-                hint={`${String(fillCandidates.length)} shards not maxed. This replaces the list.`}
+                hint={`${String(fillCandidates.length)} shards. Replaces the list.`}
               >
                 {(props) => (
                   <select
@@ -576,10 +576,6 @@ export function Planner({
               >
                 Use my collection
               </label>
-              <span className="text-sm text-muted">
-                Shards you hold go into the plans first, spread across the list
-                from the top.
-              </span>
             </div>
           </div>
           <p className="text-sm text-muted">

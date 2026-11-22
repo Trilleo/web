@@ -116,9 +116,6 @@ const now = new Date();
         <h1 id="forum-title" class="type-band break-words">
           {forum.name}
         </h1>
-        {forum.description && (
-          <p class="type-dek text-muted">{forum.description}</p>
-        )}
       </div>
       <div class="col-span-4 flex flex-wrap gap-3 md:col-span-2 md:justify-end xl:col-span-3">
         {forum.kind === "forum" &&

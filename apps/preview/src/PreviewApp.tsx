@@ -454,7 +454,6 @@ export function PreviewApp() {
             title={
               doc ? "Or preview a file from this device" : "Or drop a file here"
             }
-            hint="It's read in this browser and never uploaded. You can also paste one."
             acceptPaste
             onFiles={(files) => {
               const [first] = files;

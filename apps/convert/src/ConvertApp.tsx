@@ -305,7 +305,7 @@ export function ConvertApp() {
                   ? "Add more files"
                   : "Drop images or audio here"
               }
-              hint="PNG, JPEG, WebP, AVIF, GIF, BMP, ICO, TIFF, HEIC and SVG; MP3, AAC, M4A, Ogg, Opus, FLAC and WAV, or the sound from a video. Nothing is uploaded."
+              hint="PNG, JPEG, WebP, AVIF, GIF, BMP, ICO, TIFF, HEIC and SVG; MP3, AAC, M4A, Ogg, Opus, FLAC and WAV, or a video’s sound."
               onFiles={(files) => void add(files)}
             />
             {items.length > 0 && (
@@ -395,10 +395,7 @@ export function ConvertApp() {
                 )}
                 {image.id !== "ico" && (
                   <>
-                    <Field
-                      label="Max width (px)"
-                      hint="Blank keeps the size. Never enlarges."
-                    >
+                    <Field label="Max width (px)" hint="Never enlarges.">
                       {(props) => (
                         <input
                           {...props}
@@ -435,10 +432,7 @@ export function ConvertApp() {
                   </>
                 )}
                 {!image.alpha && (
-                  <Field
-                    label="Background"
-                    hint={`${image.label} has no transparency; this fills it.`}
-                  >
+                  <Field label="Background">
                     {(props) => (
                       <input
                         {...props}
@@ -483,7 +477,7 @@ export function ConvertApp() {
                 </fieldset>
               )}
               <p className="text-sm text-muted">
-                Converting removes metadata such as camera details and location.
+                Removes metadata (camera, location).
               </p>
             </div>
           </ToolSection>
@@ -579,7 +573,7 @@ export function ConvertApp() {
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-6 xl:grid-cols-4">
-                <Field label="Start at (s)" hint="Blank: from the start.">
+                <Field label="Start at (s)">
                   {(props) => (
                     <input
                       {...props}
@@ -596,7 +590,7 @@ export function ConvertApp() {
                     />
                   )}
                 </Field>
-                <Field label="End at (s)" hint="Blank: to the end.">
+                <Field label="End at (s)">
                   {(props) => (
                     <input
                       {...props}

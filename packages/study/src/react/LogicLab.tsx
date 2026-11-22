@@ -114,9 +114,6 @@ export function LogicLab({ id, title, label, inputs, outputs }: LogicProps) {
       </div>
       <figcaption id={`${id}-caption`}>
         <span className="study-box-kind">{label}</span> {title}
-        <span className="study-figure-note">
-          Press the inputs to switch them; the marked row is where you are.
-        </span>
       </figcaption>
     </figure>
   );

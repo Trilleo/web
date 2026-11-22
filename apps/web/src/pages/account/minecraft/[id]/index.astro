@@ -233,7 +233,7 @@ else if (saved) toast(Astro, "Saved.");
               {errors.slug ? (
                 <strong class="font-medium">{errors.slug}</strong>
               ) : (
-                "Lowercase letters, digits and dashes. Old addresses keep working after a change."
+                "a–z, 0–9 and dashes."
               )}
             </p>
           </div>
@@ -256,7 +256,7 @@ else if (saved) toast(Astro, "Saved.");
               {errors.summary ? (
                 <strong class="font-medium">{errors.summary}</strong>
               ) : (
-                `One line for cards and search results, up to ${String(MC_LIMITS.summary)} characters.`
+                `Up to ${String(MC_LIMITS.summary)} characters.`
               )}
             </p>
           </div>
@@ -277,11 +277,7 @@ else if (saved) toast(Astro, "Saved.");
               {errors.description ? (
                 <strong class="font-medium">{errors.description}</strong>
               ) : (
-                <>
-                  Markdown: ## headings, lists, tables, `code`, links. To show a
-                  picture, add it to the gallery and paste its address as ![alt
-                  text](address).
-                </>
+                <>Markdown. Pictures: ![alt](gallery address).</>
               )}
             </p>
           </div>
@@ -366,7 +362,7 @@ else if (saved) toast(Astro, "Saved.");
               {errors.license ? (
                 <strong class="font-medium">{errors.license}</strong>
               ) : (
-                "Shown on the project page. Only share what you made, or may share."
+                "Only share what you made, or may share."
               )}
             </p>
           </div>
@@ -398,10 +394,7 @@ else if (saved) toast(Astro, "Saved.");
           Links
         </h2>
         <div class={body}>
-          <p class="text-muted">
-            Up to {MC_LIMITS.links}: source code, issues, wiki, Discord,
-            donations.
-          </p>
+          <p class="text-muted">Up to {MC_LIMITS.links}.</p>
           <ol class="flex flex-col gap-4">
             {values.links.map((link, index) => {
               const key = `link-${String(index)}` as const;

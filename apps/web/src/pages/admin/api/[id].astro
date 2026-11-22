@@ -305,9 +305,7 @@ toastError(Astro, error);
               <CopyButton client:load value={secret} label="Copy key" />
             </div>
             <p class="text-sm text-muted">
-              Give it to the app as an environment variable (the docs call it
-              TRILLEO_API_KEY). Check it with{" "}
-              <code class="font-mono">GET {docs}/v1/me</code>.
+              Check it with <code class="font-mono">GET {docs}/v1/me</code>.
             </p>
           </div>
         )}
@@ -461,11 +459,9 @@ toastError(Astro, error);
       </h2>
       <div class={body}>
         <p class="max-w-2xl text-muted">
-          The site sends events to these addresses as signed JSON POSTs (see{" "}
           <a href={`${docs}/docs/webhooks/`} class="underline">
-            Webhooks
-          </a>{" "}
-          in the docs). Events offered follow the app's scopes.
+            Webhooks docs
+          </a>
         </p>
         {webhooks.length > 0 && (
           <ul class="border-b border-ink" data-testid="api-webhooks">

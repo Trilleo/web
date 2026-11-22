@@ -150,12 +150,6 @@ const scopeText = (scopes: readonly string[]) =>
 
     <DisplayTitle id="apps-title">Apps</DisplayTitle>
 
-    <p class="type-lead mt-6">
-      Programs you’ve let act for your account, like a game mod that syncs your
-      progress. Each has a personal token; none can sign in or change your
-      account.
-    </p>
-
     <div class="mt-7 flex flex-col gap-12 md:mt-8 xl:mt-12">
       {fresh && (
         <div class:list={[row, "scroll-mt-6"]} id="new-token">
@@ -175,14 +169,9 @@ const scopeText = (scopes: readonly string[]) =>
               <CopyButton client:load value={fresh.secret} label="Copy token" />
             </div>
             <p class="text-sm text-muted">
-              Paste it into the program, and keep it as you would a password.
-              Programs send it as{" "}
-              <code class="font-mono">Authorization: Bearer &lt;token&gt;</code>
-              ; see{" "}
               <a href={`${docs}/docs/personal-tokens/`} class="underline">
                 Personal tokens
               </a>
-              .
             </p>
           </div>
         </div>
@@ -195,12 +184,10 @@ const scopeText = (scopes: readonly string[]) =>
         <div class={body}>
           {tokens.length === 0 ? (
             <p class="text-muted">
-              Nothing yet. A program that supports it shows a code to type on
-              the{" "}
+              Nothing yet.{" "}
               <a href="/link/" class="underline">
                 Link a device
-              </a>{" "}
-              page; otherwise make a token below and paste it in.
+              </a>
             </p>
           ) : (
             <ul
@@ -256,9 +243,8 @@ const scopeText = (scopes: readonly string[]) =>
             </ul>
           )}
           <p class="text-sm text-muted">
-            Revoking stops a token at once. Up to {USER_TOKEN_LIMITS.perUser}{" "}
-            tokens; each makes up to {USER_TOKEN_LIMITS.perMinute} requests a
-            minute.
+            Up to {USER_TOKEN_LIMITS.perUser} tokens,{" "}
+            {USER_TOKEN_LIMITS.perMinute} requests a minute each.
           </p>
         </div>
       </div>

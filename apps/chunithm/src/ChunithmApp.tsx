@@ -181,10 +181,7 @@ export function ChunithmApp({
     <div className="flex flex-col gap-10">
       <ToolSection number="01" title="Find a chart">
         <div className="flex flex-col gap-5">
-          <Field
-            label="Title, artist or alias"
-            hint="English, Japanese (kana or romaji) or Chinese."
-          >
+          <Field label="Title, artist or alias">
             {(props) => (
               <input
                 {...props}
@@ -283,7 +280,7 @@ export function ChunithmApp({
                 </select>
               )}
             </Field>
-            <Field label="Constant from" hint="e.g. 14.5">
+            <Field label="Constant from">
               {(props) => (
                 <input
                   {...props}

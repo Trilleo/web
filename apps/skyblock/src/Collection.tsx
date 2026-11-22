@@ -458,8 +458,7 @@ export function Collection({
             )}
           </div>
           <p className="text-sm text-muted">
-            Level: your attribute’s level at the Hunting Box. Held: shards you
-            have and haven’t used. “Keep” leaves a held shard out of plans.
+            “Keep” leaves a held shard out of plans.
           </p>
           {results.length === 0 ? (
             <p className="text-muted">No shard matches.</p>

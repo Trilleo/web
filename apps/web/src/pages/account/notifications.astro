@@ -72,10 +72,7 @@ const now = new Date();
       </div>
       <div class="col-span-4 md:col-span-6 xl:col-span-7">
         {notifications.length === 0 ? (
-          <p class="text-muted">
-            Nothing yet. Watch a topic or a forum and you’ll hear about what
-            happens there.
-          </p>
+          <p class="text-muted">Nothing yet.</p>
         ) : (
           <ol class="border-b border-ink" data-testid="notifications">
             {notifications.map((item) => (

@@ -114,9 +114,6 @@ const select = `${fieldClasses} h-11 px-2`;
     <h1 class="type-headline col-span-4 md:col-span-6 xl:col-span-9">
       Fusion profits
     </h1>
-    <p class="type-dek col-span-4 max-w-[47.5rem] text-muted md:col-span-6 xl:col-span-9">
-      {description}
-    </p>
   </div>
 
   {!prices ? (
@@ -193,8 +190,7 @@ const select = `${fieldClasses} h-11 px-2`;
               Show
             </button>
             <p class="text-sm text-muted">
-              Prices from {when(prices.fetchedAt)}. Buy orders and sell offers
-              pay better than instant trades, but you wait for them to fill.
+              Prices from {when(prices.fetchedAt)}.
             </p>
           </div>
         </form>
@@ -212,9 +208,8 @@ const select = `${fieldClasses} h-11 px-2`;
           ) : (
             <>
               <p class="text-sm text-muted">
-                {rows.length} {rows.length === 1 ? "shard" : "shards"} make a
-                profit. Cost is the cheapest route: buying inputs and fusing,
-                deeper fusions included. A batch is one run of the last fusion.
+                {rows.length} {rows.length === 1 ? "shard" : "shards"}. A batch
+                is one run of the last fusion.
               </p>
               <div class="overflow-x-auto" {...scrollRegion}>
                 <table
@@ -318,8 +313,8 @@ const select = `${fieldClasses} h-11 px-2`;
         </h2>
         <div class={`${body} gap-8`} data-testid="profits-movers">
           <p class="text-sm text-muted">
-            The lowest sell offer now against the hour’s median then, for shards
-            traded {MOVER_MIN_VOLUME} times a week or more.
+            Lowest sell offer against the hourly median; {MOVER_MIN_VOLUME}+
+            trades a week.
           </p>
           {moves.map((move) => (
             <div class="flex flex-col gap-3">

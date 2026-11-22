@@ -161,11 +161,14 @@
   you own if the parent's CSS must place it.
 - Use the width. Content starts at column 3 only when something hangs in columns
   1–2 beside it (a label, a section number, the contents list, an info page's
-  facts); a row with nothing there starts at column 1. A page's description
-  (`type-lead` under the display title) spans the full width, or columns 1–9 when
-  an aside takes 10–12; a label for it ("About", "Index") goes on its own line
-  above it, not beside it. Reading text keeps a measure (7 columns, or a
-  max-width), so it may leave the right side open.
+  facts); a row with nothing there starts at column 1. Reading text keeps a
+  measure (7 columns, or a max-width), so it may leave the right side open.
+- Copy is minimal. No description under a page's title (the meta description
+  stays, for search engines and share cards; cards in lists keep theirs). Field
+  hints state only hard constraints: formats, limits, units ("PNG, JPEG · 5 MB"),
+  never examples, reassurance or what the label already says. No paragraphs
+  explaining how a section works; empty states are a short line ("Nothing yet.").
+  Keep text that warns what a destructive action does.
 - Dropdowns (`select`, single choice) draw their own chevron, 12px in, in the text
   colour (theme.css, unlayered, so it beats padding utilities; the browser's arrow
   comes back in forced colours). Don't give a select its own arrow or right padding.
@@ -183,7 +186,7 @@
   (`stackTables` in src/lib/post-html.ts adds the labels). Prose tables don't use
   tabular figures: in the grotesk they widen commas, periods and colons too.
 - The footer: the name, three labelled link groups (Sections, Information,
-  Elsewhere), and the site's line with "Back to top" in columns 9–12.
+  Elsewhere), and "Back to top" in columns 9–12.
 
 ## Motion
 
@@ -544,9 +547,10 @@
   /accessibility/, /security/; site pages /colophon/, /sitemap/ (server-rendered: it
   lists posts). Plus /.well-known/security.txt (Expires a year after each build) and
   /humans.txt.
-- Pages use `InfoLayout` (title, description and "Updated" from the registry; `sections`
-  feed the contents; `history` appends "Changes to this page"). When a legal page
-  changes in substance, add an entry to its `changes`.
+- Pages use `InfoLayout` (title and "Updated" from the registry, the description
+  only for search; `sections` feed the contents; `history` appends "Changes to
+  this page"). When a legal page changes in substance, add an entry to its
+  `changes`.
 - The text states facts about the code: import numbers (retention, limits, session
   length, cookie keys) rather than copying them, and update the text when behaviour
   changes. Operator: Trilleo, an individual in mainland China (PRC law, PIPL, GDPR

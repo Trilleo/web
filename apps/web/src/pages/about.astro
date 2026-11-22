@@ -8,33 +8,26 @@ import { GITHUB_URL, SITE_NAME } from "../lib/site";
 const links = [
   {
     label: "Writing",
-    detail: "Notes on building this site, and what comes out of the projects.",
     href: "/writing/",
   },
   {
     label: "Tools",
-    detail: "Small web tools that work in your browser.",
     href: "/tools/",
   },
   {
     label: "Games",
-    detail: "Browser games drawn in text and pixels, slow and quick.",
     href: "/games/",
   },
   {
     label: "Minecraft",
-    detail:
-      "Mods, plugins, worlds, builds and packs, shared by the people who made them.",
     href: "/minecraft/",
   },
   {
     label: "Contact",
-    detail: "Questions, feedback, or something that needs fixing.",
     href: "/contact/",
   },
   {
     label: "GitHub",
-    detail: "Code releases and the source of this site.",
     href: GITHUB_URL,
   },
 ] as const;
@@ -61,27 +54,14 @@ const links = [
 
     <div class="grid-swiss mt-7 gap-y-8 border-t border-ink pt-4 md:mt-8 md:gap-y-10 md:pt-5 xl:mt-12 xl:pt-6">
       <div class="col-span-4 flex flex-col gap-8 md:col-span-8 md:gap-10 xl:col-span-9">
-        <p class="type-lead">
-          {SITE_NAME} is Trilleo’s corner of the web: Minecraft creations, code,
-          and learning resources, collected in one place.
+        <p class="max-w-[42rem] text-[15px] leading-[1.6] text-muted xl:text-base">
+          Make an account with your email or GitHub to comment, post in the{" "}
+          <a href="/forum/" class="link-wipe">
+            forum
+          </a>{" "}
+          and keep your tool data. Your first comment or post is read before it
+          appears.
         </p>
-
-        <div class="flex max-w-[42rem] flex-col gap-4 text-[15px] leading-[1.6] text-muted xl:text-base">
-          <p>
-            Everything here is picked and made by hand. The writing explains how
-            things are built; the tools are small, useful, and free to use
-            without an account.
-          </p>
-          <p>
-            Want to join in? Make an account with your email (or GitHub) to
-            comment on posts, talk in the{" "}
-            <a href="/forum/" class="link-wipe">
-              forum
-            </a>
-            , and keep your tool data in your account. Your first comment or
-            post is read before it appears; after that, you post straight away.
-          </p>
-        </div>
       </div>
 
       <nav
@@ -105,9 +85,6 @@ const links = [
                 ) : (
                   <ArrowRightIcon className="transition-transform duration-(--tr-dur-base) ease-swiss group-hover:translate-x-1" />
                 )}
-              </span>
-              <span class="text-[14px] leading-[1.5] text-muted">
-                {link.detail}
               </span>
             </a>
           );

@@ -307,11 +307,9 @@ toastError(Astro, error);
       <p class={label}>Import</p>
       <div class={body}>
         <p class="text-muted">
-          Paste a community list, by SEGA ID: JSON (
-          <code>{'{"2710": ["神谕", "oracle"]}'}</code> or{" "}
-          <code>{'[{"id": 2710, "aliases": [...]}]'}</code>) or lines of
-          tab-separated values (ID, then names). Names a song already has are
-          skipped.
+          JSON (<code>{'{"2710": ["神谕", "oracle"]}'}</code> or{" "}
+          <code>{'[{"id": 2710, "aliases": [...]}]'}</code>) or TSV (ID, then
+          names).
         </p>
         {report && (
           <div

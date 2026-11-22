@@ -24,7 +24,7 @@ interface Props {
 }
 
 const { post, number, next, editHref, statusLabel } = Astro.props;
-const { title, description, pubDate, updatedDate, tags, draft } = post.data;
+const { title, pubDate, updatedDate, tags, draft } = post.data;
 const sections = post.row.toc.filter((heading) => heading.depth === 2);
 const status = statusLabel ?? (draft ? "Draft" : "Published");
 ---
@@ -54,11 +54,6 @@ const status = statusLabel ?? (draft ? "Draft" : "Published");
   <header class="grid-swiss px-page gap-y-8 pt-10 pb-12 md:pt-14 md:pb-14 xl:pt-18 xl:pb-16">
     <div class="col-span-4 flex flex-col gap-6 md:col-span-6 md:col-start-3 md:row-start-1 xl:col-span-10 xl:col-start-3 xl:gap-8">
       <h1 class="type-headline">{title}</h1>
-      {description && (
-        <p class="type-dek max-w-[47.5rem] animate-rise text-muted [animation-delay:120ms]">
-          {description}
-        </p>
-      )}
     </div>
     <dl class="type-label col-span-4 flex animate-fade flex-col gap-3.5 [animation-delay:200ms] md:col-span-2 md:col-start-1 md:row-start-1 md:pt-2.5 xl:col-span-2">
       <div class="flex gap-3">

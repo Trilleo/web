@@ -334,11 +334,8 @@ function FirstSignIn({
           <>
             <h2 className="type-card">Bring your island along?</h2>
             <p className="text-[15px] leading-normal text-muted">
-              This browser has an island you played signed out. Move it into
-              your account to keep playing it anywhere. It wasn’t checked while
-              you played, so very large amounts are capped (coins at 100,000,
-              skills at level 15). Or start a new island in your account and
-              leave this one here.
+              Move this browser’s island into your account, or start a new one.
+              Large amounts are capped (coins at 100,000, skills at level 15).
             </p>
             <div className="flex flex-wrap gap-3">
               <Button

@@ -322,7 +322,7 @@ export function ReleaseEditor(props: ReleaseEditorProps) {
             ) : (
               <FileDrop
                 title="Drop the release’s main file"
-                hint={`${props.extensions.map((ext) => `.${ext}`).join(", ")}. It’s read here to fill in the form; nothing is sent until you save.`}
+                hint={`${props.extensions.map((ext) => `.${ext}`).join(", ")}.`}
                 accept={props.extensions.map((ext) => `.${ext}`).join(",")}
                 onFiles={(files) => {
                   const first = files[0];
@@ -418,10 +418,6 @@ export function ReleaseEditor(props: ReleaseEditorProps) {
                 </label>
               ))}
             </div>
-            <p className="text-sm text-muted">
-              Download gets the newest release; betas and alphas only when asked
-              for.
-            </p>
           </div>
         </div>
       </div>
@@ -572,9 +568,7 @@ export function ReleaseEditor(props: ReleaseEditorProps) {
         </h2>
         <div className={body}>
           <p className="text-sm text-muted">
-            What it needs, works with, or clashes with. A project here: its
-            address (or the last part of it). One elsewhere: its name and a
-            link.
+            A project here: its address. Elsewhere: a name and link.
           </p>
           {values.dependencies.length > 0 && (
             <ol className="flex flex-col gap-4">

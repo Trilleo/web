@@ -11,7 +11,7 @@ interface OwnValuesProps {
   onChange: (values: Record<string, number>) => void;
   /** The number field's label and hint. */
   label: string;
-  hint: string;
+  hint?: string;
   submit: string;
   max: number;
   maxCount: number;
@@ -102,7 +102,7 @@ function OwnValues({
               ? chosenDefault
                 ? `Default: ${chosenDefault}.`
                 : "No default."
-              : "Start typing its name."
+              : undefined
           }
         >
           {(props) => (
@@ -254,7 +254,6 @@ export function Prices({ settings, shards, market, onChange }: PricesProps) {
       shards={shards}
       onChange={onChange}
       label="Coins a shard"
-      hint="What you’d pay."
       submit="Set price"
       max={LIMITS.coins}
       maxCount={LIMITS.prices}

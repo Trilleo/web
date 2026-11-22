@@ -37,10 +37,7 @@ for (const page of pages) {
     noindex
   >
     <div class="flex flex-col gap-8">
-      <ToolHeading
-        title="All pages"
-        lead={`${String(pages.length)} pages. Generated pages are marked; redirects are in italics.`}
-      />
+      <ToolHeading title="All pages" />
       {[...groups].map(([letter, list]) => (
         <section class="flex flex-col gap-2" aria-label={letter}>
           <h2 class="type-label text-muted">{letter}</h2>

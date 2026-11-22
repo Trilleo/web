@@ -575,8 +575,7 @@ function Picture({ label, manifest, mode, zoom }: PictureProps) {
     <div className="flex flex-col gap-3">
       {manifest.plainLanes ? (
         <p className="text-sm text-muted" data-testid="chart-plain-lanes">
-          sdvx.in hasn’t drawn lanes or measure numbers for this chart, so its
-          notes are shown on plain lanes, without measure lines.
+          No lanes or measures from sdvx.in: notes on plain lanes.
         </p>
       ) : (
         <form
