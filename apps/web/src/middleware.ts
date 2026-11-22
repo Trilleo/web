@@ -26,6 +26,7 @@ import {
   isForbiddenCrossOrigin,
 } from "./lib/origin-check";
 import { bazaarInBackground, startSkyblockBazaar } from "./lib/skyblock/bazaar";
+import { feedsInBackground, startSkyblockFeeds } from "./lib/skyblock/feeds";
 import {
   skyblockSyncInBackground,
   startSkyblockSync,
@@ -58,6 +59,8 @@ function startTimers(): void {
   startSkyblockSync(getDb);
   // SkyBlock's Bazaar prices: a fetch every 5 minutes.
   startSkyblockBazaar(getDb);
+  // SkyBlock's election, fire sales, Bingo and news: each on its own pace.
+  startSkyblockFeeds(getDb);
 }
 
 /** Work any request may start (each at most every few minutes, in the background). */
@@ -80,6 +83,8 @@ function backgroundWork(): void {
   skyblockSyncInBackground(getDb);
   // SkyBlock's Bazaar prices (also on their own timer).
   bazaarInBackground(getDb);
+  // SkyBlock's election, fire sales, Bingo and news (also on their own timer).
+  feedsInBackground(getDb);
   // The human check's counts, and its watch for floods (every minute at most).
   flushChecksInBackground(getDb, checker);
 }

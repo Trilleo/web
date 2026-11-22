@@ -2,7 +2,8 @@
 /**
  * Hypixel SkyBlock's shard data: the version in use (from SkyShards' repository, or
  * the copy committed with the site), icons copied and failed, and recent passes, with
- * "Check now" (a POST to this page with `intent=sync`).
+ * "Check now" (a POST to this page with `intent=sync`); Bazaar prices; and the event
+ * timer's feeds from Hypixel, with "Fetch now" (`intent=feeds`).
  */
 import AdminNav from "../../../components/admin/AdminNav.astro";
 import { primaryButton } from "../../../components/admin/files/styles";
@@ -19,6 +20,12 @@ import {
   bazaarStatus,
   bazaarUrl,
 } from "../../../lib/skyblock/bazaar";
+import {
+  FEEDS,
+  feedStatus,
+  hypixelBase,
+  refreshFeeds,
+} from "../../../lib/skyblock/feeds";
 import { SOURCE_REPO, skyblockSource } from "../../../lib/skyblock/source";
 import {
   SYNC_EVERY_MS,
@@ -44,21 +51,37 @@ if (Astro.request.method === "POST") {
     const done = startSync(getDb) ? "syncing" : "busy";
     return noStoreRedirect(`/admin/skyblock/?done=${done}`, 303);
   }
+  if (field(form, "intent") === "feeds") {
+    const results = await refreshFeeds(db, { force: true });
+    const done =
+      results.length > 0 && results.every((result) => result.ok)
+        ? "feeds"
+        : "feeds-failed";
+    return noStoreRedirect(`/admin/skyblock/?done=${done}`, 303);
+  }
   error = "Unknown action.";
 }
 
 const DONE: Record<string, string> = {
   syncing: "Checking SkyShards now. Reload in a minute to see what it found.",
   busy: "A check is already running.",
+  feeds: "Fetched every feed from Hypixel.",
 };
 const doneParam = Astro.url.searchParams.get("done");
 if (doneParam && doneParam in DONE) toast(Astro, DONE[doneParam]);
-toastError(Astro, error);
+toastError(
+  Astro,
+  doneParam === "feeds-failed"
+    ? "Not every feed loaded: see the feeds' failures."
+    : error,
+);
 
 const storage = getStorage();
 const overview = await skyblockOverview(db, storage);
 const bazaar = await bazaarStatus(db);
 const bazaarOn = bazaarUrl() !== null;
+const feeds = await feedStatus(db);
+const feedsOn = hypixelBase() !== null;
 const source = skyblockSource();
 const running = syncRunning();
 const repo = source?.repo ?? SOURCE_REPO;
@@ -214,6 +237,60 @@ const detail = "mt-1 text-sm text-muted";
           Every {REFRESH_MS / 60000} minutes; history kept {PRICE_HISTORY_DAYS}{" "}
           days.
         </p>
+      </div>
+    </div>
+
+    <div class={row}>
+      <p class={label}>Event timer feeds</p>
+      <div class={body} data-testid="skyblock-feeds">
+        {!feedsOn && (
+          <p class="border-l-2 border-hair pl-4 text-muted">
+            Fetching is switched off here (SKYBLOCK_FEEDS=off).
+          </p>
+        )}
+        <table class={table}>
+          <thead>
+            <tr>
+              <th class={th} scope="col">
+                Feed
+              </th>
+              <th class={th} scope="col">
+                Last fetch
+              </th>
+              <th class={th} scope="col">
+                Every
+              </th>
+              <th class={th} scope="col">
+                Failures since
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {feeds.map((feed) => (
+              <tr>
+                <th class={`${td} font-normal`} scope="row">
+                  {feed.label}
+                </th>
+                <td class={td}>{when(feed.fetchedAt)}</td>
+                <td class={td}>{FEEDS[feed.feed].everyMs / 60000} minutes</td>
+                <td class={td}>
+                  {feed.failures}
+                  {feed.lastError && (
+                    <span class="block text-muted">
+                      last: {feed.lastError} ({when(feed.lastErrorAt)})
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <form method="post">
+          <input type="hidden" name="intent" value="feeds" />
+          <button type="submit" class={primaryButton} disabled={!feedsOn}>
+            Fetch now
+          </button>
+        </form>
       </div>
     </div>
 

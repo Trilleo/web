@@ -8,6 +8,7 @@
  */
 import {
   SB_DAYS_PER_MONTH,
+  SB_DAYS_PER_YEAR,
   SB_DAY_MS,
   SB_HOUR_MS,
   SB_MONTH_MS,
@@ -25,6 +26,7 @@ export const EVENT_CATEGORIES = {
   mining: "Mining",
   economy: "Economy",
   politics: "Politics",
+  mayor: "Mayor's perks",
 } as const;
 export type EventCategory = keyof typeof EVENT_CATEGORIES;
 
@@ -57,6 +59,10 @@ export interface SkyBlockEvent {
   warp: string | null;
   /** One line: what happens. */
   summary: string;
+  /** Only while a mayor or minister with this perk is in office (mayor.ts). */
+  perk?: string;
+  /** Times are limited to this span (a perk's term), ms. */
+  during?: { from: number; to: number };
 }
 
 /** The calendar events, in the order the board lists them when they tie. */
@@ -257,7 +263,9 @@ export function occurrences(
       }
     }
   }
+  const during = event.during;
   return starts
+    .filter((start) => !during || (start >= during.from && start < during.to))
     .filter((start) =>
       length === 0
         ? start >= from && start < to
@@ -278,15 +286,23 @@ export function eventsBetween(
     .sort((a, b) => a.start - b.start);
 }
 
-/** The next `count` times an event starts after `now`. */
+/**
+ * The next `count` times an event starts after `now` (fewer for one limited to a
+ * term that ends first).
+ */
 export function nextOccurrences(
   event: SkyBlockEvent,
   now: number,
   count: number,
 ): Occurrence[] {
   const found: Occurrence[] = [];
+  const until = event.during?.to ?? Infinity;
   // A year holds at least one of every event; look a year at a time.
-  for (let from = now; found.length < count; from += SB_YEAR_MS) {
+  for (
+    let from = now;
+    found.length < count && from < until;
+    from += SB_YEAR_MS
+  ) {
     for (const occurrence of occurrences(event, from, from + SB_YEAR_MS)) {
       if (occurrence.start > now && found.length < count) {
         found.push(occurrence);
@@ -296,10 +312,11 @@ export function nextOccurrences(
   return found;
 }
 
-export function nextOccurrence(event: SkyBlockEvent, now: number): Occurrence {
-  const [next] = nextOccurrences(event, now, 1);
-  if (!next) throw new Error(`${event.slug} never happens`);
-  return next;
+export function nextOccurrence(
+  event: SkyBlockEvent,
+  now: number,
+): Occurrence | null {
+  return nextOccurrences(event, now, 1)[0] ?? null;
 }
 
 /** The time an event is on at `now`, if it is (moment-long ones never are). */
@@ -317,7 +334,7 @@ export function currentOccurrence(
 export interface EventBoard {
   /** What's on now, ending soonest first. */
   running: Occurrence[];
-  /** Each event's next start, soonest first. */
+  /** Each event's next start, soonest first (none for a term that's ending). */
   next: Occurrence[];
 }
 
@@ -331,6 +348,7 @@ export function eventBoard(
     .sort((a, b) => a.end - b.end);
   const next = events
     .map((event) => nextOccurrence(event, now))
+    .filter((occurrence): occurrence is Occurrence => occurrence !== null)
     .sort((a, b) => a.start - b.start);
   return { running, next };
 }
@@ -364,6 +382,11 @@ export function scheduleInWords(event: SkyBlockEvent): string {
     return `${cadence(event)}, at :${String(minute).padStart(2, "0")}`;
   }
   if (schedule.kind === "monthly") {
+    const span = Math.round(schedule.lengthMs / SB_DAY_MS);
+    if (span > 1 && schedule.days.length === 1) {
+      const day = schedule.days[0] ?? 1;
+      return `The ${ordinal(day)} to ${ordinal(day + span - 1)} of every month`;
+    }
     const days = schedule.days.map(ordinal);
     const list =
       days.length > 1
@@ -371,6 +394,7 @@ export function scheduleInWords(event: SkyBlockEvent): string {
         : (days[0] ?? "");
     return `The ${list} of every month`;
   }
+  if (event.perk && schedule.lengthDays >= SB_DAYS_PER_YEAR) return "All term";
   const spans = schedule.starts.map((start) => {
     const first =
       start.month * SB_DAYS_PER_MONTH + start.day - SB_DAYS_PER_MONTH;

@@ -1,8 +1,11 @@
 /**
- * Hypixel's Bazaar for the SkyBlock e2e specs: /v2/skyblock/bazaar answers with every
+ * Hypixel's API for the SkyBlock e2e specs. /v2/skyblock/bazaar answers with every
  * shard in the committed snapshot, priced from its hunting rate (rarer, slower shards
  * dearer; a few shards with nobody selling), so the profit list has rows and coin mode
- * has prices. The site fetches it (SKYBLOCK_BAZAAR_URL in playwright.config.ts).
+ * has prices (SKYBLOCK_BAZAAR_URL in playwright.config.ts). The event timer's feeds
+ * (SKYBLOCK_HYPIXEL_URL) answer as of the request: Marina is mayor with Fishing
+ * Festival, Diaz minister, a running election with fixed votes, a fire sale and Bingo
+ * on now, and two news posts.
  */
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -54,6 +57,132 @@ export function bazaarBody(now = Date.now()): unknown {
   return { success: true, lastUpdated: now, products };
 }
 
+const perk = (name: string, description: string, minister = false) => ({
+  name,
+  description,
+  minister,
+});
+
+/** SkyBlock's calendar, as @trilleo/skyblock/events counts it (this runs on plain Node). */
+const EPOCH_MS = 1_560_275_700_000;
+const SB_DAY_MS = 1_200_000;
+const SB_YEAR_MS = 372 * SB_DAY_MS;
+
+/**
+ * The year of the election whose mayor is in office now: terms start on Late Spring
+ * 27th (day 89 of the year, from 0) of the year after the booth opened.
+ */
+export function electedYear(now = Date.now()): number {
+  const since = now - EPOCH_MS;
+  const year = Math.floor(since / SB_YEAR_MS) + 1;
+  const day = Math.floor((since % SB_YEAR_MS) / SB_DAY_MS);
+  return day >= 2 * 31 + 26 ? year - 1 : year - 2;
+}
+
+/** The election: Marina won it, so her term (and Fishing Festival) is running now. */
+export function electionBody(elected = electedYear()): unknown {
+  return {
+    success: true,
+    lastUpdated: Date.now(),
+    mayor: {
+      key: "fishing",
+      name: "Marina",
+      perks: [
+        perk(
+          "Fishing Festival",
+          "Start a special fishing event the first §b3 §7days of each month!",
+          true,
+        ),
+        perk("Luck of the Sea 2.0", "Gain §3+15α Sea Creature Chance§7."),
+      ],
+      minister: {
+        key: "economist",
+        name: "Diaz",
+        perk: perk(
+          "Shopping Spree",
+          "Increase daily NPC buy limits by §e10x§7.",
+          true,
+        ),
+      },
+      election: {
+        year: elected,
+        candidates: [
+          { key: "fishing", name: "Marina", votes: 500_000, perks: [] },
+          { key: "economist", name: "Diaz", votes: 300_000, perks: [] },
+        ],
+      },
+    },
+    current: {
+      year: elected + 1,
+      candidates: [
+        {
+          key: "pets",
+          name: "Diana",
+          votes: 120_000,
+          perks: [perk("Pet XP Buff", "Gain §d35% §7more pet XP.")],
+        },
+        {
+          key: "farming",
+          name: "Finnegan",
+          votes: 80_000,
+          perks: [perk("GOATed", "§eJacob's Farming Contest §7brackets grow.")],
+        },
+      ],
+    },
+  };
+}
+
+const DAY_MS = 86_400_000;
+
+function feedBody(path: string, now = Date.now()): unknown {
+  if (path === "/v2/resources/skyblock/election") return electionBody();
+  if (path === "/v2/skyblock/firesales")
+    return {
+      success: true,
+      sales: [
+        {
+          item_id: "PET_SKIN_TEST",
+          start: now - DAY_MS,
+          end: now + DAY_MS,
+          amount: 2500,
+          price: 650,
+        },
+      ],
+    };
+  if (path === "/v2/resources/skyblock/bingo")
+    return {
+      success: true,
+      lastUpdated: now,
+      id: 60,
+      name: "Test Bingo",
+      start: now - DAY_MS,
+      end: now + 6 * DAY_MS,
+      modifier: "NORMAL",
+      goals: [
+        { id: "fish", name: "Gone Fishing", lore: "§7Catch §e50 §7fish." },
+      ],
+    };
+  if (path === "/v2/skyblock/news")
+    return {
+      success: true,
+      items: [
+        {
+          title: "SkyBlock v0.99",
+          text: "1st December 2026",
+          link: "https://hypixel.net/threads/1/",
+          item: { material: "NETHER_STAR" },
+        },
+        {
+          title: "SkyBlock v0.98",
+          text: "1st November 2026",
+          link: "https://hypixel.net/threads/2/",
+          item: { material: "PAPER" },
+        },
+      ],
+    };
+  return null;
+}
+
 function serve(): void {
   createServer((request, response) => {
     const path = new URL(request.url ?? "/", FAKE_SKYBLOCK).pathname;
@@ -66,10 +195,16 @@ function serve(): void {
       response.end(JSON.stringify(bazaarBody()));
       return;
     }
+    const feed = feedBody(path);
+    if (feed !== null) {
+      response.setHeader("Content-Type", "application/json");
+      response.end(JSON.stringify(feed));
+      return;
+    }
     response.statusCode = 404;
     response.end("not found");
   }).listen(FAKE_SKYBLOCK_PORT, "127.0.0.1", () => {
-    console.log(`Fake Bazaar on ${FAKE_SKYBLOCK}`);
+    console.log(`Fake Hypixel on ${FAKE_SKYBLOCK}`);
   });
 }
 

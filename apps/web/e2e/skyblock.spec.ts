@@ -147,6 +147,16 @@ test("the admin's SkyBlock panel shows the data in use", async ({
   await expect(admin.getByTestId("skyblock-bazaar")).toContainText(
     "shards on the Bazaar",
   );
+  // The event timer's feeds come from e2e/fake-skyblock.ts.
+  const feeds = admin.getByTestId("skyblock-feeds");
+  await expect(
+    feeds.getByRole("rowheader", { name: "Election" }),
+  ).toBeVisible();
+  await feeds.getByRole("button", { name: "Fetch now" }).click();
+  await expect(toasts(admin)).toContainText("Fetched every feed from Hypixel.");
+  await expect(feeds.getByRole("row", { name: /^News/ })).not.toContainText(
+    "—",
+  );
 });
 
 test("a shard's page opens the calculator, which works out the fastest route", async ({

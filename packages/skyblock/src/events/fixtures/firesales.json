@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "sales": [
+    {
+      "item_id": "GLOSSY_MINERAL_SLIMEY",
+      "start": 1795280400000,
+      "end": 1795626000000,
+      "amount": 4500,
+      "price": 950
+    }
+  ]
+}

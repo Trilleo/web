@@ -427,6 +427,10 @@ export const INFO_PAGES: readonly InfoPage[] = [
     group: "site",
     changes: [
       {
+        date: "2026-11-22",
+        note: "The SkyBlock event timer: the game's calendar, and the mayor, election, fire sales, Bingo and news from Hypixel's API.",
+      },
+      {
         date: "2026-11-20",
         note: "The Hypixel SkyBlock tool: Hypixel's shard icons, SkyShards' data and Hypixel's Bazaar prices.",
       },

@@ -200,3 +200,40 @@ export function segmentsHtml(segments: readonly Segment[]): string {
     })
     .join("");
 }
+
+const SECTION_COLOURS: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(COLOUR_CODES).map(([name, code]) => [code, name]),
+);
+
+/**
+ * Text written with Minecraft's § codes (Hypixel's API: mayor perks, Bingo goals) as
+ * segments: colours 0–f, l bold, o italic, n underlined, m struck, k obfuscated, r
+ * reset. A colour clears the styles, as in the game. Unknown codes are dropped.
+ */
+export function sectionSegments(text: string): TextSegment[] {
+  const segments: TextSegment[] = [];
+  let style: Omit<TextSegment, "t"> = {};
+  const parts = text.split("§");
+  const push = (t: string) => {
+    if (t) segments.push({ t, ...style });
+  };
+  push(parts[0] ?? "");
+  for (const part of parts.slice(1)) {
+    const code = part.charAt(0).toLowerCase();
+    const colour = SECTION_COLOURS[code];
+    if (colour !== undefined) style = { c: colour };
+    else if (code === "r") style = {};
+    else if (code === "l") style = { ...style, bold: true };
+    else if (code === "o") style = { ...style, italic: true };
+    else if (code === "n") style = { ...style, underlined: true };
+    else if (code === "m") style = { ...style, strikethrough: true };
+    else if (code === "k") style = { ...style, obfuscated: true };
+    push(part.slice(1));
+  }
+  return segments;
+}
+
+/** The same text without its § codes. */
+export function stripSectionCodes(text: string): string {
+  return text.replace(/§./g, "");
+}

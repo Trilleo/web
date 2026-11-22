@@ -1,0 +1,59 @@
+{
+  "success": true,
+  "items": [
+    {
+      "item": { "material": "NETHER_STAR" },
+      "link": "https://hypixel.net/threads/6169127/",
+      "text": "17th November 2026",
+      "title": "SkyBlock v0.27.3"
+    },
+    {
+      "item": { "material": "JACK_O_LANTERN" },
+      "link": "https://hypixel.net/threads/6165200/",
+      "text": "27th October 2026",
+      "title": "SkyBlock Ghost Visitors"
+    },
+    {
+      "item": { "material": "JUKEBOX", "data": 3 },
+      "link": "https://hypixel.net/threads/6159904/",
+      "text": "6th October 2026",
+      "title": "SkyBlock v0.27.2"
+    },
+    {
+      "item": { "material": "INK_SACK", "data": 3 },
+      "link": "https://hypixel.net/threads/6147732/",
+      "text": "1st September 2026",
+      "title": "SkyBlock v0.27.1"
+    },
+    {
+      "item": { "material": "GOLD_AXE" },
+      "link": "https://hypixel.net/threads/6132090/",
+      "text": "4th August 2026",
+      "title": "SkyBlock v0.27"
+    },
+    {
+      "item": { "material": "STICK" },
+      "link": "https://hypixel.net/threads/6127383/",
+      "text": "22nd July 2026",
+      "title": "SkyBlock v0.26.1"
+    },
+    {
+      "item": { "material": "BARREL" },
+      "link": "https://hypixel.net/threads/6117801/",
+      "text": "8th July 2026",
+      "title": "SkyBlock v0.26"
+    },
+    {
+      "item": { "material": "GOLD_BLOCK" },
+      "link": "https://hypixel.net/threads/6114883/",
+      "text": "1st July 2026",
+      "title": "SkyBlock Year 500 Raffle"
+    },
+    {
+      "item": { "material": "WATER_LILY" },
+      "link": "https://hypixel.net/threads/6100264/",
+      "text": "26th May 2026",
+      "title": "SkyBlock v0.25"
+    }
+  ]
+}

@@ -1,8 +1,9 @@
 ---
 /**
- * One calendar event: /tools/skyblock/events/<slug>/. What happens, when (in the
- * game's words and the next times in real time), how long, where; on now or next.
- * Rendered on the server from the calendar; event-clock.ts makes it live.
+ * One event: /tools/skyblock/events/<slug>/. What happens, when (in the game's words
+ * and the next times in real time), how long, where; on now or next. A perk's event
+ * (mayor.ts) has times only while someone in office holds the perk. Rendered on the
+ * server from the calendar and the election feed; event-clock.ts makes it live.
  */
 import {
   EVENT_CATEGORIES,
@@ -13,13 +14,18 @@ import {
   formatDuration,
   formatSkyblockDate,
   lengthOf,
+  mayorEvents,
   nextOccurrences,
+  perkEventBySlug,
+  perkHolder,
   scheduleInWords,
   skyblockDate,
 } from "@trilleo/skyblock/events";
 import { EVENTS_PATH, eventPath, meta } from "@trilleo/tool-skyblock/meta";
 import SkyblockLayout from "../../../../components/skyblock/SkyblockLayout.astro";
+import { getDb } from "../../../../lib/db";
 import { ogImagePath, toolCard } from "../../../../lib/seo";
+import { liveFeeds } from "../../../../lib/skyblock/feeds";
 import { isoTime, utcTime } from "../../../../lib/skyblock/events";
 
 export const prerender = false;
@@ -27,12 +33,22 @@ export const prerender = false;
 /** How many times ahead the page lists. */
 const NEXT_SHOWN = 10;
 
-const event = eventBySlug(Astro.params.slug ?? "");
-if (!event) return Astro.rewrite("/404");
+const slug = Astro.params.slug ?? "";
+const base = eventBySlug(slug) ?? perkEventBySlug(slug);
+if (!base) return Astro.rewrite("/404");
 
 const now = Date.now();
-const current = currentOccurrence(event, now);
-const upcoming = nextOccurrences(event, now, NEXT_SHOWN);
+let event = base;
+let holder: ReturnType<typeof perkHolder> = null;
+if (base.perk) {
+  const { election } = await liveFeeds(await getDb(), now);
+  holder = election ? perkHolder(election, base.perk) : null;
+  // In office: the event with the term's limits. Otherwise it has no times.
+  event = mayorEvents(election).find((e) => e.slug === base.slug) ?? base;
+}
+const inactive = base.perk !== undefined && !event.during;
+const current = inactive ? null : currentOccurrence(event, now);
+const upcoming = inactive ? [] : nextOccurrences(event, now, NEXT_SHOWN);
 const next = upcoming[0];
 const length = lengthOf(event.schedule);
 const boundary = current ? current.end : (next?.start ?? now);
@@ -52,6 +68,16 @@ const facts: { term: string; value: string; mono?: boolean }[] = [
   { term: "Where", value: event.where },
   ...(event.warp ? [{ term: "Warp", value: event.warp, mono: true }] : []),
   { term: "Kind", value: EVENT_CATEGORIES[event.category] },
+  ...(event.perk
+    ? [
+        {
+          term: "Perk",
+          value: holder
+            ? `${event.perk}, held by ${holder.name} (${holder.role})`
+            : `${event.perk}, held by nobody now`,
+        },
+      ]
+    : []),
 ];
 ---
 
@@ -102,7 +128,14 @@ const facts: { term: string; value: string; mono?: boolean }[] = [
             </time>
             .
           </>
-        ) : null}
+        ) : inactive ? (
+          <>
+            Only while a mayor or minister with the {event.perk} perk is in
+            office.
+          </>
+        ) : (
+          <>Not again this term.</>
+        )}
       </p>
       <dl
         class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm"
@@ -118,50 +151,52 @@ const facts: { term: string; value: string; mono?: boolean }[] = [
     </div>
   </section>
 
-  <section class={row} aria-labelledby="times-title">
-    <h2 id="times-title" class={label}>
-      <span class="text-muted">(02)</span> Next times
-    </h2>
-    <div class={body}>
-      <table
-        class="w-full border-collapse text-left text-sm"
-        data-testid="event-times"
-      >
-        <thead>
-          <tr>
-            <th scope="col" class={th}>
-              Starts
-            </th>
-            <th scope="col" class={th}>
-              In
-            </th>
-            <th scope="col" class={th}>
-              SkyBlock date
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {upcoming.map((occurrence) => (
+  {upcoming.length > 0 && (
+    <section class={row} aria-labelledby="times-title">
+      <h2 id="times-title" class={label}>
+        <span class="text-muted">(02)</span> Next times
+      </h2>
+      <div class={body}>
+        <table
+          class="w-full border-collapse text-left text-sm"
+          data-testid="event-times"
+        >
+          <thead>
             <tr>
-              <td class={td}>
-                <time datetime={isoTime(occurrence.start)} data-local>
-                  {utcTime(occurrence.start)}
-                </time>
-              </td>
-              <td class={td}>
-                <span data-countdown={String(occurrence.start)}>
-                  {formatCountdown(occurrence.start - now)}
-                </span>
-              </td>
-              <td class={td}>
-                {formatSkyblockDate(skyblockDate(occurrence.start))}
-              </td>
+              <th scope="col" class={th}>
+                Starts
+              </th>
+              <th scope="col" class={th}>
+                In
+              </th>
+              <th scope="col" class={th}>
+                SkyBlock date
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </section>
+          </thead>
+          <tbody>
+            {upcoming.map((occurrence) => (
+              <tr>
+                <td class={td}>
+                  <time datetime={isoTime(occurrence.start)} data-local>
+                    {utcTime(occurrence.start)}
+                  </time>
+                </td>
+                <td class={td}>
+                  <span data-countdown={String(occurrence.start)}>
+                    {formatCountdown(occurrence.start - now)}
+                  </span>
+                </td>
+                <td class={td}>
+                  {formatSkyblockDate(skyblockDate(occurrence.start))}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )}
 
   <Fragment slot="credit">
     Times are worked out from the SkyBlock calendar.

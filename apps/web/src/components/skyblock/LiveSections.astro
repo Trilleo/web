@@ -1,0 +1,338 @@
+---
+/**
+ * The event timer's sections from Hypixel's feeds (lib/skyblock/feeds.ts): the mayor
+ * and minister with their perks, the running election's votes, fire sales, Bingo and
+ * news. Numbered from `first`. Perks are drawn in the game's colours on its dark
+ * panel (sectionSegments → segmentsHtml, which escapes everything). Times carry the
+ * event clock's data attributes (event-clock.ts), like the rest of the board.
+ */
+import {
+  sectionSegments,
+  segmentsHtml,
+  stripSectionCodes,
+} from "@trilleo/skyblock";
+import {
+  currentOccurrence,
+  eventBySlug,
+  formatCountdown,
+  formatSkyblockDate,
+  mayorTerm,
+  skyblockDate,
+  voteShares,
+  type Perk,
+} from "@trilleo/skyblock/events";
+import type { LiveFeeds } from "../../lib/skyblock/feeds";
+import { isoTime, utcTime } from "../../lib/skyblock/events";
+
+interface Props {
+  live: LiveFeeds;
+  now: number;
+  first: number;
+}
+
+const { live, now, first } = Astro.props;
+const number = (offset: number) => String(first + offset).padStart(2, "0");
+const row = "grid-swiss mt-10 gap-y-4 border-t border-ink pt-4 md:pt-5";
+const label = "col-span-4 type-label md:col-span-2";
+const body =
+  "col-span-4 flex min-w-0 flex-col gap-4 md:col-span-6 xl:col-span-10";
+const count = (n: number) => n.toLocaleString("en");
+const perkHtml = (perk: Perk) =>
+  segmentsHtml(sectionSegments(perk.description));
+
+const election = live.election;
+const term = election ? mayorTerm(election.elected.year) : null;
+const running = election?.running ?? null;
+const shares = running ? voteShares(running) : new Map<string, number>();
+const booth = (() => {
+  const event = eventBySlug("mayor-election");
+  return event ? currentOccurrence(event, now) : null;
+})();
+const bingo = live.bingo;
+const bingoState = !bingo
+  ? null
+  : now < bingo.start
+    ? "soon"
+    : now < bingo.end
+      ? "on"
+      : "over";
+---
+
+<section class={row} aria-labelledby="mayor-title" data-testid="events-mayor">
+  <h2 id="mayor-title" class={label}>
+    <span class="text-muted">({number(0)})</span> Mayor
+  </h2>
+  <div class={body}>
+    {!election || !term ? (
+      <p class="text-muted">Not loaded yet.</p>
+    ) : (
+      <>
+        <div class="grid gap-6 md:grid-cols-2">
+          <div class="flex flex-col gap-3">
+            <p class="flex flex-col gap-1">
+              <span class="type-label text-muted">Mayor</span>
+              <span class="type-title font-medium" data-testid="mayor-name">
+                {election.mayor.name}
+              </span>
+              <span class="text-sm text-muted">
+                Until {formatSkyblockDate(skyblockDate(term.to))}, in{" "}
+                <span
+                  class="tabular-nums text-ink"
+                  data-countdown={String(term.to)}
+                >
+                  {formatCountdown(term.to - now)}
+                </span>
+              </span>
+            </p>
+            {election.mayor.perks.length > 0 && (
+              <div class="mc-tooltip mc-block sb-lore" data-static>
+                {election.mayor.perks.map((perk) => (
+                  <p class="sb-perk">
+                    <span class="mc-line mc-c-a">{perk.name}</span>
+                    <span class="mc-line" set:html={perkHtml(perk)} />
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+          {election.minister && (
+            <div class="flex flex-col gap-3">
+              <p class="flex flex-col gap-1">
+                <span class="type-label text-muted">Minister</span>
+                <span class="type-title font-medium">
+                  {election.minister.name}
+                </span>
+              </p>
+              <div class="mc-tooltip mc-block sb-lore" data-static>
+                <p class="sb-perk">
+                  <span class="mc-line mc-c-a">
+                    {election.minister.perk.name}
+                  </span>
+                  <span
+                    class="mc-line"
+                    set:html={perkHtml(election.minister.perk)}
+                  />
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+        {running && (
+          <div class="flex flex-col gap-3" data-testid="election-running">
+            <h3 class="type-row font-medium">
+              Year {running.year} election{" "}
+              {booth && (
+                <span class="type-label ml-2 font-normal text-muted">
+                  closes in{" "}
+                  <span data-countdown={String(booth.end)}>
+                    {formatCountdown(booth.end - now)}
+                  </span>
+                </span>
+              )}
+            </h3>
+            <ol class="flex flex-col gap-2">
+              {running.candidates.map((candidate, index) => {
+                const share = shares.get(candidate.key) ?? 0;
+                return (
+                  <li class="grid grid-cols-[7rem_1fr_auto] items-center gap-3 text-sm md:grid-cols-[9rem_1fr_auto]">
+                    <span class:list={[index === 0 && "font-medium"]}>
+                      {candidate.name}
+                    </span>
+                    <span class="h-2 bg-hair" aria-hidden="true">
+                      <span
+                        class:list={[
+                          "block h-full",
+                          index === 0 ? "bg-accent" : "bg-ink",
+                        ]}
+                        style={`width: ${(share * 100).toFixed(1)}%`}
+                      />
+                    </span>
+                    <span class="tabular-nums text-muted">
+                      {(share * 100).toFixed(1)}%
+                      <span class="sr-only">
+                        , {count(candidate.votes)} votes
+                      </span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+            <details class="sb-details text-sm">
+              <summary class="cursor-pointer">Candidates' perks</summary>
+              <ul class="mt-3 grid gap-4 md:grid-cols-2">
+                {running.candidates.map((candidate) => (
+                  <li class="flex flex-col gap-2">
+                    <span class="font-medium">
+                      {candidate.name}{" "}
+                      <span class="text-muted">
+                        · {count(candidate.votes)} votes
+                      </span>
+                    </span>
+                    <div class="mc-tooltip mc-block sb-lore" data-static>
+                      {candidate.perks.map((perk) => (
+                        <p class="sb-perk">
+                          <span class="mc-line mc-c-a">
+                            {perk.name}
+                            {perk.minister && (
+                              <span class="mc-c-8"> (minister)</span>
+                            )}
+                          </span>
+                          <span class="mc-line" set:html={perkHtml(perk)} />
+                        </p>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </div>
+        )}
+      </>
+    )}
+  </div>
+</section>
+
+<section
+  class={row}
+  aria-labelledby="firesales-title"
+  data-testid="events-firesales"
+>
+  <h2 id="firesales-title" class={label}>
+    <span class="text-muted">({number(1)})</span> Fire sales
+  </h2>
+  <div class={body}>
+    {live.fireSales.length === 0 ? (
+      <p class="text-muted">None on.</p>
+    ) : (
+      <ul class="grid gap-px border border-hair bg-hair md:grid-cols-2">
+        {live.fireSales.map((sale, index) => (
+          <li
+            class:list={[
+              "flex flex-col gap-1 bg-paper p-4",
+              live.fireSales.length % 2 === 1 &&
+                index === live.fireSales.length - 1 &&
+                "md:col-span-2",
+            ]}
+          >
+            <span class="type-row font-medium">{sale.name}</span>
+            <span class="text-sm">
+              {count(sale.price)} gems · {count(sale.amount)} in stock
+            </span>
+            <span class="text-sm text-muted">
+              {sale.start > now ? "Starts in " : "Ends in "}
+              <span
+                class="tabular-nums text-ink"
+                data-countdown={String(
+                  sale.start > now ? sale.start : sale.end,
+                )}
+              >
+                {formatCountdown(
+                  (sale.start > now ? sale.start : sale.end) - now,
+                )}
+              </span>
+              {", "}
+              <time
+                datetime={isoTime(sale.start > now ? sale.start : sale.end)}
+                data-local
+              >
+                {utcTime(sale.start > now ? sale.start : sale.end)}
+              </time>
+            </span>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+</section>
+
+<section class={row} aria-labelledby="bingo-title" data-testid="events-bingo">
+  <h2 id="bingo-title" class={label}>
+    <span class="text-muted">({number(2)})</span> Bingo
+  </h2>
+  <div class={body}>
+    {!bingo ? (
+      <p class="text-muted">Not loaded yet.</p>
+    ) : (
+      <>
+        <p class="flex flex-col gap-1">
+          <span class="type-row font-medium">{bingo.name}</span>
+          <span class="text-sm text-muted">
+            {bingoState === "soon" && (
+              <>
+                Starts in{" "}
+                <span class="text-ink" data-countdown={String(bingo.start)}>
+                  {formatCountdown(bingo.start - now)}
+                </span>
+                ,{" "}
+              </>
+            )}
+            {bingoState === "on" && (
+              <>
+                Ends in{" "}
+                <span class="text-ink" data-countdown={String(bingo.end)}>
+                  {formatCountdown(bingo.end - now)}
+                </span>
+                ,{" "}
+              </>
+            )}
+            {bingoState === "over" ? "Ended " : ""}
+            <time
+              datetime={isoTime(
+                bingoState === "soon" ? bingo.start : bingo.end,
+              )}
+              data-local
+            >
+              {utcTime(bingoState === "soon" ? bingo.start : bingo.end)}
+            </time>
+            {bingo.modifier !== "NORMAL" &&
+              ` · ${bingo.modifier.toLowerCase()}`}
+          </span>
+        </p>
+        {bingo.goals.length > 0 && (
+          <details class="sb-details text-sm">
+            <summary class="cursor-pointer">{bingo.goals.length} goals</summary>
+            <ul class="mt-3 grid gap-x-6 gap-y-2 md:grid-cols-2">
+              {bingo.goals.map((goal) => (
+                <li class="flex flex-col">
+                  <span class="font-medium">{goal.name}</span>
+                  <span class="text-muted">
+                    {stripSectionCodes(goal.lore)}
+                    {goal.tiers && goal.progress !== null && (
+                      <>
+                        {" "}
+                        Community: {count(goal.progress)} of{" "}
+                        {count(goal.tiers.at(-1) ?? 0)}.
+                      </>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </>
+    )}
+  </div>
+</section>
+
+<section class={row} aria-labelledby="news-title" data-testid="events-news">
+  <h2 id="news-title" class={label}>
+    <span class="text-muted">({number(3)})</span> News
+  </h2>
+  <div class={body}>
+    {live.news.length === 0 ? (
+      <p class="text-muted">Not loaded yet.</p>
+    ) : (
+      <ul class="flex flex-col">
+        {live.news.slice(0, 5).map((item) => (
+          <li class="flex flex-wrap items-baseline justify-between gap-x-4 border-b border-hair py-2 text-sm">
+            <a href={item.link} rel="noreferrer" class="group">
+              <span class="link-wipe font-medium">{item.title}</span>
+            </a>
+            <span class="text-muted">{item.date}</span>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+</section>

@@ -314,3 +314,21 @@ describe("search", () => {
     ]);
   });
 });
+
+describe("§ codes", () => {
+  it("reads colours and styles as segments", async () => {
+    const { sectionSegments, stripSectionCodes, segmentsHtml } =
+      await import("./text");
+    expect(sectionSegments("Gain §b+20 Magic Find§7, §c§lnow§r!")).toEqual([
+      { t: "Gain " },
+      { t: "+20 Magic Find", c: "aqua" },
+      { t: ", ", c: "gray" },
+      { t: "now", c: "red", bold: true },
+      { t: "!" },
+    ]);
+    expect(stripSectionCodes("§eJacob's §7contest")).toBe("Jacob's contest");
+    expect(segmentsHtml(sectionSegments("§e<b>"))).toBe(
+      '<span class="mc-c-e">&lt;b&gt;</span>',
+    );
+  });
+});

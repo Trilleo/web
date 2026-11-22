@@ -1,0 +1,212 @@
+{
+  "success": true,
+  "lastUpdated": 1795355859709,
+  "mayor": {
+    "key": "slayer",
+    "name": "Aatrox",
+    "perks": [
+      {
+        "name": "SLASHED Pricing",
+        "description": "Starting slayer quests is §ehalf price§7."
+      },
+      {
+        "name": "Pathfinder",
+        "description": "Gain §b+20 Magic Find§7, doubled on §4Slayer Bosses§7."
+      }
+    ],
+    "minister": {
+      "key": "economist",
+      "name": "Diaz",
+      "perk": {
+        "name": "Stock Exchange",
+        "description": "Participate in the §dStonks Auction §7for a chance to win §5Stock of Stonks§7! Trade them for §6extravagant items §7at the §bTrade Center§7.",
+        "minister": true
+      }
+    },
+    "election": {
+      "year": 526,
+      "candidates": [
+        {
+          "key": "events",
+          "name": "Foxy",
+          "perks": [
+            {
+              "name": "A Time for Giving",
+              "description": "Spawn §dParty Chests §7by killing mobs during the §6Spooky Festival §7and collect §bParty Gifts §7from §cJerry\u0027s Workshop§7.",
+              "minister": true
+            }
+          ],
+          "votes": 16890
+        },
+        {
+          "key": "dungeons",
+          "name": "Paul",
+          "perks": [
+            {
+              "name": "EZPZ",
+              "description": "Gain §e10 §7bonus score on dungeon runs.",
+              "minister": true
+            }
+          ],
+          "votes": 69020
+        },
+        {
+          "key": "economist",
+          "name": "Diaz",
+          "perks": [
+            {
+              "name": "Stock Exchange",
+              "description": "Participate in the §dStonks Auction §7for a chance to win §5Stock of Stonks§7! Trade them for §6extravagant items §7at the §bTrade Center§7.",
+              "minister": true
+            },
+            {
+              "name": "Long Term Investment",
+              "description": "The §belected minister §7will appear as a candidate with §dall §7of their perks in the §anext election cycle§7.",
+              "minister": false
+            }
+          ],
+          "votes": 286299
+        },
+        {
+          "key": "slayer",
+          "name": "Aatrox",
+          "perks": [
+            {
+              "name": "SLASHED Pricing",
+              "description": "Starting slayer quests is §ehalf price§7.",
+              "minister": false
+            },
+            {
+              "name": "Pathfinder",
+              "description": "Gain §b+20 Magic Find§7, doubled on §4Slayer Bosses§7.",
+              "minister": true
+            }
+          ],
+          "votes": 804446
+        },
+        {
+          "key": "pets",
+          "name": "Diana",
+          "perks": [
+            {
+              "name": "Huntress\u0027 Intuition",
+              "description": "Gain §d+10 Tracking§7.",
+              "minister": true
+            },
+            {
+              "name": "Sharing is Caring",
+              "description": "Unlocks §a2 §7more §6Exp Share §7slots in your pets menu and increases the §6Exp Share §7rate by §a+10%§7!",
+              "minister": false
+            }
+          ],
+          "votes": 146596
+        }
+      ]
+    }
+  },
+  "current": {
+    "year": 527,
+    "candidates": [
+      {
+        "key": "pets",
+        "name": "Diana",
+        "perks": [
+          {
+            "name": "Huntress\u0027 Intuition",
+            "description": "Gain §d+10 Tracking§7.",
+            "minister": true
+          },
+          {
+            "name": "Pet XP Buff",
+            "description": "Gain §d35% §7more pet XP.",
+            "minister": false
+          },
+          {
+            "name": "Sharing is Caring",
+            "description": "Unlocks §a2 §7more §6Exp Share §7slots in your pets menu and increases the §6Exp Share §7rate by §a+10%§7!",
+            "minister": false
+          }
+        ],
+        "votes": 161751
+      },
+      {
+        "key": "fishing",
+        "name": "Marina",
+        "perks": [
+          {
+            "name": "Fishing Festival",
+            "description": "Start a special fishing event the first §b3 §7days of each month!",
+            "minister": true
+          }
+        ],
+        "votes": 31056
+      },
+      {
+        "key": "farming",
+        "name": "Finnegan",
+        "perks": [
+          {
+            "name": "Pest Eradicator",
+            "description": "The duration of Pesthunter Phillip\u0027s §6 Farming Fortune §7bonus is now §a60m§7. Decreases the spawn cooldown of §2Pests §7by §a20%§7.",
+            "minister": true
+          },
+          {
+            "name": "GOATed",
+            "description": "§eJacob\u0027s Farming Contest §7brackets include up to §a10% §7more players each.",
+            "minister": false
+          },
+          {
+            "name": "Blooming Business",
+            "description": "All Garden Visitors reward §aFine Flour§7 and §c+10% Copper §7for accepting offers. Invites §a5 §7unique visitors to your §aGarden §7and makes higher rarity visitors §a20% §7more likely to show up.",
+            "minister": false
+          }
+        ],
+        "votes": 47769
+      },
+      {
+        "key": "dungeons",
+        "name": "Paul",
+        "perks": [
+          {
+            "name": "Marauder",
+            "description": "Dungeon reward chests are §e20% §7cheaper.",
+            "minister": false
+          },
+          {
+            "name": "EZPZ",
+            "description": "Gain §e10 §7bonus score on dungeon runs.",
+            "minister": true
+          }
+        ],
+        "votes": 83227
+      },
+      {
+        "key": "economist",
+        "name": "Diaz",
+        "perks": [
+          {
+            "name": "Shopping Spree",
+            "description": "Increase daily NPC buy limits by §e10x§7.",
+            "minister": true
+          },
+          {
+            "name": "Stock Exchange",
+            "description": "Participate in the §dStonks Auction §7for a chance to win §5Stock of Stonks§7! Trade them for §6extravagant items §7at the §bTrade Center§7.",
+            "minister": false
+          },
+          {
+            "name": "Volume Trading",
+            "description": "The available item quantity per §6Shen\u0027s Auction §7has been doubled, and two additional §6Shen\u0027s Special §7auctions will be available if Diaz is Mayor.",
+            "minister": false
+          },
+          {
+            "name": "Long Term Investment",
+            "description": "The §belected minister §7will appear as a candidate with §dall §7of their perks in the §anext election cycle§7.",
+            "minister": false
+          }
+        ],
+        "votes": 285945
+      }
+    ]
+  }
+}

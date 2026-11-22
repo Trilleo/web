@@ -323,6 +323,13 @@
       "when": 1795268915956,
       "tag": "0045_skyblock-sync-log",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1795356261482,
+      "tag": "0046_skyblock-feeds",
+      "breakpoints": true
     }
   ]
 }

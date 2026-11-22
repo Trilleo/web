@@ -2,8 +2,10 @@
 /**
  * The event timer: /tools/skyblock/events/[?category=]. The SkyBlock date, what's on
  * now, each calendar event's next start, and the year by month, all worked out from
- * the calendar (@trilleo/skyblock/events) at the request. Rendered on the server so
- * it reads right without JavaScript; event-clock.ts ticks the countdowns, writes
+ * the calendar (@trilleo/skyblock/events) at the request, plus what Hypixel's feeds
+ * last said (lib/skyblock/feeds.ts): the mayor and their perks' events, the running
+ * election, fire sales, Bingo and news. Rendered on the server so it reads right
+ * without JavaScript; event-clock.ts ticks the countdowns, writes
  * times in the visitor's zone and reloads when something starts or ends.
  */
 import {
@@ -15,6 +17,7 @@ import {
   formatSkyblockClock,
   formatSkyblockDate,
   isEventCategory,
+  mayorEvents,
   ordinal,
   skyblockDate,
 } from "@trilleo/skyblock/events";
@@ -25,7 +28,10 @@ import {
   eventPath,
   meta,
 } from "@trilleo/tool-skyblock/meta";
+import LiveSections from "../../../../components/skyblock/LiveSections.astro";
 import SkyblockLayout from "../../../../components/skyblock/SkyblockLayout.astro";
+import { getDb } from "../../../../lib/db";
+import { liveFeeds } from "../../../../lib/skyblock/feeds";
 import { ogImagePath, toolCard } from "../../../../lib/seo";
 import {
   eventsIn,
@@ -40,7 +46,8 @@ const asked = Astro.url.searchParams.get("category");
 const category: EventCategory | null = isEventCategory(asked) ? asked : null;
 const now = Date.now();
 const today = skyblockDate(now);
-const events = eventsIn(category);
+const live = await liveFeeds(await getDb(), now);
+const events = eventsIn(category, mayorEvents(live.election));
 const board = eventBoard(now, events);
 const year = yearByMonth(today.year, now, events);
 const allYear = events.filter((event) => event.schedule.kind !== "yearly");
@@ -48,12 +55,13 @@ const allYear = events.filter((event) => event.schedule.kind !== "yearly");
 const boundary = Math.min(
   ...board.running.map((occurrence) => occurrence.end),
   ...board.next.map((occurrence) => occurrence.start),
+  ...live.fireSales.map((sale) => (sale.start > now ? sale.start : sale.end)),
 );
 // Times move every second: let nobody keep a copy.
 Astro.response.headers.set("Cache-Control", "no-store");
 
 const description =
-  "Hypixel SkyBlock's event timer: the SkyBlock date, what's on now, when every calendar event starts next, and the year ahead by month.";
+  "Hypixel SkyBlock's event timer: the SkyBlock date, what's on now, when every event starts next, the mayor and the running election, fire sales, Bingo and news, and the year ahead.";
 const row = "grid-swiss mt-10 gap-y-4 border-t border-ink pt-4 md:pt-5";
 const label = "col-span-4 type-label md:col-span-2";
 const body =
@@ -185,69 +193,76 @@ const scrollRegion = {
       <span class="text-muted">(02)</span> Next
     </h2>
     <div class={body}>
-      <div class="overflow-x-auto" {...scrollRegion}>
-        <table
-          class="w-full min-w-[40rem] border-collapse text-left text-sm"
-          data-testid="events-next"
-        >
-          <thead>
-            <tr>
-              <th scope="col" class={th}>
-                Event
-              </th>
-              <th scope="col" class={th}>
-                In
-              </th>
-              <th scope="col" class={th}>
-                Starts
-              </th>
-              <th scope="col" class={th}>
-                SkyBlock date
-              </th>
-              <th scope="col" class={th}>
-                Lasts
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {board.next.map((occurrence) => (
+      {board.next.length === 0 ? (
+        <p class="text-muted">Nothing coming up.</p>
+      ) : (
+        <div class="overflow-x-auto" {...scrollRegion}>
+          <table
+            class="w-full min-w-[40rem] border-collapse text-left text-sm"
+            data-testid="events-next"
+          >
+            <thead>
               <tr>
-                <th scope="row" class={`${td} font-normal`}>
-                  <a href={eventPath(occurrence.event.slug)} class="group">
-                    <span class="link-wipe font-medium">
-                      {occurrence.event.name}
-                    </span>
-                  </a>
+                <th scope="col" class={th}>
+                  Event
                 </th>
-                <td class={td}>
-                  <span data-countdown={String(occurrence.start)}>
-                    {formatCountdown(occurrence.start - now)}
-                  </span>
-                </td>
-                <td class={td}>
-                  <time datetime={isoTime(occurrence.start)} data-local>
-                    {utcTime(occurrence.start)}
-                  </time>
-                </td>
-                <td class={td}>
-                  {formatSkyblockDate(skyblockDate(occurrence.start), false)}
-                </td>
-                <td class={td}>
-                  {occurrence.end === occurrence.start
-                    ? "—"
-                    : formatDuration(occurrence.end - occurrence.start)}
-                </td>
+                <th scope="col" class={th}>
+                  In
+                </th>
+                <th scope="col" class={th}>
+                  Starts
+                </th>
+                <th scope="col" class={th}>
+                  SkyBlock date
+                </th>
+                <th scope="col" class={th}>
+                  Lasts
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {board.next.map((occurrence) => (
+                <tr>
+                  <th scope="row" class={`${td} font-normal`}>
+                    <a href={eventPath(occurrence.event.slug)} class="group">
+                      <span class="link-wipe font-medium">
+                        {occurrence.event.name}
+                      </span>
+                    </a>
+                  </th>
+                  <td class={td}>
+                    <span data-countdown={String(occurrence.start)}>
+                      {formatCountdown(occurrence.start - now)}
+                    </span>
+                  </td>
+                  <td class={td}>
+                    <time datetime={isoTime(occurrence.start)} data-local>
+                      {utcTime(occurrence.start)}
+                    </time>
+                  </td>
+                  <td class={td}>
+                    {formatSkyblockDate(skyblockDate(occurrence.start), false)}
+                  </td>
+                  <td class={td}>
+                    {occurrence.end === occurrence.start
+                      ? "—"
+                      : formatDuration(occurrence.end - occurrence.start)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   </section>
 
+  {category === null && <LiveSections {live} {now} first={3} />}
+
   <section class={row} aria-labelledby="year-title">
     <h2 id="year-title" class={label}>
-      <span class="text-muted">(03)</span> Year {today.year}
+      <span class="text-muted">({category === null ? "07" : "03"})</span> Year{" "}
+      {today.year}
     </h2>
     <div class={body}>
       {allYear.length > 0 && (
@@ -257,7 +272,7 @@ const scrollRegion = {
               <a href={eventPath(event.slug)} class="group">
                 <span class="link-wipe font-medium">{event.name}</span>
               </a>{" "}
-              <span class="text-muted">{cadence(event).toLowerCase()}</span>
+              <span class="text-muted">· {cadence(event)}</span>
             </li>
           ))}
         </ul>
@@ -300,7 +315,8 @@ const scrollRegion = {
   </section>
 
   <Fragment slot="credit">
-    Times are worked out from the SkyBlock calendar.
+    Times are worked out from the SkyBlock calendar; the mayor, the election,
+    fire sales, Bingo and news are from Hypixel's public API.
   </Fragment>
 </SkyblockLayout>
 

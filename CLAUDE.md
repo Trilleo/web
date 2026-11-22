@@ -1637,6 +1637,24 @@ chunithm:bundle <list>` (scripts/chunithm-bundle.ts around lib/chunithm/bundler.
   zone and reloads at the next start or end (`data-boundary`). Event pages are in
   /sitemap-skyblock.xml. SkyblockLayout's `notice="own"` swaps SkyShards' credit for the
   page's `credit` slot.
+- The event timer's feeds (lib/skyblock/feeds.ts, sb_feeds one row per feed): Hypixel's
+  keyless election, fire sale, Bingo and news endpoints, fetched by the server on each
+  feed's pace (FEEDS: 5 or 30 minutes; `startSkyblockFeeds` with the other timers, or any
+  request), checked by @trilleo/skyblock/events' readers (hypixel.ts: capped lists, news
+  links only to hypixel.net, texts kept with § codes and drawn by text.ts'
+  `sectionSegments` → `segmentsHtml` in `mc-tooltip` panels with `data-static`). A failed
+  feed keeps its last answer; FAILURES_TO_ALERT in a row alert ("skyblock-feeds").
+  `liveFeeds` (cached CACHE_MS) feeds the board's LiveSections.astro (mayor and minister,
+  the running election's shares, fire sales, Bingo, news; only on the unfiltered board).
+  The election also writes the history: sb_elections (each round by the year its booth
+  opened, final once closed, with mayor and minister) and sb_election_votes (the running
+  round's votes by the hour), for the election pages to come. Perk events (mayor.ts,
+  PERK_EVENTS: only perks whose times Hypixel states, Fishing Festival and Mythological
+  Ritual) join the calendar for the term (`mayorTerm`: Late Spring 27th after the booth
+  opened, a year) while the mayor or minister holds the perk (`during` on the event);
+  their pages say when nobody does. /admin/skyblock/ shows each feed, with "Fetch now".
+  SKYBLOCK_FEEDS=off never fetches; SKYBLOCK_HYPIXEL_URL points elsewhere (e2e:
+  e2e/fake-skyblock.ts, whose mayor holds Fishing Festival).
 - Data: SkyShards' repository (github.com/Campionnn/SkyShards, MIT): fusion-data.json,
   fusion-properties.json, desc.json, rates.json and public/shardIcons/<key>.png.
   Pure rules in packages/skyblock; the rest in apps/web/src/lib/skyblock/ (source.ts

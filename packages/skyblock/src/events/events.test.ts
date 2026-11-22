@@ -160,12 +160,14 @@ describe("events", () => {
       skyblockTime(527, 8, 29),
     );
     expect(currentOccurrence(spooky, skyblockTime(527, 9, 1))).toBeNull();
-    expect(nextOccurrence(spooky, during).start).toBe(skyblockTime(528, 8, 29));
+    expect(nextOccurrence(spooky, during)?.start).toBe(
+      skyblockTime(528, 8, 29),
+    );
     // The Dark Auction is a moment: never "on", always next.
     const auction = event("dark-auction");
     const at = skyblockTime(527, 1, 4);
     expect(currentOccurrence(auction, at)).toBeNull();
-    expect(nextOccurrence(auction, at).start).toBe(skyblockTime(527, 1, 7));
+    expect(nextOccurrence(auction, at)?.start).toBe(skyblockTime(527, 1, 7));
   });
 
   it("carries the election across the new year", () => {

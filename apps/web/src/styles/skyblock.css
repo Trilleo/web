@@ -60,3 +60,8 @@
 .sb-line-node.is-centre text {
   font-weight: 600;
 }
+
+/* Mayor perks on the event timer (components/skyblock/LiveSections.astro). */
+.sb-perk + .sb-perk {
+  margin-top: 0.75em;
+}

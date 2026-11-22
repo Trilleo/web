@@ -31,12 +31,15 @@ export function isoTime(ms: number): string {
   return new Date(ms).toISOString();
 }
 
+/** The calendar's events plus any the mayor's perks add, of one kind or all. */
 export function eventsIn(
   category: EventCategory | null,
+  extra: readonly SkyBlockEvent[] = [],
 ): readonly SkyBlockEvent[] {
+  const all = [...EVENTS, ...extra];
   return category === null
-    ? EVENTS
-    : EVENTS.filter((event) => event.category === category);
+    ? all
+    : all.filter((event) => event.category === category);
 }
 
 export interface YearMonth {

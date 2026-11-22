@@ -3387,6 +3387,49 @@ export const sbPriceHistory = pgTable(
 );
 
 /**
+ * The latest answer from each of Hypixel's keyless SkyBlock feeds the event timer
+ * shows ("election", "firesales", "bingo", "news"), as @trilleo/skyblock/events'
+ * readers checked it. One row per feed; `data` is null until the first good fetch.
+ */
+export const sbFeeds = pgTable("sb_feeds", {
+  feed: text("feed").primaryKey(),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }),
+  // The feed's shape lives in @trilleo/skyblock, which this package doesn't depend on.
+  data: jsonb("data").$type<unknown>(),
+  /** Failed fetches since the last good one, and the last one's reason. */
+  failures: integer("failures").notNull().default(0),
+  lastError: text("last_error"),
+  lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
+});
+
+/**
+ * SkyBlock mayor elections, by the year the booth opened: the candidates (perks and
+ * votes, final once it's closed), who won and who became minister. Written from the
+ * election feed, so the history starts with the first fetch.
+ */
+export const sbElections = pgTable("sb_elections", {
+  year: integer("year").primaryKey(),
+  candidates: jsonb("candidates").$type<unknown>().notNull(),
+  /** Candidate keys; null while the booth is open. */
+  mayorKey: text("mayor_key"),
+  ministerKey: text("minister_key"),
+  closed: boolean("closed").notNull().default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+});
+
+/** A running election's votes through an hour (UTC, its start; the hour's last fetch). */
+export const sbElectionVotes = pgTable(
+  "sb_election_votes",
+  {
+    year: integer("year").notNull(),
+    hour: timestamp("hour", { withTimezone: true }).notNull(),
+    /** Candidate key → votes. */
+    votes: jsonb("votes").$type<Record<string, number>>().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.year, table.hour] })],
+);
+
+/**
  * Someone's Hypixel SkyBlock profiles: the tool keeps one set of its data (tool_data,
  * tool "skyblock") per profile. `keyPrefix` is "" for the account's first profile
  * (its data stays on the plain keys) and "p<id>-" for the rest (@trilleo/skyblock's
@@ -3593,5 +3636,8 @@ export type SbIcon = typeof sbIcons.$inferSelect;
 export type SbSync = typeof sbSyncs.$inferSelect;
 export type SbBazaar = typeof sbBazaar.$inferSelect;
 export type SbPriceHistory = typeof sbPriceHistory.$inferSelect;
+export type SbFeed = typeof sbFeeds.$inferSelect;
+export type SbElection = typeof sbElections.$inferSelect;
+export type SbElectionVotes = typeof sbElectionVotes.$inferSelect;
 export type SbProfile = typeof sbProfiles.$inferSelect;
 export type SbSyncLogRow = typeof sbSyncLog.$inferSelect;

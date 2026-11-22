@@ -1,0 +1,39 @@
+{
+  "success": true,
+  "lastUpdated": 1794372965342,
+  "id": 59,
+  "name": "November 2026",
+  "start": 1793505600000,
+  "end": 1794110400000,
+  "modifier": "NORMAL",
+  "goals": [
+    {
+      "id": "break_block_ores",
+      "name": "Operation: Ore",
+      "tiers": [2000000, 4000000, 6000000, 8000000, 10000000],
+      "progress": 30339485,
+      "lore": "§7Break §e10M Ore§7 Blocks.",
+      "fullLore": ["§7Break §e10M Ore§7 Blocks."]
+    },
+    {
+      "id": "bestiary_level_3",
+      "name": "Collecting Data",
+      "lore": "§7Reach §3Bestiary §7Milestone 3§7.",
+      "fullLore": ["§7Reach §3Bestiary §7Milestone 3§7."],
+      "requiredAmount": 3
+    },
+    {
+      "id": "collection_gold_ingot",
+      "name": "Gold Ingot Collector",
+      "lore": "§7Reach §a72,500 §7Gold Ingot Collection.",
+      "fullLore": ["§7Reach §a72,500 §7Gold Ingot Collection."],
+      "requiredAmount": 72500
+    },
+    {
+      "id": "UNLOCK_DUNGEON_CHEST_WOOD",
+      "name": "Wooden Treasure",
+      "lore": "§7Unlock a §fWood§7 Dungeon Chest.",
+      "fullLore": ["§7Unlock a §fWood§7 Dungeon Chest."]
+    }
+  ]
+}
