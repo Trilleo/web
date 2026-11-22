@@ -1,7 +1,8 @@
 import { LIMITS, type CalcSettings } from "@trilleo/skyblock/calc";
 import { Button, Field, fieldClasses } from "@trilleo/ui";
-import { useId, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ShardIcon } from "../ShardBrowser";
+import { ShardPicker } from "../ShardPicker";
 import { formatCoins, formatRate } from "./format";
 import type { ShardOption } from "./types";
 
@@ -42,14 +43,9 @@ function OwnValues({
   resetAll,
   testId,
 }: OwnValuesProps) {
-  const listId = useId();
-  const [name, setName] = useState("");
+  const [chosenId, setChosenId] = useState<string | null>(null);
   const [number, setNumber] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
-  const byName = (text: string) =>
-    shards.find(
-      (shard) => shard.name.toLowerCase() === text.trim().toLowerCase(),
-    );
   const own = Object.entries(values)
     .map(([id, value]) => ({
       shard: shards.find((s) => s.id === id),
@@ -59,8 +55,11 @@ function OwnValues({
     .sort((a, b) =>
       (a.shard?.name ?? a.id).localeCompare(b.shard?.name ?? b.id),
     );
+  const chosen = chosenId
+    ? shards.find((shard) => shard.id === chosenId)
+    : undefined;
   const add = () => {
-    const shard = byName(name);
+    const shard = chosen;
     const value = Number(number);
     if (!shard) {
       setProblem("Pick a shard from the list.");
@@ -80,11 +79,10 @@ function OwnValues({
       return;
     }
     onChange({ ...values, [shard.id]: value });
-    setName("");
+    setChosenId(null);
     setNumber("");
     setProblem(null);
   };
-  const chosen = byName(name);
   const chosenDefault = chosen ? fallback(chosen) : null;
   return (
     <div className="flex flex-col gap-5" data-testid={testId}>
@@ -95,7 +93,7 @@ function OwnValues({
           add();
         }}
       >
-        <Field
+        <ShardPicker
           label="Shard"
           hint={
             chosen
@@ -104,25 +102,13 @@ function OwnValues({
                 : "No default."
               : undefined
           }
-        >
-          {(props) => (
-            <input
-              {...props}
-              list={listId}
-              value={name}
-              onChange={(event) => {
-                setName(event.target.value);
-              }}
-              autoComplete="off"
-              className={`${fieldClasses} h-11 px-3`}
-            />
-          )}
-        </Field>
-        <datalist id={listId}>
-          {shards.map((shard) => (
-            <option key={shard.id} value={shard.name} />
-          ))}
-        </datalist>
+          shards={shards}
+          value={chosenId}
+          onChange={(shard) => {
+            setChosenId(shard.id);
+            setProblem(null);
+          }}
+        />
         <Field label={label} hint={hint}>
           {(props) => (
             <input

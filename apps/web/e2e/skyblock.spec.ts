@@ -1,8 +1,20 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { adminPage, continueAs, freshLogin, hydrated, toasts } from "./support";
+import type { Page } from "@playwright/test";
 
 // The shard data is the copy committed with the site (SKYBLOCK_SYNC=off).
+
+/** Picks a shard through a shard picker: open it by its label, search, press Enter. */
+async function chooseShard(page: Page, label: string, search: string) {
+  await page.getByRole("button", { name: new RegExp(`^${label}`) }).click();
+  const box = page
+    .getByTestId("shard-picker")
+    .getByRole("combobox", { name: "Search shards" });
+  await box.fill(search);
+  await box.press("Enter");
+  await expect(page.getByTestId("shard-picker")).toBeHidden();
+}
 
 test("the SkyBlock tool lists its utilities", async ({ page }) => {
   await page.goto("/tools/skyblock/");
@@ -348,7 +360,7 @@ test("the collection keeps levels and held shards in this browser", async ({
 }) => {
   await page.goto("/tools/skyblock/collection/");
   await hydrated(page);
-  await page.getByLabel("Find a shard").fill("tiamat");
+  await page.getByLabel("Filter", { exact: true }).fill("tiamat");
   const row = page.locator(
     '[data-testid="collection-row"][data-shard="SHARD_TIAMAT"]',
   );
@@ -364,7 +376,7 @@ test("the collection keeps levels and held shards in this browser", async ({
   await page.reload();
   await hydrated(page);
   // Rows come 60 at a time; Tiamat is further down, so find it again.
-  await page.getByLabel("Find a shard").fill("tiamat");
+  await page.getByLabel("Filter", { exact: true }).fill("tiamat");
   await expect(
     page
       .locator('[data-testid="collection-row"][data-shard="SHARD_TIAMAT"]')
@@ -378,7 +390,7 @@ test("the calculator uses the collection's shards when asked", async ({
 }) => {
   await page.goto("/tools/skyblock/collection/");
   await hydrated(page);
-  await page.getByLabel("Find a shard").fill("grove");
+  await page.getByLabel("Filter", { exact: true }).fill("grove");
   await page
     .locator('[data-testid="collection-row"][data-shard="SHARD_GROVE"]')
     .getByLabel("Grove: held")
@@ -398,7 +410,7 @@ test("the planner plans several shards together", async ({ page }) => {
   await page.goto("/tools/skyblock/planner/");
   await hydrated(page);
   for (const name of ["Grove", "Tiamat"]) {
-    await page.getByLabel("Add a shard").fill(name);
+    await chooseShard(page, "Add a shard", name);
     await page.getByRole("button", { name: "Add", exact: true }).click();
   }
   await expect(page.getByTestId("planner-target")).toHaveCount(2);
@@ -407,6 +419,46 @@ test("the planner plans several shards together", async ({ page }) => {
   await expect(page.getByTestId("planner-checklist")).toContainText("done");
   await page.getByRole("button", { name: "Remove Grove" }).click();
   await expect(page.getByTestId("planner-target")).toHaveCount(1);
+});
+
+test("the shard picker searches by name, ID and typed filters, with the keyboard", async ({
+  page,
+}) => {
+  await page.goto("/tools/skyblock/calculator/");
+  await hydrated(page);
+  const trigger = page.getByRole("button", { name: /^Shard to make/ });
+  await trigger.click();
+  const picker = page.getByTestId("shard-picker");
+  const box = picker.getByRole("combobox", { name: "Search shards" });
+  const results = picker
+    .getByRole("listbox", { name: "Shards" })
+    .getByRole("option");
+  await expect(box).toBeFocused();
+  // Hypixel's order of shard IDs while nothing is typed.
+  await expect(results.first()).toContainText("Grove");
+  await box.fill("r:legendary fam:croco");
+  await expect(results.first()).toContainText("Tiamat");
+  await box.fill("C1");
+  await expect(results.first()).toContainText("Grove");
+  await box.fill("");
+  await picker.getByRole("button", { name: "Legendary", exact: true }).click();
+  await expect(results.first()).toContainText("ID L1");
+  await box.press("ArrowDown");
+  await expect(results.nth(1)).toHaveAttribute("aria-selected", "true");
+  await box.press("Escape");
+  await expect(picker).toBeHidden();
+  await expect(trigger).toBeFocused();
+  await chooseShard(page, "Shard to make", "tiamat");
+  await expect(trigger).toContainText("Tiamat");
+  await expect(page).toHaveURL(/\?shard=tiamat&qty=24$/);
+  // The pick leads the list next time, while nothing is typed.
+  await trigger.click();
+  await expect(results.first()).toContainText("Recent");
+  await expect(results.first()).toContainText("Tiamat");
+  const { violations } = await new AxeBuilder({ page })
+    .include('[data-testid="shard-picker"]')
+    .analyze();
+  expect(violations.map((v) => v.id)).toEqual([]);
 });
 
 test("fusion lines draw a shard's line, and each shard re-centres it", async ({
@@ -427,10 +479,25 @@ test("fusion lines draw a shard's line, and each shard re-centres it", async ({
   await page.getByLabel("Steps out").selectOption("1");
   await page.getByRole("button", { name: "Show" }).click();
   await expect(page).toHaveURL(/steps=1/);
+  // The shard picker re-centres it at once.
+  await hydrated(page);
+  await chooseShard(page, "Centre on", "komodo");
+  await expect(page).toHaveURL(/\?shard=komodo-dragon&steps=1(&|$)/);
   // A shard's page links its line.
   await page.goto("/tools/skyblock/shards/iguana/");
   await page.getByTestId("shard-lines").click();
   await expect(page).toHaveURL("/tools/skyblock/lines/?shard=iguana");
+});
+
+test.describe("without JavaScript", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("fusion lines centre on a shard from a plain list", async ({ page }) => {
+    await page.goto("/tools/skyblock/lines/");
+    await page.getByLabel("Centre on").selectOption("gecko");
+    await page.getByRole("button", { name: "Show" }).click();
+    await expect(page).toHaveURL(/\/lines\/\?shard=gecko(&|$)/);
+  });
 });
 
 test("the guide explains levels with the data's numbers", async ({ page }) => {
@@ -458,7 +525,7 @@ test("signed in, each SkyBlock profile keeps its own collection", async ({
   const tiamat = (level: string) => async () => {
     await page.goto("/tools/skyblock/collection/");
     await hydrated(page);
-    await page.getByLabel("Find a shard").fill("tiamat");
+    await page.getByLabel("Filter", { exact: true }).fill("tiamat");
     const select = page
       .locator('[data-testid="collection-row"][data-shard="SHARD_TIAMAT"]')
       .getByLabel("Tiamat: level");
@@ -490,7 +557,7 @@ test("signed in, each SkyBlock profile keeps its own collection", async ({
     "Main",
   );
   await hydrated(page);
-  await page.getByLabel("Find a shard").fill("tiamat");
+  await page.getByLabel("Filter", { exact: true }).fill("tiamat");
   await expect(
     page
       .locator('[data-testid="collection-row"][data-shard="SHARD_TIAMAT"]')
@@ -557,7 +624,7 @@ test("a mod's sync fills the collection, and the page says so", async ({
   await expect(page.getByTestId("progress-chart")).toContainText(
     "+2 attribute levels",
   );
-  await page.getByLabel("Find a shard").fill("tiamat");
+  await page.getByLabel("Filter", { exact: true }).fill("tiamat");
   await expect(
     page
       .locator('[data-testid="collection-row"][data-shard="SHARD_TIAMAT"]')

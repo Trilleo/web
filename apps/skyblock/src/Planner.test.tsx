@@ -13,23 +13,16 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CalcClient } from "./calc/client";
 import { formatHours } from "./calc/format";
 import { Planner, groupHunt, type PlannerShard } from "./Planner";
+import { chooseShard } from "./test-utils";
 
 const dataset = readSources(sourceFiles(), { minShards: 1 });
 const deck = deckOf(dataset, "v1", "c", () => null);
-const shards: PlannerShard[] = dataset.shards.map((shard) => {
-  const summary = summarize(shard, null);
-  return {
-    id: shard.id,
-    slug: summary.slug,
-    name: summary.name,
-    rarity: summary.rarity,
-    icon: null,
-    rate: shard.rate,
-    category: shard.category,
-    families: shard.families,
-    where: shard.id === "SHARD_PHANPYRE" ? ["Place Hunting Traps."] : [],
-  };
-});
+const shards: PlannerShard[] = dataset.shards.map((shard) => ({
+  ...summarize(shard, null),
+  id: shard.id,
+  rate: shard.rate,
+  where: shard.id === "SHARD_PHANPYRE" ? ["Place Hunting Traps."] : [],
+}));
 const fetcher: typeof fetch = (input) => {
   const url =
     typeof input === "string"
@@ -76,9 +69,7 @@ afterEach(() => {
 describe("Planner", () => {
   it("plans what's added, grouped by where it's hunted", async () => {
     renderPlanner();
-    fireEvent.change(screen.getByLabelText("Add a shard"), {
-      target: { value: "Grove" },
-    });
+    chooseShard("Add a shard", "Grove");
     fireEvent.change(screen.getByLabelText("How many"), {
       target: { value: "4" },
     });

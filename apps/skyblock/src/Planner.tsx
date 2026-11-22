@@ -38,11 +38,10 @@ import { ShardName } from "./calc/PlanTree";
 import type { ShardOption } from "./calc/types";
 import { CALCULATOR_PATH, COLLECTION_PATH, calculatorPath, meta } from "./meta";
 import { ShardIcon } from "./ShardBrowser";
+import { ShardPicker, levelNote } from "./ShardPicker";
 
 /** A shard as the planner lists it: the calculator's, plus where and how it's hunted. */
 export interface PlannerShard extends ShardOption {
-  category: string;
-  families: string[];
   /** How to hunt it, a line each, as plain words. */
   where: string[];
 }
@@ -261,11 +260,9 @@ export function Planner({
 
   // Adding a target.
   const listId = useId();
-  const [addText, setAddText] = useState("");
+  const [addId, setAddId] = useState<string | null>(null);
   const [addQuantity, setAddQuantity] = useState("");
-  const addShard = shards.find(
-    (s) => s.name.toLowerCase() === addText.trim().toLowerCase(),
-  );
+  const addShard = addId ? byId.get(addId) : undefined;
   const add = () => {
     if (!addShard) return;
     const level = collection.levels[addShard.id] ?? 0;
@@ -285,7 +282,7 @@ export function Planner({
       ],
       true,
     );
-    setAddText("");
+    setAddId(null);
     setAddQuantity("");
   };
 
@@ -348,32 +345,16 @@ export function Planner({
       <ToolSection number="01" title="What to make">
         <div className="flex flex-col gap-6">
           <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-[2fr_1fr_auto]">
-            <Field label="Add a shard">
-              {(props) => (
-                <input
-                  {...props}
-                  list={listId}
-                  value={addText}
-                  onChange={(event) => {
-                    setAddText(event.target.value);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      add();
-                    }
-                  }}
-                  autoComplete="off"
-                  placeholder="e.g. Tiamat"
-                  className={`${fieldClasses} h-11 px-3`}
-                />
-              )}
-            </Field>
-            <datalist id={listId}>
-              {shards.map((shard) => (
-                <option key={shard.id} value={shard.name} />
-              ))}
-            </datalist>
+            <ShardPicker
+              label="Add a shard"
+              shards={shards}
+              value={addId}
+              onChange={(shard) => {
+                setAddId(shard.id);
+              }}
+              note={levelNote(collection.levels)}
+              testId="planner-add"
+            />
             <Field label="How many" hint="Empty: left to max.">
               {(props) => (
                 <input

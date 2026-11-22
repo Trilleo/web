@@ -7,6 +7,10 @@ export { Planner, groupHunt } from "./Planner";
 export type { PlannerProps, PlannerShard } from "./Planner";
 export { PAGE_SIZE, RarityTag, ShardBrowser, ShardIcon } from "./ShardBrowser";
 export type { ShardBrowserProps } from "./ShardBrowser";
+export { RECENT_SHARDS_KEY, ShardPicker } from "./ShardPicker";
+export { LineShardField } from "./LineShardField";
+export type { LineShardFieldProps } from "./LineShardField";
+export type { PickerShard, ShardPickerProps } from "./ShardPicker";
 export {
   CALCULATOR_PATH,
   COLLECTION_PATH,

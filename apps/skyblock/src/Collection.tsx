@@ -29,7 +29,8 @@ import { showToast } from "@trilleo/ui/toast";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatNumber } from "./calc/format";
 import { PLANNER_PATH, calculatorPath, meta, shardPath } from "./meta";
-import { RarityTag, ShardIcon } from "./ShardBrowser";
+import { RarityTag, ShardIcon, ShardId } from "./ShardBrowser";
+import { ShardPicker, levelNote } from "./ShardPicker";
 
 /** A shard as the Collection lists it: the browser's summary plus Hypixel's ID. */
 export type CollectionShard = ShardSummary & { id: string };
@@ -179,19 +180,9 @@ export function Collection({
   });
   const shown = paging.key === filterKey ? paging.shown : COLLECTION_PAGE_SIZE;
   const options = useMemo(() => filterOptions(shards), [shards]);
-  const byKey = useMemo(
-    () => new Map(shards.map((shard) => [shard.key, shard])),
-    [shards],
-  );
   const matches = useMemo(
-    () =>
-      searchShards(shards, { query, rarity, category, family }).flatMap(
-        (summary) => {
-          const shard = byKey.get(summary.key);
-          return shard ? [shard] : [];
-        },
-      ),
-    [shards, byKey, query, rarity, category, family],
+    () => searchShards(shards, { query, rarity, category, family }),
+    [shards, query, rarity, category, family],
   );
   const results = matches.filter((shard) => {
     const level = collection.levels[shard.id] ?? 0;
@@ -207,6 +198,26 @@ export function Collection({
     category !== "" ||
     family !== "" ||
     show !== "all";
+
+  // Jumping to a shard: the list narrows to its ID, and its level takes the focus.
+  const list = useRef<HTMLUListElement>(null);
+  const [jumpTo, setJumpTo] = useState<string | null>(null);
+  const jump = (shard: CollectionShard) => {
+    setQuery(shard.key);
+    setRarity("");
+    setCategory("");
+    setFamily("");
+    setShow("all");
+    setJumpTo(shard.id);
+  };
+  useEffect(() => {
+    if (!jumpTo) return;
+    const row = list.current?.querySelector<HTMLElement>(
+      `[data-shard="${CSS.escape(jumpTo)}"]`,
+    );
+    row?.querySelector<HTMLElement>("select")?.focus();
+    row?.scrollIntoView({ block: "nearest" });
+  }, [jumpTo, query]);
 
   const fileInput = useRef<HTMLInputElement>(null);
   const load = async (file: File) => {
@@ -336,9 +347,18 @@ export function Collection({
 
       <ToolSection number="02" title="Your shards">
         <div className="flex flex-col gap-6">
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <ShardPicker
+              className="col-span-2"
+              label="Jump to a shard"
+              shards={shards}
+              value={jumpTo}
+              onChange={jump}
+              note={levelNote(collection.levels)}
+              testId="collection-jump"
+            />
             <div className="col-span-2">
-              <Field label="Find a shard">
+              <Field label="Filter">
                 {(props) => (
                   <input
                     {...props}
@@ -346,8 +366,8 @@ export function Collection({
                     value={query}
                     onChange={(event) => {
                       setQuery(event.target.value);
+                      setJumpTo(null);
                     }}
-                    placeholder="e.g. Tiamat"
                     className={`${fieldClasses} h-11 px-3`}
                   />
                 )}
@@ -409,27 +429,25 @@ export function Collection({
                 </select>
               )}
             </Field>
-            <div className="col-span-2 md:col-span-1">
-              <Field label="Family">
-                {(props) => (
-                  <select
-                    {...props}
-                    value={family}
-                    onChange={(event) => {
-                      setFamily(event.target.value);
-                    }}
-                    className={`${fieldClasses} h-11 px-2`}
-                  >
-                    <option value="">Any</option>
-                    {options.families.map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </Field>
-            </div>
+            <Field label="Family">
+              {(props) => (
+                <select
+                  {...props}
+                  value={family}
+                  onChange={(event) => {
+                    setFamily(event.target.value);
+                  }}
+                  className={`${fieldClasses} h-11 px-2`}
+                >
+                  <option value="">Any</option>
+                  {options.families.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
           </div>
           <div className="flex flex-wrap items-center gap-4">
             <p
@@ -464,6 +482,7 @@ export function Collection({
             <p className="text-muted">No shard matches.</p>
           ) : (
             <ul
+              ref={list}
               className="flex flex-col border-t border-ink"
               data-testid="collection-list"
               key={formKey}
@@ -539,12 +558,15 @@ function ShardRow({
     >
       <ShardIcon shard={shard} size={36} />
       <div className="flex min-w-0 flex-col">
-        <a
-          href={shardPath(shard.slug)}
-          className="font-medium underline-offset-2 hover:underline"
-        >
-          {shard.name}
-        </a>
+        <span className="flex items-baseline gap-2">
+          <a
+            href={shardPath(shard.slug)}
+            className="font-medium underline-offset-2 hover:underline"
+          >
+            {shard.name}
+          </a>
+          <ShardId id={shard.key} />
+        </span>
         <span className="text-sm">
           <RarityTag rarity={shard.rarity} />
           <span className="text-muted"> · {shard.category}</span>

@@ -1637,7 +1637,20 @@ skyblock:snapshot` (scripts/skyblock-snapshot.ts on plain Node, like chunithm:bu
   committed files; none: the rarity's letter on the game's panel).
 - Shards are listed in Hypixel's order of shard IDs (the `key`: C1, C2 … C10, U1 …, L…;
   `compareShardIds` in rarity.ts), which the game shows; cards and shard pages show the
-  ID, and searching for one ("C14") finds that shard first.
+  ID, and searching for one ("C14") finds that shard first. Searches also take typed
+  filters (`parseShardQuery`: `r:` rarity, `c:` category, `fam:` family, `s:` skill,
+  `name:"two words"`; a value matches the start of a word), in every shard search.
+- Every field that chooses a shard is apps/skyblock's ShardPicker: a field-like button
+  that opens a modal <dialog> (full screen on phones) searching every shard, with
+  rarity and category chips and a family select; arrow keys and Enter pick, Escape
+  closes and focus returns to the button. It's a combobox over a listbox
+  (aria-activedescendant), PICKER_PAGE results drawn at a time. While nothing is typed
+  recent picks lead (RECENT_SHARDS_KEY, a "preferences" key in preferenceStore,
+  RECENT_MAX kept); `note` adds a line per result (`levelNote`: the Collection's level
+  and what's left to max, in the calculator, planner and Collection). The Collection's
+  "Jump to a shard" narrows its list to the shard's ID and focuses its level. Pickers
+  need the list's summaries, so the pages send `ShardOption`s built on ShardSummary
+  (`calculatorShards`, `plannerShards`, `collectionShards` in lib/skyblock/public.ts).
 - Pages (server-rendered, the same for everyone): /tools/skyblock/shards/ (ShardBrowser,
   `client:load`, with a noscript index of every shard) and /tools/skyblock/shards/<slug>/
   (facts, the shard ID and item ID among them; the attribute and how to hunt it in an `mc-tooltip` panel, so Hypixel's

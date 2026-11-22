@@ -13,6 +13,7 @@ import {
   meta,
   shardPath,
 } from "@trilleo/tool-skyblock/meta";
+import { LineShardField } from "@trilleo/tool-skyblock";
 import { fieldClasses } from "@trilleo/ui/classes";
 import type { LineFilter } from "@trilleo/skyblock/calc";
 import SkyblockLayout from "../../../components/skyblock/SkyblockLayout.astro";
@@ -26,6 +27,7 @@ import {
   linesPage,
   shardsOnLines,
 } from "../../../lib/skyblock/lines";
+import { collectionShards } from "../../../lib/skyblock/public";
 import { ogImagePath, toolCard } from "../../../lib/seo";
 import { getStorage } from "../../../lib/storage/config";
 
@@ -37,6 +39,10 @@ const DEFAULT_SHARD = "komodo-dragon";
 const params = Astro.url.searchParams;
 const data = await shardData(await getDb(), getStorage());
 const choices = shardsOnLines(data);
+const onLine = new Set(choices.map((shard) => shard.slug));
+const pickerShards = collectionShards(data).filter((shard) =>
+  onLine.has(shard.slug),
+);
 const asked = params.get("shard");
 const slug =
   asked && choices.some((shard) => shard.slug === asked)
@@ -134,16 +140,7 @@ const body =
     </h2>
     <form method="get" class={body} data-testid="lines-form">
       <div class="grid grid-cols-1 items-end gap-4 md:grid-cols-[2fr_1fr_1fr_auto]">
-        <label class="flex flex-col gap-1.5">
-          <span class="type-label">Centre on</span>
-          <select name="shard" class={select}>
-            {choices.map((shard) => (
-              <option value={shard.slug} selected={shard.slug === slug}>
-                {shard.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <LineShardField client:load shards={pickerShards} value={slug} />
         <label class="flex flex-col gap-1.5">
           <span class="type-label">Steps out</span>
           <select name="steps" class={select}>

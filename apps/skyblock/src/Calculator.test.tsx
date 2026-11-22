@@ -15,20 +15,15 @@ import { Calculator, SAVE_DELAY_MS } from "./Calculator";
 import { CalcClient } from "./calc/client";
 import { formatHours } from "./calc/format";
 import type { ShardOption } from "./calc/types";
+import { chooseShard } from "./test-utils";
 
 const dataset = readSources(sourceFiles(), { minShards: 1 });
 const deck = deckOf(dataset, "v1", "c", () => null);
-const shards: ShardOption[] = dataset.shards.map((shard) => {
-  const summary = summarize(shard, null);
-  return {
-    id: shard.id,
-    slug: summary.slug,
-    name: summary.name,
-    rarity: summary.rarity,
-    icon: null,
-    rate: shard.rate,
-  };
-});
+const shards: ShardOption[] = dataset.shards.map((shard) => ({
+  ...summarize(shard, null),
+  id: shard.id,
+  rate: shard.rate,
+}));
 /** Prices the fake server answers with (null: it has none yet). */
 let bazaar: Record<
   string,
@@ -119,9 +114,7 @@ describe("Calculator", () => {
   it("picks a shard by name", async () => {
     renderCalculator({ initialShard: null });
     expect(await screen.findByText(/Pick a shard/)).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("Shard to make"), {
-      target: { value: "tiamat" },
-    });
+    chooseShard("Shard to make", "tiamat");
     expect(await screen.findByTestId("calc-impossible")).toBeTruthy();
   });
 
@@ -173,9 +166,7 @@ describe("Calculator", () => {
   it("uses own hunting rates and saves the setup after a pause", async () => {
     renderCalculator();
     await summary();
-    fireEvent.change(screen.getByLabelText("Shard"), {
-      target: { value: "Bogged" },
-    });
+    chooseShard(/^Shard(?! to)/, "Bogged");
     fireEvent.change(screen.getByLabelText("Shards an hour"), {
       target: { value: "6" },
     });
@@ -323,9 +314,8 @@ describe("Calculator with a collection", () => {
   it("offers what's left to max from the collection's level", async () => {
     seed({ levels: { SHARD_GROVE: 2 }, held: {}, keep: [] });
     renderCalculator({ initialQuantity: undefined, initialShard: null });
-    fireEvent.change(await screen.findByLabelText("Shard to make"), {
-      target: { value: "Grove" },
-    });
+    await screen.findByRole("button", { name: /^Shard to make/ });
+    chooseShard("Shard to make", "Grove");
     await waitFor(() => {
       expect(window.location.search).toBe("?shard=grove&qty=92");
     });

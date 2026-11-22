@@ -17,3 +17,12 @@ if (
     this.dispatchEvent(new Event("close"));
   };
 }
+
+// jsdom doesn't scroll: the shard picker and the Collection only ask it to.
+for (const name of ["scrollIntoView", "scrollTo"] as const) {
+  if (!(name in Element.prototype))
+    Object.defineProperty(Element.prototype, name, {
+      value: () => undefined,
+      configurable: true,
+    });
+}

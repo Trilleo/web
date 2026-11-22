@@ -17,6 +17,7 @@ import {
   collectionTotals,
   type CollectionShard,
 } from "./Collection";
+import { chooseShard } from "./test-utils";
 
 const dataset = readSources(sourceFiles(), { minShards: 1 });
 const shards: CollectionShard[] = dataset.shards.map((shard) => ({
@@ -227,5 +228,31 @@ describe("Collection with many shards", () => {
     expect(screen.getAllByTestId("collection-row")).toHaveLength(
       COLLECTION_PAGE_SIZE,
     );
+  });
+
+  it("jumps to a shard: the list narrows to its ID and its level takes the focus", () => {
+    render(
+      <Collection signedIn={false} signInHref="/sign-in" shards={shards} />,
+    );
+    fireEvent.change(screen.getByLabelText("Rarity"), {
+      target: { value: "common" },
+    });
+    chooseShard("Jump to a shard", "tiamat");
+    expect(screen.getAllByTestId("collection-row")).toHaveLength(1);
+    expect(screen.getByLabelText<HTMLInputElement>("Filter").value).toBe("L6");
+    expect(screen.getByLabelText<HTMLSelectElement>("Rarity").value).toBe("");
+    expect(document.activeElement).toBe(screen.getByLabelText("Tiamat: level"));
+  });
+
+  it("filters with typed filters too", () => {
+    render(
+      <Collection signedIn={false} signInHref="/sign-in" shards={shards} />,
+    );
+    fireEvent.change(screen.getByLabelText("Filter"), {
+      target: { value: "fam:croco" },
+    });
+    expect(
+      screen.getAllByTestId("collection-row").map((el) => el.dataset.shard),
+    ).toEqual(["SHARD_CROCODILE", "SHARD_TIAMAT"]);
   });
 });

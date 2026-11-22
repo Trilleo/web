@@ -10,13 +10,13 @@ import {
   Calculator,
   SKYBLOCK_PATH,
   meta,
-  type ShardOption,
 } from "@trilleo/tool-skyblock";
 import ProfileSwitcher from "../../../components/skyblock/ProfileSwitcher.astro";
 import SkyblockLayout from "../../../components/skyblock/SkyblockLayout.astro";
 import { pageData } from "../../../lib/skyblock/profiles";
 import { getDb } from "../../../lib/db";
-import { iconOf, shardData } from "../../../lib/skyblock/data";
+import { shardData } from "../../../lib/skyblock/data";
+import { calculatorShards } from "../../../lib/skyblock/public";
 import { ogImagePath, toolCard } from "../../../lib/seo";
 import { getStorage } from "../../../lib/storage/config";
 
@@ -27,14 +27,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
 
 const db = await getDb();
 const data = await shardData(db, getStorage());
-const shards: ShardOption[] = data.catalog.shards.map((shard) => ({
-  id: shard.id,
-  slug: shard.slug,
-  name: shard.name,
-  rarity: shard.rarity,
-  icon: iconOf(data, shard),
-  rate: shard.rate,
-}));
+const shards = calculatorShards(data);
 const { user } = Astro.locals;
 const { profiles, initialSaved, prefix } = await pageData(db, user);
 const initialShard = Astro.url.searchParams.get("shard");

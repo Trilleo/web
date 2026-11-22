@@ -12,6 +12,7 @@ import {
   searchShards,
   compareShardIds,
   parseShardId,
+  parseShardQuery,
   segmentsHtml,
   segmentsText,
   shardSlug,
@@ -274,6 +275,25 @@ describe("search", () => {
   it("finds a shard by its ID first", () => {
     expect(searchShards(list, { query: "r45" })[0]?.key).toBe("R45");
     expect(searchShards(list, { query: " L6 " })[0]?.key).toBe("L6");
+  });
+
+  it("reads typed filters out of the words", () => {
+    expect(parseShardQuery('r:leg fam:"croco" health c:')).toEqual({
+      words: "health",
+      filters: { rarity: "leg", family: "croco" },
+    });
+    expect(parseShardQuery("time: 10 x:y")).toEqual({
+      words: "time: 10 x:y",
+      filters: {},
+    });
+    expect(
+      searchShards(list, { query: "r:legendary" }).map((s) => s.key),
+    ).toEqual(["L6"]);
+    expect(
+      searchShards(list, { query: "fam:croco s:hunt" }).map((s) => s.key),
+    ).toEqual(["R45", "L6"]);
+    expect(searchShards(list, { query: "c:combat tiamat" })[0]?.key).toBe("L6");
+    expect(searchShards(list, { query: "r:common c:combat" })).toEqual([]);
   });
 
   it("filters, sorting by shard ID", () => {

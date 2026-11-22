@@ -1,10 +1,16 @@
 /**
  * The shard list in the browser: a light summary of each shard (what the list shows
- * and searches) and the search itself: by name first, then the attribute's name, then
- * its text and how to hunt it; filtered by rarity, category, family and skill.
+ * and searches) and the search itself: an ID ("C14") first, then by name, then the
+ * attribute's name, then its text and how to hunt it; filtered by rarity, category,
+ * family and skill, chosen or typed (`r:legendary c:water fam:reptile s:fishing`).
  */
 import type { ShardRecord } from "./dataset";
-import { compareShardIds, parseShardId, type Rarity } from "./rarity";
+import {
+  RARITY_LABELS,
+  compareShardIds,
+  parseShardId,
+  type Rarity,
+} from "./rarity";
 import { segmentsText, withoutBuffedBy } from "./text";
 
 export interface ShardSummary {
@@ -97,21 +103,92 @@ export function matchScore(shard: ShardSummary, query: string): number {
   return 0;
 }
 
+/** What a typed filter can be called: `r:`, `rarity:`, `fam:` … */
+export const QUERY_FILTERS = {
+  rarity: ["r", "rarity"],
+  category: ["c", "cat", "category"],
+  family: ["f", "fam", "family"],
+  skill: ["s", "skill"],
+} as const;
+export type QueryFilter = keyof typeof QUERY_FILTERS;
+
+export interface ParsedQuery {
+  /** The words left once the filters are taken out. */
+  words: string;
+  /** Typed filters, folded ("reptile"); a value matches the start of a word. */
+  filters: Partial<Record<QueryFilter, string>>;
+}
+
+const FILTER_NAMES = new Map<string, QueryFilter>(
+  Object.entries(QUERY_FILTERS).flatMap(([filter, names]) =>
+    names.map((name) => [name, filter as QueryFilter] as const),
+  ),
+);
+
 /**
- * The shards that pass the filters and match the words: best matches first, and
- * among equals (or with no words) in Hypixel's order of shard IDs (C1, C2, … L48).
+ * Takes typed filters out of a search: `name:value` or `name:"two words"`, the name
+ * one of QUERY_FILTERS'. Anything else (unknown names too) stays words.
  */
-export function searchShards(
-  shards: readonly ShardSummary[],
+export function parseShardQuery(text: string): ParsedQuery {
+  const filters: ParsedQuery["filters"] = {};
+  const words = text.replace(
+    /(?:^|\s)([a-z]+):(?:"([^"]*)"?|(\S*))/gi,
+    (whole, name: string, quoted?: string, plain?: string) => {
+      const filter = FILTER_NAMES.get(name.toLowerCase());
+      const value = fold(quoted ?? plain ?? "");
+      if (!filter) return whole;
+      if (value) filters[filter] = value;
+      return " ";
+    },
+  );
+  return { words: words.replace(/\s+/g, " ").trim(), filters };
+}
+
+/** Whether a folded typed value names this text: the start of the text or a word in it. */
+function names(value: string, text: string): boolean {
+  const folded = fold(text);
+  return folded.startsWith(value) || folded.includes(` ${value}`);
+}
+
+function passesTyped(
+  shard: ShardSummary,
+  typed: ParsedQuery["filters"],
+): boolean {
+  if (
+    typed.rarity !== undefined &&
+    !names(typed.rarity, RARITY_LABELS[shard.rarity])
+  )
+    return false;
+  if (typed.category !== undefined && !names(typed.category, shard.category))
+    return false;
+  if (
+    typed.family !== undefined &&
+    !shard.families.some((family) => names(typed.family ?? "", family))
+  )
+    return false;
+  if (typed.skill !== undefined && !names(typed.skill, shard.skill))
+    return false;
+  return true;
+}
+
+/**
+ * The shards that pass the filters (chosen, and typed into the query) and match the
+ * words: best matches first, and among equals (or with no words) in Hypixel's order of
+ * shard IDs (C1, C2, … L48).
+ */
+export function searchShards<T extends ShardSummary>(
+  shards: readonly T[],
   filters: ShardFilters,
-): ShardSummary[] {
-  const scored: { shard: ShardSummary; score: number }[] = [];
+): T[] {
+  const { words, filters: typed } = parseShardQuery(filters.query ?? "");
+  const scored: { shard: T; score: number }[] = [];
   for (const shard of shards) {
     if (filters.rarity && shard.rarity !== filters.rarity) continue;
     if (filters.category && shard.category !== filters.category) continue;
     if (filters.family && !shard.families.includes(filters.family)) continue;
     if (filters.skill && shard.skill !== filters.skill) continue;
-    const score = matchScore(shard, filters.query ?? "");
+    if (!passesTyped(shard, typed)) continue;
+    const score = matchScore(shard, words);
     if (score > 0) scored.push({ shard, score });
   }
   return scored

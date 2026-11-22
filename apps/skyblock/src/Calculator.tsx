@@ -47,6 +47,7 @@ import { Setup } from "./calc/Setup";
 import type { ShardOption } from "./calc/types";
 import { COLLECTION_PATH, meta } from "./meta";
 import { ShardIcon } from "./ShardBrowser";
+import { ShardPicker, levelNote } from "./ShardPicker";
 
 export type { ShardOption } from "./calc/types";
 
@@ -161,7 +162,6 @@ export function Calculator({
   const firstShard =
     shards.find((shard) => shard.slug === initialShard) ?? null;
   const [target, setTarget] = useState<ShardOption | null>(firstShard);
-  const [targetText, setTargetText] = useState(firstShard?.name ?? "");
   const [quantity, setQuantity] = useState(
     Math.max(
       1,
@@ -379,19 +379,13 @@ export function Calculator({
   };
 
   const [pinned, setPinned] = useState<PlanView | null>(null);
-  const listId = useId();
-  const pickTarget = (text: string) => {
-    setTargetText(text);
-    const shard = shards.find(
-      (s) => s.name.toLowerCase() === text.trim().toLowerCase(),
+  const pickTarget = (shard: ShardOption) => {
+    if (shard.id === target?.id) return;
+    setTarget(shard);
+    // What's left to max it, from the Collection's level (all of it at level 0).
+    setQuantity(
+      Math.max(1, leftToMax(shard.rarity, collection.levels[shard.id] ?? 0)),
     );
-    if (shard && shard.id !== target?.id) {
-      setTarget(shard);
-      // What's left to max it, from the Collection's level (all of it at level 0).
-      setQuantity(
-        Math.max(1, leftToMax(shard.rarity, collection.levels[shard.id] ?? 0)),
-      );
-    }
   };
   const nameOf = (id: string) =>
     shards.find((s) => s.id === id)?.name ?? plan?.shards[id]?.name ?? id;
@@ -401,26 +395,14 @@ export function Calculator({
       <ToolSection number="01" title="What to make">
         <div className="flex flex-col gap-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr_1fr]">
-            <Field label="Shard to make">
-              {(props) => (
-                <input
-                  {...props}
-                  list={listId}
-                  value={targetText}
-                  onChange={(event) => {
-                    pickTarget(event.target.value);
-                  }}
-                  autoComplete="off"
-                  placeholder="e.g. Tiamat"
-                  className={`${fieldClasses} h-11 px-3`}
-                />
-              )}
-            </Field>
-            <datalist id={listId}>
-              {shards.map((shard) => (
-                <option key={shard.id} value={shard.name} />
-              ))}
-            </datalist>
+            <ShardPicker
+              label="Shard to make"
+              shards={shards}
+              value={target?.id ?? null}
+              onChange={pickTarget}
+              note={levelNote(collection.levels)}
+              testId="calc-target"
+            />
             <Field label="How many">
               {(props) => (
                 <input

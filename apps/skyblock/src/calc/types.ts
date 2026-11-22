@@ -1,12 +1,12 @@
-import type { Rarity } from "@trilleo/skyblock";
+import type { ShardSummary } from "@trilleo/skyblock";
 
-/** A shard as the calculator page lists it (rendered by the server, before the data loads). */
-export interface ShardOption {
+/**
+ * A shard as the calculator page lists it (rendered by the server, before the data
+ * loads): the list's summary, so the shard picker can search it, plus Hypixel's item
+ * ID and SkyShards' default rate.
+ */
+export interface ShardOption extends ShardSummary {
   id: string;
-  slug: string;
-  name: string;
-  rarity: Rarity;
-  icon: string | null;
   /** SkyShards' default rate (shards an hour; 0: can't be hunted). */
   rate: number;
 }

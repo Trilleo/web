@@ -12,7 +12,11 @@ import {
   type ShardRecord,
   type ShardSummary,
 } from "@trilleo/skyblock";
-import type { CollectionShard, PlannerShard } from "@trilleo/tool-skyblock";
+import type {
+  CollectionShard,
+  PlannerShard,
+  ShardOption,
+} from "@trilleo/tool-skyblock";
 import { shardPath } from "@trilleo/tool-skyblock/meta";
 import { CARD_META_LENGTH, truncate, type OgCard } from "../seo";
 import { iconOf, type ShardData } from "./data";
@@ -45,17 +49,21 @@ export function collectionShards(data: ShardData): CollectionShard[] {
   }));
 }
 
-/** The planner's list: the calculator's shards with category, families and where. */
+/** The calculator's list: the summaries (for the shard picker) with default rates. */
+export function calculatorShards(data: ShardData): ShardOption[] {
+  return data.catalog.shards.map((shard) => ({
+    ...summarize(shard, iconOf(data, shard)),
+    id: shard.id,
+    rate: shard.rate,
+  }));
+}
+
+/** The planner's list: the calculator's shards with where they're hunted. */
 export function plannerShards(data: ShardData): PlannerShard[] {
   return data.catalog.shards.map((shard) => ({
+    ...summarize(shard, iconOf(data, shard)),
     id: shard.id,
-    slug: shard.slug,
-    name: shard.name,
-    rarity: shard.rarity,
-    icon: iconOf(data, shard),
     rate: shard.rate,
-    category: shard.category,
-    families: shard.families,
     where: huntLines(shard),
   }));
 }
