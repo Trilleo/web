@@ -77,7 +77,7 @@ const meta = [
       aria-label={`Lessons in ${subject.title}`}
       class="hidden xl:col-span-2 xl:row-span-2 xl:block"
     >
-      <ol class="type-label sticky top-6 flex flex-col gap-5">
+      <ol class="type-label sticky-list flex flex-col gap-5" data-lesson-list>
         {subject.units.map((entry) => (
           <li class="flex flex-col gap-2">
             <span class="text-muted">
@@ -190,3 +190,12 @@ const meta = [
     </nav>
   </article>
 </StudyLayout>
+
+<script>
+  import { keepInView } from "@trilleo/ui/sticky-list";
+
+  // A long subject's list scrolls on its own: start it at the lesson being read.
+  const list = document.querySelector<HTMLElement>("[data-lesson-list]");
+  const current = list?.querySelector<HTMLElement>('[aria-current="page"]');
+  if (list && current) keepInView(list, current, { center: true });
+</script>

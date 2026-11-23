@@ -202,6 +202,10 @@ aria-hidden="true"></span><div>…</div></div>` in Astro): an empty label row, t
   tables with a header row stack, one block per row, each cell under its heading
   (`stackTables` in src/lib/post-html.ts adds the labels). Prose tables don't use
   tabular figures: in the grotesk they widen commas, periods and colons too.
+- Lists that stick beside the text (TableOfContents, a lesson's list of lessons) are
+  `sticky-list` (theme.css): never taller than the screen, scrolling on their own,
+  and @trilleo/ui's `keepInView` (sticky-list.ts) scrolls them to the current item
+  without moving the page.
 - The footer: the name, three labelled link groups (Sections, Information,
   Elsewhere), and "Back to top" in columns 9–12.
 

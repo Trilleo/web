@@ -11,7 +11,7 @@ const { headings } = Astro.props;
 
 <nav
   aria-label="Contents"
-  class="type-label sticky top-6 flex flex-col gap-3"
+  class="type-label sticky-list flex flex-col gap-3"
   data-toc
 >
   <span class="text-muted">Contents</span>
@@ -42,7 +42,12 @@ const { headings } = Astro.props;
 </nav>
 
 <script>
-  // Marks the section being read (aria-current="location") as the reader scrolls.
+  import { keepInView } from "@trilleo/ui/sticky-list";
+  import { REDUCED_MOTION_QUERY } from "@trilleo/ui/motion";
+
+  // Marks the section being read (aria-current="location") as the reader scrolls,
+  // and scrolls a list taller than the screen to keep it in view.
+  const toc = document.querySelector<HTMLElement>("[data-toc]");
   const links = [
     ...document.querySelectorAll<HTMLAnchorElement>(
       "[data-toc] [data-toc-link]",
@@ -57,9 +62,14 @@ const { headings } = Astro.props;
   if (targets.length > 0) {
     const setCurrent = (id: string) => {
       for (const link of links) {
-        if (decodeURIComponent(link.hash.slice(1)) === id)
+        if (decodeURIComponent(link.hash.slice(1)) === id) {
+          if (link.getAttribute("aria-current") === "location") continue;
           link.setAttribute("aria-current", "location");
-        else link.removeAttribute("aria-current");
+          if (toc)
+            keepInView(toc, link, {
+              smooth: !matchMedia(REDUCED_MOTION_QUERY).matches,
+            });
+        } else link.removeAttribute("aria-current");
       }
     };
     const firstTarget = targets[0];

@@ -132,6 +132,31 @@ test("the formula sheet and glossary gather every lesson's", async ({
   await expect(page).toHaveURL(/#def-/);
 });
 
+test("a long lesson list scrolls on its own, starting at the lesson", async ({
+  page,
+}) => {
+  // Circuits (2) has dozens of lessons: far taller than a 600px window.
+  await page.setViewportSize({ width: 1440, height: 600 });
+  await page.goto("/study/circuits-2/square-wave-generators/");
+  const list = page.locator("[data-lesson-list]");
+  const current = list.locator('[aria-current="page"]');
+  await expect(current).toBeInViewport();
+  const box = await list.evaluate((element) => ({
+    scrolled: element.scrollTop,
+    height: element.clientHeight,
+    content: element.scrollHeight,
+  }));
+  expect(box.height).toBeLessThanOrEqual(600);
+  expect(box.content).toBeGreaterThan(box.height);
+  expect(box.scrolled).toBeGreaterThan(0);
+
+  // Its first lesson is reached by scrolling the list, not the page.
+  await page.mouse.move(150, 300);
+  await page.mouse.wheel(0, -100_000);
+  await expect(list.getByRole("link").first()).toBeInViewport();
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
 test("study pages are listed for search engines and assistants", async ({
   request,
 }) => {

@@ -672,6 +672,22 @@ html[data-theme-switching]::view-transition-new(root) {
   }
 }
 
+/* A list that sticks beside the text (lesson lists, contents): `top-6` from the
+   viewport's top, never taller than the screen, scrolling on its own when it's
+   longer. The padding (cancelled by the margin) keeps focus rings unclipped.
+   keepInView (@trilleo/ui/sticky-list) scrolls it to the current item. */
+@utility sticky-list {
+  position: sticky;
+  top: 1.5rem;
+  max-height: calc(100dvh - 3rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--tr-hair) transparent;
+  padding: 4px;
+  margin: -4px;
+}
+
 /* A small press-in on click, for buttons and toggles. Owns the element's
    transitions (colors included), so don't combine it with transition-* classes. */
 @utility press {
