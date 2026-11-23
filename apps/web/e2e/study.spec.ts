@@ -135,9 +135,11 @@ test("the formula sheet and glossary gather every lesson's", async ({
 test("a long lesson list scrolls on its own, starting at the lesson", async ({
   page,
 }) => {
-  // Circuits (2) has dozens of lessons: far taller than a 600px window.
+  // Circuits (2) has dozens of lessons: far taller than a 600px window. Its
+  // last lesson sits at the list's end, which stays above the fold even before
+  // the page scrolls and the list sticks.
   await page.setViewportSize({ width: 1440, height: 600 });
-  await page.goto("/study/circuits-2/square-wave-generators/");
+  await page.goto("/study/circuits-2/ad-converters/");
   const list = page.locator("[data-lesson-list]");
   const current = list.locator('[aria-current="page"]');
   await expect(current).toBeInViewport();
@@ -145,8 +147,9 @@ test("a long lesson list scrolls on its own, starting at the lesson", async ({
     scrolled: element.scrollTop,
     height: element.clientHeight,
     content: element.scrollHeight,
+    bottom: element.getBoundingClientRect().bottom,
   }));
-  expect(box.height).toBeLessThanOrEqual(600);
+  expect(box.bottom).toBeLessThanOrEqual(600);
   expect(box.content).toBeGreaterThan(box.height);
   expect(box.scrolled).toBeGreaterThan(0);
 

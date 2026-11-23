@@ -192,10 +192,11 @@ const meta = [
 </StudyLayout>
 
 <script>
-  import { keepInView } from "@trilleo/ui/sticky-list";
+  import { fitToWindow, keepInView } from "@trilleo/ui/sticky-list";
 
   // A long subject's list scrolls on its own: start it at the lesson being read.
   const list = document.querySelector<HTMLElement>("[data-lesson-list]");
   const current = list?.querySelector<HTMLElement>('[aria-current="page"]');
+  if (list) fitToWindow(list);
   if (list && current) keepInView(list, current, { center: true });
 </script>

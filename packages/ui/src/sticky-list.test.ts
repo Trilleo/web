@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { keepInView } from "./sticky-list";
+import { fitToWindow, keepInView } from "./sticky-list";
 
 /** A list 100px tall scrolled to `scrollTop`, holding 1000px, and an item at `itemTop` (20px tall). */
 function setup(scrollTop: number, itemTop: number, scrollHeight = 1000) {
@@ -56,5 +56,31 @@ describe("keepInView", () => {
     const { list, item, scrollTo } = setup(0, 300, 100);
     keepInView(list, item);
     expect(scrollTo).not.toHaveBeenCalled();
+  });
+});
+
+describe("fitToWindow", () => {
+  it("leaves room below the list, wherever its top is", () => {
+    const list = document.createElement("ol");
+    let top = 186;
+    list.getBoundingClientRect = () => ({ top }) as DOMRect;
+    vi.stubGlobal("innerHeight", 600);
+    vi.stubGlobal("requestAnimationFrame", (run: FrameRequestCallback) => {
+      run(0);
+      return 1;
+    });
+    const stop = fitToWindow(list);
+    // 16px root font size in jsdom: a 24px gap.
+    expect(list.style.maxHeight).toBe("390px");
+
+    top = 24;
+    window.dispatchEvent(new Event("scroll"));
+    expect(list.style.maxHeight).toBe("552px");
+
+    stop();
+    top = 300;
+    window.dispatchEvent(new Event("scroll"));
+    expect(list.style.maxHeight).toBe("552px");
+    vi.unstubAllGlobals();
   });
 });

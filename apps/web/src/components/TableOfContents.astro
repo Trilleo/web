@@ -42,12 +42,13 @@ const { headings } = Astro.props;
 </nav>
 
 <script>
-  import { keepInView } from "@trilleo/ui/sticky-list";
+  import { fitToWindow, keepInView } from "@trilleo/ui/sticky-list";
   import { REDUCED_MOTION_QUERY } from "@trilleo/ui/motion";
 
   // Marks the section being read (aria-current="location") as the reader scrolls,
   // and scrolls a list taller than the screen to keep it in view.
   const toc = document.querySelector<HTMLElement>("[data-toc]");
+  if (toc) fitToWindow(toc);
   const links = [
     ...document.querySelectorAll<HTMLAnchorElement>(
       "[data-toc] [data-toc-link]",
