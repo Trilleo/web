@@ -1,8 +1,8 @@
 ---
 title: Sums and other functions of continuous random vectors
 zh: 二维连续型随机变量函数的分布
-summary: The density of Z = X + Y (the general formula and the convolution formula for independent variables), the distribution-function method for any Z = g(X, Y), sums of independent normals, and the distance √(X² + Y²).
-source: 11独立性和函数的分布7-1 (§3.4, continuous part), 2026-10-12; 11随机变量函数的分布7-2, 2026-10-14
+summary: The density of Z = X + Y (the general formula and the convolution formula for independent variables), the distribution-function method for any Z = g(X, Y) such as 2X + Y and X − Y, sums of independent normals, the distance √(X² + Y²), and a sum of dependent variables on a triangle.
+source: 11独立性和函数的分布7-1 (§3.4, continuous part), 2026-10-12; 11随机变量函数的分布7-2, 2026-10-14; 13随机变量函数的分布8-1, 2026-10-19
 ---
 
 ## From tables to densities
@@ -134,7 +134,7 @@ xlabel: z
 f(z) = max(0, e^(-z) (e^(min(z, 1)) - 1))
 :::
 
-### Example 1, part 2: Z = 2X + Y (to be continued)
+### Example 1, part 2: Z = 2X + Y
 
 The lecture then asked for the density of $Z = 2X + Y$ with the same $X$ and $Y$. The
 convolution formula doesn't apply (not a plain sum), so use the distribution function:
@@ -142,11 +142,48 @@ $$\begin{gathered}F_Z(z) = P\{2X + Y \le z\} = \iint_{y \le z - 2x} f(x,y)\,\d x
 The line $y = z - 2x$ is steeper now, crossing the $x$-axis at $x = z/2$, so the cases
 split at $z = 2$ instead of $z = 1$.
 
-::: callout note The lecture continues here
-The slides stop at this set-up; the case analysis for $2X + Y$, and the other topics in
-§3.4's outline — functions of a continuous and a discrete variable, and the
-distributions of $\max\{X,Y\}$ and $\min\{X,Y\}$ — come in the next lectures, and this
-lesson will grow with them.
+::: example Z = 2X + Y by the distribution-function method
+$X \sim U(0,1)$ and $Y \sim E(1)$ are independent, so $f(x,y) = e^{-y}$ on the half-strip
+$0 \le x \le 1$, $y > 0$. Find $F_Z$ and $f_Z$ for $Z = 2X + Y$.
+== z ≤ 0 ==
+The half-plane $y \le z - 2x$ lies on or below the line $y = -2x$ (through the origin)
+and doesn't reach the half-strip: $F_Z(z) = 0$.
+== 0 < z ≤ 2 ==
+The line $y = z - 2x$ meets the $y$-axis at $z$ and the $x$-axis at $z/2 \le 1$, inside the
+strip. The region under it is the triangle $(0,0)$, $(z/2, 0)$, $(0, z)$:
+$$\begin{aligned}F_Z(z) &= \int_0^{z/2} \d x \int_0^{z-2x} e^{-y}\,\d y = \int_0^{z/2} \left(1 - e^{-(z-2x)}\right)\d x\\&= \frac z2 - \frac12\left(1 - e^{-z}\right) = \frac{z - 1 + e^{-z}}{2}.\end{aligned}$$
+== z > 2 ==
+Now $z/2 > 1$: the line leaves the strip through its right edge $x = 1$, and $x$ runs over
+all of $[0,1]$:
+$$\begin{aligned}F_Z(z) &= \int_0^1 \d x \int_0^{z-2x} e^{-y}\,\d y = 1 - e^{-z}\int_0^1 e^{2x}\,\d x\\&= 1 - \frac12\left(e^2 - 1\right)e^{-z} = 1 + \frac12\left(1 - e^2\right)e^{-z}.\end{aligned}$$
+== Collect and differentiate ==
+$$F_Z(z) = \begin{cases} 0, & z \le 0, \\ \dfrac{z - 1 + e^{-z}}{2}, & 0 < z < 2, \\ 1 + \dfrac12 e^{-z}\left(1 - e^2\right), & z \ge 2, \end{cases} \qquad f_Z(z) = \begin{cases} 0, & z \le 0, \\ \dfrac{1 - e^{-z}}{2}, & 0 < z < 2, \\ \dfrac12 e^{-z}\left(e^2 - 1\right), & z \ge 2. \end{cases}$$
+Check: at $z = 2$ both pieces of $F_Z$ give $\frac12 + \frac12 e^{-2}$, so $F_Z$ is continuous.
+:::
+
+::: callout note A slip on slides 18-006 and 18-007
+The middle step there reads $P(X + Y \le z)$; it should be $P(2X + Y \le z)$, as the
+integral next to it ($y \le -2x + z$) shows. The results are right.
+:::
+
+::: plot Example 1, part 2: the half-strip and the part with 2x + y ≤ z
+x: -0.5 .. 2
+y: -0.2 .. 4
+region S: 0 < x < 1, y > 0
+region D: 0 < x < 1, y > 0, 2x + y <= z
+f(x) = z - 2x
+slider z: 0 .. 4 = 1.2
+:::
+
+Compare with $X + Y$: the density of $2X + Y$ rises more slowly ($\frac12(1 - e^{-z})$
+instead of $1 - e^{-z}$) because $2X$ is spread over $[0, 2]$, twice as wide, and the
+bend comes at $z = 2$.
+
+::: plot The densities of X + Y and 2X + Y
+x: -0.5 .. 6
+xlabel: z
+f(z) = max(0, e^(-z) (e^(min(z, 1)) - 1))
+g(z) = max(0, e^(-z) (e^(min(z, 2)) - 1) / 2)
 :::
 
 ### Example 2: the sum of two U(0, 1)
@@ -346,6 +383,95 @@ F(z) = 1 - e^(-z^2 / (2 s^2))
 slider s: 0.3 .. 3 = 1
 :::
 
+## A sum without independence: uniform on a triangle
+
+The last example of the lecture is a sum again, but of two variables that are **not**
+independent. It shows the general formula $\int f(z - y, y)\,\d y$ doing the work the
+convolution formula can't, and solves the same problem three ways. The slides write the
+density as $p(x,y)$ here; it means the same as $f(x,y)$.
+
+$(X,Y)$ is uniform on the triangle $D$ bounded by the lines $y = 1 + x$, $y = 1 - x$ and
+the $x$-axis: corners $(-1, 0)$, $(1, 0)$, $(0, 1)$. Its area is
+$\frac12 \cdot 2 \cdot 1 = 1$, so the density is 1 on $D$ (Lesson 3.3). $X$ and $Y$ are
+dependent: the support isn't a rectangle (when $Y$ is near 1, $X$ must be near 0).
+
+::: callout pitfall No independence, no convolution formula
+$f_X(x)f_Y(y)$ is **not** the joint density here, so
+$\int f_X(z - y)f_Y(y)\,\d y$ would give a wrong answer. Use the general formula with the
+joint density, $\int p(z - y, y)\,\d y$ or $\int p(x, z - x)\,\d x$, or the
+distribution-function method. Check for independence before reaching for the
+convolution formula.
+:::
+
+It helps to describe $D$ both ways round:
+$$\begin{aligned}D &= \{(x,y) : y - 1 < x < 1 - y,\ 0 < y < 1\}\\&= \{-1 < x < 0,\ 0 < y < 1 + x\} \cup \{0 \le x < 1,\ 0 < y < 1 - x\}.\end{aligned}$$
+
+::: example Method 1: integrate over y, with p(z − y, y)
+Find the density of $Z = X + Y$ from $p_Z(z) = \int p(z - y, y)\,\d y$.
+== Where the integrand lives ==
+Put $x = z - y$ into the first description of $D$: $p(z - y, y) = 1$ when
+$y - 1 < z - y < 1 - y$ and $0 < y < 1$, that is
+$$2y - 1 < z < 1, \qquad 0 < y < 1,$$
+and 0 otherwise. In the $(y, z)$ plane: the triangle with corners $(0, -1)$, $(0, 1)$,
+$(1, 1)$, between the line $z = 2y - 1$ and $z = 1$.
+== Read off the limits ==
+For $-1 < z < 1$, $y$ runs from 0 up to the line $z = 2y - 1$, i.e. $y = \frac{z+1}2$:
+$$p_Z(z) = \int_0^{\frac{z+1}{2}} 1\,\d y = \frac{z + 1}{2}.$$
+For other $z$ no $y$ works and $p_Z(z) = 0$.
+:::
+
+::: example Method 2: integrate over x, with p(x, z − x)
+Same problem, from $p_Z(z) = \int p(x, z - x)\,\d x$.
+== Where the integrand lives ==
+Put $y = z - x$ into the two-piece description of $D$:
+$$p(x, z - x) = \begin{cases} 1, & -1 < x < 0,\ 0 < z - x < 1 + x, \\ 1, & 0 \le x < 1,\ 0 < z - x < 1 - x, \\ 0, & \text{otherwise,} \end{cases}$$
+that is, $-1 < x < 0$ with $x < z < 1 + 2x$, or $0 \le x < 1$ with $x < z < 1$.
+== Read off the limits ==
+In the $(x, z)$ plane this is the region between $z = x$ (below) and the lower of
+$z = 2x + 1$ and $z = 1$ (above). For a fixed $-1 < z < 1$, $x$ runs from the line
+$z = 2x + 1$, i.e. $x = \frac{z-1}{2}$, to the line $z = x$, i.e. $x = z$:
+$$p_Z(z) = \int_{\frac{z-1}{2}}^{z} 1\,\d x = z - \frac{z - 1}{2} = \frac{z + 1}{2}.$$
+:::
+
+::: callout note A misprint on slide 18-034
+The second form of $p(x, z - x)$ there reads $x < z - x < 1 + 2x$ on the first line; from
+$0 < z - x < 1 + x$ it should be $x < z < 1 + 2x$, as slide 18-035 writes it.
+:::
+
+::: example Method 3: the distribution-function method
+Same problem: $F_Z(z) = \iint_{y \le z - x} p(x,y)\,\d x\,\d y$ is the area of the part of
+$D$ below the line $x + y = z$.
+== z ≤ −1 ==
+The line passes below-left of the corner $(-1, 0)$: $F_Z(z) = 0$.
+== −1 < z ≤ 1 ==
+The line cuts off the left corner of $D$: a triangle with base from $x = -1$ to $x = z$ on
+the $x$-axis (length $z + 1$), and top where $x + y = z$ meets $y = 1 + x$, at height
+$y = \frac{z+1}{2}$:
+$$F_Z(z) = \frac12 (z + 1) \cdot \frac{z + 1}{2} = \frac14 (z + 1)^2.$$
+== z > 1 ==
+The whole triangle is below the line: $F_Z(z) = 1$.
+== Differentiate ==
+$$F_Z(z) = \begin{cases} 0, & z \le -1, \\ \frac14(z + 1)^2, & -1 < z \le 1, \\ 1, & z > 1, \end{cases} \qquad f_Z(z) = \begin{cases} \frac12(z + 1), & -1 < z \le 1, \\ 0, & \text{otherwise.} \end{cases}$$
+All three methods agree. Why does $Z$ stop at 1? The right edge of $D$ is the line
+$x + y = 1$ itself, so $X + Y \le 1$ everywhere on $D$.
+:::
+
+::: plot The triangle D and the part with x + y ≤ z
+x: -1.3 .. 1.3
+y: -0.2 .. 1.3
+region S: y > 0, y < 1 + x, y < 1 - x
+region D: y > 0, y < 1 + x, y < 1 - x, x + y <= z
+f(x) = z - x
+slider z: -1 .. 1 = 0
+:::
+
+::: callout tip Which method?
+On the exam any of them earns the marks, as long as the limits are right. The
+distribution-function method needs only areas when the density is uniform, which is
+often quickest; the formula methods need one careful sketch of where the integrand is
+non-zero, in the $(y, z)$ or $(x, z)$ plane.
+:::
+
 ::: callout key The one idea
 For a continuous $Z = g(X,Y)$: draw the support of $f$, draw the region $g(x,y) \le z$,
 and integrate over their overlap — one case for each way they can overlap as $z$ moves.
@@ -373,6 +499,9 @@ $X - Y$ for independent normals: variance :: $\sigma_1^2 + \sigma_2^2$ (variance
 $\sqrt{X^2+Y^2}$, $X, Y$ independent $N(0,\sigma^2)$ :: Rayleigh: $F = 1 - e^{-z^2/(2\sigma^2)}$, $f = \frac{z}{\sigma^2}e^{-z^2/(2\sigma^2)}$, $z > 0$
 $f = 3x$ on $0 < y < x < 1$: density of $X - Y$ :: $\frac32(1 - z^2)$ on $(0,1)$
 First step in fixing the limits :: Write where the integrand is non-zero, as inequalities, and sketch them
+$2X + Y$ for $X \sim U(0,1)$, $Y \sim E(1)$ independent :: $f_Z = \frac12(1 - e^{-z})$ ($0 < z < 2$), $\frac12(e^2 - 1)e^{-z}$ ($z \ge 2$)
+$X + Y$ for $(X,Y)$ uniform on the triangle $(-1,0)$, $(1,0)$, $(0,1)$ :: $f_Z = \frac12(z + 1)$ on $(-1, 1)$, $F_Z = \frac14(z+1)^2$; not independent, so no convolution formula
+Check before using the convolution formula :: That $X$ and $Y$ are independent and $Z$ is exactly $X + Y$
 :::
 
 ::: quiz Check yourself
@@ -433,4 +562,28 @@ variables: z, s
 ? With $\sigma = 1$, find $P\{\sqrt{X^2+Y^2} \le 1\}$.
 answer: 1 - e^(-1/2)
 > $F_Z(1) = 1 - e^{-1/2} \approx 0.393$.
+? $X \sim U(0,1)$ and $Y \sim E(1)$ are independent. Find $P\{2X + Y \le 2\}$.
+answer: (1 + e^(-2))/2
+> For $0 < z \le 2$, $F_Z(z) = \frac{z - 1 + e^{-z}}{2}$; at $z = 2$: $\frac{1 + e^{-2}}{2} \approx 0.568$.
+
+? Same $X$, $Y$. Write the density of $Z = 2X + Y$ for $z > 2$.
+expression: (e^2 - 1)/2 e^(-z)
+variables: z
+> For $z > 2$, $F_Z(z) = 1 + \frac12(1 - e^2)e^{-z}$; differentiating gives $\frac12(e^2 - 1)e^{-z}$.
+
+? $(X,Y)$ is uniform on the triangle with corners $(-1,0)$, $(1,0)$, $(0,1)$. Write the density of $Z = X + Y$ for $-1 < z < 1$.
+expression: (z + 1)/2
+variables: z
+> By $\int p(z - y, y)\,\d y$: the integrand is 1 for $0 < y < \frac{z+1}{2}$, so $p_Z(z) = \frac{z+1}{2}$. (Or differentiate $F_Z = \frac14(z+1)^2$.)
+
+? Same triangle. Find $P\{X + Y \le 0\}$.
+answer: 1/4
+> $F_Z(0) = \frac14(0 + 1)^2 = \frac14$: the corner triangle with base 1 and height $\frac12$.
+
+? Same triangle. Why may you not use $\int f_X(z - y)f_Y(y)\,\d y$ there?
+- [ ] Because $Z$ is not a plain sum
+- [x] Because $X$ and $Y$ are not independent, so $f(x,y) \ne f_X(x)f_Y(y)$
+- [ ] Because the density is uniform
+- [ ] Because $Z$ can be negative
+> The convolution formula is the general formula with $f(x,y) = f_X(x)f_Y(y)$, which needs independence. On a triangle the support isn't a rectangle, so $X$ and $Y$ are dependent; use $\int p(z - y, y)\,\d y$ instead.
 :::
